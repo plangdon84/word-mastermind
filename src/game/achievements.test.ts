@@ -231,8 +231,20 @@ describe("the server's games' badges", () => {
     expect(ids([lobby('l', T, words, { rank: 1, kind: 'competitive' })])).not.toContain('lobby-win');
   });
 
-  it('award a Rush level in every Rush, scored from your own run', () => {
+  it('award a Rush its level by time, a Crush its level by guesses, and the Daily Set both', () => {
+    const solved = [['beach'], ['crane'], ['storm'], ['house']];
     const levels = (game: StatsGame) => ids([game]).filter((id) => id.startsWith('rush-'));
+    const byTime = ['rush-time-casual', 'rush-time-expert', 'rush-time-mastermind', 'rush-time-skilled'];
+    const byGuesses = ['rush-casual', 'rush-expert', 'rush-mastermind', 'rush-skilled'];
+    expect(levels(rush('r', T, solved, { rankBy: 'rush' }))).toEqual(byTime);
+    expect(levels(rush('r', T, solved))).toEqual(byGuesses);
+    expect(levels(daily('d', '2026-10-01', T, solved))).toEqual([...byGuesses, ...byTime].sort());
+    // 4 minutes a word: Skilled by time (up to 5), however few the guesses.
+    expect(levels(rush('r', T, solved, { rankBy: 'rush', step: 4 * 60_000 }))).toEqual(['rush-time-casual', 'rush-time-skilled']);
+  });
+
+  it('award a Crush level in every Crush, scored from your own run', () => {
+    const levels = (game: StatsGame) => ids([game]).filter((id) => id.startsWith('rush-') && !id.startsWith('rush-time-'));
     const every = ['rush-casual', 'rush-expert', 'rush-mastermind', 'rush-skilled'];
     expect(levels(daily('d', '2026-10-01', T, words))).toEqual(every);
     expect(levels(lobby('l', T, words, { rank: 2 }))).toEqual(every);
@@ -269,7 +281,8 @@ describe('Achievement Hunter', () => {
 
   it('keeps a level reached before the badges added later, which count only toward levels not yet reached', () => {
     const added = BADGES.filter((b) => b.addedLater).map((b) => b.id);
-    expect(added).toEqual(['friend-harder', 'friend-harder-2', 'clairvoyant']);
+    expect(added).toEqual([
+      'rush-time-casual', 'rush-time-skilled', 'rush-time-expert', 'rush-time-mastermind', 'friend-harder', 'friend-harder-2', 'clairvoyant']);
     const before = HUNTED_BADGES - added.length;
     // Just enough badges for 25% of those from before: a slow vs. computer win and a slow friend win,
     // then a Rush at Mastermind level at Hard, which the larger count needs one more than.

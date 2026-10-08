@@ -136,6 +136,8 @@ export interface DailyPlacement {
   behind: number;
   /** When you finished, in milliseconds since the epoch. */
   finishedAt: number;
+  /** The Daily Set's Rush board, by time; left out for its Crush board, by guesses, as every place was before. */
+  rankBy?: 'rush';
 }
 
 /**

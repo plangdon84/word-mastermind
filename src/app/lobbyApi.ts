@@ -1,6 +1,7 @@
 import {
-  isCount, isDifficulty, isLobbyCode, isLobbyMinutes, isObject, isStrength, isTime, type Difficulty, type LobbyError,
-  type LobbyKind, type LobbyRunView, type LobbyStanding, type LobbySettings, type LobbyView, type DailyWordView, type Strength,
+  isCount, isDifficulty, isLobbyCode, isLobbyMinutes, isObject, isRankBy, isStrength, isTime, type Difficulty, type LobbyError,
+  type LobbyKind, type LobbyRunView, type LobbyStanding, type LobbySettings, type LobbyView, type DailyWordView, type RankBy,
+  type Strength,
 } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import { isRatingLine, ratingLine, type RatingLine } from './friendApi';
@@ -84,6 +85,7 @@ export function parseLobbyView(value: unknown): LobbyView | null {
   const settings = v.settings;
   if (!isObject(settings) || !isDifficulty(settings.difficulty) || !isLobbyMinutes(settings.minutes)) return null;
   if (!isCount(settings.computers) || !isStrength(settings.strength)) return null;
+  if (settings.rankBy !== undefined && !isRankBy(settings.rankBy)) return null;
   if (![v.closesAt, v.startedAt, v.endsAt, v.endedAt].every(timeOrNull)) return null;
   const run = v.run === null ? null : parseRun(v.run);
   if (v.run !== null && !run) return null;
@@ -97,7 +99,10 @@ export function parseLobbyView(value: unknown): LobbyView | null {
   return {
     code: v.code, kind, state: v.state as LobbyView['state'], yourWord, hostName: v.hostName, host: v.host, joined: v.joined,
     players: (v.players as LobbyView['players'][number][]).map((p) => ({ name: p.name, strength: p.strength, you: p.you })),
-    settings: { difficulty: settings.difficulty, minutes: settings.minutes, computers: settings.computers, strength: settings.strength },
+    settings: {
+      difficulty: settings.difficulty, minutes: settings.minutes, computers: settings.computers, strength: settings.strength,
+      ...(settings.rankBy === 'rush' ? { rankBy: 'rush' as const } : {}),
+    },
     closesAt: v.closesAt as number | null, startedAt: v.startedAt as number | null, endsAt: v.endsAt as number | null,
     endedAt: v.endedAt as number | null, run, standings, words: v.words as string[] | null,
   };
@@ -119,8 +124,8 @@ export class LobbyApiError extends Error {
 }
 
 export interface LobbyApi {
-  /** Opens a lobby with you as host, at `difficulty`: Competitive Rush with your `word`. */
-  create(name: string, difficulty: Difficulty, word?: string): Promise<LobbyAnswer>;
+  /** Opens a lobby with you as host, at `difficulty`: Competitive Rush with your `word`. Ranked by `rankBy`, Crush unless given. */
+  create(name: string, difficulty: Difficulty, word?: string, rankBy?: RankBy): Promise<LobbyAnswer>;
   get(code: string): Promise<LobbyAnswer>;
   /** Takes a seat: in Competitive Rush, with your `word`. */
   join(code: string, name: string, word?: string): Promise<LobbyAnswer>;
@@ -154,8 +159,8 @@ export function lobbyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof 
   };
   const post = (code: string, action: string, body?: unknown) => request('POST', `/api/lobbies/${code}/${action}`, body);
   return {
-    create: (name, difficulty, word) =>
-      request('POST', '/api/lobbies', word === undefined ? { name, difficulty } : { name, difficulty, kind: 'competitive', word }),
+    create: (name, difficulty, word, rankBy = 'crush') =>
+      request('POST', '/api/lobbies', { name, difficulty, rankBy, ...(word === undefined ? {} : { kind: 'competitive', word }) }),
     get: (code) => request('GET', `/api/lobbies/${code}`),
     join: (code, name, word) => post(code, 'join', word === undefined ? { name } : { name, word }),
     setWord: (code, word) => post(code, 'word', { word }),

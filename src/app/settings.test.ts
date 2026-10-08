@@ -6,9 +6,14 @@ describe('parseSettings', () => {
     const settings = {
       mode: 'two', opponent: 'friend', rushKind: 'daily', strength: 'expert', timeControl: '5m', difficulty: 'extreme',
       newestFirst: { easy: true, medium: false, hard: true, extreme: true }, showTutorial: false,
-      enterRight: true, shareMarks: false,
+      enterRight: true, shareMarks: false, rankBy: 'rush', boardRankBy: 'rush',
     };
     expect(parseSettings(JSON.stringify(settings))).toEqual(settings);
+  });
+
+  it('ranks Word Sets and the Daily Set boards by Crush until Rush is picked', () => {
+    expect(parseSettings(null)).toMatchObject({ rankBy: 'crush', boardRankBy: 'crush' });
+    expect(parseSettings(JSON.stringify({ rankBy: 'fast', boardRankBy: 7 }))).toMatchObject({ rankBy: 'crush', boardRankBy: 'crush' });
   });
 
   it("falls back to 1 day per guess for a time control that isn't offered", () => {

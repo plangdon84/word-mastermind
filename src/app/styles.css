@@ -838,6 +838,9 @@ button.bubble:active { transform: scale(0.94); }
 
 /* Leaderboards */
 .board-circle { align-self: center; }
+.rank-by { display: flex; flex-direction: column; align-items: center; gap: 4px; align-self: stretch; }
+.rank-by-label { font-size: 0.85rem; color: var(--muted); }
+.rank-by .seg button { padding: 0 12px; white-space: nowrap; }
 .rating-rows li { grid-template-columns: 2.2em 1fr auto 3em; }
 .board-games { color: var(--muted); }
 .info.placeholder { visibility: hidden; }
@@ -1227,6 +1230,8 @@ button.bubble:active { transform: scale(0.94); }
 }
 .lobby-seats li.empty { color: var(--muted); font-style: italic; }
 .lobby-standings li { display: grid; grid-template-columns: 1.4em 1fr auto 2.6em; gap: 2px 10px; }
+/* A Rush's standings show a time ("18:07"), wider than a score (Dev Plan item 18z). */
+.lobby-standings.rush li { grid-template-columns: 1.4em 1fr auto 3.4em; }
 .lobby-standings li.you, .lobby-seats li.you { background: var(--key-bg); border-radius: 8px; font-weight: 700; }
 .lobby-your-word { margin: 0; display: flex; align-items: baseline; gap: 10px; }
 .lobby-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

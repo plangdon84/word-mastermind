@@ -78,6 +78,18 @@ describe('computeStats', () => {
     expect(r.fastest?.value).toBe(10);
   });
 
+  it("keeps a Rush's best, by time, apart from a Crush's best score", () => {
+    const solved = [['beach'], ['crane'], ['storm'], ['house']];
+    const stats = computeStats([
+      rush('c1', T, solved),
+      rush('r1', T + DAY, solved, { rankBy: 'rush' }),
+    ], NOW);
+    // Each word found in one guess, 10 seconds apart: a Crush scores 1 a word, a Rush 10 seconds a word.
+    expect(stats.modes.rush.best).toEqual({ id: 'c1', value: 1 });
+    expect(stats.modes.rush.bestRush).toEqual({ id: 'r1', value: 10 });
+    expect(computeStats([rush('c1', T, solved)], NOW).modes.rush.bestRush).toBeNull();
+  });
+
   it('counts games by the easiest difficulty, every guess, and the time played', () => {
     const stats = computeStats([
       solo('a', T, ['beach'], { difficulty: 'extreme' }),

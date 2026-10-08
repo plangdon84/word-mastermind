@@ -297,6 +297,15 @@ Run `npm test` and `npm run typecheck` before committing.
   changes what players see adds a release (1.1.0 for a feature, 1.0.1 for a
   fix) with one-line notes and fills in the PR's **Release note** section;
   other PRs leave it alone.
+- Rush and Crush (Dev Plan item 18z, README "Rush modes"): every Word Set
+  ranks as a Rush (fastest time) or a Crush (fewest guesses), `RankBy` in
+  `src/game/scoring.ts`. Records keep `rankBy: 'rush'` (on a run, a lobby's
+  settings and game) and leave it out for Crush, so older records read as
+  Crush; `runRankBy` / `lobbyRankBy` read it. A Rush's given-up word adds
+  `PENALTY_SECONDS`; a Crush's doesn't. The Daily Set is on both boards
+  (`by=rush` on `/api/daily/board`), and its places come back for both
+  (`rankBy: 'rush'` on the Rush one). Crush level badges keep the old
+  `rush-*` IDs; Rush's are `rush-time-*` (`levelBadgeId`).
 - Open questions are listed in `README.md`.
 
 ## Rules summary (see README.md for detail)

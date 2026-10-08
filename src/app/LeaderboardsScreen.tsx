@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { dailyDay, FEATURES, ordinal, RATING_POOLS, type Difficulty, type RatingPool } from '../game';
+import { dailyDay, FEATURES, ordinal, RATING_POOLS, type Difficulty, type RankBy, type RatingPool } from '../game';
 import type { ApiIdentity } from './apiIdentity';
 import { BackIcon, BoardPage } from './panels';
 import { API_URL } from './config';
@@ -27,7 +27,7 @@ export const BOARD_TITLE: Record<BoardId, string> = {
 };
 
 const BOARD_DETAIL: Record<BoardId, string> = {
-  daily: "Each day's set, by difficulty: fewest guesses, then fastest.",
+  daily: "Each day's set, by difficulty: fastest (Rush) or fewest guesses (Crush).",
   '15m': 'Ratings from rated games on a 15-minute clock.',
   '10m': 'Ratings from rated games on a 10-minute clock.',
   '5m': 'Ratings from rated games on a 5-minute clock.',
@@ -108,10 +108,13 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
  * The Leaderboards page, from the title screen. With `board`, it opens at
  * that board, whose ← Back then leaves the page (a link straight to it).
  */
-export function LeaderboardsScreen({ identity, difficulty, board: opened = null, onExit }: {
+export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, board: opened = null, onExit }: {
   identity: ApiIdentity;
   /** Which of the Daily Rush board's difficulties to show first. */
   difficulty: Difficulty;
+  /** Which Daily Set board to show: Rush or Crush, the last one picked. */
+  rankBy: RankBy;
+  onRankBy: (rankBy: RankBy) => void;
   board?: BoardId | null;
   onExit: () => void;
 }) {
@@ -140,7 +143,7 @@ export function LeaderboardsScreen({ identity, difficulty, board: opened = null,
         circle={signedIn ? circle : null} onCircle={setCircle}>
         {board === 'daily' ? (
           <DailyBoardPanel api={daily} today={dailyDay(Date.now())} day={dailyDay(Date.now())} difficulty={difficulty}
-            circle={shownCircle} />
+            circle={shownCircle} rankBy={rankBy} onRankBy={onRankBy} />
         ) : <RatingBoardPanel pool={board} identity={identity} circle={shownCircle} />}
       </BoardPage>
     );

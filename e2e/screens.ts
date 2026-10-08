@@ -164,6 +164,15 @@ export const SCREENS: Screen[] = [
   },
   { name: 'rush-kind', open: async (page) => { await unlockAll(page); await modeButton(page, 'Word Sets').click(); } },
   {
+    // The Rush · fastest / Crush · fewest switch above the difficulty.
+    name: 'solo-rush-difficulty',
+    open: async (page) => {
+      await unlockAll(page);
+      await modeButton(page, 'Word Sets').click();
+      await modeButton(page, 'Solo').click();
+    },
+  },
+  {
     name: 'solo-rush',
     open: async (page) => {
       await unlockAll(page);

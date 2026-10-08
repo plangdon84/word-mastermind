@@ -174,7 +174,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
       <h3>Difficulty</h3>
       <ul>
         <li><b>Easy:</b> after each guess the app marks the letters that must be in or can't be, from the scores
-          alone. <b>Suggest</b> fills in a word that fits every score, once a game (once a word in a Rush). Not in
+          alone. <b>Suggest</b> fills in a word that fits every score, once a game (once a word in a Word Set). Not in
           rated games.</li>
         <li><b>Medium:</b> mark letters in or out yourself.</li>
         <li><b>Hard:</b> just your guesses and their scores.</li>
@@ -185,8 +185,8 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
       <p>
         Everyone gets the same 4 words each day, on a theme, once. Choose your difficulty before you start:
         it can't change. Pause stops your clock and hides the board, twice a run. Find all 4 before midnight New York time to go on that day's
-        leaderboard for your difficulty, ranked by total guesses, with time breaking ties (a run still going then can
-        be finished, off the board). Giving up a
+        leaderboards for your difficulty: <b>Crush</b>, by fewest guesses with time breaking ties, and <b>Rush</b>,
+        by fastest time with guesses breaking ties (a run still going then can be finished, off the board). Giving up a
         word ends your Daily Set for the day, with no place on the leaderboard.
       </p>
       <h3>Practice</h3>
@@ -211,21 +211,29 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
         At Medium, a friend sees your marks with each guess you send, unless you turn off <b>Share my
         Medium marks</b> in your profile's settings.
       </p>
-      <h3>Word Sets: Solo Rush</h3>
+      <h3>Word Sets: Rush or Crush</h3>
+      <p>
+        Every Word Set is ranked one of two ways, picked before you start: <b>Rush</b>, by fastest total time
+        (fewer guesses break ties), or <b>Crush</b>, by fewest guesses (time breaks ties).
+      </p>
+      <h3>Word Sets: Solo</h3>
       <p>
         Find 4 random secret words, one after another, against a stopwatch. Each word starts as soon as
         you find the last. The stopwatch pauses while you're away. You can give up a word and move on,
-        but it counts as your worst word plus 10 guesses. Giving up the whole Rush ends it without a score.
-        Your score is your average guesses per word, counted for more at Easy (×1.2) and for less at harder
-        difficulties (Hard ×0.9, Extreme ×0.8) at the easiest difficulty you used. It ranks you against the computer's strengths:
-        under 10 is Mastermind, under 15 Expert, up to 20 Skilled, and above that Casual.
+        but it counts as your worst word plus 10 guesses (and in a Rush, plus 2 minutes). Giving up the whole
+        set ends it without a score. A Crush scores your average guesses per word, a Rush your average time
+        per word, counted for more at Easy (×1.2) and for less at harder difficulties (Hard ×0.9, Extreme ×0.8)
+        at the easiest difficulty you used. It ranks you against the computer's strengths: for a Crush, under
+        10 guesses is Mastermind, under 15 Expert, up to 20 Skilled, and above that Casual; for a Rush, under
+        2 minutes is Mastermind, under 3 Expert, up to 5 Skilled, and above that Casual.
       </p>
-      <h3>Word Sets: Rush with Friends</h3>
+      <h3>Word Sets: With friends</h3>
       <p>
         Up to 5 players, joined by a code or link, solve the same 4 words on one clock that never pauses.
-        The host picks the difficulty and how long it runs, and can fill empty seats with computers. Scores
-        work as in Solo Rush, but a word you give up or don't find counts as the most guesses anyone
-        took to solve it (or yours, if more), plus 10.{FEATURES.competitiveRush && <> In <b>Competitive Rush</b>, each player sets a
+        The host picks Rush or Crush, the difficulty and how long it runs, and can fill empty seats with
+        computers. Scores work as in Solo, but a word you give up or don't find counts as the most guesses
+        anyone took to solve it (or yours, if more), plus 10, and in a Rush the slowest time anyone took on
+        it, plus 2 minutes.{FEATURES.competitiveRush && <> In <b>Competitive</b>, each player sets a
         word and solves the others', and it's rated.</>}
       </p>
       <p class="credit">

@@ -1,4 +1,4 @@
-import { FEATURES, isDifficulty, isObject, isStrength, newLobbyCode, validateName } from '../../src/game';
+import { FEATURES, isDifficulty, isObject, isRankBy, isStrength, lobbyRankBy, newLobbyCode, validateName } from '../../src/game';
 import { isFriendCode } from '../../src/app/friendsApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
 import { identify } from './accounts';
@@ -59,6 +59,7 @@ export async function routeLobbies(
     if (method !== 'POST') return errorResponse(405, 'bad-request');
     const body = await readJson(request);
     if (!isObject(body) || !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
+    if (body.rankBy !== undefined && !isRankBy(body.rankBy)) return errorResponse(400, 'bad-request');
     const competitive = body.kind === 'competitive';
     if ((body.kind !== undefined && !competitive) || (competitive && !isWord(body.word))) return errorResponse(400, 'bad-request');
     // Off for the 1.0 launch (the launch switches, `src/game/features.ts`).
@@ -70,6 +71,7 @@ export async function routeLobbies(
       const code = newLobbyCode(secureRandom);
       const response = await toLobby(env, code, {
         ...asker, action: 'create', code, name: name.name, difficulty: body.difficulty,
+        ...(body.rankBy === 'rush' ? { rankBy: 'rush' as const } : {}),
         ...(competitive ? { kind: 'competitive' as const, word: body.word as string } : {}),
       });
       if (response.status !== 409) return response;
@@ -103,7 +105,7 @@ export async function routeLobbies(
       `INSERT INTO lobby_invites (account_id, code, from_name, created_at) VALUES (?1, ?2, ?3, ?4)
        ON CONFLICT (account_id, code) DO UPDATE SET from_name = excluded.from_name, created_at = excluded.created_at`,
     ).bind(friend.id, code, answer.lobby.hostName, now).run();
-    await sendNotices(env, [lobbyInviteNotice(friend.id, answer.lobby.hostName, code, answer.lobby.kind)], now, fetchFn);
+    await sendNotices(env, [lobbyInviteNotice(friend.id, answer.lobby.hostName, code, answer.lobby.kind, lobbyRankBy(answer.lobby.settings))], now, fetchFn);
     return json(answer);
   }
 
@@ -122,11 +124,12 @@ export async function routeLobbies(
       lobbyRequest = { ...asker, action, word: body.word };
       break;
     case 'settings': {
-      const { difficulty, minutes, computers, strength } = body;
-      if (!isDifficulty(difficulty) || typeof minutes !== 'number' || typeof computers !== 'number' || !isStrength(strength)) {
+      const { difficulty, minutes, computers, strength, rankBy } = body;
+      if (!isDifficulty(difficulty) || typeof minutes !== 'number' || typeof computers !== 'number' || !isStrength(strength)
+        || (rankBy !== undefined && !isRankBy(rankBy))) {
         return errorResponse(400, 'bad-request');
       }
-      lobbyRequest = { ...asker, action, settings: { difficulty, minutes, computers, strength } };
+      lobbyRequest = { ...asker, action, settings: { difficulty, minutes, computers, strength, ...(rankBy === 'rush' ? { rankBy } : {}) } };
       break;
     }
     case 'guess':

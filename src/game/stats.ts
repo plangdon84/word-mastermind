@@ -2,7 +2,7 @@ import type { Strength } from './computer';
 import { DIFFICULTIES, DIFFICULTY_FACTOR, type Difficulty } from './difficulty';
 import { STRENGTHS } from './records';
 import { summarizeGame, type GameSummary, type HistoryMode, type ReplayedGame } from './history';
-import { runElapsedMs, wordSeconds } from './run';
+import { runElapsedMs, runRankBy, wordSeconds } from './run';
 import { otherSeat, type PvpGame, type Seat } from './pvp';
 import type { TwoPlayerGame } from './twoPlayer';
 
@@ -66,9 +66,16 @@ export interface ModeStats {
   averageTrend: Trend | null;
   /**
    * Single player: fewest guesses × the difficulty factor. vs. Computer: the
-   * win in fewest guesses. Rush: the lowest score. The earliest wins a tie.
+   * win in fewest guesses. A Word Set: the lowest Crush score (Solo, or your
+   * score in a lobby). The earliest wins a tie.
    */
   best: GameRef | null;
+  /**
+   * Word Sets ranked by time (Dev Plan item 18z): Solo, the lowest Rush score
+   * (seconds a word × the difficulty factor); a lobby, your lowest total
+   * time. Null for the other modes, or before a scored Rush.
+   */
+  bestRush: GameRef | null;
   /**
    * The shortest time, in seconds, from starting on a word to finding it.
    * Against an opponent, only your own turns count.
@@ -262,14 +269,20 @@ function streaks(rows: readonly Row[]): { currentStreak: number; bestStreak: num
 
 function modeStats(mode: HistoryMode, rows: readonly Row[], now: number): ModeStats {
   const averageOf = (rs: readonly Row[]) => average(rs.flatMap((r) => r.found));
+  // A Word Set's best is by its own measure: a Crush's score, a Rush's time.
+  const rankedBy = (r: Row) => (r.replayed.mode === 'rush' || r.replayed.mode === 'lobby' ? runRankBy(r.replayed.game) : 'crush');
+  const crush = rows.filter((r) => rankedBy(r) === 'crush');
+  const rush = rows.filter((r) => rankedBy(r) === 'rush');
   const best = mode === 'single'
     ? lowest(rows, (r) => (r.found.length ? r.found[0] * DIFFICULTY_FACTOR[r.summary.difficulty] : null))
     : mode === 'computer' || mode === 'friend'
       ? lowest(rows, (r) => (r.summary.result === 'won' && foundTheirWord(r.replayed) ? r.summary.yourGuesses : null))
-      : mode === 'rush' ? lowest(rows, (r) => r.summary.rush?.score ?? null)
+      : mode === 'rush' ? lowest(crush, (r) => r.summary.rush?.score ?? null)
         // Daily Rush's leaderboard counts total guesses; a lobby's standings, your score.
         : mode === 'daily' ? lowest(rows, (r) => (r.summary.gaveUp ? null : r.summary.yourGuesses))
-          : lowest(rows, (r) => lobbyYou(r.replayed)?.score ?? null);
+          : lowest(crush, (r) => lobbyYou(r.replayed)?.score ?? null);
+  const bestRush = mode === 'rush' ? lowest(rush, (r) => r.summary.rush?.score ?? null)
+    : mode === 'lobby' ? lowest(rush, (r) => lobbyYou(r.replayed)?.seconds ?? null) : null;
   const fastest = lowest(rows, (r) => {
     const times = solveTimes(r.replayed);
     return times.length ? Math.min(...times) : null;
@@ -282,6 +295,7 @@ function modeStats(mode: HistoryMode, rows: readonly Row[], now: number): ModeSt
     averageGuesses: averageOf(rows),
     averageTrend: trend(rows, now, averageOf, (r) => r.found.length > 0),
     best,
+    bestRush,
     fastest,
     record: opponent
       ? {

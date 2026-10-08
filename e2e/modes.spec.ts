@@ -64,7 +64,7 @@ test('two player vs. the computer: finding its word ends the game', async ({ pag
   await expect(page.locator('.panel.result')).toBeVisible({ timeout: 20_000 });
 });
 
-test('Solo Rush: four words in a row, then the result', async ({ page }) => {
+test('Solo Crush: four words in a row, then the result', async ({ page }) => {
   await unlockAll(page);
   await modeButton(page, 'Word Sets').click();
   await modeButton(page, 'Solo').click();
@@ -164,14 +164,17 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
   await expect(second.getByText(/Your turn|Their turn/)).toBeVisible();
 });
 
-test('Rush with Friends: the largest lobby, 5 players, plays to the end', async ({ page, browser }) => {
+test('Rush with Friends: the largest lobby, 5 players, ranked by time, plays to the end', async ({ page, browser }) => {
   test.setTimeout(120_000);
   await unlockAll(page);
   await modeButton(page, 'Word Sets').click();
   await modeButton(page, 'With friends').click();
   await button(page, 'Open a lobby').click();
+  // Ranked by time: the lobby opens on the host's pick.
+  await button(page, 'Rush · fastest').click();
   await button(page, /^Medium/).click();
   await button(page, 'Open lobby').click();
+  await expect(page.getByRole('button', { name: 'Rush · fastest' })).toHaveAttribute('aria-pressed', 'true');
   const code = (await page.locator('.lobby-code').textContent())!.trim();
   const link = `/?lobby=${code}`;
 

@@ -4,6 +4,7 @@ import {
   scoreSoloRun, setRunDifficulty, submitRunGuess, summarizeSoloRun, toRunRecord, toWordResult, wordSeconds,
   type RunGame, type RunResult,
 } from './run';
+import { parseRunRecord } from './records';
 import { SECRET_WORDS } from './wordLists';
 
 /** The run starts at T; times below are T plus seconds. */
@@ -255,6 +256,45 @@ describe('summarizeSoloRun', () => {
 
   it('has no summary when the run has no score', () => {
     expect(summarizeSoloRun(soloRun())).toBeNull();
+  });
+
+  it('scores a Rush by average time a word, × the factor, and ranks the time', () => {
+    const rush = (difficulty: 'medium' | 'extreme') => {
+      const record = { ...toRunRecord(played(difficulty)), rankBy: 'rush' as const };
+      return ok(replayRun(record));
+    };
+    // 60 seconds a word: under 2 minutes is Mastermind.
+    expect(summarizeSoloRun(rush('medium'))).toMatchObject({ rankBy: 'rush', score: 60, level: 'mastermind' });
+    expect(summarizeSoloRun(rush('extreme'))?.score).toBeCloseTo(48);
+    // A Crush's level is by guesses, and a run can be summarized either way (the Daily Set is on both boards).
+    expect(summarizeSoloRun(played('medium'))).toMatchObject({ rankBy: 'crush', score: 15, level: 'skilled' });
+    expect(summarizeSoloRun(played('medium'), 'rush')).toMatchObject({ rankBy: 'rush', score: 60 });
+  });
+});
+
+describe('Rush and Crush', () => {
+  it('keeps a Rush in its record, and leaves a Crush out as runs from before did', () => {
+    const rush = ok(createRun(['beach'], T, { pausable: true, rankBy: 'rush' }));
+    expect(toRunRecord(rush).rankBy).toBe('rush');
+    expect(ok(replayRun(toRunRecord(rush))).rankBy).toBe('rush');
+    expect('rankBy' in toRunRecord(soloRun())).toBe(false);
+    // Read back from storage: a Rush stays one, "crush" is the same as left out, and anything else is refused.
+    const stored = JSON.parse(JSON.stringify(toRunRecord(rush)));
+    expect(parseRunRecord(stored)?.rankBy).toBe('rush');
+    expect(parseRunRecord({ ...stored, rankBy: 'crush' })).not.toHaveProperty('rankBy');
+    expect(parseRunRecord({ ...stored, rankBy: 'fast' })).toBeNull();
+  });
+
+  it('adds 2 minutes to a word given up in a Rush, but nothing to its time in a Crush', () => {
+    const giveUp = (rankBy: 'rush' | 'crush') => {
+      let run = ok(createRun(['beach', 'crane', 'storm'], T, { pausable: true, rankBy }));
+      run = play(run, ['beach', 20]);
+      run = ok(giveUpWord(play(run, ['moist', 25]), at(26)));
+      return scoreSoloRun(play(run, ['storm', 50]));
+    };
+    // Its time is the slowest word found (24 seconds), and in a Rush 2 minutes more.
+    expect(giveUp('crush')?.[1]).toEqual({ guesses: 11, seconds: 24 });
+    expect(giveUp('rush')?.[1]).toEqual({ guesses: 11, seconds: 144 });
   });
 });
 

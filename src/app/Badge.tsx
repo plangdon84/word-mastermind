@@ -90,9 +90,12 @@ function Icon({ badge, text }: { badge: Badge; text: string }) {
     case 'rush':
       return (
         <>
-          <g transform="translate(0 -5)" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round">
-            <circle cx="60" cy="52" r="15" /><path d="M60 52 L60 43" /><path d="M60 52 L66 56" />
-            <path d="M55 33 H65" /><path d="M60 33 V37" /><path d="M72 39 L75 36" />
+          {/* Under a RUSH or CRUSH tag (Dev Plan item 18z), the stopwatch shrinks and drops below it. */}
+          <g transform={badge.tag ? 'translate(60 53) scale(0.8) translate(-60 -46)' : undefined}>
+            <g transform="translate(0 -5)" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round">
+              <circle cx="60" cy="52" r="15" /><path d="M60 52 L60 43" /><path d="M60 52 L66 56" />
+              <path d="M55 33 H65" /><path d="M60 33 V37" /><path d="M72 39 L75 36" />
+            </g>
           </g>
           {pips(badge.pips ?? 0, text, 72)}
         </>
@@ -237,7 +240,7 @@ export function BadgeToast({ badges, onOpen }: { badges: readonly Badge[]; onOpe
 
 const FAMILY_TITLE: Record<BadgeFamily, string> = {
   difficulty: 'Difficulty',
-  rush: 'Rush level',
+  rush: 'Rush and Crush levels',
   guesses: 'Few guesses',
   streak: 'Streaks',
   feat: 'Feats',

@@ -1,6 +1,9 @@
-import { dayStart, ordinal, strengthForAverage, type DailyDay, type Difficulty, type Strength } from '../game';
+import {
+  dayStart, ordinal, strengthForAverage, wordSetName, type DailyDay, type Difficulty, type RankBy, type Strength,
+} from '../game';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { guessCount } from './messages';
+import { formatClock } from './rushParts';
 
 /**
  * The results a player can share (Dev Plan item 18k): short and spoiler-free,
@@ -49,17 +52,21 @@ export function dailyShareText({ day, difficulty, words, place }: {
   ].join('\n');
 }
 
-/** "Solo Rush · Medium", the emoji, "Score 11.3 · Expert level". */
-export function soloRushShareText({ difficulty, words, score, level }: {
+/**
+ * "Solo Crush · Medium", the emoji, "Score 11.3 · Expert level"; a Solo Rush,
+ * scored by time, "Score 2:05 · Skilled level".
+ */
+export function soloRushShareText({ difficulty, rankBy = 'crush', words, score, level }: {
   difficulty: Difficulty;
+  rankBy?: RankBy;
   words: readonly SharedWord[];
   score: number;
   level: Strength;
 }): string {
   return [
-    `Word Mastermind Solo Rush · ${DIFFICULTY_LABEL[difficulty]}`,
+    `Word Mastermind ${wordSetName('solo', rankBy)} · ${DIFFICULTY_LABEL[difficulty]}`,
     wordEmoji(words),
-    `Score ${score.toFixed(1)} · ${STRENGTH_LABEL[level]} level`,
+    `Score ${rankBy === 'rush' ? formatClock(score) : score.toFixed(1)} · ${STRENGTH_LABEL[level]} level`,
     SHARE_ADDRESS,
   ].join('\n');
 }
@@ -110,6 +117,8 @@ function resultText(them: { name: string; its: string }, difficulty: Difficulty,
 /** A lobby player as shared: their place, name and words. */
 export interface SharedPlayer {
   rank: number;
+  /** Their total time, penalties included: what a Rush shows in place of guesses. */
+  seconds?: number | null;
   name: string;
   /** A computer player's strength; null for a person. */
   strength: Strength | null;
@@ -119,13 +128,14 @@ export interface SharedPlayer {
 
 /**
  * A finished lobby, everyone in it, best first:
- * "I came in 2nd place in Word Mastermind Rush with Friends!", then a row per
+ * "I came in 2nd place in Word Mastermind Crush with Friends!", then a row per
  * player, "1st 🟩🟨🟩🟧 41 guesses Sam" (the emoji before the name, so they
- * line up), and the address.
+ * line up; a Rush, ranked by time, "1st 🟩🟨🟩🟧 9:41 Sam"), and the address.
  */
-export function lobbyShareText({ mode, players }: {
-  /** "Rush with Friends" or "Competitive Rush". */
+export function lobbyShareText({ mode, rankBy = 'crush', players }: {
+  /** The game's name, e.g. "Rush with Friends" or "Competitive Crush". */
   mode: string;
+  rankBy?: RankBy;
   players: readonly SharedPlayer[];
 }): string {
   const you = players.find((p) => p.you)!;
@@ -136,7 +146,7 @@ export function lobbyShareText({ mode, players }: {
     ...players.map((p) => [
       ordinal(p.rank),
       wordEmoji(p.words),
-      guessCount(p.words.reduce((sum, w) => sum + w.guesses, 0)),
+      rankBy === 'rush' && p.seconds != null ? formatClock(p.seconds) : guessCount(p.words.reduce((sum, w) => sum + w.guesses, 0)),
       p.strength ? `${p.name} (${STRENGTH_LABEL[p.strength]})` : p.name,
     ].join(' ')),
     SHARE_ADDRESS,

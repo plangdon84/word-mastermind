@@ -1,8 +1,9 @@
+import type { ComponentChildren } from 'preact';
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
-  type DailyView, type DailyWordView, type Difficulty, type Marks,
+  addDays, betterThan, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, RANK_BYS, rankByHow,
+  rankByName, validateGuess, type DailyDay, type DailyView, type DailyWordView, type Difficulty, type Marks, type RankBy,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
 import type { ApiIdentity } from './apiIdentity';
@@ -21,7 +22,7 @@ import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { countdownText, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
-import { formatClock, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
+import { formatClock, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
@@ -49,15 +50,19 @@ export function placeText(p: { rank: number; total: number; behind: number }): s
 
 /**
  * A day's leaderboard for one difficulty, with the days before it a tap
- * away: everyone's, or (signed in) you and your friends'. Today's is
- * provisional until midnight New York time.
+ * away: everyone's, or (signed in) you and your friends'; ranked as a Rush
+ * (fastest) or a Crush (fewest guesses), flipped with the switch, which keeps
+ * the day, difficulty and circle. Today's is provisional until midnight New
+ * York time.
  */
-export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDifficulty, circle }: {
+export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDifficulty, circle, rankBy, onRankBy }: {
   api: DailyApi;
   today: DailyDay;
   day: DailyDay;
   difficulty: Difficulty;
   circle: Circle;
+  rankBy: RankBy;
+  onRankBy: (rankBy: RankBy) => void;
 }) {
   const [day, setDay] = useState(firstDay);
   const [difficulty, setDifficulty] = useState(firstDifficulty);
@@ -69,7 +74,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
     let live = true;
     setBoard(null);
     setError(null);
-    api.board(day, difficulty, circle).then((b) => live && setBoard(b), (e: unknown) => {
+    api.board(day, difficulty, circle, rankBy).then((b) => live && setBoard(b), (e: unknown) => {
       if (!live) return;
       const code = codeOf(e);
       if (code === 'not-found' && day < today) setFirst(addDays(day, 1));
@@ -78,7 +83,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
     return () => {
       live = false;
     };
-  }, [api, day, difficulty, circle]);
+  }, [api, day, difficulty, circle, rankBy]);
   const dayLabel = new Date(`${day}T12:00:00Z`).toLocaleDateString(undefined, {
     weekday: 'short', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
   });
@@ -92,6 +97,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
         <button type="button" class="btn small" aria-label="The day after" disabled={day >= today}
           onClick={() => setDay(addDays(day, 1))}>›</button>
       </div>
+      <RankBySwitch rankBy={rankBy} onPick={onRankBy} />
       <div class="seg" role="group" aria-label="Leaderboard difficulty">
         {DIFFICULTIES.map((d) => (
           <button type="button" key={d} aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>
@@ -122,8 +128,18 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
                 <li key={i} class={r.you ? 'you' : ''}>
                   <span class="board-rank">{r.rank}</span>
                   <span class="board-name">{r.name}{r.you && <span class="visually-hidden"> (you)</span>}</span>
-                  <span class="board-guesses">{r.guesses}</span>
-                  <span class="board-time">{formatClock(r.ms / 1000)}</span>
+                  {/* What the board ranks by comes first. */}
+                  {rankBy === 'rush' ? (
+                    <>
+                      <span class="board-guesses">{formatClock(r.ms / 1000)}</span>
+                      <span class="board-time">{r.guesses}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span class="board-guesses">{r.guesses}</span>
+                      <span class="board-time">{formatClock(r.ms / 1000)}</span>
+                    </>
+                  )}
                 </li>
               ))}
             </ol>
@@ -151,8 +167,10 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
  * a day. With `start`, it starts today's run at your difficulty if you
  * haven't played yet. Pause stops the clock, on the server too.
  */
-export function DailyScreen({ settings, profile, identity, onProfile, onExit, start }: {
+export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProfile, onExit, start }: {
   settings: Settings;
+  /** The board's Rush · fastest / Crush · fewest switch was flipped: it opens there next time. */
+  onBoardRankBy: (rankBy: RankBy) => void;
   profile: Profile;
   identity: ApiIdentity;
   onProfile: OpenProfile;
@@ -174,7 +192,8 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
   const [confirming, setConfirming] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
   const [circle, setCircle] = useState<Circle>('everyone');
-  const [placement, setPlacement] = useState<DailyBoard['you']>(null);
+  /** Your place so far on each of today's boards: Crush and Rush. */
+  const [placements, setPlacements] = useState<Partial<Record<RankBy, NonNullable<DailyBoard['you']>>>>({});
   const [openDef, setOpenDef] = useState(-1);
   const [howTo, setHowTo] = useState(false);
   const localNow = useNow(1000);
@@ -189,6 +208,11 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
    * Rush"). Judged by when it ended, so a result left open past midnight stays on time.
    */
   const late = !!run && (playing ? now : runEnd(run)) >= dayEnd(run.day);
+  /** Opens the board at one side: Rush or Crush. */
+  const openBoard = (rankBy: RankBy) => {
+    onBoardRankBy(rankBy);
+    setShowBoard(true);
+  };
   const difficulty = run?.difficulty ?? settings.difficulty;
   const medium = difficulty === 'medium';
   // Easy and Medium: the Shuffle key reorders the typed letters, whenever the letter keys would type.
@@ -234,11 +258,16 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     if (today?.run) saveDaily({ day: today.run.day, playing: today.run.status === 'playing', marks });
   }, [today, marks]);
 
-  // Once you've finished, your place so far (none for a run finished after its day).
+  // Once you've finished, your place so far on both boards (none for a run finished after its day).
   useEffect(() => {
     if (!today || run?.status !== 'finished' || late) return;
     let live = true;
-    api.board(run.day, run.difficulty).then((b) => live && setPlacement(b.you), () => {});
+    for (const rankBy of RANK_BYS) {
+      api.board(run.day, run.difficulty, 'everyone', rankBy).then((b) => {
+        const you = b.you;
+        if (live && you) setPlacements((p) => ({ ...p, [rankBy]: you }));
+      }, () => {});
+    }
     return () => {
       live = false;
     };
@@ -433,7 +462,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
       <BoardPage title="Daily Set" onBack={() => setShowBoard(false)} circle={identity.token ? circle : null}
         onCircle={setCircle}>
         <DailyBoardPanel api={api} today={today.day} day={run?.day ?? today.day} difficulty={difficulty}
-          circle={identity.token ? circle : 'everyone'} />
+          circle={identity.token ? circle : 'everyone'} rankBy={settings.boardRankBy} onRankBy={onBoardRankBy} />
       </BoardPage>
     );
   }
@@ -558,10 +587,23 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
             </>
           ) : run.status === 'finished' ? (
             <>
-              <RushSummary tiers={[['Guesses', totalGuesses], ['Place so far', placement ? ordinal(placement.rank) : '…']]} />
+              {/* Your place on each board, a tap from that board (README "Daily Rush"). */}
+              <RushSummary tiers={[
+                ['Guesses', totalGuesses],
+                // Crush first, as the line below and the README put it.
+                ...(['crush', 'rush'] as const).map((rankBy): [string, ComponentChildren] => [`${rankByName(rankBy)} · ${rankByHow(rankBy)}`, (
+                  <button type="button" class="link-btn" aria-label={`Your ${rankByName(rankBy)} place: open that board`}
+                    onClick={() => openBoard(rankBy)}>
+                    {placements[rankBy] ? ordinal(placements[rankBy]!.rank) : '…'} ›
+                  </button>
+                )]),
+              ]} />
               <p class="tally">
                 {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
-                {placement && <>{placeText(placement)} on today's {DIFFICULTY_LABEL[run.difficulty]} leaderboard. </>}
+                {placements.crush && <>{placeText(placements.crush)} by fewest guesses (Crush)</>}
+                {placements.crush && placements.rush && ', and '}
+                {placements.rush && <>{placeText(placements.rush)} by fastest time (Rush)</>}
+                {(placements.crush || placements.rush) && <> on today's {DIFFICULTY_LABEL[run.difficulty]} boards. </>}
                 Places are final at midnight New York time. Next set in {nextSet}.
               </p>
             </>
@@ -579,7 +621,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
                 day: run.day,
                 difficulty: run.difficulty,
                 words: run.words.map((w) => ({ guesses: w.guesses.length, found: w.outcome === 'solved' })),
-                place: placement ? placeText(placement) : null,
+                place: placements.crush ? placeText(placements.crush) : null,
               })} />
             )}
             <button class="btn" type="button" onClick={onExit}>Main menu</button>

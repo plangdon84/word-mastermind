@@ -2,7 +2,8 @@ import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   cycleMark, DIFFICULTIES, DIFFICULTY_FACTOR, isRatedDifficulty, ratedDifficultyFor, earlierGuess, LOBBY_MINUTES,
-  LOBBY_SEATS, marksFitScores, ordinal, PENALTY_GUESSES, STRENGTHS, validateGuess, type Difficulty, type LobbyKind,
+  LOBBY_SEATS, lobbyRankBy, marksFitScores, ordinal, PENALTY_GUESSES, PENALTY_SECONDS, rankByName, STRENGTHS, validateGuess,
+  type Difficulty, type LobbyKind, type RankBy,
   type LobbySettings, type Marks,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
@@ -16,7 +17,7 @@ import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useDefinitions } from './definitions';
 import { RatingChange } from './friendParts';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
-import { InviteFriends, JoinCode, MODE_NAME, scoreText, Seats, Standings, WordStep } from './lobbyParts';
+import { InviteFriends, JoinCode, lobbyName, rankByLine, rankedText, scoreText, Seats, Standings, WordStep } from './lobbyParts';
 import { lobbyApi, LobbyApiError, type LobbyAnswer, type LobbyErrorCode } from './lobbyApi';
 import { loadLobby, saveLobby } from './lobbyStorage';
 import {
@@ -24,14 +25,14 @@ import {
 } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
-import { formatClock, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
+import { formatClock, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
 import type { Settings } from './settings';
 import { TurnAlertsPrompt } from './TurnAlerts';
 import { ShareResult } from './ShareResult';
 import { lobbyShareText } from './shareText';
 import { shuffleLetters } from './keyboard';
 
-const ALERTS_OFFER = 'Get a notification when a player finishes and when the Rush is over, even with the game closed.';
+const ALERTS_OFFER = 'Get a notification when a player finishes and when the game is over, even with the game closed.';
 
 /** How often the lobby checks for others' moves: often while waiting to start, less while you play. */
 const WAITING_POLL_MS = 3000;
@@ -46,8 +47,10 @@ const codeOf = (e: unknown): LobbyErrorCode => (e instanceof LobbyApiError ? e.c
  * each player sets a word and solves the others', and it's rated. With no
  * `code`, it opens a new lobby of `kind` with you as host.
  */
-export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, onExit, code, kind: newKind, onCode }: {
+export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, onProfile, onExit, code, kind: newKind, onCode }: {
   settings: Settings;
+  /** The host flipped Rush · fastest / Crush · fewest: their next lobby opens on it. */
+  onRankBy: (rankBy: RankBy) => void;
   profile: Profile;
   identity: ApiIdentity;
   /** Competitive Rush is rated, so it needs an account. */
@@ -83,7 +86,10 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
 
   const lobby = answer?.lobby ?? null;
   const kind: LobbyKind = lobby?.kind ?? newKind;
-  const modeName = MODE_NAME[kind];
+  // A new lobby opens ranked as you last picked; then the host's setting.
+  const rankBy = lobby ? lobbyRankBy(lobby.settings) : settings.rankBy;
+  const rush = rankByName(rankBy);
+  const modeName = lobbyName(kind, rankBy);
   const run = lobby?.run ?? null;
   const playing = lobby?.state === 'playing' && run?.status === 'playing';
   const difficulty: Difficulty = lobby?.settings.difficulty
@@ -122,7 +128,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
     setLoadError(null);
     // A new Competitive Rush lobby opens once you've chosen your word.
     if (code === null && newKind === 'competitive') return;
-    const opening = code === null ? api.create(displayName(profile), settings.difficulty) : api.get(code);
+    const opening = code === null ? api.create(displayName(profile), settings.difficulty, undefined, settings.rankBy) : api.get(code);
     opening.then(opened, (e: unknown) => setLoadError(lobbyErrorMessage(codeOf(e))));
   };
   useEffect(load, []);
@@ -138,7 +144,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
       const current = answerRef.current?.lobby;
       const name = displayName(profile);
       // Competitive Rush is rated, so an Easy default opens it at Medium.
-      if (wordStep === 'create') opened(await api.create(name, ratedDifficultyFor(settings.difficulty), word));
+      if (wordStep === 'create') opened(await api.create(name, ratedDifficultyFor(settings.difficulty), word, settings.rankBy));
       else if (current && wordStep === 'join') setAnswer(await api.join(current.code, name, word));
       else if (current) setAnswer(await api.setWord(current.code, word));
       setWordStep(null);
@@ -304,7 +310,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
         <GameMenuItems close={close} difficulty={difficulty}
           difficultyNote="Set by the host for everyone in the lobby: it can't change."
           moveOnLabel="Give up this word and move on" onMoveOn={playing ? () => setConfirming('move-on') : undefined}
-          giveUpLabel="Give up the rest of this Rush" canGiveUp={playing}
+          giveUpLabel={`Give up the rest of this ${rush}`} canGiveUp={playing}
           onGiveUp={() => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
           // Never the join code: anyone with it could join.
           onReport={() => openReport({ screen: `${modeName} · ${lobby?.state ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}` })}
@@ -376,7 +382,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
   }
 
   const competitive = kind === 'competitive';
-  const settingsLine = `${DIFFICULTY_LABEL[lobby.settings.difficulty]} · ${lobby.settings.minutes} minutes · 4 words${
+  const settingsLine = `${rankByLine(rankBy)} · ${DIFFICULTY_LABEL[lobby.settings.difficulty]} · ${lobby.settings.minutes} minutes · 4 words${
     competitive ? ' · Rated' : ''}`;
   const errorLine = message?.error && <p class="message error" role="status">{message.text}</p>;
 
@@ -404,7 +410,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
             </>
           ) : (
             <>
-              <p>{lobby.state === 'closed' ? 'This lobby is closed.' : 'This Rush has already started without you.'}</p>
+              <p>{lobby.state === 'closed' ? 'This lobby is closed.' : `This ${rush} has already started without you.`}</p>
               <div class="row-btns"><button class="btn" type="button" onClick={onExit}>Main menu</button></div>
             </>
           )}
@@ -448,6 +454,10 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
               {host && <InviteFriends lobby={lobby} api={api} identity={identity} />}
               {host ? (
                 <div class="lobby-settings">
+                  <RankBySwitch label rankBy={rankBy} onPick={(r) => {
+                    onRankBy(r);
+                    changeSettings({ rankBy: r === 'rush' ? 'rush' : undefined });
+                  }} />
                   <span class="menu-label" id="lobby-diff">Difficulty, for everyone</span>
                   <div class="seg" role="group" aria-labelledby="lobby-diff">
                     {/* Competitive Rush is rated, so it leaves Easy out. */}
@@ -491,7 +501,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
                 {host ? (
                   <>
                     <button class="btn primary" type="button" disabled={seats < 2}
-                      onClick={() => void act(() => api.start(lobby.code))}>Start the Rush</button>
+                      onClick={() => void act(() => api.start(lobby.code))}>Start the {rush}</button>
                     <button class="btn" type="button" onClick={() => setConfirming('close')}>Close lobby</button>
                   </>
                 ) : (
@@ -502,7 +512,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
               </div>
               {host && seats < 2 && <p class="board-note">Wait for someone to join, or add a computer player.</p>}
               {competitive && people < 2 && (
-                <p class="board-note">Rated once someone else joins: only people count toward the rating, so a Rush
+                <p class="board-note">Rated once someone else joins: only people count toward the rating, so a {rush}
                   against computers alone is practice.</p>
               )}
               {lobby.closesAt !== null && (
@@ -540,8 +550,9 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
           <h2>Standings so far</h2>
           <Standings lobby={lobby} />
           <p class="board-note">
-            Provisional: a word given up counts as the most guesses anyone needed for it, plus {PENALTY_GUESSES}, so
-            places can change until everyone's done. {timeLeft} left.
+            Provisional: a word given up counts as the most guesses anyone needed for it, plus {PENALTY_GUESSES}
+            {rankBy === 'rush' && <> (and the slowest time, plus {PENALTY_SECONDS / 60} minutes)</>}, so places can change
+            until everyone's done. {timeLeft} left.
           </p>
           <div class="row-btns"><button class="btn" type="button" onClick={() => setShowPlayers(false)}>Back to your word</button></div>
         </section>
@@ -560,7 +571,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
   const counted = mine ? mine.words.reduce((sum, w) => sum + (w.counted?.guesses ?? 0), 0) : 0;
   const factor = DIFFICULTY_FACTOR[difficulty];
   const heading = over
-    ? mine?.rank === 1 ? (tied ? 'Tied for first!' : 'You won!') : place ? `You came ${place}.` : 'The Rush is over.'
+    ? mine?.rank === 1 ? (tied ? 'Tied for first!' : 'You won!') : place ? `You came ${place}.` : `The ${rush} is over.`
     : place && ranked < standings.length ? `You're done: ${place} so far.` : "You're done.";
 
   return (
@@ -584,8 +595,8 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
           <h2>Give up this word and move on?</h2>
           <p>
             <b>This will hurt your score.</b> The word counts as the most guesses anyone in the lobby needed to find
-            it, plus {PENALTY_GUESSES}, and at least the guesses you've used on it. It stays hidden until the Rush is
-            over. The clock keeps running.
+            it, plus {PENALTY_GUESSES}{rankBy === 'rush' && <>, and the slowest time anyone took, plus {PENALTY_SECONDS / 60} minutes</>},
+            and at least what you've used on it. It stays hidden until the {rush} is over. The clock keeps running.
           </p>
           <div class="row-btns">
             <button class="btn primary" type="button" onClick={confirmMoveOn}>Give up this word</button>
@@ -596,10 +607,11 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
 
       {confirming === 'give-up' && playing && (
         <section class="panel warning">
-          <h2>Give up the rest of this Rush?</h2>
+          <h2>Give up the rest of this {rush}?</h2>
           <p>
             <b>This will hurt your score.</b> Every word you haven't found counts as the most guesses anyone needed to
-            find it, plus {PENALTY_GUESSES}. You'll see how everyone did when the Rush is over.
+            find it, plus {PENALTY_GUESSES}{rankBy === 'rush' && <>, and the slowest time, plus {PENALTY_SECONDS / 60} minutes</>}.
+            You'll see how everyone did when the {rush} is over.
           </p>
           <div class="row-btns">
             <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up the rest</button>
@@ -612,7 +624,7 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
         <section class="panel rush-result">
           <h2>{heading}</h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-            hiddenLabel="Hidden until the Rush is over"
+            hiddenLabel={`Hidden until the ${rush} is over`}
             rows={run.words.map((w, i) => ({
               word: w.word,
               lit: w.outcome === 'solved',
@@ -624,19 +636,21 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
             }))} />
           {mine?.score != null && (
             <RushSummary tiers={[
-              ['Score', scoreText(mine.score)],
+              [rankBy === 'rush' ? 'Time' : 'Score', rankedText(rankBy, mine)],
               [over ? 'Place' : 'Place so far', mine.rank === null ? '…' : ordinal(mine.rank)],
             ]} />
           )}
           <p class="tally">
             {found} of 4 found in {guessCount(totalGuesses)} ({yourTime}) on {DIFFICULTY_LABEL[difficulty]}.
-            {mine?.score != null && <> Score: {(counted / 4).toFixed(1)} guesses a word
+            {mine?.score != null && rankBy === 'rush' && <> Time: {formatClock(mine.seconds ?? 0)}
+              {counted > totalGuesses && ', with penalties for words not found'}. Faster is better; fewer guesses break ties.</>}
+            {mine?.score != null && rankBy === 'crush' && <> Score: {(counted / 4).toFixed(1)} guesses a word
               {counted > totalGuesses && ', with penalties for words not found,'} × {factor} = {scoreText(mine.score)}.
               Lower is better; time breaks ties.</>}
           </p>
           {answer?.rating && <RatingChange line={answer.rating} />}
           {competitive && !over && lobby.players.filter((p) => p.strength === null).length > 1 && (
-            <p class="board-note">Your rating changes when the Rush is over, by your place against each other person.</p>
+            <p class="board-note">Your rating changes when the {rush} is over, by your place against each other person.</p>
           )}
           <h3>{over ? 'Final standings' : 'Standings so far'}</h3>
           <Standings lobby={lobby} />
@@ -646,9 +660,10 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
           <div class="row-btns">
             {over && mine?.rank != null && standings.every((p) => p.rank !== null) && (
               <ShareResult text={lobbyShareText({
-                mode: MODE_NAME[lobby.kind],
+                mode: modeName,
+                rankBy,
                 players: standings.map((p) => ({
-                  rank: p.rank!, name: p.name, strength: p.strength, you: p.you,
+                  rank: p.rank!, name: p.name, strength: p.strength, you: p.you, seconds: p.seconds,
                   words: p.words.map((w) => ({ guesses: w.guesses, found: w.outcome === 'solved' })),
                 })),
               })} />

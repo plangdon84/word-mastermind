@@ -1,6 +1,6 @@
 import {
-  isLive, lobbyKind, lobbyStandings, ordinal, otherSeat, pvpView, timeControlOf, timeControlText, type LobbyKind,
-  type LobbyRecord, type LobbyStanding, type PvpGame, type Seat, type TimeControl,
+  isLive, lobbyKind, lobbyRankBy, lobbyStandings, ordinal, otherSeat, pvpView, rankByName, timeControlOf, timeControlText,
+  wordSetName, type LobbyKind, type LobbyRecord, type LobbyStanding, type PvpGame, type RankBy, type Seat, type TimeControl,
 } from '../../src/game';
 import type { PushMessage } from './push';
 import type { Room } from './room';
@@ -113,14 +113,28 @@ export function moveNotices(room: Room, game: PvpGame): Notice[] {
     `${name[mover]} guessed ${upper(guess.guess)} – ${guess.score}. You have ${days(game.turnDays ?? 1)} to reply.`)];
 }
 
-/** The mode's name, for a lobby's notifications. */
-const MODE_NAME: Record<LobbyKind, string> = { friends: 'Rush with Friends', competitive: 'Competitive Rush' };
+/** The mode's name, for a lobby's notifications: Rush with Friends, Competitive Crush… */
+const modeName = (lobby: LobbyRecord) => wordSetName(lobbyKind(lobby), lobbyRankBy(lobby.settings));
+
+/** "Rush" or "Crush", as in "finished the Crush". */
+const rushName = (lobby: LobbyRecord) => rankByName(lobbyRankBy(lobby.settings));
 
 /** A Rush with Friends or Competitive Rush notification: tapping it opens the lobby, and a newer one replaces it. */
 const lobbyMessage = (lobby: LobbyRecord, title: string, body: string) =>
   ({ title, body, gameId: `lobby-${lobby.code}`, url: `/?lobby=${lobby.code}` });
 
-const score = (s: LobbyStanding) => (s.score ?? 0).toFixed(1);
+/** 581 seconds → "9:41". */
+const clock = (seconds: number) => {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+};
+
+/** What a lobby ranks by: a Crush's score, or a Rush's time. */
+const scoreName = (lobby: LobbyRecord) => (lobbyRankBy(lobby.settings) === 'rush' ? 'time' : 'score');
+
+/** A player's result as ranked: a Crush's score ("9.5"), or a Rush's time ("9:41"). */
+const score = (lobby: LobbyRecord, s: LobbyStanding) =>
+  (lobbyRankBy(lobby.settings) === 'rush' ? clock(s.seconds ?? 0) : (s.score ?? 0).toFixed(1));
 
 /** The people in the lobby, by seat: computers get no notifications. */
 const people = (lobby: LobbyRecord) => lobby.game?.seats.filter((s) => s.strength === null) ?? [];
@@ -138,8 +152,8 @@ export function lobbyFinishedNotice(lobby: LobbyRecord, seatId: string, now: num
     const you = yours.rank === null ? ' Keep going!' : ` You're ${ordinal(yours.rank)} so far.`;
     return {
       guestId: p.id,
-      message: lobbyMessage(lobby, `${finisher.name} finished the Rush`,
-        `Score ${score(theirs)}, with ${found} of ${theirs.words.length} words found.${you}`),
+      message: lobbyMessage(lobby, `${finisher.name} finished the ${rushName(lobby)}`,
+        `${scoreName(lobby) === 'time' ? 'Time' : 'Score'} ${score(lobby, theirs)}, with ${found} of ${theirs.words.length} words found.${you}`),
     };
   });
 }
@@ -157,15 +171,15 @@ export function lobbyOverNotice(lobby: LobbyRecord, now: number): Notice[] {
       const next = standings.find((s) => s.rank !== 1);
       return {
         guestId: p.id,
-        message: lobbyMessage(lobby, tied ? 'You tied for first in the Rush!' : `You won the ${MODE_NAME[lobbyKind(lobby)]}!`,
-          `Your score: ${score(yours)}.${next ? ` ${next.name} came ${ordinal(next.rank!)} with ${score(next)}.` : ''}`),
+        message: lobbyMessage(lobby, tied ? `You tied for first in the ${rushName(lobby)}!` : `You won the ${modeName(lobby)}!`,
+          `Your ${scoreName(lobby)}: ${score(lobby, yours)}.${next ? ` ${next.name} came ${ordinal(next.rank!)} with ${score(lobby, next)}.` : ''}`),
       };
     }
     const place = `${tied ? 'tied ' : ''}${ordinal(yours.rank!)} of ${standings.length}`;
     return {
       guestId: p.id,
-      message: lobbyMessage(lobby, `The Rush is over: you came ${place}`,
-        `${winners.map((w) => w.name).join(' and ')} won with ${score(winners[0])}. Your score: ${score(yours)}.`),
+      message: lobbyMessage(lobby, `The ${rushName(lobby)} is over: you came ${place}`,
+        `${winners.map((w) => w.name).join(' and ')} won with ${score(lobby, winners[0])}. Your ${scoreName(lobby)}: ${score(lobby, yours)}.`),
     };
   });
 }
@@ -202,10 +216,12 @@ export const rematchNotice = (to: string, hostName: string, control: TimeControl
 });
 
 /** A friend invited you to their Rush with Friends or Competitive Rush lobby: tapping it opens the lobby. */
-export const lobbyInviteNotice = (to: string, hostName: string, code: string, kind: LobbyKind = 'friends'): Notice => ({
+export const lobbyInviteNotice = (
+  to: string, hostName: string, code: string, kind: LobbyKind = 'friends', rankBy: RankBy = 'crush',
+): Notice => ({
   guestId: to,
   message: {
-    title: `${hostName} invited you to a ${MODE_NAME[kind]}`, body: 'Tap to join the lobby.',
+    title: `${hostName} invited you to a ${wordSetName(kind, rankBy)}`, body: 'Tap to join the lobby.',
     gameId: `lobby-${code}`, url: `/?lobby=${code}`,
   },
 });

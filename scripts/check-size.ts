@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const KB = 1024;
-const BUDGETS = { script: 130 * KB, style: 12 * KB };
+const BUDGETS = { script: 140 * KB, style: 12 * KB };
 
 const dist = join(import.meta.dirname, '..', 'dist');
 const html = readFileSync(join(dist, 'index.html'), 'utf8');

@@ -1,7 +1,7 @@
-import { strengthForAverage, type Strength } from './computer';
+import { strengthForAverage, strengthForSeconds, type Strength } from './computer';
 import { canPickDifficulty, DIFFICULTY_FACTOR, scoredAfterPick, type Difficulty, type DifficultyError } from './difficulty';
 import {
-  averageWord, evaluateGuess, penalized, totalSeconds, type GuessResult, type ScoredWord, type WordResult,
+  averageWord, evaluateGuess, penalized, totalSeconds, type GuessResult, type RankBy, type ScoredWord, type WordResult,
 } from './scoring';
 import { checkSuggestion, type SuggestError } from './suggest';
 import { validateGuess, validateSecretWord, type WordError } from './words';
@@ -45,8 +45,16 @@ export interface RunRecord {
   pausable: boolean;
   /** The difficulty the run started at. */
   difficulty: Difficulty;
+  /**
+   * A Word Set ranked by time: Rush. Left out for Crush, ranked by guesses,
+   * as every run from before the choice was (README "Rush modes").
+   */
+  rankBy?: 'rush';
   moves: readonly RunMove[];
 }
+
+/** What a run ranks by: Rush or Crush. */
+export const runRankBy = (run: RunRecord): RankBy => run.rankBy ?? 'crush';
 
 export type WordOutcome = 'solved' | 'gave-up' | 'unsolved';
 
@@ -94,13 +102,14 @@ export interface RunOptions {
   timeLimitMs?: number | null;
   pausable?: boolean;
   difficulty?: Difficulty;
+  rankBy?: RankBy;
 }
 
 /** Every word must be a valid secret word. A run can have a time limit or be pausable, not both. */
 export function createRun(
   words: readonly string[],
   now: number,
-  { timeLimitMs = null, pausable = false, difficulty = 'medium' }: RunOptions = {},
+  { timeLimitMs = null, pausable = false, difficulty = 'medium', rankBy = 'crush' }: RunOptions = {},
 ): RunResult {
   if (timeLimitMs !== null && pausable) throw new Error('A run with a time limit cannot be paused');
   if (words.length === 0) return { ok: false, error: 'no-words' };
@@ -118,6 +127,7 @@ export function createRun(
       timeLimitMs,
       pausable,
       difficulty,
+      ...(rankBy === 'rush' ? { rankBy } : {}),
       moves: [],
       results: secrets.map((word, i) => ({
         word, guesses: [], startedAt: i === 0 ? now : null, endedAt: null, pausedMs: 0, outcome: null, suggested: 0,
@@ -265,14 +275,14 @@ export function applyRunMove(run: RunGame, move: RunMove): RunResult {
 }
 
 export function toRunRecord(run: RunGame): RunRecord {
-  const { words, startedAt, timeLimitMs, pausable, difficulty, moves } = run;
-  return { words, startedAt, timeLimitMs, pausable, difficulty, moves };
+  const { words, startedAt, timeLimitMs, pausable, difficulty, rankBy, moves } = run;
+  return { words, startedAt, timeLimitMs, pausable, difficulty, ...(rankBy ? { rankBy } : {}), moves };
 }
 
 /** Rebuilds a run from its record. Fails on the first move the rules refuse. */
 export function replayRun(record: RunRecord): RunResult {
   let result = createRun(record.words, record.startedAt, {
-    timeLimitMs: record.timeLimitMs, pausable: record.pausable, difficulty: record.difficulty,
+    timeLimitMs: record.timeLimitMs, pausable: record.pausable, difficulty: record.difficulty, rankBy: runRankBy(record),
   });
   for (const move of record.moves) {
     if (!result.ok) break;
@@ -320,17 +330,18 @@ function endedEarly(run: RunGame): boolean {
  * A run's words as scored from this run alone (README "Rush"), or null if it
  * has no score: it isn't over, it was ended early, or no word was found. A
  * word given up, or left unsolved when the time ran out, counts as the worst
- * word found in this run plus the penalty guesses, and at least the guesses
- * and time used on it. Solo Rush is scored this way; the other Rushes use it
- * for their level badges (README "Achievements").
+ * word found in this run plus the penalty guesses (and, ranked by time, the
+ * penalty seconds), and at least the guesses and time used on it. Solo Rush
+ * is scored this way; the other Rushes use it for their level badges (README
+ * "Achievements").
  */
-export function scoreSoloRun(run: RunGame): ScoredWord[] | null {
+export function scoreSoloRun(run: RunGame, rankBy: RankBy = runRankBy(run)): ScoredWord[] | null {
   if (run.status !== 'over' || endedEarly(run)) return null;
   const results = run.results.map(toWordResult);
   if (results.some((r) => r === null)) return null;
   const words = results as WordResult[];
   if (!words.some((r) => r.solved)) return null;
-  return words.map((r) => penalized(r, [r], words));
+  return words.map((r) => penalized(r, [r], words, rankBy));
 }
 
 /** A finished solo run's result (README "Scoring"). */
@@ -340,25 +351,33 @@ export interface SoloRunSummary {
   /** Guesses and seconds per word, on average, penalties included. */
   average: ScoredWord;
   totalSeconds: number;
-  /** The easiest difficulty used, and what a guess counts as there. */
+  /** The easiest difficulty used, and what a guess (or a second) counts as there. */
   difficulty: Difficulty;
   factor: number;
-  /** Average guesses per word × the difficulty factor. Lower is better; time breaks ties. */
+  /** Rush: scored by time. Crush: by guesses. */
+  rankBy: RankBy;
+  /**
+   * Crush: average guesses per word × the difficulty factor. Rush: average
+   * seconds per word × the difficulty factor. Lower is better.
+   */
   score: number;
-  /** The computer strength whose target matches the score. */
+  /** The level the score earns: by guesses for a Crush, by time for a Rush. */
   level: Strength;
 }
 
-/** Null when the run has no score (see `scoreSoloRun`). */
-export function summarizeSoloRun(run: RunGame): SoloRunSummary | null {
-  const words = scoreSoloRun(run);
+/**
+ * Null when the run has no score (see `scoreSoloRun`). `rankBy` is the run's
+ * own unless given: a Daily Set run is on both boards, so has both levels.
+ */
+export function summarizeSoloRun(run: RunGame, rankBy: RankBy = runRankBy(run)): SoloRunSummary | null {
+  const words = scoreSoloRun(run, rankBy);
   if (!words) return null;
   const average = averageWord(words);
   const factor = DIFFICULTY_FACTOR[run.scoredDifficulty];
-  const score = average.guesses * factor;
+  const score = (rankBy === 'rush' ? average.seconds : average.guesses) * factor;
   return {
-    words, average, totalSeconds: totalSeconds(words),
-    difficulty: run.scoredDifficulty, factor, score, level: strengthForAverage(score),
+    words, average, totalSeconds: totalSeconds(words), difficulty: run.scoredDifficulty, factor, rankBy, score,
+    level: rankBy === 'rush' ? strengthForSeconds(score) : strengthForAverage(score),
   };
 }
 

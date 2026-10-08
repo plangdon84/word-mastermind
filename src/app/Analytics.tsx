@@ -53,7 +53,8 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
   const { mode, record } = stats;
   const title = MODE_LABEL[mode];
   const bestLabel: Record<HistoryMode, string> = {
-    single: 'Best game', computer: 'Best win', friend: 'Best win', rush: 'Best score', daily: 'Fewest guesses', lobby: 'Best score',
+    single: 'Best game', computer: 'Best win', friend: 'Best win', rush: 'Best Crush score', daily: 'Fewest guesses',
+    lobby: 'Best Crush score',
   };
   const counted = mode === 'computer' || mode === 'friend' || mode === 'daily';
   const bestValue = (value: number) => (counted ? guessCount(value) : decimal(value));
@@ -80,6 +81,12 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
             <button type="button" class="link-btn" onClick={() => onOpen(stats.best!.id)}>{bestValue(stats.best.value)}</button>
           ) : '—'}
         </Stat>
+        {/* A Rush is scored by time: its best is a time, shown once there's one (Dev Plan item 18z). */}
+        {stats.bestRush && (
+          <Stat label={mode === 'rush' ? 'Best Rush score' : 'Best Rush time'}>
+            <button type="button" class="link-btn" onClick={() => onOpen(stats.bestRush!.id)}>{formatClock(stats.bestRush.value)}</button>
+          </Stat>
+        )}
         <Stat label="Fastest solve">
           {stats.fastest ? (
             <button type="button" class="link-btn" onClick={() => onOpen(stats.fastest!.id)}>{formatClock(stats.fastest.value)}</button>

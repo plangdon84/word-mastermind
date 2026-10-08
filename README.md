@@ -382,6 +382,24 @@ timer, and a result for each word (guesses, seconds, and whether it was
 solved or given up). Each word is played like a single-player game, with no
 timer on the individual word. **Rush** on the title screen offers four kinds:
 
+**Rush and Crush** (Dev Plan item 18z, Issue 167 in the archive): players read "Rush" as
+a race, so every Word Set is ranked one of two ways. A **Rush** ranks by
+**fastest total time**, fewer guesses breaking ties; a **Crush** ranks by
+**fewest guesses**, time breaking ties (the scoring every Rush had before).
+A word given up, or unsolved when the time is up, adds its penalty to both
+(see [Scoring](#scoring)). Solo picks Rush or Crush with a **Ranked by:
+Rush · fastest / Crush · fewest** switch above the difficulty, remembering
+the last pick (Crush the first time); in a lobby the host sets it with the
+lobby's other settings, and a new lobby opens on the host's last pick. The
+games are named **Solo Rush** or **Solo Crush**, **Rush with Friends** or
+**Crush with Friends** (and **Competitive Rush** or **Competitive Crush**)
+in the header, history and badges. Past games stay as they were scored:
+Crush. The record keeps the choice (`rankBy: 'rush'` on a run, a lobby's
+settings and its game; left out for Crush, as in records from before). The
+**Daily Set** is still played once a day, and each run goes on **both**
+boards for its difficulty, so playing it twice would give away the day's
+words.
+
 **Shared words, your own order** (Dev Plan item 13): in Daily Rush, Rush
 with Friends and Competitive Rush everyone solves the same words, but each
 player gets them in their own random order, picked by the server when their
@@ -398,8 +416,9 @@ penalty still compares results word by word (`seatKeys` in
   tab, the main menu, the page closed) or press Pause, and the board is hidden
   while paused. You can **give up a word and move on**, after a warning that it
   hurts your score. With no group, the word counts as your worst word found in
-  this Rush plus 10 guesses (and at least the guesses and time used on it). A
-  Rush with no word found, or given up as a whole, has no score.
+  this Rush plus 10 guesses (and in a Rush, ranked by time, the slowest
+  word's time plus 2 minutes), and at least the guesses and time used on it.
+  A Rush with no word found, or given up as a whole, has no score.
 - **Daily Rush** (themed): everyone plays the same **themed set of 4 words**
   each day, once.
   - The sets are 578 themes, over a year and a half without repeating: a
@@ -432,9 +451,11 @@ penalty still compares results word by word (`seatKeys` in
     leaderboard entry (Dev Plan item 18y; it used to be void).
   - **Giving up** (a word or the run) quits that day's Daily Rush, with no
     leaderboard entry, so Daily Rush has no penalties.
-  - **Leaderboard:** one per day **per difficulty**: finishing on Medium
-    ranks you against that day's other Medium players. Ranked by **total
-    guesses**, with total time breaking ties. It shows your position ("12th
+  - **Leaderboard:** two per day **per difficulty**: finishing on Medium
+    ranks you against that day's other Medium players on both. The
+    **Crush** board ranks by **total guesses**, with total time breaking
+    ties; the **Rush** board by **total time**, with total guesses breaking
+    ties (Dev Plan item 18z). It shows your position ("12th
     of 340") and **percentile** ("better than 96%": players − your place,
     ÷ players − 1, so you're left out and first place is 100%; tied players
     share a place, and alone on the board there's no percentage). Past days' boards stay
@@ -461,6 +482,7 @@ penalty still compares results word by word (`seatKeys` in
     the host can start with computers alone.
   - The clock starts when the host starts the game and **never pauses**. The
     game ends when everyone has finished or the time is up.
+  - The host picks **Rush or Crush** with the lobby's other settings.
   - Giving up a word shows the same warning as Solo Rush, with the group
     penalty in [Scoring](#scoring); a word unsolved when time is up gets the
     same penalty. Unlike Solo Rush, a word you give up stays hidden until
@@ -504,7 +526,10 @@ penalty still compares results word by word (`seatKeys` in
 
 **Decided after playtesting Rush: score by guesses.** A player's score is
 their **average guesses per word** (penalties included) × the **difficulty
-factor**, lower first, with total time breaking ties. The game still records
+factor**, lower first, with total time breaking ties. Since Dev Plan item
+18z that's a **Crush**; a **Rush** ranks by **total time** (penalties
+included), with the guess score breaking ties, and Solo Rush's score is the
+**average time per word × the difficulty factor**. The game still records
 raw guesses and seconds for every word, and the formula stays one small,
 swappable function (`guessesScore` in `src/game/scoring.ts`).
 
@@ -527,8 +552,9 @@ swappable function (`guessesScore` in `src/game/scoring.ts`).
   how many more guesses each difficulty actually takes. Rush with Friends
   and Competitive Rush set one difficulty for everyone, and Daily Rush has a
   leaderboard per difficulty, so the factor doesn't change their standings.
-  **Daily Rush** ranks by total guesses (the same 4 words for everyone) and
-  has no penalties, since giving up leaves no entry.
+  **Daily Rush** ranks by total guesses on its Crush board and total time
+  on its Rush board (the same 4 words for everyone), and has no penalties,
+  since giving up leaves no entry.
 
 **Penalty for giving up or running out of time:** conceding or stalling must
 never pay. A word given up, or unsolved when the timer ends, is scored from
@@ -537,7 +563,9 @@ never pay. A word given up, or unsolved when the timer ends, is scored from
 - guesses = the higher of the guesses used and the **worst solved guess count
   for that word**, plus 10
 - seconds (for the time tiebreak) = the higher of the seconds used and the
-  worst solved time for that word
+  worst solved time for that word; in a **Rush**, ranked by time, plus **2
+  minutes** (`PENALTY_SECONDS`). A Crush's time, only a tiebreak, takes no
+  added penalty, as before Rush and Crush, so past games keep their numbers
 
 If nobody solved the word, the worst solved result on **any** word in the group
 is used instead. Because a penalty depends on how others did, standings are
@@ -774,10 +802,13 @@ the code keep the old names, so nothing already saved changes.
   Expert, Mastermind) or, against a person, the time control: **Live**
   with 15, 10 or 5 minutes each, or 1 or 3 days per guess; then your
   difficulty and **Start game** (against a person, **Next: your word**).
-  **Word Sets** asks which: **Solo** (Solo Rush), **With friends** (Rush
-  with Friends: **Open a lobby**, or a join code and **Join**) or
+  **Word Sets** asks which: **Solo** (Solo Rush or Crush), **With friends** (Rush
+  or Crush with Friends: **Open a lobby**, or a join code and **Join**) or
   **Competitive** (the same, then your word); without the game server, the
-  ones that need it are shown as coming later. Every difficulty step is
+  ones that need it are shown as coming later. Their difficulty step has
+  the **Ranked by: Rush · fastest / Crush · fewest** switch above the
+  difficulties (Dev Plan item 18z). **Continue** names a Solo game in
+  progress as a Rush or a Crush. Every difficulty step is
   Medium by default, and each setup step pre-selects the last choice made
   (the title screen's mode choices don't: a tap there goes straight on).
 - The tagline is gone, to save height. **Leaderboards** sits under the
@@ -813,15 +844,15 @@ three steps:
 1. **Win a Practice game** → **Two player** (vs. the computer and vs. a
    friend).
 2. **Win a two player game** (vs. the computer or a friend; a draw isn't a
-   win) → **Word Sets**, with Solo Rush.
-3. **Finish a Solo Rush (in Word Sets) without giving up a word** → the Daily card's
-   Daily Set and the rest of Word Sets (Rush with Friends, Competitive
-   Rush).
+   win) → **Word Sets**, with Solo Rush and Solo Crush.
+3. **Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word** → the Daily card's
+   Daily Set and the rest of Word Sets (Rush or Crush with Friends, Competitive
+   Rush or Crush).
 
 Practice is single player renamed (Dev Plan item 18za): it counts toward
 stats, badges and this first unlock as before. A locked Daily Set or With
-friends says "Finish a Solo Rush in Word Sets without giving up a word to
-unlock", naming where Solo Rush is.
+friends says "Finish a Solo Rush or Solo Crush in Word Sets without giving
+up a word to unlock", naming where they are.
 
 Each step needs the one before it: a win against a friend by invite link
 before any Practice win opens Word Sets only once two player is open.
@@ -1137,11 +1168,19 @@ clocks only.
   new set. Until it's finished or given up, opening Daily Rush goes back
   into it; a day later still, it can't be finished.
 - **Result:** each word with its guesses and time, total guesses and time,
-  and your **place so far** ("12th of 340 · better than 96%"); places are
-  final at midnight New York time. **Leaderboard** shows the day's top 10 for each
-  difficulty (ties share a rank), your place below them if you're not in
-  it, and earlier days (‹ ›) with their words. Its **← Back** returns to
-  the result.
+  and your **places so far** on both boards (Dev Plan item 18z): **Crush ·
+  fewest** and **Rush · fastest**, each a tap from that board, then "12th
+  of 340 · better than 96%" for each; places are final at midnight New York
+  time. **Leaderboard** shows the day's top 10 for each difficulty (ties
+  share a rank), your place below them if you're not in it, and earlier
+  days (‹ ›) with their words. A **Rush · fastest / Crush · fewest** switch
+  flips between its two boards, keeping the day, difficulty and Everyone /
+  Friends; it opens on Crush the first time, then on your last pick
+  (`boardRankBy` in the settings). The Rush board shows each time before
+  its guesses. Its **← Back** returns to the result. A past Daily Set in
+  the history gives its final place on both boards; its row shows the
+  Crush place, beside its guess total. Sharing a result gives the Crush
+  place, beside the guesses.
 - Before you've played today, **Leaderboard** beside **Start Daily Rush**
   opens today's board too (and [Leaderboards](#leaderboards) opens it from
   the title screen). Today's words stay hidden until the day is over; the
@@ -1170,8 +1209,8 @@ until there are enough rated players (see [Launch switches](#launch-switches)).
   only board (the rating boards switched off), **Leaderboards** opens it
   directly, and its **← Back** returns to the title screen (Dev Plan item
   14).
-  - **Daily Rush:** the day's board by difficulty (see [Daily
-    Rush](#daily-rush)), today first, earlier days with ‹ ›.
+  - **Daily Rush:** the day's board by difficulty, Rush or Crush (see
+    [Daily Rush](#daily-rush)), today first, earlier days with ‹ ›.
   - **Live PvP · 15 min**, **Live PvP · 10 min** and **Live PvP · 5 min**:
     rating, one per clock, as the [ratings](#rating) are.
   - **Correspondence PvP**: rating (1 and 3 days per guess together).
@@ -1209,7 +1248,8 @@ until there are enough rated players (see [Launch switches](#launch-switches)).
   (6 letters and digits, leaving out 0, O, 1 and I) with **Copy link** and
   **Share** for its link (`/?lobby=…`, shown only if copying fails, so the
   code isn't on screen twice), the 5 seats, and the host's settings:
-  **difficulty** for everyone, **duration**, and **computer players** in
+  **Ranked by: Rush · fastest / Crush · fewest** (Dev Plan item 18z; a new
+  lobby opens on the host's last pick), **difficulty** for everyone, **duration**, and **computer players** in
   empty seats (− and +, and their strength). **Start the Rush** needs a
   second player, a friend or a computer. **Close lobby** (confirmed first, in a pop-up)
   ends it for everyone and takes the host back to the main menu. Others see "Waiting for Ann to start", with
@@ -1227,14 +1267,15 @@ until there are enough rated players (see [Launch switches](#launch-switches)).
 - **Result:** once your words are done, each word with its guesses and time
   (a word not found stays hidden until the game ends), your **score**
   (average guesses per word, penalties included, × the difficulty factor)
-  and **place**, and the **standings**: finished players ranked by score
-  (time breaks ties, ties share a place), then those still playing with
-  their words found and guesses so far. They're provisional until everyone
+  or, in a Rush, your **time** (penalties included), and **place**, and the
+  **standings**: finished players ranked by score (time breaks ties; in a
+  Rush, by time, the score breaking ties; ties share a place), then those
+  still playing with their words found and guesses so far. They're provisional until everyone
   has finished or the time is up.
 - **Turn alerts:** the lobby offers them, for a notification when a player
-  finishes ("Ann finished the Rush · Score 9.5, with 4 of 4 words found.
-  You're 2nd so far.") and at the end ("The Rush is over: you came 2nd of
-  4"). Tapping one opens the lobby.
+  finishes ("Ann finished the Crush · Score 9.5, with 4 of 4 words found.
+  You're 2nd so far."; a Rush gives the time, "Time 9:41") and at the end
+  ("The Crush is over: you came 2nd of 4"). Tapping one opens the lobby.
 - A reload, or **Continue Rush with Friends** on the title screen, goes back
   to your lobby until it's over. The server keeps each finished game in its
   game history (`games`, mode `lobby`); like Daily Rush, it's not in the
@@ -1277,18 +1318,24 @@ Switched off for the 1.0 launch, until there are enough players (see
 - **Give up this word and move on** (☰ menu) warns, in red, that it will hurt
   your score and how it's counted, then reveals the word and goes on.
 - **Give up and reveal the words** (☰ menu) ends the Rush, with no score.
+- The header names it **Solo Rush** or **Solo Crush** (Dev Plan item 18z),
+  as do the give-up and New game panels; Play again keeps the same choice.
 - **Result:** each word with its guesses and time (ⓘ for its definition;
   tapping the guess count shows that word's guesses, with their marks),
-  then the **score** (average guesses per word × the difficulty factor, see
-  [Scoring](#scoring)) and **your level**. One line under them spells out
+  then the **score** (a Crush: average guesses per word × the difficulty
+  factor; a Rush: average time per word × the difficulty factor, shown as
+  a time; see [Scoring](#scoring)) and **your level**. One line under them spells out
   the sum where the difficulty changes the number, e.g. "15.0 guesses a word
   × 0.8 (Extreme) = 12.0", then total guesses and time, the average time
   (and at Medium, where the score is the average, the average guesses) per
   word, penalties included, and any penalty for words given up (Dev Plan
   item 14 folded the separate averages into this line). Paused time never counts. There's no
   tiebreak line: a solo result isn't ranked against anyone, so it can't tie. Your level
-  ranks the score by the computer strengths and their targets: under 10 is
-  Mastermind, under 15 Expert, 15 to 20 Skilled, and above 20 Casual.
+  ranks the score by the computer strengths and their targets: a Crush's
+  under 10 is Mastermind, under 15 Expert, 15 to 20 Skilled, and above 20
+  Casual; a Rush's (`strengthForSeconds`, a starting guess agreed with the
+  owner on 8 October 2026, to be tuned from play) under 2 minutes a word
+  is Mastermind, under 3 Expert, up to 5 Skilled, and above that Casual.
 - **Difficulty** can still be changed from the ☰ menu, which notes that a
   Rush is scored at the easiest difficulty used. Going easier mid-Rush says
   "This Rush will now be scored at Medium."
@@ -1630,14 +1677,23 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   fewer guesses, in any mode, and win against the computer (VS CPU) having
   made that few. A word solved in 8 guesses earns all three. Any difficulty;
   not with Suggest.
-- **Rush level:** finish any Rush (Solo, Daily, with Friends, Competitive)
-  at Casual, Skilled, Expert or Mastermind, from its score: average guesses
-  per word × the difficulty factor (see [Scoring](#scoring)), under 10
-  Mastermind, under 15 Expert, 20 or less Skilled, else Casual. A higher
-  level also awards the ones below. The score is worked out from your own
-  run alone, as in Solo Rush: a word given up, or left unsolved when a
-  lobby's time runs out, counts as your worst solved word in that run plus
-  10. It needs at least one word found and the Rush not given up.
+- **Crush level** (tagged CRUSH; the Rush level badges from before Dev Plan
+  item 18z, which keep their IDs, so badges already earned stay earned):
+  finish any Crush (Solo, with Friends, Competitive, and every Daily Set
+  run) at Casual, Skilled, Expert or Mastermind, from its score: average
+  guesses per word × the difficulty factor (see [Scoring](#scoring)),
+  under 10 Mastermind, under 15 Expert, 20 or less Skilled, else Casual. A
+  higher level also awards the ones below. The score is worked out from
+  your own run alone, as in Solo Rush: a word given up, or left unsolved
+  when a lobby's time runs out, counts as your worst solved word in that
+  run plus 10. It needs at least one word found and the Rush not given up.
+- **Rush level** (tagged RUSH, Dev Plan item 18z): the same for a Rush, and
+  every Daily Set run (which is on both boards), by its average time per
+  word × the difficulty factor: under 2 minutes Mastermind, under 3
+  Expert, 5 or less Skilled, else Casual; a word given up adds 2 minutes.
+  Added after Achievement Hunter's levels could be reached, so they count
+  only toward a Hunter level not yet reached without them, like item 18o's.
+  Past Daily Set runs earn them too, since they're on the Rush boards.
 - **Win streak:** win 3, 5 and 10 two-player games in a row (vs. the
   computer or a friend, in the order they ended; not the same opponent). A
   loss, draw or give-up ends it; single player and Rush games don't touch
@@ -1652,7 +1708,8 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   count, as for the few-guesses badges, and an opponent giving up before
   you find it isn't a find. A gold seal with an eye.
 - **Daily Set** (Daily Rush, renamed in item 18za)**:** a **top 10 finish** (scalloped seal tagged DAILY) on a
-  day's final leaderboard for your difficulty. The runs are on the server,
+  day's final leaderboard for your difficulty, Rush or Crush (the server
+  sends your final place on each). The runs are on the server,
   so the app keeps the final places the server sends
   (`src/app/dailyStorage.ts`) and passes them to `computeAchievements`; a
   new one shows the profile dot. A **top 10%** finish is built but behind
@@ -1673,8 +1730,8 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   against a friend counts, by link or challenge, rated or not, but only a
   win where you found their word: not a draw, and not a win because they
   gave up or ran out of time before you found it (their time running out
-  on their final guess, after you found it, counts). Also a **Rush with Friends win** (first in a lobby's final
-  standings, with at least one other player, computers included; a seal
+  on their final guess, after you found it, counts). Also a **Rush with Friends win** (a Rush or Crush with
+  Friends; first in a lobby's final standings, with at least one other player, computers included; a seal
   marked 1st) and a **Competitive Rush win** (first against at least one
   other person, since only people are rated; tagged COMPETITIVE; not
   offered while Competitive Rush is switched off).
@@ -1762,7 +1819,9 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   `rush_score, move, side` (`you` or `computer`), `kind` (`guess`,
   `give-up`, `concede`, `difficulty`, `give-up-word`, `pause`, `resume`,
   `end`), `word_no` (Rush), `word` (the guess, or the new difficulty),
-  `score` (0–5 or `win`) and `time`. Times are ISO 8601 in UTC.
+  `score` (0–5 or `win`), `time` and `ranked_by` (Dev Plan item 18z:
+  `rush`, whose `rush_score` is in seconds, or `crush` for a Word Set;
+  `both` for the Daily Set; empty otherwise). Times are ISO 8601 in UTC.
 
 #### Backlog
 

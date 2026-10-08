@@ -16,9 +16,9 @@ describe('the launch switches', () => {
     expect(BADGES.map((b) => b.id)).not.toContain('competitive-win');
     expect(BADGES.map((b) => b.id)).not.toContain('daily-top-10-percent');
     expect(BADGES.length).toBe(all.length - 2);
-    // Every badge but Hunter's own 4: 50 at 1.0 and 53 from item 18o, so 14, 27, 40 and 53.
+    // Every badge but Hunter's own 4: 50 at 1.0, 53 from item 18o and 57 from 18z, so 15, 29, 43 and 57.
     expect(HUNTED_BADGES).toBe(BADGES.length - 4);
-    expect(HUNTED_BADGES).toBe(53);
+    expect(HUNTED_BADGES).toBe(57);
     // A Competitive Rush won before the switch went off earns nothing.
     const won = lobby('l', Date.UTC(2026, 0, 1), [['beach'], ['crane'], ['storm'], ['house']], { rank: 1, kind: 'competitive' });
     expect(computeAchievements([won], (ms) => Math.floor(ms / DAY)).map((b) => b.id)).not.toContain('competitive-win');
