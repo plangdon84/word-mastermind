@@ -155,7 +155,7 @@ export function parseFriendProfilePage(value: unknown): FriendProfilePage | null
 /** The server's reasons for refusing. */
 export type FriendsErrorCode =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'own-code' | 'too-many-friends'
-  | 'unreachable' | 'try-again'
+  | 'unreachable'
   // Opening an invite link: not codes the server sends, but how the app words its not-found and own-code.
   | 'invite-gone' | 'own-invite';
 
@@ -238,8 +238,6 @@ export function friendsErrorMessage(code: FriendsErrorCode): string {
   switch (code) {
     case 'not-found':
       return 'Nobody has that friend code. Check it and try again.';
-    case 'try-again':
-      return 'The game server is busy. Try again in a moment.';
     case 'invite-gone':
       return 'That invite link no longer works: its owner made a new one. Ask them for it, or for their friend code.';
     case 'own-invite':

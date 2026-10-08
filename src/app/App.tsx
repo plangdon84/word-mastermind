@@ -618,8 +618,8 @@ export function App() {
           onPage={(page) => setScreen({ ...screen, page })}
           onBack={() => setScreen({ name: 'profile', from, page: 'friends' })}
           yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
-          onOpen={(game, placements) => setScreen({
-            name: 'review', game, from, friend: { friend, page: screen.page ?? 'history', placements },
+          onOpen={(game, name, placements) => setScreen({
+            name: 'review', game, from, friend: { friend: { ...friend, name }, page: screen.page ?? 'history', placements },
           })} />
       );
     }

@@ -872,10 +872,10 @@ button.bubble:active { transform: scale(0.94); }
   border: 5px solid transparent; border-radius: 999px; background: var(--surface) padding-box;
   box-shadow: inset 0 0 0 1px var(--muted); outline-offset: -3px;
   font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--muted); cursor: pointer;
+  /* A friend's game names them: a long name is cut short (…) rather than crowding the title. */
+  max-width: 11rem; overflow: hidden; text-overflow: ellipsis;
 }
 .past-tag:hover { color: var(--ink); }
-/* A friend's game names them: a long name is cut short (…) rather than crowding the title. */
-.past-tag { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
 .menu-past { margin: 0 0 4px; }
 .title-screen { position: relative; }
 .title-top { position: absolute; top: 14px; right: 0; }

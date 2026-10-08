@@ -488,11 +488,12 @@ describe("a friend's profile (Dev Plan item 18c)", () => {
     for (const secret of [game.id, ANN, BOB, 'bob@example.com', 'shareMarks', '"ref"']) expect(raw).not.toContain(secret);
   });
 
-  it("leaves out a Daily Set whose day isn't over, and gives the places of those that are", async () => {
+  it("leaves out a Daily Set until the day after it is over, and gives the places of days that are over", async () => {
     const { ann, bobCode, sqlite, now } = await friends();
     const today = dailyDay(now());
     const yesterday = addDays(today, -1);
-    for (const day of [yesterday, today]) {
+    const before = addDays(today, -2);
+    for (const day of [before, yesterday, today]) {
       const { record } = dailyEntry('x', day, now() - 120_000, [['beach'], ['crane'], ['storm'], ['house']]) as { record: unknown };
       const id = `daily:${day}:${BOB}`;
       sqlite.prepare("INSERT INTO games (id, mode, version, record, started_at, finished_at) VALUES (?, 'daily', 1, ?, ?, ?)")
@@ -502,8 +503,11 @@ describe("a friend's profile (Dev Plan item 18c)", () => {
         .run(day, BOB, 'medium', 'Bob', 4, 60_000, now() - 60_000);
     }
     const { profile, games } = await loadFriendProfile(ann.friends, bobCode);
-    expect(games.map((g) => g.mode === 'daily' && g.day)).toEqual([yesterday]);
-    expect(profile.placements.map((p) => [p.day, p.rank, p.rankBy])).toEqual([[yesterday, 1, undefined], [yesterday, 1, 'rush']]);
+    // Yesterday's can still be finished by someone who started it before midnight.
+    expect(games.map((g) => g.mode === 'daily' && g.day)).toEqual([before]);
+    expect(profile.placements.map((p) => [p.day, p.rank, p.rankBy])).toEqual([
+      [before, 1, undefined], [before, 1, 'rush'], [yesterday, 1, undefined], [yesterday, 1, 'rush'],
+    ]);
   });
 
   it('refuses a cursor or code that is no such thing', async () => {

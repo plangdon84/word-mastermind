@@ -141,16 +141,16 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
-- [x] **18c. Friends' profiles** (issues #64 and #155; server and privacy,
+- [x] **18c. Friends' profiles** (issues 64 and 155; server and privacy,
   review gate; adds README "Friends' profiles"). Opening one from games and
   boards moved to 18ca, to keep this PR small
   - Tap a friend's name on your friends list to see their name, country,
     achievements, stats and their whole game history as they see it,
     opponents' names and reviews included; nothing else of their profile
     (settings, email, friends list). Signed-in players only, and only your
-    friends (`GET /api/friends/profile`). Today's Daily Set is left out
-    until its day is over
-  - #155: their stats page also shows your record against them (wins,
+    friends (`GET /api/friends/profile`). A Daily Set is left out until
+    the day after it is over
+  - Issue 155: their stats page also shows your record against them (wins,
     draws and losses, by mode), built from your own games
     (`headToHead` in `src/game/headToHead.ts`)
 - [x] **18z. Rush and Crush** (Issue 167; worker, review gate; changes

@@ -124,7 +124,7 @@ Run `npm test` and `npm run typecheck` before committing.
   `worker/src/friends.ts`, friends only): their synced games, then their
   server games (`playedPage` in `worker/src/played.ts`, run as them with
   `playerOfAccount`), only entries (never a `ref`, which is a credential),
-  leaving out a Daily Set whose day isn't over. Your record against them is
+  leaving out a Daily Set until the day after it is over. Your record against them is
   `headToHead` (`src/game/headToHead.ts`): games whose history ID is in
   both histories.
 - Repeated guesses (README "Repeated guesses"): every screen refuses a word

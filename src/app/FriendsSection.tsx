@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiIdentity } from './apiIdentity';
+import { forgetFriendProfiles } from './FriendProfileScreen';
 import { isPhone, ShareIcon } from './friendParts';
 import { smsLink } from './friendGames';
 import {
@@ -137,6 +138,8 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
   onOpenFriend: (friend: Friend) => void;
 }) {
   const signedIn = identity.token !== null;
+  // A friend removed here, or elsewhere, mustn't still show from a profile kept a few minutes.
+  useEffect(forgetFriendProfiles, []);
   const api: FriendsApi = useMemo(() => friendsApi(apiUrl, identity), [apiUrl, identity]);
   const [list, setList] = useFriendsList(apiUrl, identity);
   const [typed, setTyped] = useState(addCode ? formatFriendCode(addCode) : '');

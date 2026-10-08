@@ -125,8 +125,13 @@ export interface PlayedGamesPage {
   stopped: boolean;
 }
 
-/** The player's finished server games after `after`, a page at a time, in the order they finished. */
-export async function playedPage(env: Env, player: Player, after: number): Promise<PlayedGamesPage> {
+/**
+ * The player's finished server games after `after`, a page at a time, in the
+ * order they finished. With `skipStuck` (a friend's profile, which keeps
+ * nothing), a game whose lookup fails for now is left out rather than ending
+ * the page, so one stuck room can't hold up the rest.
+ */
+export async function playedPage(env: Env, player: Player, after: number, skipStuck = false): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
@@ -143,7 +148,7 @@ export async function playedPage(env: Env, player: Player, after: number): Promi
       played = await toPlayed(env, row, player, ids);
     } catch (e) {
       // A lookup failed for now: stop before this game, so the next pull asks for it again.
-      if (e instanceof TryAgain) return { games, next: null, cursor, stopped: true };
+      if (e instanceof TryAgain && !skipStuck) return { games, next: null, cursor, stopped: true };
       // A game that can't be read never holds up the rest.
       played = null;
     }

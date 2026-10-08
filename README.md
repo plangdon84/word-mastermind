@@ -2003,9 +2003,12 @@ history**.
   devices synced (README [Synced profile](#synced-profile)) and the games it
   refereed for you (as `GET /api/played` does), so a game only on a device
   that never signed in isn't in it. It's loaded once and kept for five
-  minutes, so going back from one of their games doesn't load it again.
-- **Today's Daily Set is left out** until its day is over, so its words
-  can't be read off a friend before you play it. Their Daily Rush places
+  minutes, so going back from one of their games doesn't load it again;
+  opening your friends list or signing out forgets it. A game the server
+  can't read for now is left out rather than holding up the rest.
+- **A Daily Set is left out** until the day after it is over (one started
+  before midnight can still be finished the next day), so its words can't
+  be read off a friend before you've played it. Their Daily Rush places
   (for the top 10 badges and each Daily Set's place) are only for days that
   are over too.
 - **Stats** are theirs, with their top guesses, but not their rating. At

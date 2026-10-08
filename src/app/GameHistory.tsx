@@ -169,7 +169,8 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGam
   /** A friend's Daily Rush places; yours are this browser's. */
   placements?: readonly DailyPlacement[];
 }) {
-  const [placements] = useState(() => theirPlaces ?? loadPlacements());
+  // Yours are read each time, so a place the server sends while the list is open shows.
+  const placements = theirPlaces ?? loadPlacements();
   const [loaded, setLoaded] = useState<Loaded>({ games: [], next: null, status: 'loading' });
   const [csvMessage, setCsvMessage] = useState<string | null>(null);
   const [search, setSearch] = useState(filter.search ?? '');

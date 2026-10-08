@@ -40,20 +40,26 @@ type Loading = { status: 'loading' } | { status: 'error'; text: string } | ({ st
 
 /** How long a friend's loaded profile is reused, so going back from one of their games doesn't load it all again. */
 const FRESH_MS = 5 * 60 * 1000;
+/** Kept by session and friend code: signing out (a new session) or opening the friends list starts afresh. */
 const loaded = new Map<string, { at: number; friend: LoadedFriend }>();
 
-/** A friend's profile and games, loaded once and kept for a few minutes. */
-function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string): Loading {
+/** Forgets every friend's profile: the friends list calls it, as a friend may have been removed. */
+export const forgetFriendProfiles = () => loaded.clear();
+
+/** A friend's profile and games, loaded once and kept for a few minutes. `attempt` changes to try again. */
+function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number): Loading {
+  const key = `${identity.token ?? ''}:${code}`;
   const [state, setState] = useState<Loading>(() => {
-    const kept = loaded.get(code);
+    const kept = loaded.get(key);
     return kept && Date.now() - kept.at < FRESH_MS ? { status: 'ready', ...kept.friend } : { status: 'loading' };
   });
   useEffect(() => {
     if (state.status === 'ready') return;
+    setState({ status: 'loading' });
     let live = true;
     loadFriendProfile(friendsApi(apiUrl, identity), code).then(({ profile, games }) => {
       const friend = { profile, games: games.map(toHistoryGame).filter((g): g is HistoryGame => g !== null) };
-      loaded.set(code, { at: Date.now(), friend });
+      loaded.set(key, { at: Date.now(), friend });
       if (live) setState({ status: 'ready', ...friend });
     }, (e: unknown) => {
       const error = e instanceof FriendsApiError ? e.code : 'unreachable';
@@ -66,7 +72,7 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string): 
     return () => {
       live = false;
     };
-  }, [apiUrl, identity, code]);
+  }, [apiUrl, identity, code, attempt]);
   return state;
 }
 
@@ -117,13 +123,14 @@ export function FriendProfileScreen({
   onBack: () => void;
   /** Every game in your history, or null while they load. */
   yourGames: HistoryGame[] | null;
-  /** Opens one of their games to review, with their Daily Rush places for it. */
-  onOpen: (game: HistoryGame, placements: readonly DailyPlacement[]) => void;
+  /** Opens one of their games to review, with their current name and their Daily Rush places for it. */
+  onOpen: (game: HistoryGame, name: string, placements: readonly DailyPlacement[]) => void;
   /** Their history's filters, kept while you review one of their games. */
   filter: HistoryFilter;
   onFilter: (filter: HistoryFilter) => void;
 }) {
-  const state = useFriendProfile(apiUrl, identity, friend.code);
+  const [attempt, setAttempt] = useState(0);
+  const state = useFriendProfile(apiUrl, identity, friend.code, attempt);
   const ready = state.status === 'ready' ? state : null;
   // Their current name, once loaded: the list's may be older.
   const name = ready?.profile.name ?? friend.name;
@@ -135,11 +142,18 @@ export function FriendProfileScreen({
     [theirs, yourGames]);
   const load = useMemo(() => listPage(ready?.games ?? []), [ready]);
 
-  const open = (game: HistoryGame) => ready && onOpen(game, ready.profile.placements);
+  const open = (game: HistoryGame) => ready && onOpen(game, ready.profile.name, ready.profile.placements);
 
   const body = () => {
     if (state.status === 'loading') return <p class="field-note" role="status">Loading {name}'s profile…</p>;
-    if (state.status === 'error') return <p class="field-note error" role="alert">{state.text}</p>;
+    if (state.status === 'error') {
+      return (
+        <>
+          <p class="field-note error" role="alert">{state.text}</p>
+          <div class="row-btns start"><button type="button" class="btn" onClick={() => setAttempt((a) => a + 1)}>Try again</button></div>
+        </>
+      );
+    }
     if (page === 'stats') {
       return (
         <Analytics stats={stats} games={state.games} onOpen={open} friend={name}>

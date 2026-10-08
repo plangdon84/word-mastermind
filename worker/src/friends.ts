@@ -1,4 +1,4 @@
-import { dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { addDays, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
   FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, isProfileCursor, MAX_FRIENDS, type Friend, type FriendProfile,
@@ -85,13 +85,19 @@ async function accountByCode(db: D1Database, code: string): Promise<string | nul
   return row?.id ?? null;
 }
 
-/** A friend of `accountId`'s, by their friend code: their account's ID and name, or null if they aren't one. */
-export async function friendByCode(db: D1Database, accountId: string, code: string): Promise<{ id: string; name: string } | null> {
+/** A friend of `accountId`'s account ID, by their friend code, or null if they aren't one (a request not yet accepted isn't). */
+async function friendIdByCode(db: D1Database, accountId: string, code: string): Promise<string | null> {
   const row = await db.prepare(
     `SELECT a.id FROM friends f JOIN accounts a ON a.id = f.friend_id
      WHERE f.account_id = ?1 AND a.friend_code = ?2 AND f.state = 'friends'`,
   ).bind(accountId, code).first<{ id: string }>();
-  return row ? { id: row.id, name: await nameOrDefault(db, row.id) } : null;
+  return row?.id ?? null;
+}
+
+/** A friend of `accountId`'s, by their friend code: their account's ID and name, or null if they aren't one. */
+export async function friendByCode(db: D1Database, accountId: string, code: string): Promise<{ id: string; name: string } | null> {
+  const id = await friendIdByCode(db, accountId, code);
+  return id ? { id, name: await nameOrDefault(db, id) } : null;
 }
 
 /** Sends notifications, if this server sends them. A failure never undoes what they're about. */
@@ -225,13 +231,13 @@ async function removeFriend(db: D1Database, accountId: string, code: string): Pr
  * (`h:`), then the ones the server refereed (`p:`), and with the first page
  * (no cursor) their name, country and Daily Rush places. Only what any
  * player may see of them: never their settings, email, friends list or an
- * ID. A Daily Rush whose day isn't over yet is left out, so its words can't
- * be read off a friend before you play it. Null if the page can't be read
- * for now (a busy game room).
+ * ID. A Daily Rush is left out until the day after it is over too (a run
+ * started before midnight can be finished the next day), so its words
+ * can't be read off a friend before you've played it.
  */
 export async function friendProfilePage(
   env: Env, friendId: string, cursor: string | null, now: number,
-): Promise<FriendProfilePage | null> {
+): Promise<FriendProfilePage> {
   const db = env.DB;
   const today = dailyDay(now);
   const player = await playerOfAccount(db, friendId);
@@ -252,10 +258,10 @@ export async function friendProfilePage(
     const page = await loadEntries(db, friendId, at);
     return { profile, games: page.entries as FriendProfilePage['games'], next: page.next !== null ? `h:${page.next}` : 'p:0' };
   }
-  const page = await playedPage(env, player, at);
-  if (page.stopped) return null;
+  const page = await playedPage(env, player, at, true);
   // Only the entry: its `ref` is a friend game's ID or a lobby's join code, both credentials.
-  const games = page.games.map((g) => g.entry).filter((e) => e.mode !== 'daily' || e.day < today);
+  const shownBefore = addDays(today, -1);
+  const games = page.games.map((g) => g.entry).filter((e) => e.mode !== 'daily' || e.day < shownBefore);
   return { profile, games, next: page.next !== null ? `p:${page.next}` : null };
 }
 
@@ -280,10 +286,9 @@ export async function routeFriends(
     const after = params.get('after');
     if (!isFriendCode(code) || !(after === null || isProfileCursor(after))) return errorResponse(400, 'bad-request');
     // Only a friend's: anyone else's code, or a request not yet accepted, is no different from no such player.
-    const friend = await friendByCode(env.DB, accountId, code);
-    if (!friend) return errorResponse(404, 'not-found');
-    const page = await friendProfilePage(env, friend.id, after, now);
-    return page ? json(page) : errorResponse(503, 'try-again');
+    const friendId = await friendIdByCode(env.DB, accountId, code);
+    if (!friendId) return errorResponse(404, 'not-found');
+    return json(await friendProfilePage(env, friendId, after, now));
   }
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   const body = await readJson(request);
