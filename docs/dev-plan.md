@@ -31,23 +31,6 @@ into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
 later that day, 18ub went first, since the browser tests passed CI's 30-minute
 limit; on 8 October 2026, 18ud went first: small fixes players hit now)
 
-- [ ] **18y. Daily Rush: New York's midnight, late finishes and a pause**
-  (issues #166, #160, #161 and #170; worker, review gate; changes README
-  "Daily Rush")
-  - #166: the day changes at midnight New York time (it follows daylight
-    saving: 4:00 or 5:00 UTC), for Daily Rush and its calendar, boards,
-    streaks and badges. On the switch-over day, that day's puzzle runs a
-    few hours longer. Past days keep their results
-  - #160: a run still going when the day changes can be finished, but it
-    isn't counted for the board or the streak, and the end says "You
-    finished after the day changed, so this one isn't on the board"
-  - #161: with 5 minutes or less of the day left, the Daily Rush screen
-    warns "5 minutes left to finish for today's board", and the start
-    screen warns too before you begin
-  - #170: a **Pause** button stops your time and covers the board until
-    you come back. The server records each pause and resume as moves, so
-    the record still replays
-  - A minor release with its notes
 - [ ] **18o. New badges: beating a friend at a harder level, and
   Clairvoyant** (issues #104 and #141; app only: a friend game's record
   holds both players' levels; changes README "Achievements")
@@ -193,6 +176,25 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18y. Daily Rush: New York's midnight, late finishes and a pause**
+  (issues #166, #160, #161 and #170; worker, review gate; changes README
+  "Daily Rush")
+  - #166: the day changes at midnight New York time (it follows daylight
+    saving: 4:00 or 5:00 UTC), for Daily Rush and its calendar, boards,
+    streaks and badges. On the switch-over day, that day's puzzle runs a
+    few hours longer. Past days keep their results (owner, 8 October 2026:
+    the 8th runs to New York's midnight, so Friday 9 October's set starts
+    then)
+  - #160: a run still going when the day changes can be finished, but it
+    isn't counted for the board or the streak, and the end says "You
+    finished after the day changed, so this one isn't on the board"
+  - #161: with 5 minutes or less of the day left, the Daily Rush screen
+    warns "5 minutes left to finish for today's board", and the start
+    screen warns too before you begin
+  - #170: a **Pause** button stops your time and covers the board until
+    you come back. The server records each pause and resume as moves, so
+    the record still replays
+  - A minor release with its notes
 - [x] **18ud. Small screen fixes** (issues
   plangdon84/word-mastermind-archive#194,
   plangdon84/word-mastermind-archive#191 and

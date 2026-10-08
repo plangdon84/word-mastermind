@@ -25,6 +25,15 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.8.0',
+    notes: [
+      { text: 'Daily Rush now changes over at midnight New York time (4am or 5am UTC, depending on the time of year). On the day it switches, that day’s set runs a few hours longer.' },
+      { text: 'If the day changes while you’re playing Daily Rush, you can still finish. It just won’t go on the leaderboard or your streak.' },
+      { text: 'Daily Rush warns you when there are 5 minutes or less left in the day, before you start and while you play.' },
+      { text: 'Daily Rush now has a Pause button: your clock stops and your guesses are hidden until you resume.' },
+    ],
+  },
+  {
     version: '1.7.5',
     notes: [
       { text: 'On Extreme, your latest guess and its score stay at the top while you scroll back through your scores.' },
