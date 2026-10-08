@@ -221,7 +221,7 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
           <ol class="tut-modes">
             <li><b>Win a Practice game</b> to open <b>Two player</b>.</li>
             <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Word Sets</b> and its <b>Solo Rush</b>.</li>
-            <li><b>Finish a Solo Rush without giving up a word</b> to open <b>Daily Set</b>
+            <li><b>Finish a Solo Rush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>
               {FEATURES.competitiveRush ? <>, <b>Rush with Friends</b> and <b>Competitive Rush</b></>
                 : <> and <b>Rush with Friends</b></>}.</li>
           </ol>

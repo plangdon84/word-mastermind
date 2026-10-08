@@ -146,7 +146,7 @@ interface Done {
 const HOW_TO_UNLOCK = {
   two: 'Win a Practice game to unlock.',
   rush: 'Win a two player game to unlock.',
-  otherRush: 'Finish a Solo Rush without giving up a word to unlock.',
+  otherRush: 'Finish a Solo Rush in Word Sets without giving up a word to unlock.',
 };
 
 const locked = (how: string, link?: Done['link']): { done: Done; detail: string } =>

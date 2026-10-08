@@ -814,12 +814,14 @@ three steps:
    friend).
 2. **Win a two player game** (vs. the computer or a friend; a draw isn't a
    win) → **Word Sets**, with Solo Rush.
-3. **Finish a Solo Rush without giving up a word** → the Daily card's
+3. **Finish a Solo Rush (in Word Sets) without giving up a word** → the Daily card's
    Daily Set and the rest of Word Sets (Rush with Friends, Competitive
    Rush).
 
 Practice is single player renamed (Dev Plan item 18za): it counts toward
-stats, badges and this first unlock as before.
+stats, badges and this first unlock as before. A locked Daily Set or With
+friends says "Finish a Solo Rush in Word Sets without giving up a word to
+unlock", naming where Solo Rush is.
 
 Each step needs the one before it: a win against a friend by invite link
 before any Practice win opens Word Sets only once two player is open.
