@@ -1086,7 +1086,14 @@ clocks only.
   (`worker/src/dailyRoom.ts`): the words stay there until you find them.
 - **Give up today's Daily Rush** (☰ menu) asks first, then ends it with no
   leaderboard entry; the words you didn't find stay hidden until the day is
-  over. A run not finished by midnight New York time has no entry either.
+  over.
+- **Late finishes** (Dev Plan item 18y, issue 160): a run still going when
+  the day changes can be finished during the next day, but it isn't on the
+  leaderboard or the Daily Rush streak. While you play it, a note says the
+  day has changed; the end says "You finished after the day changed, so
+  this one isn't on the board", with **Today's Daily Rush** to go on to the
+  new set. Until it's finished or given up, opening Daily Rush goes back
+  into it; a day later still, it can't be finished.
 - **Result:** each word with its guesses and time, total guesses and time,
   and your **place so far** ("12th of 340 · better than 96%"); places are
   final at midnight New York time. **Leaderboard** shows the day's top 10 for each

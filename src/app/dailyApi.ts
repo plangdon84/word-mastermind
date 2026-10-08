@@ -16,6 +16,11 @@ export interface DailyToday {
   day: DailyDay;
   /** The theme's name, or null on a day without one (the calendar has run out). */
   theme: string | null;
+  /**
+   * The theme of your run's day: today's, or yesterday's while you finish a
+   * run that was still going when the day changed (it's then off the board).
+   */
+  runTheme: string | null;
   /** When the next set is out: midnight New York time. */
   nextAt: number;
   /** The server's clock when it answered, so the app's clock can follow it. */
@@ -100,7 +105,9 @@ export function parseDailyToday(value: unknown): DailyToday | null {
   if (value.run !== null && run === null) return null;
   if (!Array.isArray(value.placements)) return null;
   const placements = value.placements.map(parsePlacement).filter((p): p is DailyPlacement => p !== null);
-  return { day, theme, nextAt, now, run, placements };
+  // An older server only sends today's run.
+  const runTheme = typeof value.runTheme === 'string' ? value.runTheme : theme;
+  return { day, theme, runTheme, nextAt, now, run, placements };
 }
 
 export function parseDailyBoard(value: unknown): DailyBoard | null {

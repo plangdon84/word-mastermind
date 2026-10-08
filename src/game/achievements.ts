@@ -1,5 +1,5 @@
 import type { Strength } from './computer';
-import { addDays, isTopTen, isTopTenPercent, type DailyPlacement } from './daily';
+import { addDays, finishedLate, isTopTen, isTopTenPercent, type DailyPlacement } from './daily';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { FEATURES, type Feature, type Features } from './features';
 import { summarizeGame, type GameSummary } from './history';
@@ -294,7 +294,8 @@ export function computeAchievements(
     for (const n of DAILY_STREAKS) if (dayStreak >= n) earn(`daily-${n}`, row);
     // The Daily Rush streak counts its own days, which change at midnight in New York.
     const { replayed } = row.game;
-    if (replayed.mode === 'daily' && replayed.day !== lastRushDay) {
+    // A run finished after its day ended isn't on the streak (README "Daily Rush").
+    if (replayed.mode === 'daily' && replayed.day !== lastRushDay && !finishedLate(replayed.day, replayed.game)) {
       rushStreak = lastRushDay !== null && replayed.day === addDays(lastRushDay, 1) ? rushStreak + 1 : 1;
       lastRushDay = replayed.day;
       for (const n of DAILY_STREAKS) if (rushStreak >= n) earn(`daily-rush-streak-${n}`, row);

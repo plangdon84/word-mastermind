@@ -114,8 +114,9 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   its day (`DAILY.idFromName`). It keeps every player's run for that day.
 - `src/dailyRoom.ts`: the referee `DailyRush` runs (`handleDaily`): once a
   day per player (any of an account's IDs), the run engine with the day's
-  words, nothing after the day ends (midnight in New York), and a finished run saved to
-  `daily_results` and `games` (mode `daily`).
+  words, no start after the day ends (midnight in New York) but a run's
+  moves for a day after, and a finished run saved to `games` (mode
+  `daily`) and, if finished before its day ended, `daily_results`.
 - `src/dailyThemes.ts`: the day's theme, from D1 (`daily_themes`); never
   from the repo, and never in the app. `src/themeDays.ts` has the rules for
   loading them (`npm run daily-themes`, "Daily Rush themes" below), and

@@ -15,7 +15,7 @@ export class DailyRush implements DurableObject {
 
   constructor(private readonly state: DurableObjectState, env: Env) {
     this.deps = {
-      saveFinished: (day, entry, totals, now) => saveFinishedDaily(env.DB, day, entry, totals, HISTORY_VERSION, now),
+      saveFinished: (day, entry, totals, late, now) => saveFinishedDaily(env.DB, day, entry, totals, late, HISTORY_VERSION, now),
       random: Math.random,
       themeFor: (day) => themeFor(env.DB, day),
     };

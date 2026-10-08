@@ -1,5 +1,5 @@
 import {
-  dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, validateName, type DailyDay, type DailyPlacement, type Difficulty,
+  addDays, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, validateName, type DailyDay, type DailyPlacement, type Difficulty,
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyToday } from '../../src/app/dailyApi';
 import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
@@ -63,13 +63,28 @@ async function pastPlacements(db: D1Database, player: Player, today: DailyDay): 
   return results.map(toPlacement);
 }
 
+/**
+ * Your run to show: today's, or, if you haven't started today's, yesterday's
+ * while it's still going, which you can finish off the board.
+ */
+async function currentRun(env: Env, player: Player, day: DailyDay): Promise<DailyResponse> {
+  const asker = { playerId: player.id, aliases: player.aliases };
+  const todays = await toDay(env, { ...asker, action: 'get', day });
+  if ('error' in todays.body || todays.body.run) return todays;
+  const yesterdays = await toDay(env, { ...asker, action: 'get', day: addDays(day, -1) });
+  return 'run' in yesterdays.body && yesterdays.body.run?.status === 'playing' ? yesterdays : todays;
+}
+
 async function today(env: Env, player: Player, now: number, run: DailyResponse | null = null): Promise<Response> {
   const day = dailyDay(now);
-  const answer = run ?? await toDay(env, { action: 'get', day, playerId: player.id, aliases: player.aliases });
+  const answer = run ?? await currentRun(env, player, day);
   if ('error' in answer.body) return json(answer.body, answer.status);
+  const theme = (await themeFor(env.DB, day))?.theme ?? null;
+  const runDay = answer.body.run?.day;
   const body: DailyToday = {
     day,
-    theme: (await themeFor(env.DB, day))?.theme ?? null,
+    theme,
+    runTheme: runDay && runDay !== day ? (await themeFor(env.DB, runDay))?.theme ?? null : theme,
     nextAt: dayEnd(day),
     now,
     run: answer.body.run,
@@ -144,9 +159,13 @@ export async function routeDaily(request: Request, env: Env, now: number, pathna
   if (action === 'suggest' && !FEATURES.suggest) return errorResponse(404, 'off');
   const body = await readJson(request);
   if (!isObject(body) || !isDailyDay(body.day)) return errorResponse(400, 'bad-request');
-  // Moves are for today only: a run not finished when the day changes has no entry.
-  const day = dailyDay(now);
-  if (body.day !== day) return errorResponse(body.day < day ? 409 : 400, body.day < day ? 'day-over' : 'bad-request');
+  // Starting is for today only. A run still going when the day changes can be finished during the next day, off the board.
+  const thisDay = dailyDay(now);
+  const late = action !== 'start' && body.day === addDays(thisDay, -1);
+  if (body.day !== thisDay && !late) {
+    return errorResponse(body.day < thisDay ? 409 : 400, body.day < thisDay ? 'day-over' : 'bad-request');
+  }
+  const day: DailyDay = body.day;
   const asker = { day, playerId: player.id, aliases: player.aliases };
 
   let dailyRequest: DailyRequest;

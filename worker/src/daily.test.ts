@@ -116,7 +116,7 @@ describe("today's Daily Rush", () => {
     const { as } = setup();
     const today = await as(ANN).today();
     expect(today).toEqual({
-      day: DAY, theme: 'Test set A', nextAt: END, now: NOON, run: null, placements: [],
+      day: DAY, theme: 'Test set A', runTheme: 'Test set A', nextAt: END, now: NOON, run: null, placements: [],
     });
     expect(JSON.stringify(today)).not.toMatch(/\b(brick|jumpy|solve|night)\b/);
     expect(END).toBe(Date.UTC(2026, 10, 1, 4));
@@ -173,15 +173,41 @@ describe("today's Daily Rush", () => {
     expect(await refusal(as('nobody').start(DAY, 'medium', 'Ann'))).toBe('bad-guest-id');
   });
 
-  it("ends with the day: a run not finished has no entry", async () => {
+  it('can be finished during the next day, kept in the history but not on the board', async () => {
     const { as, setClock, sqlite } = setup();
     await as(ANN).start(DAY, 'medium', 'Ann');
     await as(ANN).guess(DAY, 'brick');
     setClock(END + 1000);
-    expect(await refusal(as(ANN).guess(DAY, 'jumpy'))).toBe('day-over');
-    // A new day, a new set.
-    expect(await as(ANN).today()).toMatchObject({ day: '2026-11-01', run: null });
+    // The new day shows the run still going, with its own day's theme, until it's over.
+    const next = await as(ANN).today();
+    expect(next).toMatchObject({ day: '2026-11-01', theme: 'Test set B', runTheme: 'Test set A', run: { day: DAY, status: 'playing' } });
+    // Bob never started: nothing to finish, and the day is over for starting.
+    expect((await as(BOB).today()).run).toBeNull();
+    expect(await refusal(as(BOB).start(DAY, 'medium', 'Bob'))).toBe('day-over');
+    for (const word of WORDS.slice(1, 3)) await as(ANN).guess(DAY, word);
+    const done = await as(ANN).guess(DAY, WORDS[3]);
+    expect(done).toMatchObject({ day: '2026-11-01', runTheme: 'Test set A', run: { day: DAY, status: 'finished' } });
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM daily_results').get()).toEqual({ n: 0 });
+    expect(sqlite.prepare("SELECT COUNT(*) AS n FROM games WHERE mode = 'daily'").get()).toEqual({ n: 1 });
+    // Once it's over, today's set: Ann can start it.
+    expect(await as(ANN).today()).toMatchObject({ day: '2026-11-01', run: null });
+    expect((await as(ANN).start('2026-11-01', 'medium', 'Ann')).run).toMatchObject({ day: '2026-11-01', status: 'playing' });
+  });
+
+  it('can only be finished for a day: two days on, it is over', async () => {
+    const { as, setClock } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    setClock(dayEnd('2026-11-01') + 1000);
+    expect(await refusal(as(ANN).guess(DAY, 'brick'))).toBe('day-over');
+    expect((await as(ANN).today()).run).toBeNull();
+  });
+
+  it('once given up, leaves the new day to start', async () => {
+    const { as, setClock } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    setClock(END + 1000);
+    await as(ANN).giveUp(DAY);
+    expect((await as(ANN).today()).run).toBeNull();
   });
 
   it('counts a run finished in the last millisecond of the day', async () => {

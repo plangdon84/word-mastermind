@@ -207,6 +207,8 @@ function dailyDetail(today: DailyToday | null, now: number): string | undefined 
   const next = `next set in ${countdownText(today.nextAt - now)}`;
   if (!today.theme) return `No set today · ${next}`;
   const status = today.run?.status;
+  // Yesterday's run, still going when the day changed: it can be finished, off the board.
+  if (status === 'playing' && today.run?.day !== today.day) return `Yesterday's ${today.runTheme ?? 'set'} · in progress`;
   if (status === 'playing') return `Today: ${today.theme} · in progress`;
   if (status) return `Today: ${today.theme} · ${next}`;
   return `Today: ${today.theme} · ${next}`;

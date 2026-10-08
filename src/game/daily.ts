@@ -1,5 +1,5 @@
 import type { Difficulty } from './difficulty';
-import type { DailyDay } from './dailyDays';
+import { dayEnd, type DailyDay } from './dailyDays';
 import type { RunGame, WordOutcome } from './run';
 import type { GuessResult } from './scoring';
 
@@ -64,6 +64,9 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
   };
 }
 
+/** When the last word was found or given up: the run's end, once it's over. */
+const lastEnd = (run: RunGame): number => Math.max(run.startedAt, ...run.results.map((r) => r.endedAt ?? run.startedAt));
+
 /** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time. */
 export interface DailyTotals {
   guesses: number;
@@ -74,8 +77,15 @@ export interface DailyTotals {
 export function dailyTotals(run: RunGame): DailyTotals | null {
   if (dailyStatus(run) !== 'finished') return null;
   const guesses = run.results.reduce((sum, r) => sum + r.guesses.length, 0);
-  const end = Math.max(...run.results.map((r) => r.endedAt ?? run.startedAt));
-  return { guesses, ms: end - run.startedAt };
+  return { guesses, ms: lastEnd(run) - run.startedAt };
+}
+
+/**
+ * A run finished after its day ended (README "Daily Rush"): it could still be
+ * played to the end, but it isn't on the leaderboard or the Daily Rush streak.
+ */
+export function finishedLate(day: DailyDay, run: RunGame): boolean {
+  return dailyStatus(run) === 'finished' && lastEnd(run) >= dayEnd(day);
 }
 
 /** Your place on a day's leaderboard for your difficulty. */

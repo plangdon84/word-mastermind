@@ -173,6 +173,8 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
   const run = today?.run ?? null;
   const playing = run?.status === 'playing';
+  /** The run's day is over: it can still be finished, but it's off the board (README "Daily Rush"). */
+  const late = !!today && !!run && (run.day !== today.day || now >= today.nextAt);
   const difficulty = run?.difficulty ?? settings.difficulty;
   const medium = difficulty === 'medium';
   // Easy and Medium: the Shuffle key reorders the typed letters, whenever the letter keys would type.
@@ -183,7 +185,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     : undefined;
   const word = run && playing ? run.words[run.current] : null;
   const wordMarks = (run && marks[run.current]) ?? {};
-  const checks = useCheckLimit(`daily:${today?.day}:${run?.current}`);
+  const checks = useCheckLimit(`daily:${run?.day}:${run?.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
   const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing));
 
@@ -198,34 +200,35 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     setDraftState(d);
   };
 
-  const load = () => {
+  /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Rush). */
+  const load = (autoStart = start) => {
     setLoadError(null);
     api.today().then(async (t) => {
       const saved = loadDaily();
-      setMarks(saved?.day === t.day ? saved.marks : []);
-      if (t.run || !start || !t.theme) {
+      setMarks(saved?.day === (t.run?.day ?? t.day) ? saved.marks : []);
+      if (t.run || !autoStart || !t.theme) {
         setToday(t);
         return;
       }
       setToday(await api.start(t.day, settings.difficulty, displayName(profile)));
     }).catch((e: unknown) => setLoadError(dailyErrorMessage(codeOf(e))));
   };
-  useEffect(load, []);
+  useEffect(() => load(), []);
 
   // Medium's marks stay on this device, as does whether a reload should come back here.
   useEffect(() => {
-    if (today?.run) saveDaily({ day: today.day, playing: today.run.status === 'playing', marks });
+    if (today?.run) saveDaily({ day: today.run.day, playing: today.run.status === 'playing', marks });
   }, [today, marks]);
 
-  // Once you've finished, your place so far.
+  // Once you've finished, your place so far (none for a run finished after its day).
   useEffect(() => {
-    if (!today || run?.status !== 'finished') return;
+    if (!today || run?.status !== 'finished' || late) return;
     let live = true;
-    api.board(today.day, run.difficulty).then((b) => live && setPlacement(b.you), () => {});
+    api.board(run.day, run.difficulty).then((b) => live && setPlacement(b.you), () => {});
     return () => {
       live = false;
     };
-  }, [today?.day, run?.status]);
+  }, [run?.day, run?.status, late]);
 
   const reject = (text: string) => {
     setMessage({ text, error: true });
@@ -239,7 +242,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     if (canType()) setDraft(draftRef.current.slice(0, -1));
   };
 
-  /** The day ended mid-run: that run is void, and today's set is out. */
+  /** The run's day is long over (more than a day late): it can't be finished, and today's set is out. */
   const dayOver = () => {
     setMessage({ text: dailyErrorMessage('day-over'), error: true });
     setDraft('');
@@ -263,7 +266,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     }
     busy.current = true;
     try {
-      const after = await api.guess(before.day, guess);
+      const after = await api.guess(current.day, guess);
       setToday(after);
       setDraft('');
       const played = after.run?.words[current.current];
@@ -298,7 +301,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     }
     busy.current = true;
     try {
-      setToday(await api.suggest(before.day, word));
+      setToday(await api.suggest(current.day, word));
       setDraft(word);
       setMessage({ text: suggestedMessage(word), error: false });
     } catch (e) {
@@ -314,7 +317,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
   const confirmGiveUp = () => {
     setConfirming(false);
-    const day = todayRef.current?.day;
+    const day = todayRef.current?.run?.day;
     if (!day) return;
     api.giveUp(day).then(setToday, (e: unknown) => {
       if (codeOf(e) === 'day-over') dayOver();
@@ -338,13 +341,13 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
       matchup={
         <span>
           <b>Daily Rush</b>
-          {today?.theme && <> · {today.theme}</>}
+          {today?.runTheme && <> · {today.runTheme}</>}
         </span>
       }
       menu={(close) => (
         <GameMenuItems close={close} difficulty={difficulty}
           difficultyNote="Chosen for today's Daily Rush: it can't change."
-          giveUpLabel="Give up today's Daily Rush" canGiveUp={playing}
+          giveUpLabel={late ? 'Give up this Daily Rush' : "Give up today's Daily Rush"} canGiveUp={playing}
           onGiveUp={() => setConfirming(true)} onExit={onExit} onHowToPlay={() => setHowTo(true)}
           onReport={() => openReport({
             screen: `Daily Rush · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
@@ -372,7 +375,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               <h2>Daily Rush</h2>
               <p>{loadError}</p>
               <div class="row-btns">
-                <button class="btn primary" type="button" onClick={load}>Try again</button>
+                <button class="btn primary" type="button" onClick={() => load()}>Try again</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>
             </>
@@ -386,7 +389,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     return (
       <BoardPage title="Daily Rush" onBack={() => setShowBoard(false)} circle={identity.token ? circle : null}
         onCircle={setCircle}>
-        <DailyBoardPanel api={api} today={today.day} day={today.day} difficulty={difficulty}
+        <DailyBoardPanel api={api} today={today.day} day={run?.day ?? today.day} difficulty={difficulty}
           circle={identity.token ? circle : 'everyone'} />
       </BoardPage>
     );
@@ -425,11 +428,17 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
         </section>
       )}
 
+      {run && word && late && (
+        <p class="daily-note" role="status">
+          The day has changed. You can finish this Daily Rush, but it won't go on the leaderboard.
+        </p>
+      )}
+
       {run && word && (
         <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
           label={`Your guesses at word ${run.current + 1}`}
           emptyText={run.current === 0
-            ? `Today's theme: ${today.theme}. Type a 5-letter word and press Enter.`
+            ? `${run.day === today.day ? "Today's" : "Yesterday's"} theme: ${today.runTheme}. Type a 5-letter word and press Enter.`
             : `Word ${run.current + 1}: no guesses yet.`}
           marks={shownMarks} onMark={medium ? markLetter : undefined}
           openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
@@ -440,11 +449,20 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
       {confirming && playing && (
         <section class="panel warning">
-          <h2>Give up today's Daily Rush?</h2>
-          <p>
-            <b>You won't be on today's leaderboard</b>, and you can't play again until the next set, in {nextSet}.
-            Giving up one word gives up the whole Daily Rush.
-          </p>
+          {late ? (
+            <>
+              <h2>Give up this Daily Rush?</h2>
+              <p>The day it was for is over, so it's not on the leaderboard either way.</p>
+            </>
+          ) : (
+            <>
+              <h2>Give up today's Daily Rush?</h2>
+              <p>
+                <b>You won't be on today's leaderboard</b>, and you can't play again until the next set, in {nextSet}.
+                Giving up one word gives up the whole Daily Rush.
+              </p>
+            </>
+          )}
           <div class="row-btns">
             <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up</button>
             <button class="btn" type="button" onClick={() => setConfirming(false)}>Keep playing</button>
@@ -454,9 +472,12 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
       {run && !playing && (
         <section class="panel rush-result">
-          <h2>{run.status === 'finished' ? `All 4 words in ${clock}.` : "You gave up today's Daily Rush."}</h2>
+          <h2>
+            {run.status === 'finished' ? `All 4 words in ${clock}.`
+              : late ? 'You gave up this Daily Rush.' : "You gave up today's Daily Rush."}
+          </h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-            hiddenLabel="Hidden until tomorrow"
+            hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
             rows={run.words.map((w) => ({
               word: w.word,
               lit: w.word !== null,
@@ -465,7 +486,17 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               missed: w.outcome === 'solved' ? null : 'Not found',
               seconds: spentSeconds(w),
             }))} />
-          {run.status === 'finished' ? (
+          {late ? (
+            <>
+              {run.status === 'finished' && <RushSummary tiers={[['Guesses', totalGuesses]]} />}
+              <p class="tally">
+                {run.status === 'finished'
+                  ? <>{guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}. You finished after the day changed, so this one isn't on the board.</>
+                  : "That day's leaderboard shows its words."}
+                {' '}Today's set is out now.
+              </p>
+            </>
+          ) : run.status === 'finished' ? (
             <>
               <RushSummary tiers={[['Guesses', totalGuesses], ['Place so far', placement ? ordinal(placement.rank) : '…']]} />
               <p class="tally">
@@ -481,7 +512,8 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
             </p>
           )}
           <div class="row-btns">
-            <button class="btn primary" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
+            {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's Daily Rush</button>}
+            <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
             {run.status === 'finished' && (
               <ShareResult text={dailyShareText({
                 day: run.day,

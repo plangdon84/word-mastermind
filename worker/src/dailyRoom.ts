@@ -1,5 +1,5 @@
 import {
-  createRun, dailyTotals, shuffled, dailyView, dayEnd, endRun, replayRun, submitRunGuess, suggestRun, toRunRecord, type DailyDay, type DailyTotals,
+  createRun, dailyTotals, finishedLate, shuffled, dailyView, dayEnd, endRun, replayRun, submitRunGuess, suggestRun, toRunRecord, type DailyDay, type DailyTotals,
   type DailyView, type Difficulty, type RunRecord,
 } from '../../src/game';
 import type { DailyError } from '../../src/app/dailyApi';
@@ -23,7 +23,8 @@ export interface DailyEntry {
 
 /** What the referee needs from outside: keeping a finished run in D1, for the leaderboard, and shuffling. */
 export interface DailyDeps {
-  saveFinished(day: DailyDay, entry: DailyEntry, totals: DailyTotals, now: number): Promise<void>;
+  /** `late`: finished after the day ended, so kept in the history but not on the board. */
+  saveFinished(day: DailyDay, entry: DailyEntry, totals: DailyTotals, late: boolean, now: number): Promise<void>;
   /** Orders each player's words: a number in [0, 1). */
   random(): number;
   /** The day's theme (`themeFor`, from D1), or null on a day without one. */
@@ -74,10 +75,8 @@ export async function handleDaily(
   const answer = (e: DailyEntry | null): DailyResponse => ({ status: 200, body: { run: e && dailyView(day, replay(e)) } });
   if (request.action === 'get') return answer(entry);
 
-  // A run not finished when the day changes has no entry.
-  if (now >= dayEnd(day)) return refuse(409, 'day-over');
-
   if (request.action === 'start') {
+    if (now >= dayEnd(day)) return refuse(409, 'day-over');
     if (entry) return refuse(409, 'already-played');
     const theme = await deps.themeFor(day);
     if (!theme) return refuse(404, 'no-theme');
@@ -91,6 +90,7 @@ export async function handleDaily(
   }
 
   if (!entry) return refuse(409, 'not-started');
+  // A run still going when the day changes can be finished (the worker allows a day late), off the board.
   const run = replay(entry);
   const result = request.action === 'guess' ? submitRunGuess(run, request.word, now)
     : request.action === 'suggest' ? suggestRun(run, request.word, now) : endRun(run, now);
@@ -104,16 +104,19 @@ export async function handleDaily(
   const next: DailyEntry = { ...entry, record: toRunRecord(result.game) };
   await storage.put(keyOf(next.playerId), next);
   const totals = dailyTotals(result.game);
-  if (totals) await deps.saveFinished(day, next, totals, now);
+  if (totals) await deps.saveFinished(day, next, totals, finishedLate(day, result.game), now);
   return answer(next);
 }
 
-/** Saves a finished run to D1: its leaderboard row, and the game history as other server games are. */
+/**
+ * Saves a finished run to D1: its leaderboard row (unless it finished after
+ * the day ended), and the game history as other server games are.
+ */
 export async function saveFinishedDaily(
-  db: D1Database, day: DailyDay, entry: DailyEntry, totals: DailyTotals, historyVersion: number, now: number,
+  db: D1Database, day: DailyDay, entry: DailyEntry, totals: DailyTotals, late: boolean, historyVersion: number, now: number,
 ): Promise<void> {
   const { playerId, name, record } = entry;
-  await db.prepare(
+  if (!late) await db.prepare(
     `INSERT OR IGNORE INTO daily_results (day, player_id, difficulty, name, guesses, ms, finished_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
   ).bind(day, playerId, record.difficulty, name, totals.guesses, totals.ms, now).run();
