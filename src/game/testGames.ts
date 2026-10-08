@@ -82,12 +82,18 @@ export function versus(id: string, start: number, options: {
  */
 export function friendEntry(id: string, start: number, options: {
   seat?: Seat; first?: 'you' | 'them'; you: readonly string[]; them: readonly string[];
-  yourSecret?: string; theirSecret?: string; difficulty?: Difficulty; concede?: boolean; opponent?: string;
+  yourSecret?: string; theirSecret?: string; difficulty?: Difficulty; opponent?: string;
   rating?: RatingChange | null; suggest?: boolean;
+  /** You give up after the guesses (`true`), or they do (`'them'`). */
+  concede?: boolean | 'them';
+  /** The player to move runs out of time after the guesses (a day a guess). */
+  timeOut?: boolean;
+  /** Their difficulty, if not yours; and a level you switch to after the first guesses. */
+  theirDifficulty?: Difficulty; yourSwitch?: Difficulty;
 }): HistoryEntry {
   const {
     seat = 'host', first = 'you', you, them, yourSecret = 'storm', theirSecret = 'beach', difficulty = 'medium',
-    concede = false, opponent = 'Bob', rating = null, suggest = false,
+    concede = false, opponent = 'Bob', rating = null, suggest = false, theirDifficulty = difficulty, yourSwitch, timeOut = false,
   } = options;
   const other = otherSeat(seat);
   const firstSeat = first === 'you' ? seat : other;
@@ -97,12 +103,19 @@ export function friendEntry(id: string, start: number, options: {
   for (let i = 0; i < Math.max(a.length, b.length); i++) {
     if (i < a.length) moves.push({ seat: firstSeat, kind: 'guess', word: a[i], at: (at += STEP) });
     if (i < b.length) moves.push({ seat: otherSeat(firstSeat), kind: 'guess', word: b[i], at: (at += STEP) });
+    if (i === 0 && yourSwitch) moves.push({ seat, kind: 'difficulty', difficulty: yourSwitch, at: (at += STEP) });
   }
-  if (concede) moves.push({ seat, kind: 'concede', at: (at += STEP) });
+  if (concede) moves.push({ seat: concede === 'them' ? other : seat, kind: 'concede', at: (at += STEP) });
+  if (timeOut) {
+    // Whoever's turn it is: the next to guess, after the last guess.
+    const last = moves.filter((m) => m.kind === 'guess').at(-1);
+    const turn = last ? otherSeat(last.seat) : firstSeat;
+    moves.push({ seat: turn, kind: 'timeout', at: at + 2 * DAY });
+  }
   const secrets = { [seat]: yourSecret, [other]: theirSecret } as Record<Seat, string>;
   return {
     id, version: 1, mode: 'friend', seat, opponent, rating, marks: {},
-    record: { secrets, first: firstSeat, startedAt: start, turnDays: 1, difficulty: { host: difficulty, guest: difficulty }, moves },
+    record: { secrets, first: firstSeat, startedAt: start, turnDays: 1, difficulty: { [seat]: difficulty, [other]: theirDifficulty } as Record<Seat, Difficulty>, moves },
   };
 }
 

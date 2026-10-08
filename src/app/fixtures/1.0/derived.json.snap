@@ -282,6 +282,11 @@
       "gameId": "fx-computer-draw"
     },
     {
+      "id": "clairvoyant",
+      "at": 1790774620000,
+      "gameId": "fx-computer-draw"
+    },
+    {
       "id": "rush-casual",
       "at": 1790777240000,
       "gameId": "fx-rush"

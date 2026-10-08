@@ -31,24 +31,6 @@ into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
 later that day, 18ub went first, since the browser tests passed CI's 30-minute
 limit; on 8 October 2026, 18ud went first: small fixes players hit now)
 
-- [ ] **18o. New badges: beating a friend at a harder level, and
-  Clairvoyant** (issues #104 and #141; app only: a friend game's record
-  holds both players' levels; changes README "Achievements")
-  - **Two badges**: win a game against a friend (by link or challenge,
-    rated or not; not the computer, and a draw doesn't count) while you
-    played at a harder level than them, and while you played two or more
-    levels harder (Easy < Medium < Hard < Extreme; e.g. Extreme against
-    Medium, or Hard against Easy)
-  - Each player's level is the easiest they used at any point in the game,
-    as scoring does, so switching levels mid-game can't earn it
-  - #141: **Clairvoyant**: find a word with your first guess, in any mode
-    (single player, vs. the computer or a friend, or any one word of a
-    Rush). An opponent giving up before then doesn't count, and neither
-    does a first guess picked by Suggest (as for the few-guesses badges)
-  - Achievement Hunter counts the new badges, but a Hunter badge already
-    reached stays earned: the new badges count only toward Hunter levels
-    not yet reached (as 13c did for Easy's)
-  - A minor release with its notes
 - [ ] **18z. Rush and Crush** (issue #167; worker, review gate; changes
   README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
   "Achievements")
@@ -176,6 +158,24 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18o. New badges: beating a friend at a harder level, and
+  Clairvoyant** (issues #104 and #141; app only: a friend game's record
+  holds both players' levels; changes README "Achievements")
+  - **Two badges**: win a game against a friend (by link or challenge,
+    rated or not; not the computer, and a draw doesn't count) while you
+    played at a harder level than them, and while you played two or more
+    levels harder (Easy < Medium < Hard < Extreme; e.g. Extreme against
+    Medium, or Hard against Easy)
+  - Each player's level is the easiest they used at any point in the game,
+    as scoring does, so switching levels mid-game can't earn it
+  - #141: **Clairvoyant**: find a word with your first guess, in any mode
+    (single player, vs. the computer or a friend, or any one word of a
+    Rush). An opponent giving up before then doesn't count, and neither
+    does a first guess picked by Suggest (as for the few-guesses badges)
+  - Achievement Hunter counts the new badges, but a Hunter badge already
+    reached stays earned: the new badges count only toward Hunter levels
+    not yet reached (as 13c did for Easy's)
+  - A minor release with its notes
 - [x] **18y. Daily Rush: New York's midnight, late finishes and a pause**
   (issues #166, #160, #161 and #170; worker, review gate; changes README
   "Daily Rush")

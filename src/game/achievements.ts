@@ -3,6 +3,7 @@ import { addDays, finishedLate, isTopTen, isTopTenPercent, type DailyPlacement }
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { FEATURES, type Feature, type Features } from './features';
 import { summarizeGame, type GameSummary } from './history';
+import { otherSeat } from './pvp';
 import { STRENGTHS } from './records';
 import { summarizeSoloRun } from './run';
 import type { StatsGame } from './stats';
@@ -42,6 +43,12 @@ export interface Badge {
   count?: number;
   /** The launch switch its mode needs: while that's off, the badge isn't offered. */
   feature?: Feature;
+  /**
+   * Added after Achievement Hunter's levels could be reached (Dev Plan item
+   * 18o): it counts only toward a level not yet reached without it, so a
+   * Hunter badge already earned stays earned.
+   */
+  addedLater?: true;
 }
 
 const DIFFICULTY_METAL: Record<Difficulty, Metal> = { easy: 'jade', medium: 'bronze', hard: 'silver', extreme: 'gold' };
@@ -131,6 +138,18 @@ const ALL_BADGES: readonly Badge[] = [
     title: 'Win a game against a friend',
   },
   {
+    id: 'friend-harder', family: 'feat', metal: 'gold', tag: 'FRIENDS', label: 'HARDER',
+    title: 'Beat a friend while playing at a harder level than them', count: 1, addedLater: true,
+  },
+  {
+    id: 'friend-harder-2', family: 'feat', metal: 'ruby', tag: 'FRIENDS', label: 'HARDER',
+    title: 'Beat a friend while playing two or more levels harder than them', count: 2, addedLater: true,
+  },
+  {
+    id: 'clairvoyant', family: 'feat', metal: 'gold', tag: null, label: 'CLAIRVOYANT',
+    title: 'Clairvoyant: find a word with your first guess, without Suggest', addedLater: true,
+  },
+  {
     id: 'lobby-win', family: 'feat', metal: 'gold', tag: 'FRIENDS', label: 'FIRST',
     title: 'Finish first in a Rush with Friends', count: 1,
   },
@@ -156,6 +175,9 @@ export const BADGES: readonly Badge[] = badgesFor(FEATURES);
 /** How many badges Achievement Hunter counts: every one offered but its own. */
 export const HUNTED_BADGES = BADGES.filter((b) => !b.id.startsWith('hunter-')).length;
 
+/** How many it counted before the badges `addedLater`, which a Hunter level already reached doesn't need. */
+const HUNTED_BEFORE = BADGES.filter((b) => !b.id.startsWith('hunter-') && !b.addedLater).length;
+
 export const BADGE_BY_ID: ReadonlyMap<string, Badge> = new Map(BADGES.map((b) => [b.id, b]));
 
 export interface EarnedBadge {
@@ -167,6 +189,9 @@ export interface EarnedBadge {
 }
 
 const harderOrEqual = (played: Difficulty, badge: Difficulty) => DIFFICULTIES.indexOf(played) >= DIFFICULTIES.indexOf(badge);
+
+/** How many levels harder `yours` is than `theirs` (Easy < Medium < Hard < Extreme); negative if easier. */
+const levelsHarder = (yours: Difficulty, theirs: Difficulty) => DIFFICULTIES.indexOf(yours) - DIFFICULTIES.indexOf(theirs);
 
 /** A word you found (README "Achievements"), with the difficulty it counts at and whether Suggest helped. */
 interface Solve {
@@ -216,8 +241,9 @@ function gameBadges(game: StatsGame, summary: GameSummary): string[] {
   const ids: string[] = [];
   for (const { guesses, difficulty, suggested } of solves(game, summary)) {
     for (const d of DIFFICULTIES) if (harderOrEqual(difficulty, d)) ids.push(`solo-${d}`);
-    // Suggest found the word for you, or near enough: no few-guesses badge.
+    // Suggest found the word for you, or near enough: no few-guesses badge, and no Clairvoyant.
     if (!suggested) for (const n of FEW_GUESSES) if (guesses <= n) ids.push(`solo-guesses-${n}`);
+    if (!suggested && guesses === 1) ids.push('clairvoyant');
   }
   const { replayed } = game;
   if (replayed.mode === 'computer') {
@@ -233,7 +259,18 @@ function gameBadges(game: StatsGame, summary: GameSummary): string[] {
     if (summary.result === 'drawn' && replayed.game.first === 'computer') ids.push('clutch');
   }
   if (replayed.mode === 'friend') {
-    if (summary.result === 'won') ids.push('friend-win');
+    if (summary.result === 'won') {
+      ids.push('friend-win');
+      // Only a win where you found their word: not their giving up or running out of time before you did
+      // (their time running out on the final guess after you found it still counts). Each at the easiest
+      // level they used, as scoring counts it, so switching mid-game can't earn it.
+      const { game: g, seat } = replayed;
+      const harder = levelsHarder(g.scoredDifficulty[seat], g.scoredDifficulty[otherSeat(seat)]);
+      if (g.guesses[seat].some((r) => r.isWin)) {
+        if (harder >= 1) ids.push('friend-harder');
+        if (harder >= 2) ids.push('friend-harder-2');
+      }
+    }
     // Your friend found your word first, and you tied it with your final guess.
     if (summary.result === 'drawn' && replayed.game.first !== replayed.seat) ids.push('clutch');
   }
@@ -309,11 +346,14 @@ export function computeAchievements(
   for (const unlock of computeUnlocks(games)) {
     earned.set(`unlock-${unlock.step}`, { id: `unlock-${unlock.step}`, at: unlock.at, gameId: unlock.gameId });
   }
-  // Achievement Hunter, earned with the badge that takes you past each share of the rest.
+  // Achievement Hunter, earned with the badge that takes you past each share of the rest. A level reached
+  // counting only the badges from before `addedLater` ones stays reached, so it's whichever comes first.
   const others = [...earned.values()].sort((a, b) => a.at - b.at);
+  const before = others.filter((e) => !BADGE_BY_ID.get(e.id)?.addedLater);
   for (const n of HUNTER_PERCENTS) {
-    const needed = Math.ceil((HUNTED_BADGES * n) / 100);
-    const reached = others[needed - 1];
+    const reached = [before[Math.ceil((HUNTED_BEFORE * n) / 100) - 1], others[Math.ceil((HUNTED_BADGES * n) / 100) - 1]]
+      .filter((e) => e !== undefined)
+      .sort((a, b) => a.at - b.at)[0];
     if (reached) earned.set(`hunter-${n}`, { id: `hunter-${n}`, at: reached.at, gameId: reached.gameId });
   }
   return [...earned.values()].sort((a, b) => a.at - b.at);

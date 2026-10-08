@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BADGES, computeAchievements, cpuBadgeId, FEW_GUESSES, HUNTED_BADGES, suggestVoidedFewGuesses } from './achievements';
-import { DIFFICULTIES } from './difficulty';
+import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { STRENGTHS } from './records';
 import type { StatsGame } from './stats';
 import { daily, DAY, friend, lobby, rush, solo, versus } from './testGames';
@@ -64,12 +64,12 @@ describe('computeAchievements', () => {
   it('counts every word solved in a Rush as solo, and awards its level and the ones below', () => {
     const scored = rush('r', T, [['beach'], ['crane'], ['storm'], ['house']], { difficulty: 'hard' });
     expect(ids([scored])).toEqual([
-      'rush-casual', 'rush-expert', 'rush-mastermind', 'rush-skilled', 'solo-easy',
+      'clairvoyant', 'rush-casual', 'rush-expert', 'rush-mastermind', 'rush-skilled', 'solo-easy',
       'solo-guesses-10', 'solo-guesses-15', 'solo-guesses-20', 'solo-hard', 'solo-medium',
     ]);
     // Ended early: no level, but the word found still counts.
     expect(ids([rush('r', T, [['beach']], { end: true })])).toEqual([
-      'solo-easy', 'solo-guesses-10', 'solo-guesses-15', 'solo-guesses-20', 'solo-medium',
+      'clairvoyant', 'solo-easy', 'solo-guesses-10', 'solo-guesses-15', 'solo-guesses-20', 'solo-medium',
     ]);
   });
 
@@ -173,6 +173,41 @@ describe("the server's games' badges", () => {
     expect(ids([friend('f', T, { first: 'them', them: ['storm'], you: ['beach'] })])).toContain('clutch');
   });
 
+  it('award beating a friend at a harder level, and two or more harder', () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
+    const harder = (yours: Difficulty, theirs: Difficulty, more = {}) =>
+      ids([friend('f', T, { ...won, difficulty: yours, theirDifficulty: theirs, ...more })]).filter((id) => id.startsWith('friend-harder'));
+    expect(harder('medium', 'medium')).toEqual([]);
+    expect(harder('hard', 'extreme')).toEqual([]);
+    expect(harder('hard', 'medium')).toEqual(['friend-harder']);
+    expect(harder('extreme', 'medium')).toEqual(['friend-harder', 'friend-harder-2']);
+    expect(harder('hard', 'easy', { seat: 'guest' })).toEqual(['friend-harder', 'friend-harder-2']);
+    // A loss or a draw doesn't count.
+    expect(ids([friend('f', T, { you: ['crane'], them: ['storm'], difficulty: 'extreme', theirDifficulty: 'easy' })]))
+      .not.toContain('friend-harder');
+    expect(ids([friend('f', T, { first: 'them', them: ['storm'], you: ['beach'], difficulty: 'extreme', theirDifficulty: 'easy' })]))
+      .not.toContain('friend-harder');
+    // Won without finding their word: they gave up, or ran out of time.
+    expect(harder('extreme', 'easy', { you: ['crane'], them: ['house'], concede: 'them' })).toEqual([]);
+    expect(harder('extreme', 'easy', { you: ['crane'], them: [], timeOut: true })).toEqual([]);
+    // Their time ran out on their final guess, after you found their word: it counts.
+    expect(harder('extreme', 'easy', { you: ['beach'], them: [], timeOut: true })).toEqual(['friend-harder', 'friend-harder-2']);
+    // Your level is the easiest you used: switching down mid-game can't earn it.
+    expect(harder('extreme', 'medium', { you: ['crane', 'house', 'beach'], them: ['house', 'crane', 'teach'], yourSwitch: 'easy' }))
+      .toEqual([]);
+  });
+
+  it('award Clairvoyant for a word found with the first guess, in any mode, not with Suggest', () => {
+    expect(ids([solo('s', T, ['beach'])])).toContain('clairvoyant');
+    expect(ids([solo('s', T, ['crane', 'beach'])])).not.toContain('clairvoyant');
+    expect(ids([win('w', T, { you: ['beach'], computer: ['house'] })])).toContain('clairvoyant');
+    expect(ids([friend('f', T, { you: ['beach'], them: ['house'] })])).toContain('clairvoyant');
+    expect(ids([rush('r', T, [guesses(5), ['crane'], guesses(3).map(() => 'storm'), ['house']])])).toContain('clairvoyant');
+    expect(ids([solo('s', T, ['beach'], { difficulty: 'easy', suggest: true })])).not.toContain('clairvoyant');
+    const helped = [['?beach', 'beach'], ['house', 'crane'], ['house', 'storm'], ['crane', 'house']];
+    expect(ids([rush('r', T, helped, { difficulty: 'easy' })])).not.toContain('clairvoyant');
+  });
+
   it('count friend wins in the win streak', () => {
     const games = [win('a', T), friend('b', T + 1, { you: ['crane', 'beach'], them: ['house', 'crane'] }), win('c', T + 2)];
     expect(ids(games)).toContain('win-streak-3');
@@ -230,6 +265,25 @@ describe('Achievement Hunter', () => {
     expect(count).toBeGreaterThanOrEqual(Math.ceil(HUNTED_BADGES / 4));
     expect(all.find((b) => b.id === 'hunter-25')).toMatchObject({ gameId: 'r' });
     expect(all.find((b) => b.id === 'hunter-50')).toBeUndefined();
+  });
+
+  it('keeps a level reached before the badges added later, which count only toward levels not yet reached', () => {
+    const added = BADGES.filter((b) => b.addedLater).map((b) => b.id);
+    expect(added).toEqual(['friend-harder', 'friend-harder-2', 'clairvoyant']);
+    const before = HUNTED_BADGES - added.length;
+    // Just enough badges for 25% of those from before: a slow vs. computer win and a slow friend win,
+    // then a Rush at Mastermind level at Hard, which the larger count needs one more than.
+    const houses = [...Array(25)].map(() => 'house');
+    const games = [
+      versus('w', T, { strength: 'casual', you: guesses(25), computer: houses }),
+      friend('f', T + 1_000_000, { you: guesses(25), them: houses }),
+      rush('r', T + DAY, [['crane', 'beach'], ['beach', 'crane'], ['crane', 'storm'], ['crane', 'house']], { difficulty: 'hard' }),
+    ];
+    const earned = computeAchievements(games, utcDay);
+    const others = earned.filter((b) => !b.id.startsWith('hunter-')).length;
+    expect(others).toBeGreaterThanOrEqual(Math.ceil(before / 4));
+    expect(others).toBeLessThan(Math.ceil(HUNTED_BADGES / 4));
+    expect(earned.find((b) => b.id === 'hunter-25')).toMatchObject({ gameId: 'r' });
   });
 
   it("counts every badge but its own, Easy's included", () => {
