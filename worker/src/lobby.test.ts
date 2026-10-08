@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { lobbyApi, LobbyApiError, type LobbyApi } from '../../src/app/lobbyApi';
-import { SECRET_WORDS } from '../../src/game';
+import {
+  createLobby, joinLobby, playLobby, SECRET_WORDS, seatWords, startLobby, type LobbyRecord, type LobbyResult,
+} from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { fakeLobbies } from './fakeLobbies';
 import { handle, type Env } from './index';
+import { lobbyFinishedNotice, lobbyInviteNotice } from './notices';
 
 const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
@@ -71,6 +74,17 @@ describe('a lobby', () => {
     const { lobby } = await as(ANN).create('Ann', 'easy');
     expect(lobby.settings).toMatchObject({ difficulty: 'easy', minutes: 20 });
     expect((await as(ANN).settings(lobby.code, { ...NO_COMPUTERS, difficulty: 'easy', minutes: 20 })).lobby.settings.minutes).toBe(20);
+  });
+
+  it("opens ranked as the host last picked, which the host can change before starting", async () => {
+    const { as } = setup();
+    const { lobby } = await as(ANN).create('Ann', 'medium', undefined, 'rush');
+    expect(lobby.settings.rankBy).toBe('rush');
+    expect((await as(ANN).create('Ann', 'medium')).lobby.settings.rankBy).toBeUndefined();
+    const crush = await as(ANN).settings(lobby.code, { ...NO_COMPUTERS, difficulty: 'medium', minutes: 30 });
+    expect(crush.lobby.settings.rankBy).toBeUndefined();
+    const rush = await as(ANN).settings(lobby.code, { ...NO_COMPUTERS, difficulty: 'medium', minutes: 30, rankBy: 'rush' });
+    expect(rush.lobby.settings.rankBy).toBe('rush');
   });
 
   it('lets only the host change settings, start or close it', async () => {
@@ -216,7 +230,7 @@ describe('standings and notifications', () => {
       await ann.guess(code, word);
     }
     expect(lobbies.notices.map((n) => [n.guestId, n.message.title])).toEqual([
-      [BOB, 'Ann finished the Rush'], [CAT, 'Ann finished the Rush'],
+      [BOB, 'Ann finished the Crush'], [CAT, 'Ann finished the Crush'],
     ]);
     expect(lobbies.notices[0].message).toMatchObject({
       body: 'Score 1.0, with 4 of 4 words found. Keep going!', gameId: `lobby-${code}`, url: `/?lobby=${code}`,
@@ -230,9 +244,9 @@ describe('standings and notifications', () => {
     lobbies.notices.length = 0;
     await cat.giveUp(code);
     expect(lobbies.notices.map((n) => [n.guestId, n.message.title, n.message.body])).toEqual([
-      [ANN, 'You won the Rush with Friends!', 'Your score: 1.0. Bob came 2nd with 11.0.'],
-      [BOB, 'The Rush is over: you came tied 2nd of 3', 'Ann won with 1.0. Your score: 11.0.'],
-      [CAT, 'The Rush is over: you came tied 2nd of 3', 'Ann won with 1.0. Your score: 11.0.'],
+      [ANN, 'You won the Crush with Friends!', 'Your score: 1.0. Bob came 2nd with 11.0.'],
+      [BOB, 'The Crush is over: you came tied 2nd of 3', 'Ann won with 1.0. Your score: 11.0.'],
+      [CAT, 'The Crush is over: you came tied 2nd of 3', 'Ann won with 1.0. Your score: 11.0.'],
     ]);
   });
 
@@ -246,6 +260,27 @@ describe('standings and notifications', () => {
       tick(193_000);
       await lobbies.runAlarms();
     }
-    expect(lobbies.notices.map((n) => [n.guestId, n.message.title])).toEqual([[ANN, 'Computer 1 finished the Rush']]);
+    expect(lobbies.notices.map((n) => [n.guestId, n.message.title])).toEqual([[ANN, 'Computer 1 finished the Crush']]);
   });
 });
+
+describe('a Rush, ranked by time', () => {
+  it("names it in the notifications, and gives each player's time", () => {
+    const at = (s: number) => START + s * 1000;
+    let lobby = createLobby('ABCDEF', { id: ANN, name: 'Ann' }, 'medium', START, 'rush');
+    lobby = must(joinLobby(lobby, { id: BOB, name: 'Bob' }, START));
+    lobby = must(startLobby(lobby, ANN, WORDS, START, () => 0));
+    const ann = lobby.game!.seats.findIndex((s) => s.id === ANN);
+    seatWords(lobby.game!, ann).forEach((word, i) => {
+      lobby = must(playLobby(lobby, ANN, { kind: 'guess', word }, at(10 * (i + 1))));
+    });
+    const [finished] = lobbyFinishedNotice(lobby, ANN, at(41));
+    expect(finished.message).toMatchObject({ title: 'Ann finished the Rush', body: 'Time 0:40, with 4 of 4 words found. Keep going!' });
+    expect(lobbyInviteNotice(BOB, 'Ann', 'ABCDEF', 'friends', 'rush').message.title).toBe('Ann invited you to a Rush with Friends');
+  });
+});
+
+function must(result: LobbyResult): LobbyRecord {
+  if (!result.ok) throw new Error(result.error);
+  return result.lobby;
+}

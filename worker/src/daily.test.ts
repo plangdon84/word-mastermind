@@ -344,6 +344,24 @@ describe('the leaderboard', () => {
     expect(board.top.map((r) => [r.rank, r.name])).toEqual([[1, 'Bob'], [1, 'Cat'], [3, 'Ann']]);
   });
 
+  it('ranks the Rush board by time, then guesses, with your place there', async () => {
+    const s = setup();
+    // Ann guesses twice a word, quickly; Bob once a word, slowly.
+    for (const [id, name, extra, gap] of [[ANN, 'Ann', 1, 100], [BOB, 'Bob', 0, 3000]] as const) {
+      s.setClock(NOON);
+      await s.as(id).start(DAY, 'medium', name);
+      await solve(s.as(id), () => s.tick(gap), extra);
+    }
+    const rush = await s.as(ANN).board(DAY, 'medium', 'everyone', 'rush');
+    expect(rush.rankBy).toBe('rush');
+    expect(rush.top.map((r) => [r.rank, r.name])).toEqual([[1, 'Ann'], [2, 'Bob']]);
+    expect(rush.you).toMatchObject({ rank: 1, total: 2, behind: 1, rankBy: 'rush' });
+    const crush = await s.as(ANN).board(DAY, 'medium');
+    expect(crush.rankBy).toBe('crush');
+    expect(crush.top.map((r) => r.name)).toEqual(['Bob', 'Ann']);
+    expect(crush.you).not.toHaveProperty('rankBy');
+  });
+
   it('shows the words once the day is over, and no day to come', async () => {
     const { as, setClock } = await played();
     setClock(END + 60 * 60 * 1000);
@@ -356,10 +374,12 @@ describe('the leaderboard', () => {
     const { as, setClock } = await played();
     expect((await as(ANN).today()).placements).toEqual([]);
     setClock(END + 60 * 60 * 1000);
+    // The Crush board's place first, as an older app takes a day's first; then the Rush board's.
     expect((await as(ANN).today()).placements).toEqual([
       { day: DAY, difficulty: 'medium', rank: 2, total: 2, behind: 0, finishedAt: expect.any(Number) },
+      { day: DAY, difficulty: 'medium', rank: 2, total: 2, behind: 0, finishedAt: expect.any(Number), rankBy: 'rush' },
     ]);
-    expect((await as(CAT).today()).placements).toMatchObject([{ rank: 1, total: 1 }]);
+    expect((await as(CAT).today()).placements).toMatchObject([{ rank: 1, total: 1 }, { rank: 1, total: 1, rankBy: 'rush' }]);
   });
 });
 

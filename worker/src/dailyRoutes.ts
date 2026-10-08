@@ -1,5 +1,6 @@
 import {
-  addDays, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, validateName, type DailyDay, type DailyPlacement, type Difficulty,
+  addDays, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, RANK_BYS, validateName, type DailyDay,
+  type DailyPlacement, type Difficulty, type RankBy,
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyToday } from '../../src/app/dailyApi';
 import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
@@ -29,16 +30,24 @@ async function toDay(env: Env, request: DailyRequest): Promise<DailyResponse> {
 }
 
 /**
- * A result's place on its day's leaderboard, as `rank`, `total` and `behind`
- * columns (fewer guesses, then less time), among the results `filter` (on
- * `o`) keeps.
+ * The columns a board ranks by, in order: Crush, fewer guesses then less
+ * time; Rush, less time then fewer guesses (README "Daily Rush").
  */
-const placeColumns = (filter = '') => `
+const RANKED: Readonly<Record<RankBy, readonly [string, string]>> = { crush: ['guesses', 'ms'], rush: ['ms', 'guesses'] };
+
+/**
+ * A result's place on its day's leaderboard, as `rank`, `total` and `behind`
+ * columns (by `rankBy`), among the results `filter` (on `o`) keeps.
+ */
+const placeColumns = (rankBy: RankBy, filter = '') => {
+  const [first, then] = RANKED[rankBy];
+  return `
   1 + (SELECT COUNT(*) FROM daily_results o WHERE o.day = r.day AND o.difficulty = r.difficulty ${filter}
-    AND (o.guesses < r.guesses OR (o.guesses = r.guesses AND o.ms < r.ms))) AS rank,
+    AND (o.${first} < r.${first} OR (o.${first} = r.${first} AND o.${then} < r.${then}))) AS rank,
   (SELECT COUNT(*) FROM daily_results o WHERE o.day = r.day AND o.difficulty = r.difficulty ${filter}) AS total,
   (SELECT COUNT(*) FROM daily_results o WHERE o.day = r.day AND o.difficulty = r.difficulty ${filter}
-    AND (o.guesses > r.guesses OR (o.guesses = r.guesses AND o.ms > r.ms))) AS behind`;
+    AND (o.${first} > r.${first} OR (o.${first} = r.${first} AND o.${then} > r.${then}))) AS behind`;
+};
 
 interface PlaceRow {
   day: string;
@@ -51,16 +60,27 @@ interface PlaceRow {
   behind: number;
 }
 
-const toPlacement = (r: PlaceRow): DailyPlacement =>
-  ({ day: r.day, difficulty: r.difficulty, rank: r.rank, total: r.total, behind: r.behind, finishedAt: r.finished_at });
+/** A place on the Crush board leaves `rankBy` out, as every place did before the Rush board. */
+const toPlacement = (r: PlaceRow, rankBy: RankBy): DailyPlacement => ({
+  day: r.day, difficulty: r.difficulty, rank: r.rank, total: r.total, behind: r.behind, finishedAt: r.finished_at,
+  ...(rankBy === 'rush' ? { rankBy } : {}),
+});
 
-/** Your places on days that are over, which are final: for the top 10 and top 10% badges. */
+/**
+ * Your places on days that are over, which are final: for the top 10 and top
+ * 10% badges. A day's Crush place comes before its Rush place, so an older
+ * app, which takes a day's first, shows the Crush one.
+ */
 async function pastPlacements(db: D1Database, player: Player, today: DailyDay): Promise<DailyPlacement[]> {
-  const { results } = await db.prepare(
-    `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns()}
-     FROM daily_results r WHERE r.day < ?1 AND ${isPlayers('r.player_id', '?2')} ORDER BY r.day`,
-  ).bind(today, player.id).all<PlaceRow>();
-  return results.map(toPlacement);
+  const boards = await Promise.all(RANK_BYS.map(async (rankBy) => {
+    const { results } = await db.prepare(
+      `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(rankBy)}
+       FROM daily_results r WHERE r.day < ?1 AND ${isPlayers('r.player_id', '?2')} ORDER BY r.day`,
+    ).bind(today, player.id).all<PlaceRow>();
+    return results.map((r) => toPlacement(r, rankBy));
+  }));
+  const [rush, crush] = boards;
+  return [...crush, ...rush].sort((a, b) => a.day.localeCompare(b.day) || (a.rankBy ? 1 : 0) - (b.rankBy ? 1 : 0));
 }
 
 /**
@@ -94,7 +114,7 @@ async function today(env: Env, player: Player, now: number, run: DailyResponse |
 }
 
 async function board(
-  env: Env, player: Player, day: DailyDay, difficulty: Difficulty, circle: Circle, now: number,
+  env: Env, player: Player, day: DailyDay, difficulty: Difficulty, circle: Circle, rankBy: RankBy, now: number,
 ): Promise<Response> {
   const theme = await themeFor(env.DB, day);
   // No peeking at a day to come.
@@ -103,17 +123,18 @@ async function board(
   // Narrowed to you and your friends by your account's ID, the parameter numbered `param`.
   const only = (column: string, param: number) => (circle === 'friends' ? `AND ${inCircle(column, `?${param}`)}` : '');
   const circleArgs = circle === 'friends' ? [player.accountId] : [];
+  const order = RANKED[rankBy].join(', ');
   const { results: top } = await env.DB.prepare(
-    `SELECT name, guesses, ms, player_id, RANK() OVER (ORDER BY guesses, ms) AS rank
+    `SELECT name, guesses, ms, player_id, RANK() OVER (ORDER BY ${order}) AS rank
      FROM daily_results WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}
-     ORDER BY guesses, ms, finished_at LIMIT ${BOARD_SIZE}`,
+     ORDER BY ${order}, finished_at LIMIT ${BOARD_SIZE}`,
   ).bind(day, difficulty, ...circleArgs)
     .all<{ name: string; guesses: number; ms: number; player_id: string; rank: number }>();
   const total = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM daily_results WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}`,
   ).bind(day, difficulty, ...circleArgs).first<number>('n');
   const mine = await env.DB.prepare(
-    `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(only('o.player_id', 4))}
+    `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(rankBy, only('o.player_id', 4))}
      FROM daily_results r WHERE r.day = ?1 AND r.difficulty = ?2 AND ${isPlayers('r.player_id', '?3')}`,
   ).bind(day, difficulty, player.id, ...circleArgs).first<PlaceRow>();
   // The words stay secret until the day is over, and from you while you finish that day's run late.
@@ -126,11 +147,12 @@ async function board(
     day,
     theme: theme.theme,
     difficulty,
+    rankBy,
     words: shown ? [...theme.words] : null,
     total: total ?? 0,
     // Player IDs are credentials, so rows only say which one is yours.
     top: top.map((r): DailyBoardRow => ({ rank: r.rank, name: r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id) })),
-    you: mine ? { ...toPlacement(mine), guesses: mine.guesses, ms: mine.ms } : null,
+    you: mine ? { ...toPlacement(mine, rankBy), guesses: mine.guesses, ms: mine.ms } : null,
   };
   return json(body);
 }
@@ -151,10 +173,12 @@ export async function routeDaily(request: Request, env: Env, now: number, pathna
     const day = params.get('day');
     const difficulty = params.get('difficulty');
     const circle = params.get('circle') ?? 'everyone';
-    if (!isDailyDay(day) || !isDifficulty(difficulty) || !isCircle(circle)) return errorResponse(400, 'bad-request');
+    // Crush, fewest guesses, unless asked for Rush, fastest: as every board was before Rush and Crush.
+    const rankBy = params.get('by') ?? 'crush';
+    if (!isDailyDay(day) || !isDifficulty(difficulty) || !isCircle(circle) || !isRankBy(rankBy)) return errorResponse(400, 'bad-request');
     // Only an account has friends.
     if (circle === 'friends' && !player.accountId) return errorResponse(401, 'signed-out');
-    return board(env, player, day, difficulty, circle, now);
+    return board(env, player, day, difficulty, circle, rankBy, now);
   }
 
   const action = /^\/api\/daily\/(start|guess|suggest|give-up|pause|resume)$/.exec(pathname)?.[1];

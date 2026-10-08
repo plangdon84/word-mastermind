@@ -199,7 +199,7 @@ describe('your games the server refereed', () => {
     expect((await s.daily(CAT).board(DAY, 'medium')).you).toMatchObject({ rank: 1, guesses: 4 });
     expect((await s.daily(CAT).board(DAY, 'medium', 'friends')).you).toMatchObject({ rank: 1 });
     s.tick(24 * 3600_000);
-    expect((await s.daily(CAT).today()).placements).toMatchObject([{ day: DAY, rank: 1 }]);
+    expect((await s.daily(CAT).today()).placements).toMatchObject([{ day: DAY, rank: 1 }, { day: DAY, rank: 1, rankBy: 'rush' }]);
   });
 
   it('need a guest ID', async () => {

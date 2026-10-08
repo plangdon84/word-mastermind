@@ -1,7 +1,7 @@
 import {
   closeLobby, configureLobby, createCompetitiveLobby, createLobby, HISTORY_VERSION, joinLobby, leaveLobby, lobbyEndedAt,
   lobbyKind, lobbyStandings, lobbyView, lobbyWakeAt, seatRun, pickRunWords, playLobby, SECRET_WORDS, setLobbyWord, startLobby, LOBBY_SEATS,
-  LOBBY_WORDS, type Difficulty, type LobbyKind, type LobbyRecord, type LobbyResult, type LobbySettings,
+  LOBBY_WORDS, type Difficulty, type LobbyKind, type LobbyRecord, type LobbyResult, type LobbySettings, type RankBy,
 } from '../../src/game';
 import type { LobbyAnswer, LobbyErrorCode } from '../../src/app/lobbyApi';
 import { showRating } from '../../src/app/ratingsApi';
@@ -59,7 +59,7 @@ interface Asker {
 }
 
 export type LobbyRequest = Asker & (
-  | { action: 'create'; code: string; name: string; difficulty: Difficulty; kind?: LobbyKind; word?: string }
+  | { action: 'create'; code: string; name: string; difficulty: Difficulty; kind?: LobbyKind; word?: string; rankBy?: RankBy }
   | { action: 'get' }
   | { action: 'join'; name: string; word?: string }
   | { action: 'word'; word: string }
@@ -156,12 +156,12 @@ export async function handleLobby(
     let lobby: LobbyRecord;
     if (request.kind === 'competitive') {
       if (!request.signedIn) return refuse(401, 'account-needed');
-      const created = createCompetitiveLobby(request.code, { ...host, word: request.word }, request.difficulty, now);
+      const created = createCompetitiveLobby(request.code, { ...host, word: request.word }, request.difficulty, now, request.rankBy);
       // Only the word can be refused: missing, or not a valid secret word.
       if (!created.ok) return refuse(400, created.error as LobbyErrorCode);
       lobby = created.lobby;
     } else {
-      lobby = createLobby(request.code, host, request.difficulty, now);
+      lobby = createLobby(request.code, host, request.difficulty, now, request.rankBy);
     }
     const room: LobbyRoom = { lobby, saved: false, announced: [], alarmAt: null };
     await storage.put(ROOM_KEY, room);
