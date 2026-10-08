@@ -29,7 +29,8 @@ first; on 7 October 2026, ordered by value in as few PRs as make sense:
 18u first, since CI is out of free minutes, then that day's issues folded
 into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
 later that day, 18ub went first, since the browser tests passed CI's 30-minute
-limit; on 8 October 2026, 18ud went first: small fixes players hit now)
+limit; on 8 October 2026, 18ud went first: small fixes players hit now,
+and 7b moved after 18d, ahead of 18m)
 
 - [ ] **18z. Rush and Crush** (issue #167; worker, review gate; changes
   README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
@@ -49,17 +50,6 @@ limit; on 8 October 2026, 18ud went first: small fixes players hit now)
   - Competitive Rush (switched off at 1.0) gets the same choice when it's
     switched on. If the PR grows past a reviewable size, split it: Solo
     and lobbies first, then Daily
-  - A minor release with its notes
-- [ ] **7b. Daily Word** (issue #159; worker, review gate; changes README
-  "Daily Rush" and "Leaderboards", and adds a "Daily Word" section)
-  - One word a day, the same for everyone, picked from the secret list
-    (not themed), played once, at a difficulty you choose once, changing
-    at the same time as Daily Rush (18y)
-  - Its own board per difficulty, by fewest guesses, time breaking ties,
-    on the Leaderboards page beside Daily Rush, with place and "better
-    than X%" (as 18x)
-  - A tile on the title screen, a streak badge and a Share button like
-    Daily Rush's; unlocked with Daily Rush
   - A minor release with its notes
 - [ ] **18c. Friends' profiles** (issues #64 and #155; server and privacy,
   review gate)
@@ -82,6 +72,17 @@ limit; on 8 October 2026, 18ud went first: small fixes players hit now)
     can't read an iPhone's contacts)
   - Once Random opponent is switched on: add your opponent as a friend
     during or after the game (#78)
+- [ ] **7b. Daily Word** (issue #159; worker, review gate; changes README
+  "Daily Rush" and "Leaderboards", and adds a "Daily Word" section)
+  - One word a day, the same for everyone, picked from the secret list
+    (not themed), played once, at a difficulty you choose once, changing
+    at the same time as Daily Rush (18y)
+  - Its own board per difficulty, by fewest guesses, time breaking ties,
+    on the Leaderboards page beside Daily Rush, with place and "better
+    than X%" (as 18x)
+  - A tile on the title screen, a streak badge and a Share button like
+    Daily Rush's; unlocked with Daily Rush
+  - A minor release with its notes
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
     the game), kept out of 18j's sitemap and footers and sent with
