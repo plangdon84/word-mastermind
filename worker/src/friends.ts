@@ -1,4 +1,4 @@
-import { addDays, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { addDays, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS, type HistoryEntry } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
   FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, isProfileCursor, MAX_FRIENDS, type Friend, type FriendProfile,
@@ -225,6 +225,10 @@ async function removeFriend(db: D1Database, accountId: string, code: string): Pr
     .bind(accountId, friendId).run();
 }
 
+/** A friend's game without their rating change: their profile never shows their rating. */
+const withoutRating = (entry: HistoryEntry): HistoryEntry =>
+  entry.mode === 'friend' || entry.mode === 'lobby' ? { ...entry, rating: null } : entry;
+
 /**
  * A page of a friend's profile (Dev Plan item 18c, README "Friends'
  * profiles"): their games from their side, first those their devices synced
@@ -256,12 +260,13 @@ export async function friendProfilePage(
   if (part === 'h') {
     // Uploads were checked and parsed when synced (`routeSync`), so they hold only what a history entry has.
     const page = await loadEntries(db, friendId, at);
-    return { profile, games: page.entries as FriendProfilePage['games'], next: page.next !== null ? `h:${page.next}` : 'p:0' };
+    const games = (page.entries as FriendProfilePage['games']).map(withoutRating);
+    return { profile, games, next: page.next !== null ? `h:${page.next}` : 'p:0' };
   }
   const page = await playedPage(env, player, at, true);
   // Only the entry: its `ref` is a friend game's ID or a lobby's join code, both credentials.
   const shownBefore = addDays(today, -1);
-  const games = page.games.map((g) => g.entry).filter((e) => e.mode !== 'daily' || e.day < shownBefore);
+  const games = page.games.map((g) => withoutRating(g.entry)).filter((e) => e.mode !== 'daily' || e.day < shownBefore);
   return { profile, games, next: page.next !== null ? `p:${page.next}` : null };
 }
 

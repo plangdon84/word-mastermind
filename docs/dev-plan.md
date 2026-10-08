@@ -41,6 +41,17 @@ profile from games and boards becoming 18ca)
     Friends view of a board opens their profile too. The server marks
     which names are your friends' (by friend code, never an ID), since
     names alone can be shared or changed
+- [ ] **18cb. Faster friends' profiles** (round 1 review of 18c, finding 4;
+  server and privacy, review gate)
+  - A friend's profile loads their whole history before showing anything,
+    and the server checks up to 20 game rooms a page, one by one: a friend
+    with thousands of online games is slow to open. Keep what the profile
+    needs up to date on the server as games finish (each player's stats
+    and badges, and your record against each friend), so the profile and
+    its stats show at once from one small read
+  - Their game history then loads a page at a time as you scroll, instead
+    of all at once
+  - Add the profile route to the rate limits (`limitOf`)
 - [ ] **18d. Finding friends** (issues #79 and #78; server and privacy,
   review gate)
   - Type a friend's email to send them a request, without ever saying

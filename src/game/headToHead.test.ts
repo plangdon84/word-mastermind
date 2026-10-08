@@ -26,18 +26,20 @@ describe('headToHead', () => {
     expect(headToHead(yours, theirs).friend).toEqual({ wins: 2, draws: 1, losses: 0 });
   });
 
-  it('compares your place in a Word Set with theirs, not placed coming last', () => {
+  it('compares your place in a Word Set with theirs, not placed coming last, and leaves out one neither of you placed in', () => {
     const yours = [
       lobby('l1', T, ALL, { rank: 1 }),
       lobby('l2', T, ALL, { rank: 3 }),
       lobby('l3', T, ALL, { rank: 2 }),
       lobby('l4', T, ['give-up', 'give-up', 'give-up', 'give-up'], { rank: null }),
+      lobby('l5', T, ['give-up', 'give-up', 'give-up', 'give-up'], { rank: null }),
     ];
     const theirs = [
       lobby('l1', T, ALL, { rank: 2 }),
       lobby('l2', T, ALL, { rank: 1 }),
       lobby('l3', T, ALL, { rank: 2 }),
       lobby('l4', T, ALL, { rank: 1 }),
+      lobby('l5', T, ['give-up', 'give-up', 'give-up', 'give-up'], { rank: null }),
     ];
     expect(headToHead(yours, theirs)).toEqual({
       friend: { wins: 0, draws: 0, losses: 0 },

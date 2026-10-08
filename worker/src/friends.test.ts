@@ -473,7 +473,7 @@ describe("a friend's profile (Dev Plan item 18c)", () => {
     });
     await bob.sync.upload([soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach'])]);
     // A game against Ann: she goes first and finds Bob's word, and his final guess misses.
-    const game = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d', friend: bobCode });
+    const game = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d', friend: bobCode, rated: true });
     await bob.games.join(game.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
     await ann.games.guess(game.id, 'beach');
     await bob.games.guess(game.id, 'crane');
@@ -481,7 +481,8 @@ describe("a friend's profile (Dev Plan item 18c)", () => {
     const { profile, games } = await loadFriendProfile(ann.friends, bobCode);
     expect(profile).toEqual({ name: 'Bob', country: 'GB', memberSince: NOW, placements: [] });
     expect(games.map((g) => g.mode)).toEqual(['single', 'friend']);
-    expect(games[1]).toMatchObject({ mode: 'friend', seat: 'guest', opponent: 'Ann' });
+    // Rated, but their rating isn't shown to friends.
+    expect(games[1]).toMatchObject({ mode: 'friend', seat: 'guest', opponent: 'Ann', rating: null });
 
     // Nothing that's a credential or private: no game ID, guest ID, email or setting.
     const raw = JSON.stringify(await ann.friends.profile(bobCode, null)) + JSON.stringify(await ann.friends.profile(bobCode, 'p:0'));

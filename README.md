@@ -1995,7 +1995,9 @@ history**.
 
 - **What a friend sees:** your name and country, your stats, your badges
   and your whole game history as you see it: every finished game, with
-  your opponents' names, each opening to review as you would. Nothing else
+  your opponents' names, each opening to review as you would, your secret
+  words included (the owner chose to keep them, even during a game against
+  that friend, who could try your recent words). Nothing else
   of your profile: never your settings, email, friends list or an ID.
   Only your friends see it, and only while signed in; a request not yet
   accepted shows nothing either way.
@@ -2011,11 +2013,12 @@ history**.
   be read off a friend before you've played it. Their Daily Rush places
   (for the top 10 badges and each Daily Set's place) are only for days that
   are over too.
-- **Stats** are theirs, with their top guesses, but not their rating. At
+- **Stats** are theirs, with their top guesses, but not their rating,
+  which their rated games in the history leave out too. At
   the top, **You vs. Bob** is your record against them: won–drawn–lost for
   two player games against them, and for Word Sets you both played (a
   higher place than theirs is a win, the same place a draw; not placed
-  comes last). It's worked out from your own games: a game the server
+  comes last, and one neither of you placed in isn't counted). It's worked out from your own games: a game the server
   refereed has the same history ID in both histories, so it counts the
   games in yours that are in theirs too.
 - **Game history** has the same filters and search as yours, without

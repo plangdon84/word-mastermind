@@ -33,7 +33,8 @@ function rankOf(game: StatsGame): number | null {
 function resultOf(yours: StatsGame, theirs: StatsGame): HistoryResult | null {
   if (yours.replayed.mode === 'friend' && theirs.replayed.mode === 'friend') return summarizeGame(yours.replayed).result;
   const [you, them] = [rankOf(yours), rankOf(theirs)];
-  if (you === null || them === null) return null;
+  // Neither of you placed (both gave up every word): nobody beat anybody.
+  if (you === null || them === null || (you === Infinity && them === Infinity)) return null;
   return you < them ? 'won' : you > them ? 'lost' : 'drawn';
 }
 
