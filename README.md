@@ -426,8 +426,9 @@ penalty still compares results word by word (`seatKeys` in
     the leaderboard is your profile name (or guest name) when you start.
   - You choose **Medium, Hard or Extreme** before you start, and it can't
     change during the run.
-  - The clock never pauses, and there is no time limit except the day's end:
-    a run not finished when the day changes has no entry.
+  - The clock stops only for **Pause**, and there is no time limit: a run
+    not finished when the day changes can still be finished, but it has no
+    leaderboard entry (Dev Plan item 18y; it used to be void).
   - **Giving up** (a word or the run) quits that day's Daily Rush, with no
     leaderboard entry, so Daily Rush has no penalties.
   - **Leaderboard:** one per day **per difficulty**: finishing on Medium
@@ -1080,9 +1081,13 @@ clocks only.
   later, tagged **Played today** (or **Given up today**), with a **See
   today's leaderboard** link.
 - Header row 2 names the theme (**Daily Rush ·** and its name); row 3 has
-  one dot per word and the clock, which follows the server's and never
-  pauses. There's no Pause and no New game, and the ☰ menu's difficulty
-  can't change. Each word plays like Solo Rush's, refereed by the server
+  one dot per word, **Pause** and the clock, which follows the server's.
+  There's no New game, and the ☰ menu's difficulty can't change.
+- **Pause** (Dev Plan item 18y, issue 170) stops your clock and covers the
+  board ("Paused", with **Resume**) until you come back; your time leaves
+  the pauses out. The server records each pause and resume as moves, so
+  the run still replays. It pauses only when you press it, not when you
+  leave the page, and a run started before Pause can't pause. Each word plays like Solo Rush's, refereed by the server
   (`worker/src/dailyRoom.ts`): the words stay there until you find them.
 - **Give up today's Daily Rush** (☰ menu) asks first, then ends it with no
   leaderboard entry; the words you didn't find stay hidden until the day is

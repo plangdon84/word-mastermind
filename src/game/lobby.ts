@@ -620,6 +620,7 @@ export function lobbyView(lobby: LobbyRecord, ids: readonly string[], now: numbe
         endedAt: r.endedAt,
         outcome: r.outcome,
         suggested: r.suggested,
+        pausedMs: r.pausedMs,
       })),
       setBy: (game && seatSetters(game, yourIndex)?.map((j) => game.seats[j].name)) ?? null,
     },

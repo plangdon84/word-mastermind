@@ -2,7 +2,7 @@ import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   addDays, betterThan, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
-  type Difficulty, type Marks,
+  type DailyWordView, type Difficulty, type Marks,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
 import type { ApiIdentity } from './apiIdentity';
@@ -31,6 +31,12 @@ import { dailyShareText } from './shareText';
 /** The server's refusal code, or `unreachable`. */
 const codeOf = (e: unknown) => (e instanceof DailyApiError ? e.code : 'unreachable');
 
+
+/** A word's time in seconds, leaving out its pauses; null if it wasn't reached. */
+function unpausedSeconds(w: DailyWordView): number | null {
+  const seconds = spentSeconds(w);
+  return seconds === null ? null : Math.max(0, seconds - w.pausedMs / 1000);
+}
 
 /** Your place: "12th of 340 · better than 96%". */
 export function placeText(p: { rank: number; total: number; behind: number }): string {
@@ -140,7 +146,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
 /**
  * Daily Rush: the day's themed set of 4 words, refereed by the server, once
  * a day. With `start`, it starts today's run at your difficulty if you
- * haven't played yet. The clock never pauses.
+ * haven't played yet. Pause stops the clock, on the server too.
  */
 export function DailyScreen({ settings, profile, identity, onProfile, onExit, start }: {
   settings: Settings;
@@ -173,6 +179,8 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
   const run = today?.run ?? null;
   const playing = run?.status === 'playing';
+  /** Paused: the clock is stopped and the board covered until Resume (README "Daily Rush"). */
+  const paused = playing && run?.pausedAt != null;
   /** The run's day is over: it can still be finished, but it's off the board (README "Daily Rush"). */
   const late = !!today && !!run && (run.day !== today.day || now >= today.nextAt);
   const difficulty = run?.difficulty ?? settings.difficulty;
@@ -234,7 +242,10 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     setMessage({ text, error: true });
     setShake(true);
   };
-  const canType = () => todayRef.current?.run?.status === 'playing' && !confirming && !showBoard;
+  const canType = () => {
+    const current = todayRef.current?.run;
+    return current?.status === 'playing' && current.pausedAt === null && !confirming && !showBoard;
+  };
   const typeLetter = (letter: string) => {
     if (canType() && draftRef.current.length < 5) setDraft(draftRef.current + letter);
   };
@@ -315,6 +326,23 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
   usePhysicalKeyboard({ onLetter: typeLetter, onEnter: () => void enter(), onBackspace: backspace });
 
+  /** Stops or starts the clock: the server records it, so your time leaves the pause out. */
+  const togglePause = async () => {
+    const current = todayRef.current?.run;
+    if (!current || current.status !== 'playing' || busy.current) return;
+    busy.current = true;
+    try {
+      setToday(await (current.pausedAt === null ? api.pause(current.day) : api.resume(current.day)));
+      setMessage(null);
+    } catch (e) {
+      const code = codeOf(e);
+      if (code === 'day-over') dayOver();
+      else setMessage({ text: dailyErrorMessage(code), error: true });
+    } finally {
+      busy.current = false;
+    }
+  };
+
   const confirmGiveUp = () => {
     setConfirming(false);
     const day = todayRef.current?.run?.day;
@@ -332,7 +360,9 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
   };
 
   const lastEnd = run ? Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt)) : 0;
-  const clock = run ? formatClock(((playing ? now : lastEnd) - run.startedAt) / 1000) : '0:00';
+  const pausedMs = run ? run.words.reduce((sum, w) => sum + w.pausedMs, 0) : 0;
+  const clockEnd = !run ? 0 : !playing ? lastEnd : run.pausedAt ?? now;
+  const clock = run ? formatClock(Math.max(0, clockEnd - run.startedAt - pausedMs) / 1000) : '0:00';
   const nextSet = today ? countdownText(today.nextAt - now) : '';
   /** With 5 minutes or less of the day left (README "Daily Rush"). */
   const dayEnding = today && run && !late ? dayEndingText(today.nextAt - now) : null;
@@ -355,16 +385,23 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
           onReport={() => openReport({
             screen: `Daily Rush · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
           })}
-          onCheckMarks={medium && word
+          onCheckMarks={medium && word && !paused
             ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
           checksLeft={checks.left}
-          onClearMarks={medium && word && run
+          onClearMarks={medium && word && run && !paused
             ? () => setMarks(run.words.map((_, i) => (i === run.current ? {} : marks[i] ?? {}))) : undefined} />
       )}>
       {run && (
-        <RushBar dots={<RushDots words={run.words} current={playing ? run.current : null} />} clock={clock} clockLabel="Time" />
+        <RushBar dots={<RushDots words={run.words} current={playing ? run.current : null} />} clock={clock}
+          clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}>
+          {playing && run.pausable && (
+            <button type="button" class="btn small" disabled={confirming} onClick={() => void togglePause()}>
+              {paused ? 'Resume' : 'Pause'}
+            </button>
+          )}
+        </RushBar>
       )}
-      {shownMarks && word && <InSet marks={shownMarks} />}
+      {shownMarks && word && !paused && <InSet marks={shownMarks} />}
     </GameHeader>
   );
 
@@ -409,7 +446,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               <h2>Today: {today.theme}</h2>
               <p>
                 4 words on today's theme, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which
-                can't change once you start, and the clock doesn't pause. Next set in {nextSet}.
+                can't change once you start. <b>Pause</b> stops your clock and hides the board. Next set in {nextSet}.
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
@@ -439,7 +476,19 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
       )}
       {word && dayEnding && <p class="daily-note warn" role="status">{dayEnding}</p>}
 
-      {run && word && (
+      {/* While paused the board is hidden, so the pause can't be used to think. */}
+      {word && paused && (
+        <section class="panel">
+          <h2>Paused</h2>
+          <p>Your clock is stopped. Your guesses are hidden until you resume.</p>
+          <div class="row-btns">
+            <button class="btn primary" type="button" onClick={() => void togglePause()}>Resume</button>
+          </div>
+          {message && <p class="message error" role="status">{message.text}</p>}
+        </section>
+      )}
+
+      {run && word && !paused && (
         <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
           label={`Your guesses at word ${run.current + 1}`}
           emptyText={run.current === 0
@@ -489,7 +538,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               guesses: w.guesses,
               reached: w.startedAt !== null,
               missed: w.outcome === 'solved' ? null : 'Not found',
-              seconds: spentSeconds(w),
+              seconds: unpausedSeconds(w),
             }))} />
           {late ? (
             <>

@@ -1,5 +1,5 @@
 import {
-  createRun, dailyTotals, finishedLate, shuffled, dailyView, dayEnd, endRun, replayRun, submitRunGuess, suggestRun, toRunRecord, type DailyDay, type DailyTotals,
+  createRun, dailyTotals, finishedLate, pauseRun, resumeRun, shuffled, dailyView, dayEnd, endRun, replayRun, submitRunGuess, suggestRun, toRunRecord, type DailyDay, type DailyTotals,
   type DailyView, type Difficulty, type RunRecord,
 } from '../../src/game';
 import type { DailyError } from '../../src/app/dailyApi';
@@ -43,7 +43,10 @@ export type DailyRequest = Asker & { day: DailyDay } & (
   | { action: 'guess'; word: string }
   /** Easy's Suggest offered `word` (README "Easy"). */
   | { action: 'suggest'; word: string }
-  | { action: 'give-up' });
+  | { action: 'give-up' }
+  /** Stop and start the clock (README "Daily Rush"), recorded as moves so the run still replays. */
+  | { action: 'pause' }
+  | { action: 'resume' });
 
 export type DailyResponse = { status: number; body: { run: DailyView | null } | { error: DailyError } };
 
@@ -80,9 +83,9 @@ export async function handleDaily(
     if (entry) return refuse(409, 'already-played');
     const theme = await deps.themeFor(day);
     if (!theme) return refuse(404, 'no-theme');
-    // The clock never pauses, and there's no time limit but the day's end. Everyone gets the day's words in
+    // The clock pauses only when you press Pause, and there's no time limit. Everyone gets the day's words in
     // their own order, kept in their run's record, so nobody learns the first word from someone else.
-    const created = createRun(shuffled(theme.words, deps.random), now, { difficulty: request.difficulty });
+    const created = createRun(shuffled(theme.words, deps.random), now, { difficulty: request.difficulty, pausable: true });
     if (!created.ok) throw new Error(`${day}'s theme ${theme.id} isn't a valid run: ${created.error}`);
     const started: DailyEntry = { playerId: request.playerId, name: request.name, record: toRunRecord(created.game) };
     await storage.put(keyOf(started.playerId), started);
@@ -93,9 +96,12 @@ export async function handleDaily(
   // A run still going when the day changes can be finished (the worker allows a day late), off the board.
   const run = replay(entry);
   const result = request.action === 'guess' ? submitRunGuess(run, request.word, now)
-    : request.action === 'suggest' ? suggestRun(run, request.word, now) : endRun(run, now);
+    : request.action === 'suggest' ? suggestRun(run, request.word, now)
+    : request.action === 'pause' ? pauseRun(run, now)
+    : request.action === 'resume' ? resumeRun(run, now) : endRun(run, now);
   if (!result.ok) {
-    if (result.error === 'game-over') return refuse(409, 'game-over');
+    if (result.error === 'game-over' || result.error === 'paused' || result.error === 'not-paused'
+      || result.error === 'not-pausable') return refuse(409, result.error);
     if (result.error === 'not-easy' || result.error === 'no-suggestions') return refuse(409, result.error);
     if (result.error === 'wrong-length' || result.error === 'not-letters' || result.error === 'not-in-word-list'
       || result.error === 'repeated-letters') return refuse(400, result.error);

@@ -218,6 +218,12 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
       return "That day's Daily Rush is over: a new set is out.";
     case 'game-over':
       return "Today's Daily Rush is over for you.";
+    case 'paused':
+      return 'The clock is paused. Resume to keep playing.';
+    case 'not-paused':
+      return "The clock isn't paused.";
+    case 'not-pausable':
+      return "This Daily Rush was started before Pause, so its clock can't pause.";
     case 'offensive-name':
       return "Your name can't go on the leaderboard. Change it on your profile to play.";
     case 'not-found':

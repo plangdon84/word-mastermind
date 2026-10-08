@@ -371,7 +371,7 @@ Run `npm test` and `npm run typecheck` before committing.
   Skilled, else Casual). Daily Rush: the day's themed set
   (`wordlist/themes/`, never shipped in the app; the day flips at midnight
   in New York, `src/game/dailyDays.ts`), once a day, difficulty chosen
-  once, no pause, giving up leaves no entry, a leaderboard per day and difficulty by total guesses (time breaks
+  once, Pause recorded as moves (item 18y), giving up leaves no entry, a leaderboard per day and difficulty by total guesses (time breaks
   ties) with position and percentile. Rush with Friends: a lobby of up to 5
   (join code; computers can fill seats, pacing their guesses by duration ÷
   4 ÷ their strength's fewest expected guesses), one difficulty, the same

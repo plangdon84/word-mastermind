@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dailyApi, DailyApiError, type DailyApi } from '../../src/app/dailyApi';
 import { DAY_MS, dayEnd, replayRun, validateSecretWord, type RunRecord } from '../../src/game';
+import type { DailyEntry } from './dailyRoom';
 import { themeFor } from './dailyThemes';
 import { calendarDays, themeDayProblems, themeDaysSql, type ThemeDay } from './themeDays';
 import { fakeD1 } from './fakeD1';
@@ -21,14 +22,14 @@ const END = dayEnd(DAY);
 function setup(random?: () => number) {
   const { db, sqlite } = fakeD1({ dailyThemes: true });
   let clock = NOON;
-  const { namespace } = fakeDaily({ db, now: () => clock, random });
+  const { namespace, days } = fakeDaily({ db, now: () => clock, random });
   const env: Env = {
     DB: db, GAMES: undefined as unknown as DurableObjectNamespace, DAILY: namespace, LOBBIES: undefined as unknown as DurableObjectNamespace, QUEUES: undefined as unknown as DurableObjectNamespace, ALLOWED_ORIGINS: '',
   };
   const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) =>
     handle(new Request(input, init), env, clock)) as typeof fetch;
   const as = (guestId: string): DailyApi => dailyApi('https://api.example', { guestId, token: null }, fetchFn);
-  return { env, sqlite, as, tick: (ms: number) => { clock += ms; }, setClock: (ms: number) => { clock = ms; } };
+  return { env, sqlite, days, as, tick: (ms: number) => { clock += ms; }, setClock: (ms: number) => { clock = ms; } };
 }
 
 /** The error a call rejects with. */
@@ -241,6 +242,45 @@ describe("today's Daily Rush", () => {
     const game = sqlite.prepare("SELECT record FROM games WHERE mode = 'daily'").get() as { record: string };
     const replayed = replayRun(JSON.parse(game.record) as RunRecord);
     expect(replayed.ok && replayed.game.results.every((r) => r.outcome === 'solved')).toBe(true);
+  });
+});
+
+describe('Pause', () => {
+  it('stops your clock, refusing guesses until you resume, and your time leaves it out', async () => {
+    const { as, tick, sqlite } = setup();
+    expect((await as(ANN).start(DAY, 'medium', 'Ann')).run).toMatchObject({ pausable: true, pausedAt: null });
+    tick(1000);
+    await as(ANN).guess(DAY, 'brick');
+    tick(1000);
+    expect((await as(ANN).pause(DAY)).run).toMatchObject({ pausedAt: NOON + 2000 });
+    expect(await refusal(as(ANN).pause(DAY))).toBe('paused');
+    tick(60_000);
+    expect(await refusal(as(ANN).guess(DAY, 'jumpy'))).toBe('paused');
+    const resumed = await as(ANN).resume(DAY);
+    expect(resumed.run).toMatchObject({ pausedAt: null });
+    expect(resumed.run?.words[1].pausedMs).toBe(60_000);
+    expect(await refusal(as(ANN).resume(DAY))).toBe('not-paused');
+    for (const word of WORDS.slice(1)) {
+      tick(1000);
+      await as(ANN).guess(DAY, word);
+    }
+    // 4 seconds of guessing, and the minute paused left out.
+    expect(sqlite.prepare('SELECT guesses, ms FROM daily_results').get()).toEqual({ guesses: 4, ms: 5000 });
+    const game = sqlite.prepare("SELECT record FROM games WHERE mode = 'daily'").get() as { record: string };
+    const record = JSON.parse(game.record) as RunRecord;
+    expect(record.moves.map((m) => m.kind)).toContain('pause');
+    expect(replayRun(record).ok).toBe(true);
+  });
+
+  it("can't pause a run started before Pause", async () => {
+    const { days, as } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    // As a run from before Pause was saved: not pausable.
+    const storage = days.get(DAY)!;
+    const entry = await storage.get<DailyEntry>(`run:${ANN}`);
+    await storage.put(`run:${ANN}`, { ...entry!, record: { ...entry!.record, pausable: false } });
+    expect((await as(ANN).today()).run?.pausable).toBe(false);
+    expect(await refusal(as(ANN).pause(DAY))).toBe('not-pausable');
   });
 });
 

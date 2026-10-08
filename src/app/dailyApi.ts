@@ -59,7 +59,7 @@ export interface DailyBoard {
 /** The server's reasons for refusing a request, beyond a word the rules refuse. */
 export type DailyError =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'no-theme' | 'already-played'
-  | 'not-started' | 'day-over' | 'game-over' | 'offensive-name'
+  | 'not-started' | 'day-over' | 'game-over' | 'offensive-name' | 'paused' | 'not-paused' | 'not-pausable'
   | 'wrong-length' | 'not-letters' | 'repeated-letters' | 'not-in-word-list' | 'not-easy' | 'no-suggestions';
 
 const isGuess = (value: unknown): value is GuessResult =>
@@ -73,9 +73,10 @@ export function parseWordView(value: unknown): DailyWordView | null {
   if (!(word === null || typeof word === 'string') || !Array.isArray(guesses) || !guesses.every(isGuess)) return null;
   if (!timeOrNull(startedAt) || !timeOrNull(endedAt)) return null;
   if (!(outcome === null || outcome === 'solved' || outcome === 'gave-up' || outcome === 'unsolved')) return null;
-  // An older server doesn't count suggestions.
+  // An older server doesn't count suggestions, or pauses.
   const suggested = typeof value.suggested === 'number' ? value.suggested : 0;
-  return { word, guesses, startedAt: startedAt as number | null, endedAt: endedAt as number | null, outcome, suggested };
+  const pausedMs = isCount(value.pausedMs) ? value.pausedMs : 0;
+  return { word, guesses, startedAt: startedAt as number | null, endedAt: endedAt as number | null, outcome, suggested, pausedMs };
 }
 
 export function parseDailyView(value: unknown): DailyView | null {
@@ -86,7 +87,10 @@ export function parseDailyView(value: unknown): DailyView | null {
   if (!Array.isArray(value.words)) return null;
   const words = value.words.map(parseWordView);
   if (words.some((w) => w === null)) return null;
-  return { day, difficulty, startedAt, current, status, words: words as DailyWordView[] };
+  // Nor can its runs pause.
+  const pausable = value.pausable === true;
+  const pausedAt = isTime(value.pausedAt) ? value.pausedAt : null;
+  return { day, difficulty, startedAt, current, status, words: words as DailyWordView[], pausable, pausedAt };
 }
 
 export function parsePlacement(value: unknown): DailyPlacement | null {
@@ -146,6 +150,9 @@ export interface DailyApi {
   guess(day: DailyDay, word: string): Promise<DailyToday>;
   /** Quits today's Daily Rush, with no leaderboard entry. */
   giveUp(day: DailyDay): Promise<DailyToday>;
+  /** Stops your clock and covers the board, until `resume`. */
+  pause(day: DailyDay): Promise<DailyToday>;
+  resume(day: DailyDay): Promise<DailyToday>;
   /** Records that Easy's Suggest offered `word` at the word being played (README "Easy"). */
   suggest(day: DailyDay, word: string): Promise<DailyToday>;
   /** A day's board for one difficulty: everyone's, or (signed in) you and your friends'. */
@@ -168,6 +175,8 @@ export function dailyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof 
     start: (day, difficulty, name) => today('POST', '/api/daily/start', { day, difficulty, name }),
     guess: (day, word) => today('POST', '/api/daily/guess', { day, word }),
     giveUp: (day) => today('POST', '/api/daily/give-up', { day }),
+    pause: (day) => today('POST', '/api/daily/pause', { day }),
+    resume: (day) => today('POST', '/api/daily/resume', { day }),
     suggest: (day, word) => today('POST', '/api/daily/suggest', { day, word }),
     board: async (day, difficulty, circle = 'everyone') => {
       const query = `day=${day}&difficulty=${difficulty}${circle === 'friends' ? '&circle=friends' : ''}`;

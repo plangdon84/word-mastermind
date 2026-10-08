@@ -152,7 +152,7 @@ export async function routeDaily(request: Request, env: Env, now: number, pathna
     return board(env, player, day, difficulty, circle, now);
   }
 
-  const action = /^\/api\/daily\/(start|guess|suggest|give-up)$/.exec(pathname)?.[1];
+  const action = /^\/api\/daily\/(start|guess|suggest|give-up|pause|resume)$/.exec(pathname)?.[1];
   if (!action) return errorResponse(404, 'not-found');
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   // Easy's Suggest is behind a launch switch (`features.ts`).
@@ -179,7 +179,7 @@ export async function routeDaily(request: Request, env: Env, now: number, pathna
     if (typeof body.word !== 'string' || body.word.length > 64) return errorResponse(400, 'bad-request');
     dailyRequest = { ...asker, action, word: body.word };
   } else {
-    dailyRequest = { ...asker, action: 'give-up' };
+    dailyRequest = { ...asker, action: action as 'give-up' | 'pause' | 'resume' };
   }
   return today(env, player, now, await toDay(env, dailyRequest));
 }

@@ -171,6 +171,18 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    name: 'daily-rush-paused',
+    open: async (page) => {
+      await unlockAll(page);
+      await modeButton(page, 'Rush').click();
+      await modeButton(page, 'Daily Rush').click();
+      await button(page, /^Medium/).click();
+      await button(page, 'Start Daily Rush').click();
+      await button(page, 'Pause').click();
+      await page.getByRole('heading', { name: 'Paused' }).waitFor();
+    },
+  },
+  {
     name: 'lobby-setup',
     open: async (page) => {
       await unlockAll(page);

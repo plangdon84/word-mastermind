@@ -1,6 +1,6 @@
 import type { Difficulty } from './difficulty';
 import { dayEnd, type DailyDay } from './dailyDays';
-import type { RunGame, WordOutcome } from './run';
+import { runElapsedMs, type RunGame, type WordOutcome } from './run';
 import type { GuessResult } from './scoring';
 
 /*
@@ -27,6 +27,8 @@ export interface DailyWordView {
   outcome: WordOutcome | null;
   /** Suggestions taken at this word (Easy). */
   suggested: number;
+  /** Time spent paused at this word, which doesn't count. */
+  pausedMs: number;
 }
 
 /** A player's Daily Rush as the server sends it: the words not yet found stay hidden. */
@@ -38,6 +40,10 @@ export interface DailyView {
   current: number;
   status: DailyStatus;
   words: readonly DailyWordView[];
+  /** Whether the clock can be paused: runs started before Pause (Dev Plan item 18y) can't. */
+  pausable: boolean;
+  /** When the clock was paused, or null while it runs. */
+  pausedAt: number | null;
 }
 
 export function dailyStatus(run: RunGame): DailyStatus {
@@ -53,6 +59,8 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
     startedAt: run.startedAt,
     current: run.current,
     status: dailyStatus(run),
+    pausable: run.pausable,
+    pausedAt: run.pausedAt,
     words: run.results.map((r) => ({
       word: r.outcome === 'solved' ? r.word : null,
       guesses: r.guesses,
@@ -60,6 +68,7 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
       endedAt: r.endedAt,
       outcome: r.outcome,
       suggested: r.suggested,
+      pausedMs: r.pausedMs,
     })),
   };
 }
@@ -67,7 +76,7 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
 /** When the last word was found or given up: the run's end, once it's over. */
 const lastEnd = (run: RunGame): number => Math.max(run.startedAt, ...run.results.map((r) => r.endedAt ?? run.startedAt));
 
-/** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time. */
+/** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time (pauses left out). */
 export interface DailyTotals {
   guesses: number;
   ms: number;
@@ -77,7 +86,7 @@ export interface DailyTotals {
 export function dailyTotals(run: RunGame): DailyTotals | null {
   if (dailyStatus(run) !== 'finished') return null;
   const guesses = run.results.reduce((sum, r) => sum + r.guesses.length, 0);
-  return { guesses, ms: lastEnd(run) - run.startedAt };
+  return { guesses, ms: runElapsedMs(run, lastEnd(run)) };
 }
 
 /**
