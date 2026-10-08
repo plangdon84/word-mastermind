@@ -33,31 +33,6 @@ limit; on 8 October 2026, 18ud went first: small fixes players hit now,
 and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
 from a mock-up, went before 18z)
 
-- [ ] **18z. Rush and Crush** (issue #167; worker, review gate; changes
-  README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
-  "Achievements"; after 18za, whose title screen it builds on)
-  - Players read "Rush" as a race, so: **Rush** ranks by fastest total time
-    (fewer guesses break ties), and **Crush** is today's scoring, fewest
-    guesses with time breaking ties. A word given up still adds its
-    penalty to both time and guesses (README "Scoring")
-  - Word Sets (18za): Solo picks Rush or Crush with a **Ranked by: Rush ·
-    fastest / Crush · fewest** switch above the difficulty, remembering
-    the last pick; in a lobby the host sets it with the lobby's settings.
-    The games are named **Solo Rush**, **Solo Crush**, **Rush with
-    Friends** and **Crush with Friends** in the header, history and
-    badges. Past games stay as they were scored (Crush)
-  - Daily Set: still played once a day, and each run goes on one board
-    per difficulty with a **Rush · fastest / Crush · fewest** switch,
-    opening on Crush the first time, then on your last pick, and keeping
-    the day, difficulty and Everyone / Friends as you flip. The result
-    shows both places, each opening the board at its side. Playing twice
-    would give away the day's words
-  - Badges and their labels follow the two names (a Rush level by time, a
-    Crush level by guesses); badges already earned stay earned
-  - Competitive (switched off at 1.0) gets the same choice when it's
-    switched on. If the PR grows past a reviewable size, split it: Solo
-    and lobbies first, then Daily
-  - A minor release with its notes
 - [ ] **18c. Friends' profiles** (issues #64 and #155; server and privacy,
   review gate)
   - Tap a friend's name (friends list, games, boards) to see their name,
@@ -167,6 +142,36 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18z. Rush and Crush** (issue #167; worker, review gate; changes
+  README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
+  "Achievements"; after 18za, whose title screen it builds on)
+  - Players read "Rush" as a race, so: **Rush** ranks by fastest total time
+    (fewer guesses break ties), and **Crush** is today's scoring, fewest
+    guesses with time breaking ties. A word given up still adds its
+    penalty to both time and guesses (README "Scoring")
+  - Word Sets (18za): Solo picks Rush or Crush with a **Ranked by: Rush ·
+    fastest / Crush · fewest** switch above the difficulty, remembering
+    the last pick; in a lobby the host sets it with the lobby's settings.
+    The games are named **Solo Rush**, **Solo Crush**, **Rush with
+    Friends** and **Crush with Friends** in the header, history and
+    badges. Past games stay as they were scored (Crush)
+  - Daily Set: still played once a day, and each run goes on one board
+    per difficulty with a **Rush · fastest / Crush · fewest** switch,
+    opening on Crush the first time, then on your last pick, and keeping
+    the day, difficulty and Everyone / Friends as you flip. The result
+    shows both places, each opening the board at its side. Playing twice
+    would give away the day's words
+  - Badges and their labels follow the two names (a Rush level by time, a
+    Crush level by guesses); badges already earned stay earned
+  - Competitive (switched off at 1.0) gets the same choice when it's
+    switched on. If the PR grows past a reviewable size, split it: Solo
+    and lobbies first, then Daily
+  - A minor release with its notes
+  - Agreed with the owner on 8 October 2026: a Rush's word given up adds 2
+    minutes (Crush's time, only a tiebreak, stays as it was); a Rush level
+    by average time a word is under 2:00 Mastermind, under 3:00 Expert, up
+    to 5:00 Skilled; the difficulty factor applies to a Rush's time too;
+    built as one PR
 - [x] **18za. A new title screen** (agreed with the owner on 8 October 2026
   from a clickable mock-up; UI only; changes README "Title screen",
   "Unlocking modes", "Tutorial" and "Achievements" wording)
