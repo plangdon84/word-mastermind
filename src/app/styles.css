@@ -874,6 +874,8 @@ button.bubble:active { transform: scale(0.94); }
   font: inherit; font-size: 0.78rem; font-weight: 500; color: var(--muted); cursor: pointer;
 }
 .past-tag:hover { color: var(--ink); }
+/* A friend's game names them: a long name is cut short (…) rather than crowding the title. */
+.past-tag { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
 .menu-past { margin: 0 0 4px; }
 .title-screen { position: relative; }
 .title-top { position: absolute; top: 14px; right: 0; }
@@ -984,6 +986,7 @@ button.bubble:active { transform: scale(0.94); }
 /* Analytics */
 .analytics h4 { margin: 0 0 8px; font-size: 0.95rem; }
 .headline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.headline.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .headline div { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--bg); border-radius: 12px; padding: 8px 4px; min-width: 0; }
 .headline dt { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .headline dd { margin: 0; font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
@@ -1253,6 +1256,10 @@ button.bubble:active { transform: scale(0.94); }
 .friend-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .friend-list .lobby-name { flex: 1; }
 .friend-btns { display: flex; gap: 6px; flex-shrink: 0; }
+/* A friend's name opens their profile (Dev Plan item 18c): a link, still cut short (…) when long. */
+.friend-list .friend-name { display: block; font: inherit; text-align: left; padding: 0; line-height: var(--tap); }
+.friend-profile .step-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.head-to-head h4 { margin-top: 0; }
 .friend-code { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 12px; }
 .friend-code .invite-link { width: 100%; }
 .lobby-friends { width: 100%; text-align: left; }

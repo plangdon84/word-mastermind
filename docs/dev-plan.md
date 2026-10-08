@@ -31,17 +31,16 @@ into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
 later that day, 18ub went first, since the browser tests passed CI's 30-minute
 limit; on 8 October 2026, 18ud went first: small fixes players hit now,
 and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
-from a mock-up, went before 18z)
+from a mock-up, went before 18z; and 18c was split, opening a friend's
+profile from games and boards becoming 18ca)
 
-- [ ] **18c. Friends' profiles** (issues #64 and #155; server and privacy,
+- [ ] **18ca. Friends' profiles from games and boards** (Issue 64; split
+  from 18c, which opens them from the friends list; server and privacy,
   review gate)
-  - Tap a friend's name (friends list, games, boards) to see their name,
-    country, achievements, stats and their whole game history as they see
-    it, opponents' names and reviews included; nothing else of their
-    profile (settings, email, friends list). Signed-in players only, and
-    only your friends
-  - #155: their stats page also shows your record against them (wins,
-    draws and losses, by mode), built from your own games
+  - A friend's name in a game against them, a lobby's places and the
+    Friends view of a board opens their profile too. The server marks
+    which names are your friends' (by friend code, never an ID), since
+    names alone can be shared or changed
 - [ ] **18d. Finding friends** (issues #79 and #78; server and privacy,
   review gate)
   - Type a friend's email to send them a request, without ever saying
@@ -142,6 +141,18 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18c. Friends' profiles** (issues #64 and #155; server and privacy,
+  review gate; adds README "Friends' profiles"). Opening one from games and
+  boards moved to 18ca, to keep this PR small
+  - Tap a friend's name on your friends list to see their name, country,
+    achievements, stats and their whole game history as they see it,
+    opponents' names and reviews included; nothing else of their profile
+    (settings, email, friends list). Signed-in players only, and only your
+    friends (`GET /api/friends/profile`). Today's Daily Set is left out
+    until its day is over
+  - #155: their stats page also shows your record against them (wins,
+    draws and losses, by mode), built from your own games
+    (`headToHead` in `src/game/headToHead.ts`)
 - [x] **18z. Rush and Crush** (Issue 167; worker, review gate; changes
   README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
   "Achievements"; after 18za, whose title screen it builds on)

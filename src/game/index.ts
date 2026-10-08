@@ -14,6 +14,7 @@ export * from './records';
 export * from './history';
 export * from './profile';
 export * from './stats';
+export * from './headToHead';
 export * from './achievements';
 export * from './pvp';
 export * from './report';

@@ -20,6 +20,8 @@ export interface Review {
   /** When the game ended, in milliseconds since the epoch. */
   date: number;
   onBack: () => void;
+  /** A friend's game, from their profile (Dev Plan item 18c): their name. Absent for your own. */
+  owner?: string;
 }
 
 /**

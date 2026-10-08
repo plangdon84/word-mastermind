@@ -10,7 +10,7 @@ import { NoServerSection, UpdateBar } from './panels';
 import { forgetTappedLink, TAP_LOOKS_MS, takeTappedLink } from './notificationTaps';
 import {
   BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
-  type HistoryFilter, type HistoryMode, type LobbyKind,
+  type DailyPlacement, type HistoryFilter, type HistoryMode, type LobbyKind,
 } from '../game';
 import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
@@ -23,6 +23,7 @@ import { MatchScreen } from './MatchScreen';
 import { clearFriendGames, gameIdFromUrl, loadFriendGames } from './friendGames';
 import { friendCodeFromUrl, inviteFromUrl, loadPendingInvite, savePendingInvite, type Friend } from './friendsApi';
 import { FriendsSection } from './FriendsSection';
+import { FriendProfileScreen, type FriendPage } from './FriendProfileScreen';
 import { DailyScreen } from './DailyScreen';
 import { dailyInProgress, loadPlacements } from './dailyStorage';
 import { announceBadges, loadBadgeNotices, loadEarnedBadges, localDay, markBadgesSeen } from './badges';
@@ -77,8 +78,17 @@ type Screen =
   | { name: 'leaderboards'; board: BoardId | null }
   /** The profile's hub, or (with `page`) one of its subpages. */
   | { name: 'profile'; from: ProfileFrom; page: ProfilePage | null }
-  /** A past game from the history; its Back goes to the history subpage. */
-  | { name: 'review'; game: HistoryGame; from: ProfileFrom };
+  /** A friend's profile (Dev Plan item 18c), from your friends list: its hub, or (with `page`) a subpage. */
+  | { name: 'friendProfile'; friend: Friend; page: FriendPage | null; from: ProfileFrom }
+  /**
+   * A past game from the history; its Back goes to the history subpage. A
+   * friend's game (`friend`) goes back to the page of their profile it was
+   * opened from, and shows their Daily Rush places.
+   */
+  | {
+    name: 'review'; game: HistoryGame; from: ProfileFrom;
+    friend?: { friend: Friend; page: FriendPage; placements: readonly DailyPlacement[] };
+  };
 
 /** The title screen's mode for a reviewed game, whose Play again starts one; the server's modes have none. */
 const SCREEN_MODE: Partial<Record<HistoryMode, Mode>> = { single: 'single', computer: 'two', rush: 'rush' };
@@ -197,6 +207,8 @@ export function App() {
   });
   /** Kept here so returning from a review keeps the history's filters. */
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>({});
+  /** The same for a friend's history, while you review one of their games. */
+  const [friendFilter, setFriendFilter] = useState<HistoryFilter>({});
   /** Bumped when games are added outside play (a restore), so the profile reloads them. */
   const [historyVersion, setHistoryVersion] = useState(0);
   /** Bumped when games against a friend arrive from your other devices, so the title screen's list reloads. */
@@ -498,7 +510,8 @@ export function App() {
   useEffect(() => saveSession(session), [session]);
 
   // The profile's rows and stats, and the title screen's unlocked modes, need every finished game; loaded only there.
-  const historyGames = useHistoryGames(historyVersion, screen.name === 'profile' || screen.name === 'title');
+  const historyGames = useHistoryGames(historyVersion,
+    screen.name === 'profile' || screen.name === 'title' || screen.name === 'friendProfile');
   const open = useMemo(
     () => historyGames && openModes(computeUnlocks(historyGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })))),
     [historyGames]);
@@ -510,6 +523,7 @@ export function App() {
     // Some callers pass a click event; only a section name opens a subpage.
     page: isProfilePage(page) ? page : null,
     from: screen.name === 'title' || screen.name === 'profile' || screen.name === 'leaderboards' ? { name: 'title' }
+      : screen.name === 'friendProfile' ? screen.from
       // After Play again from a review, the new game is the one to come back to.
       : screen.name === 'review' ? (SCREEN_MODE[screen.game.replayed.mode]
         ? { name: SCREEN_MODE[screen.game.replayed.mode]!, resume: true } : { name: 'title' })
@@ -585,6 +599,10 @@ export function App() {
                 onChallenge={(friend) => {
                   setSettings({ ...settings, mode: 'two', opponent: 'friend' });
                   setScreen({ name: 'friend', id: null, challenge: friend });
+                }}
+                onOpenFriend={(friend) => {
+                  setFriendFilter({});
+                  setScreen({ name: 'friendProfile', friend, page: null, from: screen.from });
                 }} />
             ) : <NoServerSection label="Friends" needs="Friends" />,
             stats: <StatsPage games={historyGames} identity={identity} signedIn={session !== null} onOpen={openReview} />,
@@ -593,12 +611,29 @@ export function App() {
           }} />
       );
     }
+    if (screen.name === 'friendProfile' && API_URL) {
+      const { friend, from } = screen;
+      return (
+        <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friend} page={screen.page}
+          onPage={(page) => setScreen({ ...screen, page })}
+          onBack={() => setScreen({ name: 'profile', from, page: 'friends' })}
+          yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
+          onOpen={(game, placements) => setScreen({
+            name: 'review', game, from, friend: { friend, page: screen.page ?? 'history', placements },
+          })} />
+      );
+    }
     const game = { settings, profile, onProfile: openProfile, onExit: exit };
     if (screen.name === 'review') {
       const { entry, replayed, summary } = screen.game;
+      const { friend: theirs, from } = screen;
       const review = {
-        id: entry.id, date: summary.endedAt, onBack: () => setScreen({ name: 'profile', from: screen.from, page: 'history' }),
+        id: entry.id, date: summary.endedAt, owner: theirs?.friend.name,
+        onBack: () => setScreen(theirs ? { name: 'friendProfile', friend: theirs.friend, page: theirs.page, from }
+          : { name: 'profile', from, page: 'history' }),
       };
+      // The name on the player's side: a friend's, reviewing their game.
+      const yourName = theirs ? theirs.friend.name : displayName(profile);
       // Each review is its own screen, even when one follows another of the same mode.
       if (replayed.mode === 'single' && entry.mode === 'single') {
         return <SoloScreen key={entry.id} {...game} resume={false} review={{ ...review, game: replayed.game, marks: entry.marks }} />;
@@ -620,12 +655,12 @@ export function App() {
             onNewMatch={() => setScreen({ name: 'match' })} onOpenGame={(id) => setScreen({ name: 'friend', id })}
             review={{
               ...review, marks: entry.marks, rating: ratingLine(replayed.rating),
-              game: friendReviewGame(replayed.game, replayed.seat, displayName(profile), replayed.opponent),
+              game: friendReviewGame(replayed.game, replayed.seat, yourName, replayed.opponent),
             }} />
         );
       }
       if (replayed.mode === 'daily' && entry.mode === 'daily') {
-        const places = loadPlacements().filter((p) => p.day === replayed.day);
+        const places = (theirs?.placements ?? loadPlacements()).filter((p) => p.day === replayed.day);
         const crush = places.find((p) => !p.rankBy) ?? null;
         const rush = places.find((p) => p.rankBy === 'rush') ?? null;
         return (
@@ -679,7 +714,7 @@ export function App() {
           onRankBy={(rankBy) => setSettings({ ...settings, rankBy })} />
       );
     }
-    const resume = screen.name !== 'title' && screen.name !== 'review' && screen.resume;
+    const resume = screen.name !== 'title' && screen.name !== 'review' && screen.name !== 'friendProfile' && screen.resume;
     if (screen.name === 'single') return <SoloScreen {...game} resume={resume} />;
     if (screen.name === 'rush') return <RushScreen {...game} resume={resume} />;
     if (screen.name === 'two') return <TwoPlayerScreen {...game} resume={resume} />;

@@ -255,10 +255,12 @@ const reviewDate = (review: Review) =>
  * the history anyway): small, so the history keeps the room (issue #101).
  */
 function PastGameTag({ review }: { review: Review }) {
+  const what = review.owner ? `${review.owner}'s game` : 'Past game';
+  const back = review.owner ? `${review.owner}'s history` : 'history';
   return (
     <button type="button" class="past-tag" onClick={review.onBack}
-      aria-label={`Past game, ${reviewDate(review)}: back to history`} title="Back to history">
-      <span aria-hidden="true">←</span> Past game
+      aria-label={`${what}, ${reviewDate(review)}: back to ${back}`} title={`Back to ${back}`}>
+      <span aria-hidden="true">←</span> {what}
     </button>
   );
 }
@@ -306,7 +308,7 @@ export function GameHeader({
             <>
               {review && (
                 <p class="menu-note menu-past">
-                  A past game · {reviewDate(review)}
+                  {review.owner ? `${review.owner}'s game` : 'A past game'} · {reviewDate(review)}
                   {suggested > 0 && ` · Suggest used ${suggested === 1 ? 'once' : `${suggested} times`}`}
                 </p>
               )}

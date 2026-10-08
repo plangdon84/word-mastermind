@@ -1,4 +1,6 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { layoutProblems } from './layout';
 import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll } from './helpers';
 
 /*
@@ -457,4 +459,61 @@ test("the stats headline's provisional rating stays inside its tile at every pho
       expect(right, `${what}'s right at ${width}px`).toBeLessThanOrEqual(tile[1]);
     }
   }
+});
+
+test("a friend's profile: their stats, badges and games, and your record against them (Dev Plan item 18c)", async ({ page, browser }) => {
+  await unlockAll(page);
+  await signIn(page, 'profile-viewer@example.com');
+  await button(page, 'Back to profile').click();
+  await button(page, /^Friends/).click();
+  const link = await page.locator('#friend-link').inputValue();
+
+  // A friend with games of their own, synced to their account, adds you by your link.
+  const friend = await newPlayer(browser, page);
+  await unlockAll(friend);
+  await signIn(friend, 'profile-viewed@example.com');
+  await expect.poll(async () => {
+    const sync = await getStorage(friend, 'sync');
+    return sync && Array.isArray(sync.pending) ? sync.pending.length : -1;
+  }, { message: "the friend's games were synced" }).toBe(0);
+  await friend.goto(link);
+  await button(friend, 'Add').click();
+  await expect(friend.getByText(/are friends\./)).toBeVisible();
+
+  // Their name on your list opens their profile.
+  await button(page, 'Back to profile').click();
+  await button(page, /^Friends/).click();
+  await page.getByRole('button', { name: /'s profile$/ }).click();
+  const rows = page.getByRole('navigation', { name: /'s profile$/ });
+  await expect(rows.getByRole('button', { name: /^Game history \d+ games$/ })).toBeVisible();
+
+  const check = async (what: string) => {
+    for (const size of [{ width: 320, height: 568 }, { width: 1280, height: 800 }]) {
+      await page.setViewportSize(size);
+      expect(await layoutProblems(page), `${what} at ${size.width}×${size.height}`).toEqual([]);
+    }
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+    expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id), what).toEqual([]);
+  };
+  await check('the hub');
+
+  await rows.getByRole('button', { name: /^Stats/ }).click();
+  await expect(page.getByRole('heading', { name: /^You vs\. / })).toBeVisible();
+  await expect(page.getByText(/^You haven't played /)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Their top guesses' })).toBeVisible();
+  await check('their stats');
+  await page.getByRole('button', { name: /^Back to .*'s profile$/ }).click();
+
+  await rows.getByRole('button', { name: /^Achievements/ }).click();
+  await expect(page.locator('.badge-item:not(.locked)').first()).toBeVisible();
+  await check('their achievements');
+  await page.getByRole('button', { name: /^Back to .*'s profile$/ }).click();
+
+  // One of their games opens read-only, its tag naming them, and goes back to their history.
+  await rows.getByRole('button', { name: /^Game history/ }).click();
+  await expect(page.getByRole('button', { name: 'Export CSV' })).toHaveCount(0);
+  await check('their history');
+  await page.locator('.history-row').first().click();
+  await page.getByRole('button', { name: /'s game, .*: back to .*'s history$/ }).click();
+  await expect(page.locator('.history-row').first()).toBeVisible();
 });
