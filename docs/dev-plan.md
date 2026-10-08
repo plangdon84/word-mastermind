@@ -182,6 +182,18 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18uc. Reports only through the server** (agreed with the owner on
+  8 October 2026, once issues were turned off in this repo; app only, no
+  review gate)
+  - A report the server can't take, or one from a build without a server,
+    says to try again later and keeps what was typed; GitHub's own
+    new-issue form (`newIssueUrl`) is gone
+  - The form says reports go privately to the game's developer, and the
+    thank-you no longer links to the issue, which players can't open; the
+    privacy page says the same
+  - This also settles the archive's Issue 195 (the **Include this game**
+    box that did nothing on GitHub's form)
+
 - [x] **18ua. Going public: the Daily Rush answers off GitHub** (agreed
   with the owner on 8 October 2026: the repo goes public so CI's minutes are
   free; worker, review gate)

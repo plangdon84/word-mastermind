@@ -1298,9 +1298,11 @@ profile's Help section. It opens a form: the kind (**Something went wrong**,
 optional screenshot (the app shrinks it to a JPEG of at most 1600 pixels a
 side) and, in a game, **Include this game**, which attaches its record so the
 game can be replayed (a friend's game sends only your view of it, never its
-ID, which would let anyone take an open invite). The form says reports are
-public, and that they carry your display name, the browser and screen size,
-never your email (Dev Plan item 18l, issue #112).
+ID, which would let anyone take an open invite). The form says reports go
+privately to the game's developer, and that they carry your display name, the
+browser and screen size, never your email (Dev Plan item 18l, issue #112;
+item 18uc). Once sent, it thanks you; it doesn't link to the issue, which
+players can't open.
 
 The server (`worker/src/reports.ts`) keeps each report in D1 and files it as a
 GitHub issue in the private archive repo (`GITHUB_REPO`, never this public
@@ -1320,10 +1322,10 @@ A device can send 5 reports an hour, an internet address 10 an hour (so
 made-up guest IDs don't get round it; an IPv6 address counts by its /64,
 one home's block; the address is kept hashed, and cleared at the next report
 once it's an hour old), and everyone together 100 a day. A build
-without a server, or a report the server can't take, opens GitHub's own
-new-issue form filled in the same way instead, on the public repo, so
-without the game record, which holds your own secret word (the screenshot is
-then added there by hand).
+without a server, or a report the server can't take, says so and to try
+again later, keeping what you typed. There is no fallback to GitHub's own
+form (Dev Plan item 18uc): issues are off in this public repo, and a report
+can hold game data.
 
 ### Sharing a result
 

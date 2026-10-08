@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DESCRIPTION_MAX, defang, issueBody, issueTitle, newIssueUrl, parseReport, RECORD_MAX, type IssueReport,
+  DESCRIPTION_MAX, defang, issueBody, issueTitle, parseReport, RECORD_MAX, type IssueReport,
 } from './report';
 
 const context = { screen: 'Single player · Hard', app: 'abc1234', browser: 'Test/1.0', viewport: '390×844', language: 'en-GB' };
@@ -63,22 +63,5 @@ describe('issueBody', () => {
     expect(body).toContain('_None attached._');
     expect(body).toContain('<details><summary>Game record');
     expect(body).toContain('"secret": "beach"');
-  });
-});
-
-describe('newIssueUrl', () => {
-  it("fills in GitHub's new-issue page", () => {
-    const url = new URL(newIssueUrl('owner/repo', report(), SENT));
-    expect(url.origin + url.pathname).toBe('https://github.com/owner/repo/issues/new');
-    expect(url.searchParams.get('title')).toBe(issueTitle(report()));
-    expect(url.searchParams.get('labels')).toBe('bug,from-app');
-    expect(url.searchParams.get('body')).toContain('### What happened');
-  });
-
-  it('never includes the game record, which holds your secret word', () => {
-    const record = { words: ['plumb'], moves: [{ kind: 'guess', word: 'crane', at: 1 }] };
-    const body = new URL(newIssueUrl('owner/repo', report({ record }), SENT)).searchParams.get('body');
-    expect(body).not.toContain('Game record');
-    expect(body).not.toContain('plumb');
   });
 });

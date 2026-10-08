@@ -124,7 +124,8 @@ Run `npm test` and `npm run typecheck` before committing.
   Extreme). The engines deliberately still accept repeats, so old records
   replay; the computer never repeats, so its strengths are unchanged.
 - Report an issue (README "Reporting an issue"): `src/game/report.ts` is the
-  shared format (parse, issue title and body, GitHub's new-issue fallback);
+  shared format (parse, issue title and body; there's no fallback to
+  GitHub's own form, Dev Plan item 18uc);
   `worker/src/reports.ts` stores reports (`reports` table, kept by the wipe)
   and files GitHub issues with the `GITHUB_TOKEN` secret, serving
   screenshots itself; the app side is `src/app/reportIssue.ts` and

@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.7.4',
+    notes: [
+      { text: 'Report an issue now always sends your report privately. If it can’t be sent, it says to try again later and keeps what you wrote.' },
+    ],
+  },
+  {
     version: '1.7.3',
     notes: [
       { text: 'A report you post on GitHub yourself (when the game can’t send it) no longer includes your game, so it can’t show your secret word.' },
