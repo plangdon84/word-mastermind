@@ -16,7 +16,7 @@ export interface DailyToday {
   day: DailyDay;
   /** The theme's name, or null on a day without one (the calendar has run out). */
   theme: string | null;
-  /** When the next set is out: midnight UTC. */
+  /** When the next set is out: midnight New York time. */
   nextAt: number;
   /** The server's clock when it answered, so the app's clock can follow it. */
   now: number;

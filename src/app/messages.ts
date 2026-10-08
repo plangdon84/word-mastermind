@@ -189,7 +189,7 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
     case 'no-theme':
       return "There's no Daily Rush today.";
     case 'already-played':
-      return "You've already played today's Daily Rush. A new set is out at midnight UTC.";
+      return "You've already played today's Daily Rush. A new set is out at midnight New York time.";
     case 'not-started':
       return "You haven't started today's Daily Rush.";
     case 'day-over':

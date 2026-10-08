@@ -1,38 +1,16 @@
 import type { Difficulty } from './difficulty';
-import { DAY_MS } from './pvp';
+import type { DailyDay } from './dailyDays';
 import type { RunGame, WordOutcome } from './run';
 import type { GuessResult } from './scoring';
 
 /*
  * Daily Rush (README "Rush modes"): everyone plays the same themed set of 4
  * words each day, once, refereed by the server. The day changes at midnight
- * UTC for everyone. Like the rest of the game logic, nothing here reads the
- * clock: the time is passed in.
+ * in New York for everyone (`dailyDays.ts`). Like the rest of the game logic,
+ * nothing here reads the clock: the time is passed in.
  */
 
-/** A Daily Rush day: its UTC date, e.g. `2026-10-31`. */
-export type DailyDay = string;
-
-/** The day `now` falls on. */
-export function dailyDay(now: number): DailyDay {
-  return new Date(now).toISOString().slice(0, 10);
-}
-
-/** Is this a day as `dailyDay` writes them? */
-export function isDailyDay(value: unknown): value is DailyDay {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const start = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(start) && dailyDay(start) === value;
-}
-
-/** When a day starts, in milliseconds since the epoch. */
-export const dayStart = (day: DailyDay): number => Date.parse(`${day}T00:00:00Z`);
-
-/** When a day ends, and the next set of words is out. */
-export const dayEnd = (day: DailyDay): number => dayStart(day) + DAY_MS;
-
-/** The day before or after, `by` days away. */
-export const addDays = (day: DailyDay, by: number): DailyDay => dailyDay(dayStart(day) + by * DAY_MS);
+export { addDays, dailyDay, dayEnd, dayStart, isDailyDay, NEW_YORK_FROM, type DailyDay } from './dailyDays';
 
 /**
  * Where a player's Daily Rush is. It's finished once every word is found;

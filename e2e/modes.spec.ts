@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { dailyDay } from '../src/game/dailyDays';
 import { testThemeFor } from '../worker/src/testThemes';
 import { getStorage, guess, historyCount, listening, modeButton, newPlayer, savedGame, startSolo, trackSockets, unlockAll } from './helpers';
 
@@ -77,7 +78,7 @@ test('Solo Rush: four words in a row, then the result', async ({ page }) => {
 
 test("Daily Rush: today's words, once a day", async ({ page }) => {
   // e2e/worker.ts loads the made-up test sets.
-  const words: string[] = [...testThemeFor(new Date().toISOString().slice(0, 10)).words];
+  const words: string[] = [...testThemeFor(dailyDay(Date.now())).words];
 
   await unlockAll(page);
   await modeButton(page, 'Rush').click();

@@ -15,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const daysSinceEpoch = (day: string) => Math.round(Date.parse(`${day}T00:00:00Z`) / DAY_MS);
 
-/** The test set for a UTC day: the three take turns. */
+/** The test set for a day: the three take turns. */
 export function testThemeFor(day: string) {
   return TEST_THEMES[((daysSinceEpoch(day) % TEST_THEMES.length) + TEST_THEMES.length) % TEST_THEMES.length];
 }

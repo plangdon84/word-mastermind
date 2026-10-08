@@ -41,7 +41,7 @@ export function placeText(p: { rank: number; total: number; behind: number }): s
 /**
  * A day's leaderboard for one difficulty, with the days before it a tap
  * away: everyone's, or (signed in) you and your friends'. Today's is
- * provisional until midnight UTC.
+ * provisional until midnight New York time.
  */
 export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDifficulty, circle }: {
   api: DailyApi;
@@ -128,7 +128,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
           {board.total > 0 && (
             <p class="board-note">
               {board.total} {board.total === 1 ? 'player' : 'players'}{circle === 'friends' && ' of you and your friends'} finished.
-              {day === today && ' Places are final at midnight UTC.'}
+              {day === today && ' Places are final at midnight New York time.'}
             </p>
           )}
         </>
@@ -471,7 +471,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               <p class="tally">
                 {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
                 {placement && <>{placeText(placement)} on today's {DIFFICULTY_LABEL[run.difficulty]} leaderboard. </>}
-                Places are final at midnight UTC. Next set in {nextSet}.
+                Places are final at midnight New York time. Next set in {nextSet}.
               </p>
             </>
           ) : (

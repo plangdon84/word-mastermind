@@ -416,9 +416,12 @@ penalty still compares results word by word (`seatKeys` in
   - The theme's name is shown when you pick Daily Rush (and in the game
     header). The words stay on the server, which referees every guess, and
     never ship in the app.
-  - The day changes at **midnight UTC** for everyone, so there is one
-    leaderboard a day. The app counts down to the next set in hours and
-    minutes.
+  - The day changes at **midnight in New York** for everyone (4:00 or
+    5:00 UTC, following daylight saving), so there is one leaderboard a
+    day; it was midnight UTC until Dev Plan item 18y (issue 166). On the
+    first New York day the day ran a few hours longer, from midnight UTC
+    to New York's midnight; earlier days keep their results. The app
+    counts down to the next set in hours and minutes.
   - **Once a day** for each player (an account, or a guest ID). Your name on
     the leaderboard is your profile name (or guest name) when you start.
   - You choose **Medium, Hard or Extreme** before you start, and it can't
@@ -1083,10 +1086,10 @@ clocks only.
   (`worker/src/dailyRoom.ts`): the words stay there until you find them.
 - **Give up today's Daily Rush** (☰ menu) asks first, then ends it with no
   leaderboard entry; the words you didn't find stay hidden until the day is
-  over. A run not finished by midnight UTC has no entry either.
+  over. A run not finished by midnight New York time has no entry either.
 - **Result:** each word with its guesses and time, total guesses and time,
   and your **place so far** ("12th of 340 · better than 96%"); places are
-  final at midnight UTC. **Leaderboard** shows the day's top 10 for each
+  final at midnight New York time. **Leaderboard** shows the day's top 10 for each
   difficulty (ties share a rank), your place below them if you're not in
   it, and earlier days (‹ ›) with their words. Its **← Back** returns to
   the result.

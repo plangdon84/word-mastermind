@@ -292,7 +292,7 @@ export function computeAchievements(
       lastDay = day;
     }
     for (const n of DAILY_STREAKS) if (dayStreak >= n) earn(`daily-${n}`, row);
-    // The Daily Rush streak counts its own days, which are UTC's.
+    // The Daily Rush streak counts its own days, which change at midnight in New York.
     const { replayed } = row.game;
     if (replayed.mode === 'daily' && replayed.day !== lastRushDay) {
       rushStreak = lastRushDay !== null && replayed.day === addDays(lastRushDay, 1) ? rushStreak + 1 : 1;

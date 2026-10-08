@@ -215,7 +215,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
       <h3>Daily Rush</h3>
       <p>
         Everyone gets the same 4 words each day, on a theme, once. Choose your difficulty before you start:
-        it can't change. The clock never pauses. Find all 4 before midnight UTC to go on that day's
+        it can't change. The clock never pauses. Find all 4 before midnight New York time to go on that day's
         leaderboard for your difficulty, ranked by total guesses, with time breaking ties. Giving up a
         word ends your Daily Rush for the day, with no place on the leaderboard.
       </p>

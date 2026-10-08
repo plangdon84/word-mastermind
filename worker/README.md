@@ -111,10 +111,10 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   who is asking and the request, pass moves to the day's Durable Object,
   and read the leaderboards (`daily_results`) from D1.
 - `src/dailyRush.ts`: `DailyRush`, the Durable Object, one per day, named by
-  the UTC day (`DAILY.idFromName`). It keeps every player's run for that day.
+  its day (`DAILY.idFromName`). It keeps every player's run for that day.
 - `src/dailyRoom.ts`: the referee `DailyRush` runs (`handleDaily`): once a
   day per player (any of an account's IDs), the run engine with the day's
-  words, nothing after midnight UTC, and a finished run saved to
+  words, nothing after the day ends (midnight in New York), and a finished run saved to
   `daily_results` and `games` (mode `daily`).
 - `src/dailyThemes.ts`: the day's theme, from D1 (`daily_themes`); never
   from the repo, and never in the app. `src/themeDays.ts` has the rules for
@@ -172,7 +172,7 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 | `POST /api/auth/session` | `{ token }`, from `?login=` | `{ token, account }`, a session for this device (`x-guest-id`); 400 `bad-login` if the link is used or expired |
 | `POST /api/auth/logout` | `{}` | `{ ok: true }`, ending the session in `authorization` and that device's turn alerts |
 | `POST /api/auth/delete` | `{}` | `{ ok: true }`: deletes the account, signing out every device; 401 `signed-out` without a session |
-| `GET /api/daily` | | `DailyToday` (`src/app/dailyApi.ts`): today's UTC day, theme (null without one), when the next set is out, the server's clock, your run (`DailyView`, unfound words hidden) and your final places on past days |
+| `GET /api/daily` | | `DailyToday` (`src/app/dailyApi.ts`): today's day (the date in New York), theme (null without one), when the next set is out, the server's clock, your run (`DailyView`, unfound words hidden) and your final places on past days |
 | `POST /api/daily/start` | `{ day, difficulty, name }` | `DailyToday` with your run started; 409 `already-played`, 404 `no-theme`, 400 `offensive-name` |
 | `POST /api/daily/guess` | `{ day, word }` | `DailyToday`; 409 `not-started`, `game-over`, or `day-over` once `day` isn't today |
 | `POST /api/daily/give-up` | `{ day }` | `DailyToday`, given up: no leaderboard entry |
