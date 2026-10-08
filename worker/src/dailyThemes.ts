@@ -4,7 +4,7 @@ import type { DailyTheme } from './themeDays';
 export type { DailyTheme } from './themeDays';
 
 /*
- * The Daily Rush's themes, one per UTC day, from D1 (`daily_themes`). They
+ * The Daily Rush's themes, one per day, from D1 (`daily_themes`). They
  * never come from the repo, which is public, and never reach the app until
  * the day is over. `npm run daily-themes` loads them (`themeDays.ts`).
  */

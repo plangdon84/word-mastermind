@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addDays, betterThan, dailyDay, dailyTotals, dailyView, dayEnd, dayStart, isDailyDay, isTopTen, isTopTenPercent,
-  ordinal,
+  addDays, betterThan, dailyElapsedMs, dailyDay, dailyTotals, dailyView, dayEnd, dayStart, isDailyDay, isTopTen, isTopTenPercent,
+  NEW_YORK_FROM, ordinal,
 } from './daily';
 import { createRun, endRun, submitRunGuess, type RunGame } from './run';
 
 const T = Date.UTC(2026, 9, 31, 23, 59);
+const HOUR = 60 * 60 * 1000;
 
 function play(run: RunGame, guesses: [string, number][]): RunGame {
   for (const [word, at] of guesses) {
@@ -23,12 +24,52 @@ const start = () => {
 };
 
 describe('Daily Rush days', () => {
-  it('change at midnight UTC', () => {
+  it('changed at midnight UTC before New York days', () => {
+    expect(NEW_YORK_FROM).toBe('2026-10-08');
+    expect(dailyDay(Date.UTC(2026, 9, 6, 23, 59))).toBe('2026-10-06');
+    expect(dayEnd('2026-10-06')).toBe(Date.UTC(2026, 9, 7));
+    expect(dailyDay(Date.UTC(2026, 9, 7, 2))).toBe('2026-10-07');
+    expect(dayStart('2026-10-07')).toBe(Date.UTC(2026, 9, 7));
+  });
+
+  it("start Friday 9 October at midnight in New York, the 8th's set running until then", () => {
+    expect(dayStart('2026-10-08')).toBe(Date.UTC(2026, 9, 8));
+    expect(dayStart('2026-10-09')).toBe(Date.UTC(2026, 9, 9, 4));
+    expect(dailyDay(Date.UTC(2026, 9, 9, 3, 59))).toBe('2026-10-08');
+    expect(dailyDay(Date.UTC(2026, 9, 9, 4))).toBe('2026-10-09');
+  });
+
+  it('change at midnight in New York from then on, following daylight saving', () => {
+    // Summer time: 4:00 UTC.
     expect(dailyDay(T)).toBe('2026-10-31');
+    expect(dayEnd('2026-10-31')).toBe(Date.UTC(2026, 10, 1, 4));
+    expect(dailyDay(dayEnd('2026-10-31') - 1)).toBe('2026-10-31');
     expect(dailyDay(dayEnd('2026-10-31'))).toBe('2026-11-01');
-    expect(dayStart('2026-11-01')).toBe(Date.UTC(2026, 10, 1));
+    // Clocks go back early on 1 November: that day runs 25 hours, and winter's end at 5:00 UTC.
+    expect(dayEnd('2026-11-01') - dayStart('2026-11-01')).toBe(25 * HOUR);
+    expect(dayStart('2026-11-02')).toBe(Date.UTC(2026, 10, 2, 5));
+    expect(dailyDay(Date.UTC(2026, 10, 2, 4, 59))).toBe('2026-11-01');
+    // And forward in March: a 23-hour day.
+    expect(dayEnd('2027-03-14') - dayStart('2027-03-14')).toBe(23 * HOUR);
+  });
+
+  it('run a few hours longer on the first New York day, starting at midnight UTC', () => {
+    const first = NEW_YORK_FROM;
+    expect(dayStart(first)).toBe(Date.parse(`${first}T00:00:00Z`));
+    expect(dayEnd(first)).toBe(Date.parse(`${addDays(first, 1)}T04:00:00Z`));
+    expect(dailyDay(dayStart(first))).toBe(first);
+    // New York still has the day before, but that day is over.
+    expect(dailyDay(dayStart(first) + HOUR)).toBe(first);
+    expect(dailyDay(dayEnd(first) - 1)).toBe(first);
+    expect(dailyDay(dayEnd(first))).toBe(addDays(first, 1));
+    expect(dayEnd(addDays(first, -1))).toBe(dayStart(first));
+  });
+
+  it('step on the calendar, whatever their lengths', () => {
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
     expect(addDays('2027-03-01', -1)).toBe('2027-02-28');
+    expect(addDays('2026-11-01', 1)).toBe('2026-11-02');
+    expect(addDays(NEW_YORK_FROM, -1) < NEW_YORK_FROM).toBe(true);
   });
 
   it('are only real dates, written one way', () => {
@@ -63,6 +104,21 @@ describe('a Daily Rush as its player sees it', () => {
     ]);
     expect(dailyView('2026-10-31', run).status).toBe('finished');
     expect(dailyTotals(run)).toEqual({ guesses: 5, ms: 65_000 });
+  });
+});
+
+describe("a Daily Rush's time", () => {
+  const clock = (pausedMs: number, pausedAt: number | null = null) =>
+    ({ startedAt: T, pausedAt, words: [{ endedAt: T + 20 * 60_000, pausedMs }] });
+  it('leaves out all the time paused', () => {
+    expect(dailyElapsedMs(clock(4 * 60_000), true, 0)).toBe(16 * 60_000);
+    expect(dailyElapsedMs(clock(12 * 60_000), true, 0)).toBe(8 * 60_000);
+  });
+
+  it('stands still while paused', () => {
+    const paused = clock(0, T + 60_000);
+    expect(dailyElapsedMs(paused, false, T + 5 * 60_000)).toBe(60_000);
+    expect(dailyElapsedMs(paused, false, T + 60 * 60_000)).toBe(60_000);
   });
 });
 

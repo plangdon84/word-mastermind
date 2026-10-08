@@ -1,5 +1,5 @@
 import {
-  dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, validateName, type DailyDay, type DailyPlacement, type Difficulty,
+  addDays, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, validateName, type DailyDay, type DailyPlacement, type Difficulty,
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyToday } from '../../src/app/dailyApi';
 import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
@@ -63,13 +63,28 @@ async function pastPlacements(db: D1Database, player: Player, today: DailyDay): 
   return results.map(toPlacement);
 }
 
+/**
+ * Your run to show: today's, or, if you haven't started today's, yesterday's
+ * while it's still going, which you can finish off the board.
+ */
+async function currentRun(env: Env, player: Player, day: DailyDay): Promise<DailyResponse> {
+  const asker = { playerId: player.id, aliases: player.aliases };
+  const todays = await toDay(env, { ...asker, action: 'get', day });
+  if ('error' in todays.body || todays.body.run) return todays;
+  const yesterdays = await toDay(env, { ...asker, action: 'get', day: addDays(day, -1) });
+  return 'run' in yesterdays.body && yesterdays.body.run?.status === 'playing' ? yesterdays : todays;
+}
+
 async function today(env: Env, player: Player, now: number, run: DailyResponse | null = null): Promise<Response> {
   const day = dailyDay(now);
-  const answer = run ?? await toDay(env, { action: 'get', day, playerId: player.id, aliases: player.aliases });
+  const answer = run ?? await currentRun(env, player, day);
   if ('error' in answer.body) return json(answer.body, answer.status);
+  const theme = (await themeFor(env.DB, day))?.theme ?? null;
+  const runDay = answer.body.run?.day;
   const body: DailyToday = {
     day,
-    theme: (await themeFor(env.DB, day))?.theme ?? null,
+    theme,
+    runTheme: runDay && runDay !== day ? (await themeFor(env.DB, runDay))?.theme ?? null : theme,
     nextAt: dayEnd(day),
     now,
     run: answer.body.run,
@@ -101,12 +116,17 @@ async function board(
     `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(only('o.player_id', 4))}
      FROM daily_results r WHERE r.day = ?1 AND r.difficulty = ?2 AND ${isPlayers('r.player_id', '?3')}`,
   ).bind(day, difficulty, player.id, ...circleArgs).first<PlaceRow>();
+  // The words stay secret until the day is over, and from you while you finish that day's run late.
+  let shown = now >= dayEnd(day);
+  if (shown && now < dayEnd(addDays(day, 1))) {
+    const yours = await toDay(env, { action: 'get', day, playerId: player.id, aliases: player.aliases });
+    shown = !('run' in yours.body && yours.body.run?.status === 'playing');
+  }
   const body: DailyBoard = {
     day,
     theme: theme.theme,
     difficulty,
-    // The words stay secret until the day is over.
-    words: now >= dayEnd(day) ? [...theme.words] : null,
+    words: shown ? [...theme.words] : null,
     total: total ?? 0,
     // Player IDs are credentials, so rows only say which one is yours.
     top: top.map((r): DailyBoardRow => ({ rank: r.rank, name: r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id) })),
@@ -137,16 +157,20 @@ export async function routeDaily(request: Request, env: Env, now: number, pathna
     return board(env, player, day, difficulty, circle, now);
   }
 
-  const action = /^\/api\/daily\/(start|guess|suggest|give-up)$/.exec(pathname)?.[1];
+  const action = /^\/api\/daily\/(start|guess|suggest|give-up|pause|resume)$/.exec(pathname)?.[1];
   if (!action) return errorResponse(404, 'not-found');
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   // Easy's Suggest is behind a launch switch (`features.ts`).
   if (action === 'suggest' && !FEATURES.suggest) return errorResponse(404, 'off');
   const body = await readJson(request);
   if (!isObject(body) || !isDailyDay(body.day)) return errorResponse(400, 'bad-request');
-  // Moves are for today only: a run not finished when the day changes has no entry.
-  const day = dailyDay(now);
-  if (body.day !== day) return errorResponse(body.day < day ? 409 : 400, body.day < day ? 'day-over' : 'bad-request');
+  // Starting is for today only. A run still going when the day changes can be finished during the next day, off the board.
+  const thisDay = dailyDay(now);
+  const late = action !== 'start' && body.day === addDays(thisDay, -1);
+  if (body.day !== thisDay && !late) {
+    return errorResponse(body.day < thisDay ? 409 : 400, body.day < thisDay ? 'day-over' : 'bad-request');
+  }
+  const day: DailyDay = body.day;
   const asker = { day, playerId: player.id, aliases: player.aliases };
 
   let dailyRequest: DailyRequest;
@@ -160,7 +184,7 @@ export async function routeDaily(request: Request, env: Env, now: number, pathna
     if (typeof body.word !== 'string' || body.word.length > 64) return errorResponse(400, 'bad-request');
     dailyRequest = { ...asker, action, word: body.word };
   } else {
-    dailyRequest = { ...asker, action: 'give-up' };
+    dailyRequest = { ...asker, action: action as 'give-up' | 'pause' | 'resume' };
   }
   return today(env, player, now, await toDay(env, dailyRequest));
 }

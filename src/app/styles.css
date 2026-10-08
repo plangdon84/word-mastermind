@@ -352,6 +352,9 @@ button.bubble:active { transform: scale(0.94); }
 }
 .message { min-height: 20px; font-size: 0.88rem; color: var(--muted); text-align: center; }
 .message.error { color: var(--err); }
+/* Daily Rush: a note above the board (a run finished after its day, or the day nearly over). */
+.daily-note { margin: 0; padding: 6px 12px; font-size: 0.85rem; color: var(--ink); text-align: center; }
+.daily-note.warn { color: var(--err); font-weight: 500; }
 
 /* Keyboard */
 .keyboard { display: flex; flex-direction: column; gap: 6px; user-select: none; }

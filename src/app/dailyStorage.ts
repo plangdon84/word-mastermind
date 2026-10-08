@@ -1,4 +1,4 @@
-import { isDailyDay, isObject, parseMarks, type DailyDay, type DailyPlacement, type Marks } from '../game';
+import { addDays, isDailyDay, isObject, parseMarks, type DailyDay, type DailyPlacement, type Marks } from '../game';
 import { parsePlacement } from './dailyApi';
 
 /*
@@ -46,10 +46,13 @@ export function saveDaily(saved: DailySaved): void {
   }
 }
 
-/** Whether a reload should go back into today's Daily Rush. */
+/**
+ * Whether a reload should go back into Daily Rush: today's run, or
+ * yesterday's, which can still be finished off the board.
+ */
 export const dailyInProgress = (today: DailyDay): boolean => {
   const saved = loadDaily();
-  return saved !== null && saved.day === today && saved.playing;
+  return saved !== null && (saved.day === today || saved.day === addDays(today, -1)) && saved.playing;
 };
 
 export function parsePlacements(raw: string | null): DailyPlacement[] {

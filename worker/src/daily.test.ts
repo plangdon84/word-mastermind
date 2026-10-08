@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dailyApi, DailyApiError, type DailyApi } from '../../src/app/dailyApi';
-import { DAY_MS, replayRun, validateSecretWord, type RunRecord } from '../../src/game';
+import { DAY_MS, dayEnd, replayRun, validateSecretWord, type RunRecord } from '../../src/game';
+import type { DailyEntry } from './dailyRoom';
 import { themeFor } from './dailyThemes';
 import { calendarDays, themeDayProblems, themeDaysSql, type ThemeDay } from './themeDays';
 import { fakeD1 } from './fakeD1';
@@ -15,18 +16,20 @@ const CAT = '9f8e7d6c-5b4a-4c3d-a2e1-f0e9d8c7b6a5';
 const DAY = '2026-10-31';
 const NOON = Date.UTC(2026, 9, 31, 12);
 const WORDS = ['brick', 'jumpy', 'solve', 'night'];
+/** Midnight in New York (4:00 UTC, in summer time), when the next day's set is out. */
+const END = dayEnd(DAY);
 
 function setup(random?: () => number) {
   const { db, sqlite } = fakeD1({ dailyThemes: true });
   let clock = NOON;
-  const { namespace } = fakeDaily({ db, now: () => clock, random });
+  const { namespace, days } = fakeDaily({ db, now: () => clock, random });
   const env: Env = {
     DB: db, GAMES: undefined as unknown as DurableObjectNamespace, DAILY: namespace, LOBBIES: undefined as unknown as DurableObjectNamespace, QUEUES: undefined as unknown as DurableObjectNamespace, ALLOWED_ORIGINS: '',
   };
   const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) =>
     handle(new Request(input, init), env, clock)) as typeof fetch;
   const as = (guestId: string): DailyApi => dailyApi('https://api.example', { guestId, token: null }, fetchFn);
-  return { env, sqlite, as, tick: (ms: number) => { clock += ms; }, setClock: (ms: number) => { clock = ms; } };
+  return { env, sqlite, days, as, tick: (ms: number) => { clock += ms; }, setClock: (ms: number) => { clock = ms; } };
 }
 
 /** The error a call rejects with. */
@@ -114,9 +117,10 @@ describe("today's Daily Rush", () => {
     const { as } = setup();
     const today = await as(ANN).today();
     expect(today).toEqual({
-      day: DAY, theme: 'Test set A', nextAt: Date.UTC(2026, 10, 1), now: NOON, run: null, placements: [],
+      day: DAY, theme: 'Test set A', runTheme: 'Test set A', nextAt: END, now: NOON, run: null, placements: [],
     });
     expect(JSON.stringify(today)).not.toMatch(/\b(brick|jumpy|solve|night)\b/);
+    expect(END).toBe(Date.UTC(2026, 10, 1, 4));
   });
 
   it('has no theme on a day without one loaded', async () => {
@@ -170,22 +174,52 @@ describe("today's Daily Rush", () => {
     expect(await refusal(as('nobody').start(DAY, 'medium', 'Ann'))).toBe('bad-guest-id');
   });
 
-  it("ends with the day: a run not finished has no entry", async () => {
+  it('can be finished during the next day, kept in the history but not on the board', async () => {
     const { as, setClock, sqlite } = setup();
     await as(ANN).start(DAY, 'medium', 'Ann');
     await as(ANN).guess(DAY, 'brick');
-    setClock(Date.UTC(2026, 10, 1, 0, 0, 1));
-    expect(await refusal(as(ANN).guess(DAY, 'jumpy'))).toBe('day-over');
-    // A new day, a new set.
-    expect(await as(ANN).today()).toMatchObject({ day: '2026-11-01', run: null });
+    setClock(END + 1000);
+    // The new day shows the run still going, with its own day's theme, until it's over.
+    const next = await as(ANN).today();
+    expect(next).toMatchObject({ day: '2026-11-01', theme: 'Test set B', runTheme: 'Test set A', run: { day: DAY, status: 'playing' } });
+    // Bob never started: nothing to finish, and the day is over for starting.
+    expect((await as(BOB).today()).run).toBeNull();
+    expect(await refusal(as(BOB).start(DAY, 'medium', 'Bob'))).toBe('day-over');
+    // That day's words are on its board, but not for Ann until her run is over.
+    expect((await as(BOB).board(DAY, 'medium')).words).toEqual(WORDS);
+    expect((await as(ANN).board(DAY, 'medium')).words).toBeNull();
+    for (const word of WORDS.slice(1, 3)) await as(ANN).guess(DAY, word);
+    const done = await as(ANN).guess(DAY, WORDS[3]);
+    expect((await as(ANN).board(DAY, 'medium')).words).toEqual(WORDS);
+    expect(done).toMatchObject({ day: '2026-11-01', runTheme: 'Test set A', run: { day: DAY, status: 'finished' } });
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM daily_results').get()).toEqual({ n: 0 });
+    expect(sqlite.prepare("SELECT COUNT(*) AS n FROM games WHERE mode = 'daily'").get()).toEqual({ n: 1 });
+    // Once it's over, today's set: Ann can start it.
+    expect(await as(ANN).today()).toMatchObject({ day: '2026-11-01', run: null });
+    expect((await as(ANN).start('2026-11-01', 'medium', 'Ann')).run).toMatchObject({ day: '2026-11-01', status: 'playing' });
+  });
+
+  it('can only be finished for a day: two days on, it is over', async () => {
+    const { as, setClock } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    setClock(dayEnd('2026-11-01') + 1000);
+    expect(await refusal(as(ANN).guess(DAY, 'brick'))).toBe('day-over');
+    expect((await as(ANN).today()).run).toBeNull();
+  });
+
+  it('once given up, leaves the new day to start', async () => {
+    const { as, setClock } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    setClock(END + 1000);
+    await as(ANN).giveUp(DAY);
+    expect((await as(ANN).today()).run).toBeNull();
   });
 
   it('counts a run finished in the last millisecond of the day', async () => {
     const { as, setClock, sqlite } = setup();
     await as(ANN).start(DAY, 'medium', 'Ann');
     for (const word of WORDS.slice(0, 3)) await as(ANN).guess(DAY, word);
-    setClock(Date.UTC(2026, 10, 1) - 1);
+    setClock(END - 1);
     expect(await as(ANN).guess(DAY, WORDS[3])).toMatchObject({ day: DAY, run: { status: 'finished' } });
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM daily_results').get()).toEqual({ n: 1 });
   });
@@ -212,6 +246,63 @@ describe("today's Daily Rush", () => {
     const game = sqlite.prepare("SELECT record FROM games WHERE mode = 'daily'").get() as { record: string };
     const replayed = replayRun(JSON.parse(game.record) as RunRecord);
     expect(replayed.ok && replayed.game.results.every((r) => r.outcome === 'solved')).toBe(true);
+  });
+});
+
+describe('Pause', () => {
+  it('stops your clock, refusing guesses until you resume, and your time leaves it out', async () => {
+    const { as, tick, sqlite } = setup();
+    expect((await as(ANN).start(DAY, 'medium', 'Ann')).run).toMatchObject({ pausable: true, pausedAt: null });
+    tick(1000);
+    await as(ANN).guess(DAY, 'brick');
+    tick(1000);
+    expect((await as(ANN).pause(DAY)).run).toMatchObject({ pausedAt: NOON + 2000 });
+    expect(await refusal(as(ANN).pause(DAY))).toBe('paused');
+    tick(60_000);
+    expect(await refusal(as(ANN).guess(DAY, 'jumpy'))).toBe('paused');
+    const resumed = await as(ANN).resume(DAY);
+    expect(resumed.run).toMatchObject({ pausedAt: null });
+    expect(resumed.run?.words[1].pausedMs).toBe(60_000);
+    expect(await refusal(as(ANN).resume(DAY))).toBe('not-paused');
+    for (const word of WORDS.slice(1)) {
+      tick(1000);
+      await as(ANN).guess(DAY, word);
+    }
+    // 4 seconds of guessing, and the minute paused left out.
+    expect(sqlite.prepare('SELECT guesses, ms FROM daily_results').get()).toEqual({ guesses: 4, ms: 5000 });
+    const game = sqlite.prepare("SELECT record FROM games WHERE mode = 'daily'").get() as { record: string };
+    const record = JSON.parse(game.record) as RunRecord;
+    expect(record.moves.map((m) => m.kind)).toContain('pause');
+    expect(replayRun(record).ok).toBe(true);
+  });
+
+  it('allows two pauses a run, leaving out all the time paused', async () => {
+    const { as, tick, sqlite } = setup();
+    expect((await as(ANN).start(DAY, 'medium', 'Ann')).run).toMatchObject({ pausesLeft: 2 });
+    await as(ANN).pause(DAY);
+    tick(8 * 60_000);
+    expect((await as(ANN).resume(DAY)).run).toMatchObject({ pausesLeft: 1 });
+    await as(ANN).pause(DAY);
+    tick(5 * 60_000);
+    expect((await as(ANN).resume(DAY)).run).toMatchObject({ pausesLeft: 0 });
+    expect(await refusal(as(ANN).pause(DAY))).toBe('no-pauses-left');
+    for (const word of WORDS) {
+      tick(1000);
+      await as(ANN).guess(DAY, word);
+    }
+    // 13 minutes paused, all left out: only the 4 seconds of guessing.
+    expect(sqlite.prepare('SELECT ms FROM daily_results').get()).toEqual({ ms: 4000 });
+  });
+
+  it("can't pause a run started before Pause", async () => {
+    const { days, as } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    // As a run from before Pause was saved: not pausable.
+    const storage = days.get(DAY)!;
+    const entry = await storage.get<DailyEntry>(`run:${ANN}`);
+    await storage.put(`run:${ANN}`, { ...entry!, record: { ...entry!.record, pausable: false } });
+    expect((await as(ANN).today()).run?.pausable).toBe(false);
+    expect(await refusal(as(ANN).pause(DAY))).toBe('not-pausable');
   });
 });
 
@@ -255,7 +346,7 @@ describe('the leaderboard', () => {
 
   it('shows the words once the day is over, and no day to come', async () => {
     const { as, setClock } = await played();
-    setClock(Date.UTC(2026, 10, 1, 1));
+    setClock(END + 60 * 60 * 1000);
     expect((await as(ANN).board(DAY, 'medium')).words).toEqual(WORDS);
     expect(await refusal(as(ANN).board('2026-11-02', 'medium'))).toBe('not-found');
     expect(await refusal(as(ANN).board('2020-01-01', 'medium'))).toBe('not-found');
@@ -264,7 +355,7 @@ describe('the leaderboard', () => {
   it("gives your final places on past days, for the badges", async () => {
     const { as, setClock } = await played();
     expect((await as(ANN).today()).placements).toEqual([]);
-    setClock(Date.UTC(2026, 10, 1, 1));
+    setClock(END + 60 * 60 * 1000);
     expect((await as(ANN).today()).placements).toEqual([
       { day: DAY, difficulty: 'medium', rank: 2, total: 2, behind: 0, finishedAt: expect.any(Number) },
     ]);

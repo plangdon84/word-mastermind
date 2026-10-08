@@ -416,15 +416,20 @@ penalty still compares results word by word (`seatKeys` in
   - The theme's name is shown when you pick Daily Rush (and in the game
     header). The words stay on the server, which referees every guess, and
     never ship in the app.
-  - The day changes at **midnight UTC** for everyone, so there is one
-    leaderboard a day. The app counts down to the next set in hours and
-    minutes.
+  - The day changes at **midnight in New York** for everyone (4:00 or
+    5:00 UTC, following daylight saving), so there is one leaderboard a
+    day; it was midnight UTC until Dev Plan item 18y (issue 166). The
+    switch-over day, 8 October 2026, ran a few hours longer, from midnight
+    UTC to New York's midnight, so Friday 9 October's set began at midnight
+    in New York; earlier days keep their results. The app
+    counts down to the next set in hours and minutes.
   - **Once a day** for each player (an account, or a guest ID). Your name on
     the leaderboard is your profile name (or guest name) when you start.
   - You choose **Medium, Hard or Extreme** before you start, and it can't
     change during the run.
-  - The clock never pauses, and there is no time limit except the day's end:
-    a run not finished when the day changes has no entry.
+  - The clock stops only for **Pause** (twice a run), and there is no time limit: a run
+    not finished when the day changes can still be finished, but it has no
+    leaderboard entry (Dev Plan item 18y; it used to be void).
   - **Giving up** (a word or the run) quits that day's Daily Rush, with no
     leaderboard entry, so Daily Rush has no penalties.
   - **Leaderboard:** one per day **per difficulty**: finishing on Medium
@@ -1077,16 +1082,35 @@ clocks only.
   later, tagged **Played today** (or **Given up today**), with a **See
   today's leaderboard** link.
 - Header row 2 names the theme (**Daily Rush ·** and its name); row 3 has
-  one dot per word and the clock, which follows the server's and never
-  pauses. There's no Pause and no New game, and the ☰ menu's difficulty
-  can't change. Each word plays like Solo Rush's, refereed by the server
+  one dot per word, **Pause** and the clock, which follows the server's.
+  There's no New game, and the ☰ menu's difficulty can't change.
+- **Pause** (Dev Plan item 18y, issue 170) stops your clock and covers the
+  board ("Paused", with **Resume**) until you come back. **Twice a run**,
+  with no time limit: all the time paused is left out of your time
+  (owner, 8 October 2026: a Daily Rush takes 20 to 25 minutes, and
+  stepping away shouldn't cost a place, but unlimited pauses would decide
+  ties on time; maybe 1 pause later). The server records each pause and resume as moves, so the run
+  still replays. It pauses only when you press it, not when you leave the
+  page, and a run started before Pause can't pause. Each word plays like Solo Rush's, refereed by the server
   (`worker/src/dailyRoom.ts`): the words stay there until you find them.
 - **Give up today's Daily Rush** (☰ menu) asks first, then ends it with no
   leaderboard entry; the words you didn't find stay hidden until the day is
-  over. A run not finished by midnight UTC has no entry either.
+  over.
+- **The day's last minutes** (Dev Plan item 18y, issue 161): with 5
+  minutes or less of the day left, the game warns above the board,
+  counting down ("4 minutes left to finish for today's board."), and the
+  start screen warns before you begin ("Only 4 minutes of today left: a
+  run not finished by then won't go on the board.").
+- **Late finishes** (Dev Plan item 18y, issue 160): a run still going when
+  the day changes can be finished during the next day, but it isn't on the
+  leaderboard or the Daily Rush streak. While you play it, a note says the
+  day has changed; the end says "You finished after the day changed, so
+  this one isn't on the board", with **Today's Daily Rush** to go on to the
+  new set. Until it's finished or given up, opening Daily Rush goes back
+  into it; a day later still, it can't be finished.
 - **Result:** each word with its guesses and time, total guesses and time,
   and your **place so far** ("12th of 340 · better than 96%"); places are
-  final at midnight UTC. **Leaderboard** shows the day's top 10 for each
+  final at midnight New York time. **Leaderboard** shows the day's top 10 for each
   difficulty (ties share a rank), your place below them if you're not in
   it, and earlier days (‹ ›) with their words. Its **← Back** returns to
   the result.
@@ -1603,7 +1627,7 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   1st place isn't in the top 10%). Also a badge for finishing the day's set
   at each difficulty (Easy, Medium, Hard, Extreme; a harder one doesn't
   award the easier ones, since each is its own day's run), and a **Daily
-  Rush streak** (finishing the day's set on consecutive UTC days) of 7, 30
+  Rush streak** (finishing the day's set, before the day ends, on consecutive Daily Rush days, which change at midnight in New York) of 7, 30
   and 100, tagged DAILY RUSH.
 - **Friends:** a **win against a friend** (a seal tagged FRIENDS, with two
   bubbles and VS), a **Rush with Friends win** (first in a lobby's final

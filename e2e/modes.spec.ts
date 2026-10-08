@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { dailyDay } from '../src/game/dailyDays';
 import { testThemeFor } from '../worker/src/testThemes';
 import { getStorage, guess, historyCount, listening, modeButton, newPlayer, savedGame, startSolo, trackSockets, unlockAll } from './helpers';
 
@@ -77,13 +78,20 @@ test('Solo Rush: four words in a row, then the result', async ({ page }) => {
 
 test("Daily Rush: today's words, once a day", async ({ page }) => {
   // e2e/worker.ts loads the made-up test sets.
-  const words: string[] = [...testThemeFor(new Date().toISOString().slice(0, 10)).words];
+  const words: string[] = [...testThemeFor(dailyDay(Date.now())).words];
 
   await unlockAll(page);
   await modeButton(page, 'Rush').click();
   await modeButton(page, 'Daily Rush').click();
   await button(page, /^Medium/).click();
   await button(page, 'Start Daily Rush').click();
+  await expect(page.getByText(/Type a 5-letter word/)).toBeVisible();
+  // Pause covers the board until Resume.
+  await button(page, 'Pause').click();
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await expect(page.getByText(/Type a 5-letter word/)).toBeHidden();
+  await expectAccessible(page);
+  await page.locator('section.panel').getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByText(/Type a 5-letter word/)).toBeVisible();
   // Each player gets the words in their own order: try the ones not yet found in turn, each guess
   // after the server's answer to the last, so none is typed while one is on its way.

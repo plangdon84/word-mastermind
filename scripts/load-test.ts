@@ -17,6 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
+import { dailyDay } from '../src/game/dailyDays.ts';
 import { calendarDays } from '../worker/src/themeDays.ts';
 import { testThemeFor } from '../worker/src/testThemes.ts';
 
@@ -42,7 +43,7 @@ const MISSES = ['crane', 'house', 'plumb', 'light', 'bunny', 'ghost'];
 
 // Today's Daily Rush words: the made-up test set e2e/worker.ts loads, or,
 // against staging, from the private calendar's folder (--themes).
-const today = new Date().toISOString().slice(0, 10);
+const today = dailyDay(Date.now());
 const dailyWords: string[] = args.themes
   ? [...(calendarDays({
     themes: JSON.parse(readFileSync(join(args.themes, 'daily-rush-themes.json'), 'utf8')),

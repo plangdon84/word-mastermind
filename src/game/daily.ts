@@ -1,38 +1,16 @@
 import type { Difficulty } from './difficulty';
-import { DAY_MS } from './pvp';
+import { dayEnd, type DailyDay } from './dailyDays';
 import type { RunGame, WordOutcome } from './run';
 import type { GuessResult } from './scoring';
 
 /*
  * Daily Rush (README "Rush modes"): everyone plays the same themed set of 4
  * words each day, once, refereed by the server. The day changes at midnight
- * UTC for everyone. Like the rest of the game logic, nothing here reads the
- * clock: the time is passed in.
+ * in New York for everyone (`dailyDays.ts`). Like the rest of the game logic,
+ * nothing here reads the clock: the time is passed in.
  */
 
-/** A Daily Rush day: its UTC date, e.g. `2026-10-31`. */
-export type DailyDay = string;
-
-/** The day `now` falls on. */
-export function dailyDay(now: number): DailyDay {
-  return new Date(now).toISOString().slice(0, 10);
-}
-
-/** Is this a day as `dailyDay` writes them? */
-export function isDailyDay(value: unknown): value is DailyDay {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const start = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(start) && dailyDay(start) === value;
-}
-
-/** When a day starts, in milliseconds since the epoch. */
-export const dayStart = (day: DailyDay): number => Date.parse(`${day}T00:00:00Z`);
-
-/** When a day ends, and the next set of words is out. */
-export const dayEnd = (day: DailyDay): number => dayStart(day) + DAY_MS;
-
-/** The day before or after, `by` days away. */
-export const addDays = (day: DailyDay, by: number): DailyDay => dailyDay(dayStart(day) + by * DAY_MS);
+export { addDays, dailyDay, dayEnd, dayStart, isDailyDay, NEW_YORK_FROM, type DailyDay } from './dailyDays';
 
 /**
  * Where a player's Daily Rush is. It's finished once every word is found;
@@ -49,6 +27,8 @@ export interface DailyWordView {
   outcome: WordOutcome | null;
   /** Suggestions taken at this word (Easy). */
   suggested: number;
+  /** Time spent paused at this word, which doesn't count. */
+  pausedMs: number;
 }
 
 /** A player's Daily Rush as the server sends it: the words not yet found stay hidden. */
@@ -60,6 +40,36 @@ export interface DailyView {
   current: number;
   status: DailyStatus;
   words: readonly DailyWordView[];
+  /** Whether the clock can be paused: runs started before Pause (Dev Plan item 18y) can't. */
+  pausable: boolean;
+  /** When the clock was paused, or null while it runs. */
+  pausedAt: number | null;
+  /** Pauses not yet used (`DAILY_PAUSES` a run). */
+  pausesLeft: number;
+}
+
+/** Pauses a Daily Rush allows (owner, 8 October 2026). */
+export const DAILY_PAUSES = 2;
+
+/** Pauses used so far in a run. */
+export const pausesUsed = (run: Pick<RunGame, 'moves'>): number => run.moves.filter((m) => m.kind === 'pause').length;
+
+/** What a Daily Rush's time is counted from: the server's run, or the app's view of it. */
+interface DailyClock {
+  startedAt: number;
+  pausedAt: number | null;
+  words: readonly { endedAt: number | null; pausedMs: number }[];
+}
+
+/**
+ * A Daily Rush's time at `now` (or, once over, at its last word): start to
+ * end, less the time paused. The one sum the board, the result and the clock
+ * on screen all use.
+ */
+export function dailyElapsedMs(run: DailyClock, over: boolean, now: number): number {
+  const end = over ? Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt)) : now;
+  const paused = run.words.reduce((sum, w) => sum + w.pausedMs, 0) + (!over && run.pausedAt !== null ? Math.max(0, now - run.pausedAt) : 0);
+  return Math.max(0, end - run.startedAt - paused);
 }
 
 export function dailyStatus(run: RunGame): DailyStatus {
@@ -75,6 +85,9 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
     startedAt: run.startedAt,
     current: run.current,
     status: dailyStatus(run),
+    pausable: run.pausable,
+    pausedAt: run.pausedAt,
+    pausesLeft: run.pausable ? Math.max(0, DAILY_PAUSES - pausesUsed(run)) : 0,
     words: run.results.map((r) => ({
       word: r.outcome === 'solved' ? r.word : null,
       guesses: r.guesses,
@@ -82,22 +95,33 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
       endedAt: r.endedAt,
       outcome: r.outcome,
       suggested: r.suggested,
+      pausedMs: r.pausedMs,
     })),
   };
 }
 
-/** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time. */
+/** When the last word was found or given up: the run's end, once it's over. */
+const lastEnd = (run: RunGame): number => Math.max(run.startedAt, ...run.results.map((r) => r.endedAt ?? run.startedAt));
+
+/** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time (`dailyElapsedMs`). */
 export interface DailyTotals {
   guesses: number;
   ms: number;
 }
 
-/** Null until every word is found. The clock never pauses, so the time is start to last find. */
+/** Null until every word is found. */
 export function dailyTotals(run: RunGame): DailyTotals | null {
   if (dailyStatus(run) !== 'finished') return null;
   const guesses = run.results.reduce((sum, r) => sum + r.guesses.length, 0);
-  const end = Math.max(...run.results.map((r) => r.endedAt ?? run.startedAt));
-  return { guesses, ms: end - run.startedAt };
+  return { guesses, ms: dailyElapsedMs({ ...run, words: run.results }, true, lastEnd(run)) };
+}
+
+/**
+ * A run finished after its day ended (README "Daily Rush"): it could still be
+ * played to the end, but it isn't on the leaderboard or the Daily Rush streak.
+ */
+export function finishedLate(day: DailyDay, run: RunGame): boolean {
+  return dailyStatus(run) === 'finished' && lastEnd(run) >= dayEnd(day);
 }
 
 /** Your place on a day's leaderboard for your difficulty. */

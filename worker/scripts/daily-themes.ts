@@ -12,6 +12,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { dailyDay } from '../../src/game/dailyDays.ts';
 import { calendarDays, themeDayProblems, themeDaysSql, type ThemeDay } from '../src/themeDays.ts';
 import { testThemeDays } from '../src/testThemes.ts';
 import { ENVIRONMENTS, isEnvironment } from '../src/wipe.ts';
@@ -23,7 +24,7 @@ if (!isEnvironment(environment) || !source) {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const today = new Date().toISOString().slice(0, 10);
+const today = dailyDay(Date.now());
 let days: ThemeDay[];
 if (source === '--test') {
   // Made-up sets must never reach a server players use.

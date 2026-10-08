@@ -370,8 +370,8 @@ Run `npm test` and `npm run typecheck` before committing.
   strengths (`strengthForAverage`: < 10 Mastermind, < 15 Expert, ≤ 20
   Skilled, else Casual). Daily Rush: the day's themed set
   (`wordlist/themes/`, never shipped in the app; the day flips at midnight
-  UTC), once a day, difficulty chosen once, no pause, giving up leaves no
-  entry, a leaderboard per day and difficulty by total guesses (time breaks
+  in New York, `src/game/dailyDays.ts`), once a day, difficulty chosen
+  once, Pause recorded as moves (item 18y), giving up leaves no entry, a leaderboard per day and difficulty by total guesses (time breaks
   ties) with position and percentile. Rush with Friends: a lobby of up to 5
   (join code; computers can fill seats, pacing their guesses by duration ÷
   4 ÷ their strength's fewest expected guesses), one difficulty, the same
@@ -405,7 +405,7 @@ Run `npm test` and `npm run typecheck` before committing.
   saved games like achievements, each step needing the one before; the
   title screen locks what isn't open (`open` prop), and each step has a
   badge (`unlock-*`). Achievements also has Daily Rush badges (each
-  difficulty, a UTC-day streak), friend, lobby and Competitive Rush wins,
+  difficulty, a streak of Daily Rush days), friend, lobby and Competitive Rush wins,
   and Achievement Hunter (`hunter-*`, 25–100% of the other badges, Easy's
   included). Item 13d's rules (README "Achievements"): a solve is any word
   you found in any mode (two player too, a win or a draw); VS CPU badges

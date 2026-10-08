@@ -178,12 +178,15 @@ describe("the server's games' badges", () => {
     expect(ids(games)).toContain('win-streak-3');
   });
 
-  it('award the Daily Rush at its difficulty only, and count its days in a row by UTC day', () => {
+  it('award the Daily Rush at its difficulty only, and count its days in a row by Daily Rush day', () => {
     expect(ids([daily('d', '2026-10-01', T, words, { difficulty: 'hard' })])).toEqual(expect.arrayContaining(['daily-rush-hard']));
     expect(ids([daily('d', '2026-10-01', T, words, { difficulty: 'hard' })])).not.toContain('daily-rush-medium');
     const week = [...Array(7)].map((_, i) => daily(`d${i}`, `2026-10-0${i + 1}`, T + i * DAY, words));
     expect(computeAchievements(week, utcDay).find((b) => b.id === 'daily-rush-streak-7')).toMatchObject({ gameId: 'd6' });
     expect(ids([...week.slice(0, 3), ...week.slice(4)])).not.toContain('daily-rush-streak-7');
+    // A run finished after its day ended (an hour into the next) isn't on the streak.
+    const late = daily('d3', '2026-10-04', Date.UTC(2026, 9, 5, 1), words);
+    expect(ids([...week.slice(0, 3), late, ...week.slice(4)])).not.toContain('daily-rush-streak-7');
   });
 
   it('award finishing first in a lobby, and in a Competitive Rush against a person', () => {

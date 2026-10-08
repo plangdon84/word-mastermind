@@ -5,7 +5,7 @@
  * test, so it imports nothing: Node runs it with its own TypeScript support.
  */
 
-/** A UTC day, e.g. "2026-10-31" (`DailyDay` in src/game). */
+/** A Daily Rush day, e.g. "2026-10-31" (`DailyDay` in src/game). */
 type Day = string;
 
 export interface DailyTheme {

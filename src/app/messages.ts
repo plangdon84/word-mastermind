@@ -173,6 +173,28 @@ export function countdownText(ms: number): string {
   return hours === 0 ? `${minutes}m` : `${hours}h ${minutes % 60}m`;
 }
 
+/** How close to the day's end the Daily Rush warns (README "Daily Rush"). */
+export const DAY_ENDING_MS = 5 * 60_000;
+
+/** "4 minutes", "1 minute", "under a minute": the last minutes of the day. */
+function minutesLeft(ms: number): string {
+  const minutes = Math.ceil(ms / 60_000);
+  return ms < 60_000 ? 'under a minute' : minutes === 1 ? '1 minute' : `${minutes} minutes`;
+}
+
+/** With 5 minutes or less of the day left, while playing: "4 minutes left to finish for today's board". */
+export function dayEndingText(ms: number): string | null {
+  if (ms > DAY_ENDING_MS || ms <= 0) return null;
+  const left = minutesLeft(ms);
+  return `${left[0].toUpperCase()}${left.slice(1)} left to finish for today's board.`;
+}
+
+/** The same warning before you start. */
+export function dayEndingStartText(ms: number): string | null {
+  if (ms > DAY_ENDING_MS || ms <= 0) return null;
+  return `Only ${minutesLeft(ms)} of today left: a run not finished by then won't go on the board.`;
+}
+
 /** What to tell the player when the server refuses a Daily Rush request. */
 export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''): string {
   switch (error) {
@@ -189,13 +211,21 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
     case 'no-theme':
       return "There's no Daily Rush today.";
     case 'already-played':
-      return "You've already played today's Daily Rush. A new set is out at midnight UTC.";
+      return "You've already played today's Daily Rush. A new set is out at midnight New York time.";
     case 'not-started':
       return "You haven't started today's Daily Rush.";
     case 'day-over':
       return "That day's Daily Rush is over: a new set is out.";
     case 'game-over':
       return "Today's Daily Rush is over for you.";
+    case 'paused':
+      return 'The clock is paused. Resume to keep playing.';
+    case 'not-paused':
+      return "The clock isn't paused.";
+    case 'no-pauses-left':
+      return 'You’ve used both pauses for this Daily Rush.';
+    case 'not-pausable':
+      return "This Daily Rush was started before Pause, so its clock can't pause.";
     case 'offensive-name':
       return "Your name can't go on the leaderboard. Change it on your profile to play.";
     case 'not-found':
