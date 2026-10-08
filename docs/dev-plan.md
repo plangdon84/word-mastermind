@@ -10,6 +10,12 @@ to the top of **Done**, which lists finished items latest first. Item
 numbers never shift, since other sections refer to them: a new item takes a
 letter (like 13b). Every PR can ship on its own.
 
+Issues live in the private archive, `plangdon84/word-mastermind-archive`
+(issues are off in this public repo, since a report can hold game data).
+Items cite them in full, or as `Issue N` inside an item; a bare `#N`
+written before 8 October 2026 is an archive issue too. `/triage-issues`
+plans them here and closes the ones a merged PR fixed.
+
 ## To build
 
 Open GitHub issues were triaged with the owner on 2 October 2026, in two

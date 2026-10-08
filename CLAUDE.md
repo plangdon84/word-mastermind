@@ -444,16 +444,26 @@ the review and CI rules in the review of 2 October (PRs #63 to #89).
   ready run passes the first time.
 - **Keep PRs small:** one feature, or at most about five issues, per PR.
   Split a bigger item into several PRs, each with its own bullet.
-- **Close the issues a PR fixes.** GitHub closes an issue on merge only
-  when the PR description says so, one keyword per issue: put
-  `Closes #N` on its own line under **Scope** for each issue the PR fully
-  fixes (`Closes #110` and `Closes #112`, never `Closes #110, #112`, which
-  closes only the first). An issue only partly fixed gets `Part of #N`
-  and stays open; a PR that only plans or mentions issues (triage, the
-  dev plan) closes none. Before marking a PR ready, check that its
-  **Development** panel lists every issue it fixes. After merging, an
-  issue still open that the PR fixed is closed by hand as completed,
-  with a comment naming the PR.
+- **Issues live in the private archive.** Issues are off in this public
+  repo; every issue (app reports, review findings, ideas) is filed in
+  `plangdon84/word-mastermind-archive`, since a report can hold game data.
+  Here, cite one in full (`plangdon84/word-mastermind-archive#166`), or as
+  `Issue 166` with no `#` where that's too long: a bare `#166` is this
+  repo's own #166. Issue numbers written before 8 October 2026 (in this
+  file, the README and the plan's Done items) are the archive's. Never
+  copy an issue's body here: describe the behaviour in your own words,
+  with no secret word, Daily Rush answer, player name, report link, ID,
+  code or key from it (`/triage-issues` plans them).
+- **Close the issues a PR fixes.** Put
+  `Closes plangdon84/word-mastermind-archive#N` on its own line under
+  **Scope** for each archive issue the PR fully fixes, one keyword per
+  issue (one `Closes` line each, never one listing two). An issue only
+  partly fixed gets `Part of plangdon84/word-mastermind-archive#N` and
+  stays open; a PR that only plans or mentions issues (triage, the dev
+  plan) closes none. GitHub may not close an issue across repos on merge,
+  so after merging, close each issue the PR fixed by hand as completed,
+  with a comment naming the PR (`plangdon84/word-mastermind#N`);
+  `/triage-issues` also closes any it finds still open.
 - **Settle how it behaves before building it.** Questions about how the
   game behaves for players (rules, scoring, what a tap does, what others
   can see, who can do what) go in the PR's **Decisions needed before
@@ -492,7 +502,7 @@ the review and CI rules in the review of 2 October (PRs #63 to #89).
     **owner decision**, not fixed by the PR's session.
   - **Between rounds:** fix the accepted findings, push them together, and
     push nothing else until round 2 is done. A low finding is accepted as
-    is or filed as an issue; fix it in the PR only when the fix is a line
+    is or filed as an issue (in the archive); fix it in the PR only when the fix is a line
     or two and adds no new behaviour.
   - **Round 2 checks the fixes.** It reviews only the commits since round 1,
     given round 1's findings and outcomes (the **Reviews** table) so it
