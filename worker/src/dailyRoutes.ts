@@ -71,7 +71,7 @@ const toPlacement = (r: PlaceRow, rankBy: RankBy): DailyPlacement => ({
  * 10% badges. A day's Crush place comes before its Rush place, so an older
  * app, which takes a day's first, shows the Crush one.
  */
-async function pastPlacements(db: D1Database, player: Player, today: DailyDay): Promise<DailyPlacement[]> {
+export async function pastPlacements(db: D1Database, player: Player, today: DailyDay): Promise<DailyPlacement[]> {
   const boards = await Promise.all(RANK_BYS.map(async (rankBy) => {
     const { results } = await db.prepare(
       `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(rankBy)}

@@ -99,7 +99,7 @@ export async function saveEntries(db: D1Database, accountId: string, entries: re
 }
 
 /** A page of the account's games after `cursor`, in the order they arrived. */
-async function loadEntries(db: D1Database, accountId: string, cursor: number) {
+export async function loadEntries(db: D1Database, accountId: string, cursor: number) {
   const { results } = await db.prepare(
     `SELECT seq, entry FROM history_entries WHERE account_id = ?1 AND seq > ?2 ORDER BY seq LIMIT ${DOWNLOAD_PAGE + 1}`,
   ).bind(accountId, cursor).all<{ seq: number; entry: string }>();

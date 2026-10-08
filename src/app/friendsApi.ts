@@ -1,5 +1,9 @@
-import { isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET } from '../game';
+import {
+  isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, parseHistoryEntry, type DailyPlacement, type HistoryEntry,
+} from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
+import { isCountry } from './countries';
+import { parsePlacement } from './dailyApi';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -102,10 +106,56 @@ export function parseFriendsList(value: unknown): FriendsList | null {
   return { code: value.code, invite, friends, received, sent, lobbyInvites };
 }
 
+/**
+ * A friend's profile (Dev Plan item 18c, README "Friends' profiles"): what
+ * they've chosen to show every player (name and country), and their Daily
+ * Rush places, for their badges. Never their settings, email or friends.
+ */
+export interface FriendProfile {
+  name: string;
+  country: string | null;
+  memberSince: number | null;
+  placements: DailyPlacement[];
+}
+
+/**
+ * A page of a friend's games, each a history entry from their side. The
+ * first page (asked for with no cursor) also has their profile; `next` is
+ * where the next page starts, or null at the end.
+ */
+export interface FriendProfilePage {
+  profile: FriendProfile | null;
+  games: HistoryEntry[];
+  next: string | null;
+}
+
+/** Where a page of a friend's games starts: their synced games (`h:`), then the server's (`p:`). */
+export const isProfileCursor = (value: unknown): value is string => typeof value === 'string' && /^[hp]:\d{1,15}$/.test(value);
+
+function parseFriendProfile(value: unknown): FriendProfile | null {
+  if (!isObject(value) || typeof value.name !== 'string' || !Array.isArray(value.placements)) return null;
+  const { name, country, memberSince } = value;
+  return {
+    name,
+    country: isCountry(country) ? country : null,
+    memberSince: isTime(memberSince) ? memberSince : null,
+    placements: value.placements.map(parsePlacement).filter((p): p is DailyPlacement => p !== null),
+  };
+}
+
+export function parseFriendProfilePage(value: unknown): FriendProfilePage | null {
+  if (!isObject(value) || !Array.isArray(value.games) || !(value.next === null || isProfileCursor(value.next))) return null;
+  const profile = value.profile === null || value.profile === undefined ? null : parseFriendProfile(value.profile);
+  if (value.profile && !profile) return null;
+  // A game this version of the app can't read (from a newer app or server) is left out: it's only shown.
+  const games = value.games.map(parseHistoryEntry).filter((e): e is HistoryEntry => e !== null);
+  return { profile, games, next: value.next as string | null };
+}
+
 /** The server's reasons for refusing. */
 export type FriendsErrorCode =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'own-code' | 'too-many-friends'
-  | 'unreachable'
+  | 'unreachable' | 'try-again'
   // Opening an invite link: not codes the server sends, but how the app words its not-found and own-code.
   | 'invite-gone' | 'own-invite';
 
@@ -128,6 +178,8 @@ export interface FriendsApi {
   acceptInvite(key: string): Promise<{ list: FriendsList; friend: Friend | null }>;
   /** A new invite key, so links shared before stop working. Answers with the list. */
   resetInvite(): Promise<FriendsList>;
+  /** A page of a friend's profile and games, from `cursor` (null for the first, with their profile). */
+  profile(code: string, cursor: string | null): Promise<FriendProfilePage>;
 }
 
 /** Talks to the worker at `apiUrl` as the signed-in account (`identity`). Every call rejects with a `FriendsApiError`. */
@@ -155,7 +207,30 @@ export function friendsApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeo
       return { list, friend: friend ?? null };
     },
     resetInvite: () => request('POST', '/api/friends/invite/reset', {}),
+    profile: async (code, cursor) => {
+      const query = new URLSearchParams({ code, ...(cursor ? { after: cursor } : {}) });
+      const page = parseFriendProfilePage(await send('GET', `/api/friends/profile?${query}`));
+      if (!page) throw new FriendsApiError('bad-request', 200);
+      return page;
+    },
   };
+}
+
+/** The most pages one friend's profile reads: far more games than anyone plays, but never an endless loop. */
+const MAX_PROFILE_PAGES = 1000;
+
+/** A friend's whole profile and every game in it, page by page. Rejects with a `FriendsApiError`. */
+export async function loadFriendProfile(api: FriendsApi, code: string): Promise<{ profile: FriendProfile; games: HistoryEntry[] }> {
+  const first = await api.profile(code, null);
+  if (!first.profile) throw new FriendsApiError('bad-request', 200);
+  const games = [...first.games];
+  let next = first.next;
+  for (let pages = 1; next !== null && pages < MAX_PROFILE_PAGES; pages++) {
+    const page = await api.profile(code, next);
+    games.push(...page.games);
+    next = page.next;
+  }
+  return { profile: first.profile, games };
 }
 
 /** What to tell someone when a change to their friends list didn't work. */
@@ -163,6 +238,8 @@ export function friendsErrorMessage(code: FriendsErrorCode): string {
   switch (code) {
     case 'not-found':
       return 'Nobody has that friend code. Check it and try again.';
+    case 'try-again':
+      return 'The game server is busy. Try again in a moment.';
     case 'invite-gone':
       return 'That invite link no longer works: its owner made a new one. Ask them for it, or for their friend code.';
     case 'own-invite':

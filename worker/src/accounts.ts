@@ -242,6 +242,18 @@ export function isPlayers(column: string, param: string): string {
   return `${column} IN (SELECT ${param} UNION SELECT id FROM guests WHERE account_id = ${param})`;
 }
 
+/**
+ * An account as a player, with every guest ID it linked: what `identify`
+ * gives its own session, and what a friend's profile looks the account's
+ * games up by. `deviceId` is the account's own ID, there being no device.
+ */
+export async function playerOfAccount(db: D1Database, accountId: string): Promise<Player> {
+  const { results } = await db.prepare('SELECT id FROM guests WHERE account_id = ?1 ORDER BY created_at')
+    .bind(accountId).all<{ id: string }>();
+  const aliases = results.map((r) => r.id).filter((id) => id !== accountId);
+  return { id: accountId, aliases, deviceId: accountId, accountId };
+}
+
 export type Identified = { ok: true; player: Player } | { ok: false; status: number; error: string };
 
 /**
@@ -256,10 +268,7 @@ export async function identify(request: Request, db: D1Database, now: number): P
     const token = bearerToken(request);
     const session = token && await findSession(db, token, now);
     if (!session) return { ok: false, status: 401, error: 'signed-out' };
-    const { results } = await db.prepare('SELECT id FROM guests WHERE account_id = ?1 ORDER BY created_at')
-      .bind(session.accountId).all<{ id: string }>();
-    const aliases = results.map((r) => r.id).filter((id) => id !== session.accountId);
-    return { ok: true, player: { id: session.accountId, aliases, deviceId, accountId: session.accountId } };
+    return { ok: true, player: { ...await playerOfAccount(db, session.accountId), deviceId } };
   }
   const guest = await db.prepare('SELECT account_id FROM guests WHERE id = ?1').bind(deviceId)
     .first<{ account_id: string | null }>();

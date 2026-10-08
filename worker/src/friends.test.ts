@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { authApi, type Session } from '../../src/app/account';
 import { friendApi, FriendApiError } from '../../src/app/friendApi';
-import { friendsApi, FriendsApiError, isFriendCode, isInviteKey, normalizeFriendCode, formatFriendCode } from '../../src/app/friendsApi';
+import {
+  friendsApi, FriendsApiError, isFriendCode, isInviteKey, loadFriendProfile, normalizeFriendCode, formatFriendCode,
+} from '../../src/app/friendsApi';
+import { addDays, dailyDay } from '../../src/game';
+import { dailyEntry, soloEntry } from '../../src/game/testGames';
 import { lobbyApi, LobbyApiError } from '../../src/app/lobbyApi';
 import { fetchRatings } from '../../src/app/ratingsApi';
 import { syncApi } from '../../src/app/syncApi';
@@ -82,11 +86,12 @@ async function setup() {
       friends: friendsApi('https://api.example', id, fetchFn),
       games: friendApi('https://api.example', id, fetchFn),
       lobbies: lobbyApi('https://api.example', id, fetchFn),
+      sync: syncApi('https://api.example', id, fetchFn),
     };
   };
   /** Pushes sent since the last call, as [who, topic]. */
   const pushed = () => pushes.splice(0).map(([url, topic]) => [url.split('/').pop(), topic]);
-  return { sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null) };
+  return { sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock };
 }
 
 describe('friend codes', () => {
@@ -432,5 +437,81 @@ describe('deleting an account', () => {
     expect((await bob.friends.list()).received).toHaveLength(1);
     await authApi('https://api.example', ANN, fetchFn).deleteAccount(ann.session.token);
     expect((await bob.friends.list()).received).toEqual([]);
+  });
+});
+
+describe("a friend's profile (Dev Plan item 18c)", () => {
+  async function friends() {
+    const s = await setup();
+    const ann = await s.player(ANN, 'Ann');
+    const bob = await s.player(BOB, 'Bob');
+    const cat = await s.player(CAT, 'Cat');
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    await bob.friends.add((await ann.friends.list()).code);
+    return { ...s, ann, bob, cat, bobCode };
+  }
+
+  it("is only a friend's: not a stranger's, a request's or a guest's", async () => {
+    const { ann, cat, bob, bobCode, fetchFn, guest } = await friends();
+    const refused = (p: Promise<unknown>) => p.then(() => 'ok', (e: FriendsApiError) => e.code);
+    expect(await refused(cat.friends.profile(bobCode, null))).toBe('not-found');
+    // Cat asks Bob to be friends: until Bob accepts, neither sees the other's profile.
+    const catCode = (await cat.friends.list()).code;
+    await cat.friends.add(bobCode);
+    expect(await refused(cat.friends.profile(bobCode, null))).toBe('not-found');
+    expect(await refused(bob.friends.profile(catCode, null))).toBe('not-found');
+    expect(await refused(friendsApi('https://api.example', guest(CAT), fetchFn).profile(bobCode, null))).toBe('sign-in-needed');
+    expect(await refused(ann.friends.profile(bobCode, null))).toBe('ok');
+  });
+
+  it("shows their name, country and games from their side, and nothing else of theirs", async () => {
+    const { ann, bob, bobCode, now } = await friends();
+    await bob.sync.putProfile({
+      guestName: 'Guest-1234', name: 'Bob', country: 'GB', memberSince: NOW,
+      settings: { difficulty: 'hard', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
+    });
+    await bob.sync.upload([soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach'])]);
+    // A game against Ann: she goes first and finds Bob's word, and his final guess misses.
+    const game = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d', friend: bobCode });
+    await bob.games.join(game.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    await ann.games.guess(game.id, 'beach');
+    await bob.games.guess(game.id, 'crane');
+
+    const { profile, games } = await loadFriendProfile(ann.friends, bobCode);
+    expect(profile).toEqual({ name: 'Bob', country: 'GB', memberSince: NOW, placements: [] });
+    expect(games.map((g) => g.mode)).toEqual(['single', 'friend']);
+    expect(games[1]).toMatchObject({ mode: 'friend', seat: 'guest', opponent: 'Ann' });
+
+    // Nothing that's a credential or private: no game ID, guest ID, email or setting.
+    const raw = JSON.stringify(await ann.friends.profile(bobCode, null)) + JSON.stringify(await ann.friends.profile(bobCode, 'p:0'));
+    for (const secret of [game.id, ANN, BOB, 'bob@example.com', 'shareMarks', '"ref"']) expect(raw).not.toContain(secret);
+  });
+
+  it("leaves out a Daily Set whose day isn't over, and gives the places of those that are", async () => {
+    const { ann, bobCode, sqlite, now } = await friends();
+    const today = dailyDay(now());
+    const yesterday = addDays(today, -1);
+    for (const day of [yesterday, today]) {
+      const { record } = dailyEntry('x', day, now() - 120_000, [['beach'], ['crane'], ['storm'], ['house']]) as { record: unknown };
+      const id = `daily:${day}:${BOB}`;
+      sqlite.prepare("INSERT INTO games (id, mode, version, record, started_at, finished_at) VALUES (?, 'daily', 1, ?, ?, ?)")
+        .run(id, JSON.stringify(record), now() - 120_000, now() - 60_000);
+      sqlite.prepare('INSERT INTO game_players (game_id, guest_id) VALUES (?, ?)').run(id, BOB);
+      sqlite.prepare('INSERT INTO daily_results (day, player_id, difficulty, name, guesses, ms, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(day, BOB, 'medium', 'Bob', 4, 60_000, now() - 60_000);
+    }
+    const { profile, games } = await loadFriendProfile(ann.friends, bobCode);
+    expect(games.map((g) => g.mode === 'daily' && g.day)).toEqual([yesterday]);
+    expect(profile.placements.map((p) => [p.day, p.rank, p.rankBy])).toEqual([[yesterday, 1, undefined], [yesterday, 1, 'rush']]);
+  });
+
+  it('refuses a cursor or code that is no such thing', async () => {
+    const { fetchFn, ann, bobCode } = await friends();
+    const headers = { 'x-guest-id': ANN, authorization: `Bearer ${ann.session.token}` };
+    for (const query of [`code=${bobCode}&after=x:1`, `code=${bobCode}&after=h:`, 'code=nope']) {
+      const response = await fetchFn(`https://api.example/api/friends/profile?${query}`, { headers });
+      expect(response.status).toBe(400);
+    }
   });
 });

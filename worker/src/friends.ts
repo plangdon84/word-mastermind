@@ -1,16 +1,20 @@
-import { isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { isCountry } from '../../src/app/countries';
 import {
-  FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, type Friend, type FriendsList, type LobbyInvite,
+  FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, isProfileCursor, MAX_FRIENDS, type Friend, type FriendProfile,
+  type FriendProfilePage, type FriendsList, type LobbyInvite,
 } from '../../src/app/friendsApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
-import { identify } from './accounts';
+import { identify, playerOfAccount } from './accounts';
+import { pastPlacements } from './dailyRoutes';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
 import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
+import { playedPage } from './played';
 import { vapidKeysOf } from './pushRoutes';
-import { syncedName } from './sync';
+import { loadEntries, syncedName } from './sync';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -215,6 +219,46 @@ async function removeFriend(db: D1Database, accountId: string, code: string): Pr
     .bind(accountId, friendId).run();
 }
 
+/**
+ * A page of a friend's profile (Dev Plan item 18c, README "Friends'
+ * profiles"): their games from their side, first those their devices synced
+ * (`h:`), then the ones the server refereed (`p:`), and with the first page
+ * (no cursor) their name, country and Daily Rush places. Only what any
+ * player may see of them: never their settings, email, friends list or an
+ * ID. A Daily Rush whose day isn't over yet is left out, so its words can't
+ * be read off a friend before you play it. Null if the page can't be read
+ * for now (a busy game room).
+ */
+export async function friendProfilePage(
+  env: Env, friendId: string, cursor: string | null, now: number,
+): Promise<FriendProfilePage | null> {
+  const db = env.DB;
+  const today = dailyDay(now);
+  const player = await playerOfAccount(db, friendId);
+  let profile: FriendProfile | null = null;
+  if (cursor === null) {
+    const row = await db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
+      .first<{ country: string | null; member_since: number }>();
+    profile = {
+      name: await nameOrDefault(db, friendId),
+      country: isCountry(row?.country) ? row.country : null,
+      memberSince: row?.member_since ?? null,
+      placements: await pastPlacements(db, player, today),
+    };
+  }
+  const [part, at] = cursor === null ? ['h', 0] : [cursor[0], Number(cursor.slice(2))];
+  if (part === 'h') {
+    // Uploads were checked and parsed when synced (`routeSync`), so they hold only what a history entry has.
+    const page = await loadEntries(db, friendId, at);
+    return { profile, games: page.entries as FriendProfilePage['games'], next: page.next !== null ? `h:${page.next}` : 'p:0' };
+  }
+  const page = await playedPage(env, player, at);
+  if (page.stopped) return null;
+  // Only the entry: its `ref` is a friend game's ID or a lobby's join code, both credentials.
+  const games = page.games.map((g) => g.entry).filter((e) => e.mode !== 'daily' || e.day < today);
+  return { profile, games, next: page.next !== null ? `p:${page.next}` : null };
+}
+
 /** Routes `/api/friends…`, or returns null for any other path. */
 export async function routeFriends(
   request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
@@ -228,6 +272,18 @@ export async function routeFriends(
   const method = request.method;
   if (pathname === '/api/friends') {
     return method === 'GET' ? json(await listFriends(env, accountId, now)) : errorResponse(405, 'bad-request');
+  }
+  if (pathname === '/api/friends/profile') {
+    if (method !== 'GET') return errorResponse(405, 'bad-request');
+    const params = new URL(request.url).searchParams;
+    const code = params.get('code');
+    const after = params.get('after');
+    if (!isFriendCode(code) || !(after === null || isProfileCursor(after))) return errorResponse(400, 'bad-request');
+    // Only a friend's: anyone else's code, or a request not yet accepted, is no different from no such player.
+    const friend = await friendByCode(env.DB, accountId, code);
+    if (!friend) return errorResponse(404, 'not-found');
+    const page = await friendProfilePage(env, friend.id, after, now);
+    return page ? json(page) : errorResponse(503, 'try-again');
   }
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   const body = await readJson(request);
