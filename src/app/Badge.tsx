@@ -132,6 +132,24 @@ function Icon({ badge, text }: { badge: Badge; text: string }) {
           </>
         );
       }
+      if (badge.id.startsWith('friend-harder')) {
+        // Levels above your friend's: an arrow up, then +1 or +2.
+        return (
+          <>
+            <path d="M60 37 L67 45 H53 Z" fill="#fff" />
+            <text x="60" y="70" font-size="24" fill="#fff" letter-spacing="-1">+{badge.count}</text>
+          </>
+        );
+      }
+      if (badge.id === 'clairvoyant') {
+        // An eye: seeing the word before the first guess.
+        return (
+          <>
+            <path d="M36 57 Q60 34 84 57 Q60 80 36 57 Z" fill="none" stroke="#fff" stroke-width="3.5" stroke-linejoin="round" />
+            {bubble(60, GREEN, { cy: 57, r: 8 })}
+          </>
+        );
+      }
       if (badge.id === 'clutch') {
         // Two found words, level: a tie on the last guess.
         return (
@@ -167,7 +185,8 @@ export function BadgeArt({ badge, locked = false, size = 96 }: { badge: Badge; l
       <g font-family="Rubik, system-ui, sans-serif" font-weight="700" text-anchor="middle">
         {tag && <text x="60" y={TAG_Y[badge.family]} font-size="7.5" letter-spacing="1" fill={metal.text}>{tag}</text>}
         <Icon badge={badge} text={metal.text} />
-        <text x="60" y={LABEL_Y[badge.family]} font-size={badge.label.length > 8 ? 7.5 : 9.5} letter-spacing="1.2"
+        <text x="60" y={LABEL_Y[badge.family]} font-size={badge.label.length > 8 ? 7.5 : 9.5}
+          letter-spacing={badge.label.length > 10 ? 0.3 : 1.2}
           fill={metal.text}>{badge.label}</text>
       </g>
     </svg>

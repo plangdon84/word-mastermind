@@ -1617,6 +1617,11 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   local days.
 - **Clutch:** tie a two player game with your last chance: your opponent
   went first and found your word, and your final guess found theirs.
+- **Clairvoyant** (Dev Plan item 18o): find a word with your first guess,
+  in any mode: single player, vs. the computer or a friend (a win or a
+  draw), or any one word of a Rush. A first guess Suggest offered doesn't
+  count, as for the few-guesses badges, and an opponent giving up before
+  you find it isn't a find. A gold seal with an eye.
 - **Daily Rush:** a **top 10 finish** (scalloped seal tagged DAILY) on a
   day's final leaderboard for your difficulty. The runs are on the server,
   so the app keeps the final places the server sends
@@ -1630,7 +1635,16 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   Rush streak** (finishing the day's set, before the day ends, on consecutive Daily Rush days, which change at midnight in New York) of 7, 30
   and 100, tagged DAILY RUSH.
 - **Friends:** a **win against a friend** (a seal tagged FRIENDS, with two
-  bubbles and VS), a **Rush with Friends win** (first in a lobby's final
+  bubbles and VS), a **win against a friend at a harder level** than
+  theirs and one at **two or more levels harder** (Dev Plan item 18o;
+  Easy < Medium < Hard < Extreme, e.g. Extreme against Medium or Hard
+  against Easy; seals tagged FRIENDS marked ▲+1 and ▲+2, gold and ruby).
+  Each player's level is the easiest they used at any point in the game,
+  as scoring counts it, so switching mid-game can't earn them. Any game
+  against a friend counts, by link or challenge, rated or not, but only a
+  win where you found their word: not a draw, and not a win because they
+  gave up or ran out of time before you found it (their time running out
+  on their final guess, after you found it, counts). Also a **Rush with Friends win** (first in a lobby's final
   standings, with at least one other player, computers included; a seal
   marked 1st) and a **Competitive Rush win** (first against at least one
   other person, since only people are rated; tagged COMPETITIVE; not
@@ -1642,8 +1656,10 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
 - **Achievement Hunter (item 13):** earn 25%, 50%, 75% and 100% of the
   other badges: a seal in bronze, silver, gold and ruby with the share,
   earned with the badge that takes you past it. It counts every badge
-  offered except its own, Easy's included: 50 with 1.0's switches, so 13,
-  25, 38 and 50. Badges
+  offered except its own, Easy's included: 53 with 1.0's switches since
+  item 18o, so 14, 27, 40 and 53. The 3 badges item 18o added count only
+  toward levels not yet reached: a level reached counting the 50 from
+  before them (13, 25, 38 and 50) stays reached. Badges
   earned by the server's games (which have their own result screens) show
   the profile dot when they reach the history.
 - **Retired in item 13d:** Beat the Mastermind computer (now the
