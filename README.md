@@ -418,9 +418,10 @@ penalty still compares results word by word (`seatKeys` in
     never ship in the app.
   - The day changes at **midnight in New York** for everyone (4:00 or
     5:00 UTC, following daylight saving), so there is one leaderboard a
-    day; it was midnight UTC until Dev Plan item 18y (issue 166). On the
-    first New York day the day ran a few hours longer, from midnight UTC
-    to New York's midnight; earlier days keep their results. The app
+    day; it was midnight UTC until Dev Plan item 18y (issue 166). The
+    switch-over day, 8 October 2026, ran a few hours longer, from midnight
+    UTC to New York's midnight, so Friday 9 October's set began at midnight
+    in New York; earlier days keep their results. The app
     counts down to the next set in hours and minutes.
   - **Once a day** for each player (an account, or a guest ID). Your name on
     the leaderboard is your profile name (or guest name) when you start.

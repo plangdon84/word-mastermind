@@ -11,8 +11,13 @@
 /** A Daily Rush day, e.g. `2026-10-31`. */
 export type DailyDay = string;
 
-/** The first day to end at New York's midnight rather than UTC's. It must not be before the day it ships. */
-export const NEW_YORK_FROM: DailyDay = '2026-10-19';
+/**
+ * The first day to end at New York's midnight rather than UTC's (owner's
+ * choice: Friday 9 October 2026's set starts at midnight in New York). A
+ * deploy must not land between midnight UTC and New York's on the 9th, when
+ * the day would step back from the 9th to the 8th.
+ */
+export const NEW_YORK_FROM: DailyDay = '2026-10-08';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

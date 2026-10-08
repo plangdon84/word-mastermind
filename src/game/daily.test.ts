@@ -25,11 +25,18 @@ const start = () => {
 
 describe('Daily Rush days', () => {
   it('changed at midnight UTC before New York days', () => {
-    expect(NEW_YORK_FROM > '2026-10-12').toBe(true);
-    expect(dailyDay(Date.UTC(2026, 9, 12, 23, 59))).toBe('2026-10-12');
-    expect(dayEnd('2026-10-12')).toBe(Date.UTC(2026, 9, 13));
-    expect(dailyDay(Date.UTC(2026, 9, 13, 2))).toBe('2026-10-13');
-    expect(dayStart('2026-10-13')).toBe(Date.UTC(2026, 9, 13));
+    expect(NEW_YORK_FROM).toBe('2026-10-08');
+    expect(dailyDay(Date.UTC(2026, 9, 6, 23, 59))).toBe('2026-10-06');
+    expect(dayEnd('2026-10-06')).toBe(Date.UTC(2026, 9, 7));
+    expect(dailyDay(Date.UTC(2026, 9, 7, 2))).toBe('2026-10-07');
+    expect(dayStart('2026-10-07')).toBe(Date.UTC(2026, 9, 7));
+  });
+
+  it("start Friday 9 October at midnight in New York, the 8th's set running until then", () => {
+    expect(dayStart('2026-10-08')).toBe(Date.UTC(2026, 9, 8));
+    expect(dayStart('2026-10-09')).toBe(Date.UTC(2026, 9, 9, 4));
+    expect(dailyDay(Date.UTC(2026, 9, 9, 3, 59))).toBe('2026-10-08');
+    expect(dailyDay(Date.UTC(2026, 9, 9, 4))).toBe('2026-10-09');
   });
 
   it('change at midnight in New York from then on, following daylight saving', () => {
