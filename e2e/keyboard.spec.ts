@@ -72,9 +72,9 @@ test('a whole single player game with the keyboard alone', async ({ page }) => {
 
 test('a Solo Rush with the keyboard alone', async ({ page }) => {
   await title(page);
-  await tabTo(page, /^Rush/);
+  await tabTo(page, /^Word Sets/);
   await page.keyboard.press('Enter');
-  await tabTo(page, /^Solo Rush/);
+  await tabTo(page, /^Solo/);
   await page.keyboard.press('Enter');
   await tabTo(page, /^Medium/);
   await page.keyboard.press('Enter');

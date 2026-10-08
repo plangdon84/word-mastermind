@@ -736,41 +736,63 @@ guess bubbles keep their grey.
 
 ### Title screen
 
-The app opens on a title screen: **Single player**, **Two player** or
-**Rush**. Rush then asks which kind: **Solo Rush**, **Daily Rush** (showing
-today's theme and the time until the next set), **Rush with Friends** (then
-**Open a lobby**, or a join code and **Join**) or **Competitive Rush**
-(the same, then your word); without the game server, the kinds that need
-it are shown as coming later. Two
-player then asks for the opponent (Computer, A friend or Random opponent),
-then the computer's strength (Casual, Skilled, Expert, Mastermind) or,
-against a person, the time control: **Live** with 15,
-10 or 5 minutes each, or 1 or 3 days per guess.
-Every mode then asks for your difficulty, Medium by default, and
-**Start game** (against a person, **Next: your word**). Each setup step pre-selects the last choice made
-(the home screen's mode choices don't: a tap there goes straight on). A
-**Leaderboards** button sits under the mode choices at all times, whatever
-is unlocked or in progress and whether or not you're signed in (see
-[Leaderboards](#leaderboards)). **Continue** appears for each mode with a
-game in progress, naming it (**Continue Daily Rush**), and reloading the page mid-game
-goes straight back into the game of the mode last played. **How to play**
-under the mode choices opens the rules, beside **Report an issue** (see
-[Reporting an issue](#reporting-an-issue)). Until you hide it, a
-**Tutorial** card sits above them (see [Tutorial](#tutorial)); once hidden,
-**Tutorial** joins the links instead. Below them, a footer of small links
-opens the static pages: **Full rules**, **Strategy**, **Jotto and Wordle**,
-**Privacy** and **Terms** (Dev Plan item 18j). Under the mode choices, a new player
-is offered **Sign in** (opening the profile's **Account**, with **Not now**)
-and then, once signed in or after Not now, **Turn on turn alerts** (the same
-offer as in a first friend game): one card at a time, each gone once done or
-put off (Dev Plan item 18, issue #81). Above the mode choices, under any
-**Continue game** (Dev Plan item 14 moved them up from the bottom, where a
-phone hid them), friends' **Rush invites** and then **Online games**:
-**Online games** lists your games against a friend or a random opponent that you haven't
-seen finish, games
-waiting on your turn first (tagged **Your turn**, with the time left), then
-your friends' turns and invites nobody has accepted yet. You can have any
-number going at once; tap one to open it.
+The title screen (Dev Plan item 18za, agreed with the owner from a
+mock-up on 8 October 2026) reads, top to bottom: the logo, a **Daily**
+card, **Games in progress**, the modes **Practice**, **Two player** and
+**Word Sets**, then **Leaderboards**, **How to play** and **Report an
+issue**. To players, Single player is **Practice** and Rush is **Word
+Sets**, and Daily Rush is **Daily Set**; saved games, backups, badges and
+the code keep the old names, so nothing already saved changes.
+
+- **Daily card:** one row per daily game, with the time until the next set
+  in its header. Each row has its marker (a circle with its number of
+  words: 4) and **Play**. **Daily Set** shows today's theme ("4 themed
+  words · Today: …"); Play asks for your difficulty, then **Start Daily
+  Set**. A run in progress shows **Continue**, and yesterday's run still
+  going when the day changed says so. Once played or given up, the row is
+  greyed, tagged **Played** (or **Given up**), but is still a button, with
+  a line that isn't greyed, **Your place ›** (**Your result ›**), opening
+  that run's result, which links to its board. A new player sees the row
+  locked, saying how to unlock it. Without the game server it's tagged
+  coming later. Daily Word joins the card as a second row once item 7b
+  ships. Daily isn't in the Word Sets menu.
+- **Games in progress:** one collapsible list of **Continue** (each mode
+  with a game in progress on this device, naming it: **Continue
+  Practice**), games against a friend or a random opponent that you
+  haven't seen finish (waiting on your turn first, tagged **Your turn**,
+  with the time left), friends' Rush invites and a lobby you're in. Its
+  header counts the games, and how many are your turn against a friend or
+  an invite, even when it's closed. It opens when something waits on you
+  (your turn, an invite, or your own game to continue), and is closed
+  otherwise; opening or closing it yourself holds until something new
+  waits on you. It's hidden when there's nothing in it. A Daily Set in
+  progress stays on the Daily card. Reloading the page mid-game goes
+  straight back into the game of the mode last played.
+- **Practice** (one word, no opponent) asks for your difficulty, then
+  **Start game**. **Two player** asks for the opponent (Computer, A friend
+  or Random opponent), then the computer's strength (Casual, Skilled,
+  Expert, Mastermind) or, against a person, the time control: **Live**
+  with 15, 10 or 5 minutes each, or 1 or 3 days per guess; then your
+  difficulty and **Start game** (against a person, **Next: your word**).
+  **Word Sets** asks which: **Solo** (Solo Rush), **With friends** (Rush
+  with Friends: **Open a lobby**, or a join code and **Join**) or
+  **Competitive** (the same, then your word); without the game server, the
+  ones that need it are shown as coming later. Every difficulty step is
+  Medium by default, and each setup step pre-selects the last choice made
+  (the title screen's mode choices don't: a tap there goes straight on).
+- The tagline is gone, to save height. **Leaderboards** sits under the
+  modes at all times, whatever is unlocked or in progress and whether or
+  not you're signed in (see [Leaderboards](#leaderboards)). **How to play**
+  opens the rules, beside **Report an issue** (see [Reporting an
+  issue](#reporting-an-issue)). Until you hide it, a **Tutorial** card sits
+  above them (see [Tutorial](#tutorial)); once hidden, **Tutorial** joins
+  the links instead. Below them, a footer of small links opens the static
+  pages: **Full rules**, **Strategy**, **Jotto and Wordle**, **Privacy** and
+  **Terms** (Dev Plan item 18j). Under the modes, a new player is offered
+  **Sign in** (opening the profile's **Account**, with **Not now**) and
+  then, once signed in or after Not now, **Turn on turn alerts** (the same
+  offer as in a first friend game): one card at a time, each gone once done
+  or put off (Dev Plan item 18, issue #81).
 
 On the old address, `word-mastermind.pages.dev` (never a preview), a popup
 on the title screen says the game has moved to `wordmastermind.app` and lists
@@ -785,18 +807,22 @@ search engines move the old address's ranking to the new one (item 18j).
 ### Unlocking modes
 
 Built in [Dev Plan](#dev-plan) item 13. A brand-new player, guest or account, starts
-with **Single player** and the **Tutorial** only, and unlocks the rest in
+with **Practice** and the **Tutorial** only, and unlocks the rest in
 three steps:
 
-1. **Win a single player game** → **Two player** (vs. the computer and vs. a
+1. **Win a Practice game** → **Two player** (vs. the computer and vs. a
    friend).
 2. **Win a two player game** (vs. the computer or a friend; a draw isn't a
-   win) → **Solo Rush**.
-3. **Finish a Solo Rush without giving up a word** → every other Rush kind
-   (Daily Rush, Rush with Friends, Competitive Rush).
+   win) → **Word Sets**, with Solo Rush.
+3. **Finish a Solo Rush without giving up a word** → the Daily card's
+   Daily Set and the rest of Word Sets (Rush with Friends, Competitive
+   Rush).
+
+Practice is single player renamed (Dev Plan item 18za): it counts toward
+stats, badges and this first unlock as before.
 
 Each step needs the one before it: a win against a friend by invite link
-before any single player win opens Solo Rush only once two player is open.
+before any Practice win opens Word Sets only once two player is open.
 
 - Unlocks are a pure rule over the saved game records, like
   [achievements](#achievements) (`src/game/unlocks.ts`), never a stored flag,
@@ -804,10 +830,10 @@ before any single player win opens Solo Rush only once two player is open.
   resetting the profile locks them again. Any difficulty counts.
 - Each step earns a badge (see [Achievements](#achievements)): a seal tagged
   UNLOCKED with an open padlock, in bronze, silver and gold. Its toast says
-  what was unlocked ("Solo Rush unlocked! Find it on the home screen").
+  what was unlocked ("Word Sets unlocked! Find it on the home screen").
 - On the title screen a locked choice is greyed out with a light grey
   padlock at its right, apart from the text (issue #94), and says how
-  to unlock it ("Win a single player game to unlock") in place of its
+  to unlock it ("Win a Practice game to unlock") in place of its
   description, which comes back once it's open. How to play, the
   Tutorial and [Leaderboards](#leaderboards) are always open.
 - An invite link or join code from a friend still opens its game: the gate
@@ -1299,14 +1325,15 @@ issue #83); making a guess (Enter lighting up, the shuffle key, and that a
 repeated guess is refused); reading a score; marking letters on Medium (the In
 row and the keyboard); ⓘ definitions; the ☰ menu (difficulty, Check for
 mistakes and Clear all highlights, Report an issue, Give up); Hard and Extreme;
-the modes (two player against the computer or a friend, live or by the day,
-and all four Rush kinds) and the profile; and unlocking modes as you play,
+the modes in the title screen's order (the Daily card's Daily Set and
+Games in progress, Practice, two player against the computer or a friend,
+live or by the day, and Word Sets) and the profile; and unlocking modes as you play,
 with a mock-up of a locked choice (Dev Plan item 13, issue #28). **Next** and
 **Back** (or the arrow keys) move between steps; the box keeps one height
 for every step, so they stay in place (Dev Plan item 14).
 
 The last step has **Don't show the tutorial on the home page again**, then
-**Play now** (single player's difficulty step; from the profile, the title
+**Play now** (Practice's difficulty step; from the profile, the title
 screen) or **Done**, filled and where **Next** was, so a quick tap through
 the steps ends on the home page rather than in a game. The card's
 **Hide** does the same at once. Hidden, the tutorial is still a link on the
@@ -1622,7 +1649,7 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   draw), or any one word of a Rush. A first guess Suggest offered doesn't
   count, as for the few-guesses badges, and an opponent giving up before
   you find it isn't a find. A gold seal with an eye.
-- **Daily Rush:** a **top 10 finish** (scalloped seal tagged DAILY) on a
+- **Daily Set** (Daily Rush, renamed in item 18za)**:** a **top 10 finish** (scalloped seal tagged DAILY) on a
   day's final leaderboard for your difficulty. The runs are on the server,
   so the app keeps the final places the server sends
   (`src/app/dailyStorage.ts`) and passes them to `computeAchievements`; a
@@ -1632,8 +1659,8 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   1st place isn't in the top 10%). Also a badge for finishing the day's set
   at each difficulty (Easy, Medium, Hard, Extreme; a harder one doesn't
   award the easier ones, since each is its own day's run), and a **Daily
-  Rush streak** (finishing the day's set, before the day ends, on consecutive Daily Rush days, which change at midnight in New York) of 7, 30
-  and 100, tagged DAILY RUSH.
+  Set streak** (finishing the day's set, before the day ends, on consecutive Daily Rush days, which change at midnight in New York) of 7, 30
+  and 100, tagged DAILY SET.
 - **Friends:** a **win against a friend** (a seal tagged FRIENDS, with two
   bubbles and VS), a **win against a friend at a harder level** than
   theirs and one at **two or more levels harder** (Dev Plan item 18o;
@@ -1650,9 +1677,10 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   other person, since only people are rated; tagged COMPETITIVE; not
   offered while Competitive Rush is switched off).
 - **Unlocks (item 13):** one badge for each step in [Unlocking
-  modes](#unlocking-modes): **Two player unlocked** (win a single player
-  game), **Solo Rush unlocked** (win a two player game) and **Every Rush
-  unlocked** (finish a Solo Rush with every word solved, none given up).
+  modes](#unlocking-modes): **Two player unlocked** (win a Practice
+  game), **Word Sets unlocked** (win a two player game) and **Daily Set and
+  With friends unlocked** (finish a Solo Rush with every word solved, none
+  given up); item 18za renamed the last two, tagged WORD SETS and ALL SETS.
 - **Achievement Hunter (item 13):** earn 25%, 50%, 75% and 100% of the
   other badges: a seal in bronze, silver, gold and ruby with the share,
   earned with the badge that takes you past it. It counts every badge

@@ -19,7 +19,7 @@ async function expectAccessible(page: Page) {
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => `${n.target.join(' ')} ${n.failureSummary ?? ''}`).join('; ')}`)).toEqual([]);
 }
 
-test('single player: refuses bad words, then a win is saved to the history', async ({ page }) => {
+test('Practice: refuses bad words, then a win is saved to the history', async ({ page }) => {
   await unlockAll(page);
   const secret = await startSolo(page);
   const before = await historyCount(page);
