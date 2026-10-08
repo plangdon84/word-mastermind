@@ -317,6 +317,26 @@
       "gameId": "fx-daily"
     },
     {
+      "id": "rush-time-casual",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    },
+    {
+      "id": "rush-time-skilled",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    },
+    {
+      "id": "rush-time-expert",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    },
+    {
+      "id": "rush-time-mastermind",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    },
+    {
       "id": "daily-rush-extreme",
       "at": 1790779650000,
       "gameId": "fx-daily"

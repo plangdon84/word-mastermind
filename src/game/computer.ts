@@ -35,6 +35,19 @@ export function strengthForAverage(averageGuesses: number): Strength {
   return 'casual';
 }
 
+/**
+ * The level a Rush's time earns (README "Solo Rush"): its average seconds a
+ * word, × the difficulty factor. Under 2 minutes is Mastermind, under 3
+ * Expert, up to 5 Skilled, and above that Casual. A starting guess, to be
+ * tuned from play.
+ */
+export function strengthForSeconds(averageSeconds: number): Strength {
+  if (averageSeconds < 120) return 'mastermind';
+  if (averageSeconds < 180) return 'expert';
+  if (averageSeconds <= 300) return 'skilled';
+  return 'casual';
+}
+
 /** A word's letters as a 26-bit mask, so shared letters are a popcount. */
 function letterMask(word: string): number {
   let mask = 0;

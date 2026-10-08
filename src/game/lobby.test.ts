@@ -302,6 +302,41 @@ describe('lobbyStandings', () => {
   });
 });
 
+describe('Rush with Friends, ranked by time', () => {
+  it('opens on the host\'s pick, which the host can change, and ranks by time, then guesses', () => {
+    let lobby = createLobby('ABCDEF', ANN, 'medium', T, 'rush');
+    expect(lobby.settings.rankBy).toBe('rush');
+    lobby = ok(configureLobby(lobby, 'ann', { ...SETTINGS }, T));
+    expect(lobby.settings.rankBy).toBeUndefined();
+    lobby = ok(configureLobby(ok(joinLobby(lobby, BOB, T)), 'ann', { ...SETTINGS, rankBy: 'rush' }, T));
+    lobby = inOrder(ok(startLobby(lobby, 'ann', WORDS, T, random)));
+    expect(lobby.game!.rankBy).toBe('rush');
+    expect(seatRun(lobby.game!, 0, T).rankBy).toBe('rush');
+    // Ann takes more guesses but is faster: first in a Rush.
+    const wrong = ['moist', 'plumb', 'dough'];
+    for (const [i, word] of WORDS.entries()) {
+      lobby = play(lobby, ...wrong.map((w, g): [string, string, number] => ['ann', w, i * 10 + g]), ['ann', word, i * 10 + 5]);
+      lobby = play(lobby, ['bob', word, 100 + i * 50]);
+    }
+    const standings = lobbyStandings(lobby.game!, at(400));
+    expect(standings.map((s) => s.name)).toEqual(['Ann', 'Bob']);
+    // The same game ranked by guesses puts Bob first.
+    const crush = lobbyStandings({ ...lobby.game!, rankBy: undefined }, at(400));
+    expect(crush.map((s) => s.name)).toEqual(['Bob', 'Ann']);
+  });
+
+  it('adds 2 minutes to the time of a word given up', () => {
+    let lobby = createLobby('ABCDEF', ANN, 'medium', T, 'rush');
+    lobby = inOrder(ok(startLobby(ok(joinLobby(lobby, BOB, T)), 'ann', WORDS, T, random)));
+    lobby = play(lobby, ...WORDS.map((w, i): [string, string, number] => ['ann', w, 10 * (i + 1)]));
+    lobby = ok(playLobby(lobby, 'bob', { kind: 'give-up' }, at(50)));
+    const bob = lobbyStandings(lobby.game!, at(60)).find((s) => s.name === 'Bob')!;
+    // Ann took 10 seconds a word. Bob spent 50 on the first, which counts as 50 + 120; the
+    // three he never reached count as Ann's 10 + 120 each.
+    expect(bob.seconds).toBe(170 + 3 * 130);
+  });
+});
+
 describe('Competitive Rush', () => {
   /** The server's pick for the computers' words: one of them clashes with Ann's word. */
   const SPARE = ['crane', 'storm', 'light', 'ghost', 'moist'];

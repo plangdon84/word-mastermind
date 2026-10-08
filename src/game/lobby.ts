@@ -6,9 +6,13 @@ import {
   type RunMove, type RunRecord, toWordResult, type WordOutcome,
 } from './run';
 import {
-  averageWord, evaluateGuess, penalized, totalSeconds, type GuessResult, type ScoredWord, type WordResult,
+  averageWord, compareRanked, evaluateGuess, penalized, totalSeconds, type GuessResult, type RankBy, type ScoredWord,
+  type WordResult,
 } from './scoring';
 import { validateSecretWord } from './words';
+
+/** A finished standing: its score and time are set. */
+type Ranked = { score: number; seconds: number };
 
 /*
  * Rush with Friends (README "Rush modes"): a lobby of up to 5 players, one
@@ -69,7 +73,12 @@ export interface LobbySettings {
   /** Computer players in empty seats, all at one strength. */
   computers: number;
   strength: Strength;
+  /** Rush ranks by time, Crush by guesses. Left out for Crush, as in lobbies from before the choice. */
+  rankBy?: 'rush';
 }
+
+/** What a lobby ranks by. */
+export const lobbyRankBy = (settings: Pick<LobbySettings, 'rankBy'>): RankBy => settings.rankBy ?? 'crush';
 
 /** Rush with Friends, or Competitive Rush. */
 export type LobbyKind = 'friends' | 'competitive';
@@ -113,6 +122,8 @@ export interface LobbyGame {
   startedAt: number;
   durationMs: number;
   difficulty: Difficulty;
+  /** Rush ranks by time; left out for Crush, as in games from before the choice. */
+  rankBy?: 'rush';
   seats: readonly LobbySeat[];
 }
 
@@ -152,10 +163,14 @@ export const lobbyKind = (lobby: LobbyRecord): LobbyKind => lobby.kind ?? 'frien
 /** A Competitive Rush game: its seats set the words. */
 const competitiveGame = (game: LobbyGame): boolean => game.seats.some((s) => s.word !== undefined);
 
-export function createLobby(code: string, host: LobbyPlayer, difficulty: Difficulty, now: number): LobbyRecord {
+/** Opens a lobby, ranked as the host last picked (`rankBy`; Crush unless given). */
+export function createLobby(code: string, host: LobbyPlayer, difficulty: Difficulty, now: number, rankBy: RankBy = 'crush'): LobbyRecord {
   return {
     code, createdAt: now, players: [host],
-    settings: { difficulty, minutes: DEFAULT_LOBBY_MINUTES[difficulty], computers: 0, strength: 'skilled' },
+    settings: {
+      difficulty, minutes: DEFAULT_LOBBY_MINUTES[difficulty], computers: 0, strength: 'skilled',
+      ...(rankBy === 'rush' ? { rankBy } : {}),
+    },
     game: null, closed: false,
   };
 }
@@ -168,12 +183,14 @@ function withWord(player: LobbyPlayer): { ok: true; player: LobbyPlayer } | { ok
 }
 
 /** Opens a Competitive Rush lobby: the host sets a word, and computers fill the other seats until people join. */
-export function createCompetitiveLobby(code: string, host: LobbyPlayer, difficulty: Difficulty, now: number): LobbyResult {
+export function createCompetitiveLobby(
+  code: string, host: LobbyPlayer, difficulty: Difficulty, now: number, rankBy: RankBy = 'crush',
+): LobbyResult {
   // Competitive Rush is rated, so it leaves Easy out.
   if (!isRatedDifficulty(difficulty)) return { ok: false, error: 'bad-settings' };
   const checked = withWord(host);
   if (!checked.ok) return checked;
-  const lobby = createLobby(code, checked.player, difficulty, now);
+  const lobby = createLobby(code, checked.player, difficulty, now, rankBy);
   return { ok: true, lobby: { ...lobby, kind: 'competitive', settings: { ...lobby.settings, computers: LOBBY_SEATS - 1 } } };
 }
 
@@ -290,12 +307,13 @@ export function configureLobby(lobby: LobbyRecord, playerId: string, settings: L
   if (blocked) return { ok: false, error: blocked };
   if (lobbyHost(lobby).id !== playerId) return { ok: false, error: 'not-host' };
   const { difficulty, minutes, strength } = settings;
+  const rankBy = settings.rankBy === 'rush' ? { rankBy: 'rush' as const } : {};
   const competitive = lobbyKind(lobby) === 'competitive';
   const computers = competitive ? emptySeats(lobby) : settings.computers;
   if ((competitive && !isRatedDifficulty(difficulty)) || !isLobbyMinutes(minutes) || !Number.isInteger(computers) || computers < 0 || computers > emptySeats(lobby)) {
     return { ok: false, error: 'bad-settings' };
   }
-  return { ok: true, lobby: { ...lobby, settings: { difficulty, minutes, computers, strength } } };
+  return { ok: true, lobby: { ...lobby, settings: { difficulty, minutes, computers, strength, ...rankBy } } };
 }
 
 /** A computer seat's ID and name: "Computer 1", "Computer 2"… */
@@ -341,12 +359,15 @@ export function startLobby(
   if (secrets.length !== (competitive ? LOBBY_SEATS : LOBBY_WORDS) || secrets.some((w) => w === undefined)) {
     return { ok: false, error: competitive ? 'need-word' : 'no-words' };
   }
-  const created = createRun(secrets as string[], now, { timeLimitMs: durationMs, difficulty });
+  const rankBy = lobbyRankBy(lobby.settings);
+  const created = createRun(secrets as string[], now, { timeLimitMs: durationMs, difficulty, rankBy });
   if (!created.ok) return created;
   // Everyone solves the same words, each in their own order.
   const slots = competitive ? LOBBY_SEATS - 1 : LOBBY_WORDS;
   seats = seats.map((s) => ({ ...s, order: shuffled([...Array(slots).keys()], random) }));
-  let game: LobbyGame = { words: created.game.words, startedAt: now, durationMs, difficulty, seats };
+  let game: LobbyGame = {
+    words: created.game.words, startedAt: now, durationMs, difficulty, ...(rankBy === 'rush' ? { rankBy } : {}), seats,
+  };
   game = {
     ...game,
     seats: seats.map((s, i) => (s.strength === null ? s
@@ -383,7 +404,8 @@ export function seatWords(game: LobbyGame, index: number): readonly string[] {
 function seatRecord(game: LobbyGame, index: number, now: number): RunRecord {
   return {
     words: seatWords(game, index), startedAt: game.startedAt, timeLimitMs: game.durationMs, pausable: false,
-    difficulty: game.difficulty, moves: game.seats[index].moves.filter((m) => m.at <= now),
+    difficulty: game.difficulty, ...(game.rankBy ? { rankBy: game.rankBy } : {}),
+    moves: game.seats[index].moves.filter((m) => m.at <= now),
   };
 }
 
@@ -494,15 +516,16 @@ export interface LobbyStanding {
   words: readonly { outcome: WordOutcome | null; guesses: number; counted: ScoredWord | null }[];
   /** Once finished: average guesses per word, penalties included, × the difficulty factor. Lower is better. */
   score: number | null;
-  /** Once finished: total seconds, penalties included, which break ties. */
+  /** Once finished: total seconds, penalties included: what a Rush ranks by, and a Crush's tiebreak. */
   seconds: number | null;
 }
 
 /**
- * The standings at `now`: finished players by score, then time; then those
- * still playing, by words found and fewest guesses. A word given up or not
- * found counts as that word's worst solved result in the group plus the
- * penalty (`penalized`); everyone's results so far count.
+ * The standings at `now`: finished players by score, then time (a Rush: by
+ * time, then score); then those still playing, by words found and fewest
+ * guesses. A word given up or not found counts as that word's worst solved
+ * result in the group plus the penalty (`penalized`); everyone's results so
+ * far count.
  */
 export function lobbyStandings(game: LobbyGame, now: number, ids: readonly string[] = []): LobbyStanding[] {
   const runs = game.seats.map((_, i) => seatRun(game, i, now));
@@ -510,13 +533,14 @@ export function lobbyStandings(game: LobbyGame, now: number, ids: readonly strin
   const done = (r: WordResult | null): r is WordResult => r !== null;
   const group = results.flat().filter(done);
   const factor = DIFFICULTY_FACTOR[game.difficulty];
+  const rankBy = lobbyRankBy(game);
   // Which word each result is, whatever order each seat played them in.
   const keys = runs.map((_, i) => seatKeys(game, i));
   const sameWord = (i: number, w: number) =>
     results.flatMap((p, j) => p.filter((_, k) => keys[j][k] === keys[i][w])).filter(done);
   const standings = runs.map((run, i): LobbyStanding => {
     const finished = run.status === 'over';
-    const counted = results[i].map((r, w) => (finished && r ? penalized(r, sameWord(i, w), group) : null));
+    const counted = results[i].map((r, w) => (finished && r ? penalized(r, sameWord(i, w), group, rankBy) : null));
     const scored = counted.filter((c): c is ScoredWord => c !== null);
     return {
       name: game.seats[i].name,
@@ -533,7 +557,7 @@ export function lobbyStandings(game: LobbyGame, now: number, ids: readonly strin
   const guesses = (s: LobbyStanding) => s.words.reduce((sum, w) => sum + w.guesses, 0);
   const sorted = [...standings].sort((a, b) =>
     a.finished !== b.finished ? (a.finished ? -1 : 1)
-      : a.finished ? a.score! - b.score! || a.seconds! - b.seconds!
+      : a.finished ? compareRanked(rankBy)(a as Ranked, b as Ranked)
         : found(b) - found(a) || guesses(a) - guesses(b));
   return sorted.map((s, i) => {
     if (!s.finished) return s;

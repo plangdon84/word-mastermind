@@ -112,7 +112,9 @@ export function parseRunRecord(value: unknown): RunRecord | null {
   if (!Array.isArray(words) || !words.every((w) => typeof w === 'string')) return null;
   if (!isTime(startedAt) || !(timeLimitMs === null || isTime(timeLimitMs)) || !difficulty || !moves) return null;
   if (typeof pausable !== 'boolean' || (pausable && timeLimitMs !== null)) return null;
-  return { words, startedAt, timeLimitMs, pausable, difficulty, moves };
+  // Left out for Crush, as in every run from before Rush and Crush.
+  if (value.rankBy !== undefined && value.rankBy !== 'rush' && value.rankBy !== 'crush') return null;
+  return { words, startedAt, timeLimitMs, pausable, difficulty, ...(value.rankBy === 'rush' ? { rankBy: 'rush' as const } : {}), moves };
 }
 
 export const isSeat = (value: unknown): value is Seat => value === 'host' || value === 'guest';

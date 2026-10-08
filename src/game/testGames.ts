@@ -186,12 +186,12 @@ export const lobby = (id: string, start: number, words: readonly (readonly strin
 
 /** A Rush: each word's guesses, or 'give-up' to give that word up. `end` ends the run after them. */
 export function rush(id: string, start: number, words: readonly (readonly string[] | 'give-up')[], options: {
-  secrets?: readonly string[]; difficulty?: Difficulty; end?: boolean; step?: number;
+  secrets?: readonly string[]; difficulty?: Difficulty; end?: boolean; step?: number; rankBy?: 'rush';
 } = {}): StatsGame {
-  const { secrets = ['beach', 'crane', 'storm', 'house'], difficulty = 'medium', end = false, step = STEP } = options;
+  const { secrets = ['beach', 'crane', 'storm', 'house'], difficulty = 'medium', end = false, step = STEP, rankBy } = options;
   const moves = runMoves(start, words, step, end);
   return replayed({
     id, version: 1, mode: 'rush', marks: secrets.map(() => ({})),
-    record: { words: secrets, startedAt: start, timeLimitMs: null, pausable: true, difficulty, moves },
+    record: { words: secrets, startedAt: start, timeLimitMs: null, pausable: true, difficulty, ...(rankBy ? { rankBy } : {}), moves },
   });
 }

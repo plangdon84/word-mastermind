@@ -5,7 +5,8 @@ import { FEATURES, type Feature, type Features } from './features';
 import { summarizeGame, type GameSummary } from './history';
 import { otherSeat } from './pvp';
 import { STRENGTHS } from './records';
-import { summarizeSoloRun } from './run';
+import { runRankBy, summarizeSoloRun } from './run';
+import { RANK_BYS, type RankBy } from './scoring';
 import type { StatsGame } from './stats';
 import { computeUnlocks, type UnlockStep } from './unlocks';
 
@@ -27,9 +28,10 @@ export interface Badge {
   /**
    * SOLO or VS CPU, for badges earned separately in each; DAILY for the
    * Daily Rush's places, DAILY RUSH for finishing it; FRIENDS and
-   * COMPETITIVE for the lobbies' and friend games'.
+   * COMPETITIVE for the lobbies' and friend games'; RUSH and CRUSH for a
+   * Word Set's level, by time or by guesses.
    */
-  tag: 'SOLO' | 'VS CPU' | 'DAILY' | 'DAILY SET' | 'FRIENDS' | 'COMPETITIVE' | 'UNLOCKED' | null;
+  tag: 'SOLO' | 'VS CPU' | 'DAILY' | 'DAILY SET' | 'FRIENDS' | 'COMPETITIVE' | 'UNLOCKED' | 'RUSH' | 'CRUSH' | null;
   /** The word across the bottom, e.g. HARD, GUESSES, WINS. */
   label: string;
   /** What earns it, e.g. "Beat the Expert computer at Hard or harder". */
@@ -76,6 +78,13 @@ const SIDES = [
   { key: 'cpu', tag: 'VS CPU', verb: 'Beat the computer' },
 ] as const;
 
+/**
+ * A Word Set's level badge: a Crush's by guesses (`rush-skilled`, the ID
+ * from before Rush and Crush) or a Rush's by time (`rush-time-skilled`).
+ */
+export const levelBadgeId = (rankBy: RankBy, strength: Strength) =>
+  rankBy === 'crush' ? `rush-${strength}` : `rush-time-${strength}`;
+
 /** A VS CPU difficulty badge: beat this computer at this difficulty or harder. */
 export const cpuBadgeId = (strength: Strength, difficulty: Difficulty) => `${strength}-cpu-${difficulty}`;
 
@@ -83,7 +92,7 @@ export const cpuBadgeId = (strength: Strength, difficulty: Difficulty) => `${str
 export const UNLOCKS: readonly { step: UnlockStep; label: string; title: string; how: string }[] = [
   { step: 'two-player', label: 'TWO PLAYER', title: 'Two player', how: 'win a Practice game' },
   { step: 'solo-rush', label: 'WORD SETS', title: 'Word Sets', how: 'win a two player game' },
-  { step: 'all-rush', label: 'ALL SETS', title: 'Daily Set and With friends', how: 'finish a Solo Rush with every word solved, none given up' },
+  { step: 'all-rush', label: 'ALL SETS', title: 'Daily Set and With friends', how: 'finish a Solo Rush or Solo Crush with every word solved, none given up' },
 ];
 
 /** Every badge, including those of modes switched off, in the order the profile shows them. */
@@ -96,9 +105,15 @@ const ALL_BADGES: readonly Badge[] = [
     id: cpuBadgeId(s, d), family: 'difficulty', metal: DIFFICULTY_METAL[d], tag: 'VS CPU', label: d.toUpperCase(),
     title: `Beat the ${title(s)} computer at ${title(d)} or harder`, difficulty: d, pips: i + 1,
   }))),
+  // A Crush's level, by guesses: every Rush was scored that way before Rush and Crush, so these keep their IDs.
   ...STRENGTHS.map((s, i): Badge => ({
-    id: `rush-${s}`, family: 'rush', metal: LEVEL_METAL[s], tag: null, label: s.toUpperCase(),
-    title: `Finish a Rush at ${title(s)} level or better`, pips: i + 1,
+    id: levelBadgeId('crush', s), family: 'rush', metal: LEVEL_METAL[s], tag: 'CRUSH', label: s.toUpperCase(),
+    title: `Finish a Crush at ${title(s)} level or better`, pips: i + 1,
+  })),
+  // A Rush's level, by time (Dev Plan item 18z).
+  ...STRENGTHS.map((s, i): Badge => ({
+    id: levelBadgeId('rush', s), family: 'rush', metal: LEVEL_METAL[s], tag: 'RUSH', label: s.toUpperCase(),
+    title: `Finish a Rush at ${title(s)} level or better, by time`, pips: i + 1, addedLater: true,
   })),
   ...SIDES.flatMap(({ key, tag, verb }) => FEW_GUESSES.map((n, i): Badge => ({
     id: `${key}-guesses-${n}`, family: 'guesses', metal: COUNT_METALS[i], tag, label: 'GUESSES',
@@ -151,11 +166,11 @@ const ALL_BADGES: readonly Badge[] = [
   },
   {
     id: 'lobby-win', family: 'feat', metal: 'gold', tag: 'FRIENDS', label: 'FIRST',
-    title: 'Finish first in a Rush with Friends', count: 1,
+    title: 'Finish first in a Rush or Crush with Friends', count: 1,
   },
   {
     id: 'competitive-win', family: 'feat', metal: 'ruby', tag: 'COMPETITIVE', label: 'FIRST',
-    title: 'Finish first in a Competitive Rush against another player', count: 1, feature: 'competitiveRush',
+    title: 'Finish first in a Competitive Rush or Crush against another player', count: 1, feature: 'competitiveRush',
   },
   ...UNLOCKS.map(({ step, label, title: name, how }, i): Badge => ({
     id: `unlock-${step}`, family: 'feat', metal: COUNT_METALS[i], tag: 'UNLOCKED', label, title: `${name} unlocked: ${how}`,
@@ -274,12 +289,15 @@ function gameBadges(game: StatsGame, summary: GameSummary): string[] {
     // Your friend found your word first, and you tied it with your final guess.
     if (summary.result === 'drawn' && replayed.game.first !== replayed.seat) ids.push('clutch');
   }
-  // Every Rush's level, scored from your own run alone as Solo Rush is.
+  // Every Word Set's level, scored from your own run alone as Solo Rush is: a Rush's by time, a Crush's by
+  // guesses. The Daily Set is on both boards, so it earns both.
   if (replayed.mode === 'rush' || replayed.mode === 'daily' || replayed.mode === 'lobby') {
-    const run = summarizeSoloRun(replayed.game);
-    if (run) {
+    const rankBys = replayed.mode === 'daily' ? RANK_BYS : [runRankBy(replayed.game)];
+    for (const rankBy of rankBys) {
+      const run = summarizeSoloRun(replayed.game, rankBy);
+      if (!run) continue;
       const level = STRENGTHS.indexOf(run.level);
-      STRENGTHS.forEach((s, i) => i <= level && ids.push(`rush-${s}`));
+      STRENGTHS.forEach((s, i) => i <= level && ids.push(levelBadgeId(rankBy, s)));
     }
   }
   if (replayed.mode === 'daily') ids.push(`daily-rush-${summary.difficulty}`);
