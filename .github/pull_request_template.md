@@ -7,11 +7,11 @@
 ## Scope
 
 <!-- The issues or the one feature this PR covers, one line each. More than about five is too big: split it (CLAUDE.md "Keep PRs small").
-Then one "Closes #N" line per issue this PR fully fixes, so GitHub closes it on merge ("Closes #1, #2" closes only #1). An issue only partly fixed gets "Part of #N" instead. A PR that only plans issues closes none (CLAUDE.md "Close the issues a PR fixes"). -->
+Issues live in the private archive: then one "Closes plangdon84/word-mastermind-archive#N" line per issue this PR fully fixes (one issue per line). An issue only partly fixed gets "Part of plangdon84/word-mastermind-archive#N" instead. Never copy an issue's text here: it can hold game data. A PR that only plans issues closes none (CLAUDE.md "Close the issues a PR fixes"). -->
 
 - 
 
-Closes #
+Closes plangdon84/word-mastermind-archive#
 
 ## Release note
 
