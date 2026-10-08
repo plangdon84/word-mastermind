@@ -262,8 +262,9 @@ Run `npm test` and `npm run typecheck` before committing.
   `npm run check:size`, `npm run lighthouse` and `npm run load-test` (by
   hand) cover performance; `docs/manual-checklist.md` is for real devices.
   In a cloud session, `PLAYWRIGHT_CHROMIUM_PATH` (Playwright) and
-  `CHROME_PATH` (Lighthouse) point at its preinstalled Chromium; it has no
-  WebKit, so it runs `npm run e2e -- --project=chromium`.
+  `CHROME_PATH` (Lighthouse) point at its preinstalled Chromium. It has no
+  WebKit until installed (`docs/test-plan.md`); PRs run Chromium only in CI,
+  so a session runs the WebKit browser tests itself for what it touched.
 - The move to `wordmastermind.app` (Dev Plan item 18f, issue #92):
   `src/app/moved.ts` shows `MovedNotice.tsx` on `word-mastermind.pages.dev`
   itself (never a preview) until Done, and from `REDIRECT_FROM` sends that
@@ -459,8 +460,9 @@ the review and CI rules in the review of 2 October (PRs #63 to #89).
   `npm run typecheck` pass and, under the review gate, its review is done:
   marking it ready starts the browser tests and Lighthouse (about 15
   minutes), which drafts skip. Run the browser tests for the screens you
-  touched in the session first (`npx playwright test e2e/<file>`), so the
-  ready run passes the first time.
+  touched in the session first (`npx playwright test e2e/<file>`), in
+  Chromium and WebKit, so the ready run passes the first time and `main`
+  (which adds WebKit) stays green.
 - **Keep PRs small:** one feature, or at most about five issues, per PR.
   Split a bigger item into several PRs, each with its own bullet.
 - **Issues live in the private archive.** Issues are off in this public

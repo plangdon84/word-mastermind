@@ -48,8 +48,13 @@ async function friendGame(page: Page, browser: Parameters<typeof newPlayer>[0]) 
   return { host: page, friend, mover: hostFirst ? page : friend, waiter: hostFirst ? friend : page };
 }
 
-/** Signs in with the emailed link, which comes back to the profile's Account page. */
-async function signIn(page: Page, email: string) {
+/**
+ * Signs in with the emailed link, which comes back to the profile's Account
+ * page. Each browser has its own address for `name`: the server sends one
+ * link an address a minute, and Chromium and WebKit can run a test at once.
+ */
+async function signIn(page: Page, name: string): Promise<string> {
+  const email = name.replace('@', `.${test.info().project.name}@`);
   await page.getByRole('button', { name: /^Profile/ }).click();
   await button(page, /^Account/).click();
   await page.getByLabel('Email address').fill(email);
@@ -60,6 +65,7 @@ async function signIn(page: Page, email: string) {
   await expect(page.getByRole('heading', { name: `Sign in as ${email}?` })).toBeVisible();
   await button(page, 'Sign in').click();
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  return email;
 }
 
 /** A reload goes back into the game in progress; the home page offers Continue. Either way, into the game. */
@@ -252,10 +258,9 @@ test("a sign-in link someone else sent you asks first, and Not me leaves you sig
 });
 
 test("signed in, a link for another account says you'll be signed out of yours, then switches", async ({ page, browser }) => {
-  const mine = `mine-${Date.now()}@example.com`;
   const theirs = `theirs-${Date.now()}@example.com`;
   await unlockAll(page);
-  await signIn(page, mine);
+  const mine = await signIn(page, `mine-${Date.now()}@example.com`);
   const sender = await newPlayer(browser, page);
   await unlockAll(sender);
   await sender.getByRole('button', { name: /^Profile/ }).click();

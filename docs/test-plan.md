@@ -22,8 +22,12 @@ node e2e/worker.ts       # then, in another terminal: npm run load-test
 
 In a cloud session, set `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`
 (or wherever its Chromium is) for `npm run e2e` and `CHROME_PATH` for
-`npm run lighthouse`. A cloud session has no WebKit (its network can't reach
-Playwright's downloads), so it runs `npm run e2e -- --project=chromium`. CI
+`npm run lighthouse`. A cloud session has no WebKit preinstalled; its network
+allows Playwright's downloads (`cdn.playwright.dev` and
+`playwright.download.prss.microsoft.com`), so install it once per session with
+`PLAYWRIGHT_BROWSERS_PATH=~/pw npx playwright install --with-deps webkit` and
+run the browser tests with the same `PLAYWRIGHT_BROWSERS_PATH`, e.g.
+`npx playwright test e2e/<file>` for both browsers. CI
 runs everything but the load test on `main` and on every PR once it's
 marked ready (drafts get only the quick checks), the browser tests in
 Chromium only on a PR and in WebKit too on `main` (Dev Plan item 18ub). To fit
