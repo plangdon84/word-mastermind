@@ -78,33 +78,39 @@ export function SecretStep({ title, note, draft, shake, onShakeEnd, message, bus
         <button type="button" class="icon-btn" aria-label={backLabel} onClick={onBack}><BackIcon /></button>
         <h2>{title}</h2>
       </header>
-      <p class="step-note">{note}</p>
-      {extra}
-      <div class="setup-space" />
-      <section class="entry">
-        <Slots draft={draft} shake={shake} onShakeEnd={onShakeEnd} label="Your secret word" />
-        <div class={message?.error ? 'message error' : 'message'} role="status">
-          {busy ? 'Sending…' : message?.text}
-        </div>
-        {/* Each drops focus after use, so a physical Enter submits instead of pressing it again. */}
-        <button type="button" class="btn" onClick={(e) => {
-          onDraft(pickRandomSecret(SECRET_WORDS));
-          e.currentTarget.blur();
-        }}>
-          Pick for me
-        </button>
-        {recent.length > 0 && (
-          <div class="recent">
-            <span class="info-label">Recently used</span>
-            <div class="recent-words">
-              {recent.map((w) => (
-                <button type="button" class="chip" key={w} aria-pressed={draft === w}
-                  onClick={(e) => { onDraft(w); e.currentTarget.blur(); }}>{upper(w)}</button>
-              ))}
-            </div>
+      {/* Everything above the keyboard scrolls when it can't all fit, with the word's slots
+          pinned to the bottom of what's showing, so the keyboard and the word stay on screen (issue 191). */}
+      <div class="setup-body">
+        <p class="step-note">{note}</p>
+        {extra}
+        <div class="setup-space" />
+        <section class="entry setup-word">
+          <Slots draft={draft} shake={shake} onShakeEnd={onShakeEnd} label="Your secret word" />
+          <div class={message?.error ? 'message error' : 'message'} role="status">
+            {busy ? 'Sending…' : message?.text}
           </div>
-        )}
-      </section>
+        </section>
+        <section class="entry">
+          {/* Each drops focus after use, so a physical Enter submits instead of pressing it again. */}
+          <button type="button" class="btn" onClick={(e) => {
+            onDraft(pickRandomSecret(SECRET_WORDS));
+            e.currentTarget.blur();
+          }}>
+            Pick for me
+          </button>
+          {recent.length > 0 && (
+            <div class="recent">
+              <span class="info-label">Recently used</span>
+              <div class="recent-words">
+                {recent.map((w) => (
+                  <button type="button" class="chip" key={w} aria-pressed={draft === w}
+                    onClick={(e) => { onDraft(w); e.currentTarget.blur(); }}>{upper(w)}</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
       {keyboard}
     </div>
   );

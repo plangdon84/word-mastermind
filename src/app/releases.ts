@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.7.5',
+    notes: [
+      { text: 'On Extreme, your latest guess and its score stay at the top while you scroll back through your scores.' },
+      { text: 'When challenging a friend, the whole keyboard for choosing your word is visible without scrolling. The settings above it scroll if they need room.' },
+      { text: 'Your Rating in Stats now fits inside its box on small phones.' },
+    ],
+  },
+  {
     version: '1.7.4',
     notes: [
       { text: 'Report an issue now always sends your report privately. If it can’t be sent, it says to try again later and keeps what you wrote.' },

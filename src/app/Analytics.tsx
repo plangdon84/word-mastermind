@@ -3,7 +3,7 @@ import { DIFFICULTIES, FEATURES, HISTORY_MODES, STRENGTHS, type HistoryMode, typ
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { MODE_LABEL } from './GameHistory';
 import type { HistoryGame } from './historyDb';
-import { POOL_LABEL, ratingText, type PoolRating } from './ratingsApi';
+import { POOL_LABEL, POOL_SHORT_LABEL, ratingText, type PoolRating } from './ratingsApi';
 import { formatClock } from './rushParts';
 import { guessCount } from './messages';
 
@@ -127,10 +127,10 @@ function RatingTile({ ratings }: { ratings?: RatingsState }) {
   else if (ratings.list.length === 0) value = soon('No rated games yet', FEATURES.randomOpponent ? 'Play a matched game, or a rated challenge' : 'Challenge a friend to a rated game');
   else {
     const top = ratings.list.reduce((a, b) => (b.games > a.games ? b : a));
-    value = <dd title={top.provisional ? 'Provisional: it settles after a few more games' : undefined}>
-      {ratingText(top)}<span class="rating-pool">{POOL_LABEL[top.pool]}</span></dd>;
+    value = <dd class="rating" title={top.provisional ? 'Provisional: it settles after a few more games' : undefined}>
+      {ratingText(top)}<span class="rating-pool">{POOL_SHORT_LABEL[top.pool]}</span></dd>;
   }
-  return <div><dt>Rating</dt>{value}</div>;
+  return <div class="rating-tile"><dt>Rating</dt>{value}</div>;
 }
 
 /**

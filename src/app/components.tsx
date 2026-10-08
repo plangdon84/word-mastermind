@@ -309,7 +309,8 @@ export const STRENGTH_LABEL: Record<Strength, string> = {
 /**
  * Extreme: your guesses are hidden, except the latest, which stays on screen
  * with its score until your next guess. Below it, a history of scores only,
- * numbered by guess.
+ * numbered by guess. The latest guess stays pinned at the top and only the
+ * scores scroll, so it never scrolls out of view (issue 194).
  */
 export function ScoreHistory({ guesses, newestFirst }: {
   guesses: readonly GuessResult[];
@@ -318,7 +319,7 @@ export function ScoreHistory({ guesses, newestFirst }: {
   const wrap = useNewestInView(guesses.length, newestFirst);
   const latest = guesses[guesses.length - 1];
   return (
-    <div class="history-wrap scores-only" ref={wrap}>
+    <div class="history-wrap scores-only">
       <div class="last-score" role="status">
         {latest ? (
           <>
@@ -335,17 +336,19 @@ export function ScoreHistory({ guesses, newestFirst }: {
           <span class="last-score-label">No guesses yet. Your words won't be shown: remember them.</span>
         )}
       </div>
-      {guesses.length > 0 && (
-        <ol class={newestFirst ? 'score-list flip' : 'score-list'} aria-label="Your scores">
-          {guesses.map((g, i) => (
-            <li key={i}>
-              <span class="guess-no" aria-hidden="true">Guess {i + 1}</span>
-              <span class={g.isWin ? 'score win' : 'score'} aria-hidden="true">{g.isWin ? 'Win' : g.score}</span>
-              <span class="visually-hidden">Guess {i + 1}, {g.isWin ? 'found it' : `score ${g.score}`}</span>
-            </li>
-          ))}
-        </ol>
-      )}
+      <div class="score-scroll" ref={wrap}>
+        {guesses.length > 0 && (
+          <ol class={newestFirst ? 'score-list flip' : 'score-list'} aria-label="Your scores">
+            {guesses.map((g, i) => (
+              <li key={i}>
+                <span class="guess-no" aria-hidden="true">Guess {i + 1}</span>
+                <span class={g.isWin ? 'score win' : 'score'} aria-hidden="true">{g.isWin ? 'Win' : g.score}</span>
+                <span class="visually-hidden">Guess {i + 1}, {g.isWin ? 'found it' : `score ${g.score}`}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }
