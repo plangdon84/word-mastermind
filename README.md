@@ -1085,10 +1085,14 @@ clocks only.
   one dot per word, **Pause** and the clock, which follows the server's.
   There's no New game, and the ☰ menu's difficulty can't change.
 - **Pause** (Dev Plan item 18y, issue 170) stops your clock and covers the
-  board ("Paused", with **Resume**) until you come back; your time leaves
-  the pauses out. The server records each pause and resume as moves, so
-  the run still replays. It pauses only when you press it, not when you
-  leave the page, and a run started before Pause can't pause. Each word plays like Solo Rush's, refereed by the server
+  board ("Paused", with **Resume**) until you come back. **Twice a run**,
+  and up to **10 minutes paused in all** are left out of your time; past
+  that the clock counts again, paused or not (owner, 8 October 2026: a
+  Daily Rush takes 20 to 25 minutes, and stepping away shouldn't cost a
+  place, but unlimited pauses would decide ties on time; maybe 1 pause
+  later). The server records each pause and resume as moves, so the run
+  still replays. It pauses only when you press it, not when you leave the
+  page, and a run started before Pause can't pause. Each word plays like Solo Rush's, refereed by the server
   (`worker/src/dailyRoom.ts`): the words stay there until you find them.
 - **Give up today's Daily Rush** (☰ menu) asks first, then ends it with no
   leaderboard entry; the words you didn't find stay hidden until the day is

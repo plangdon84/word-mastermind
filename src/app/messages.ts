@@ -222,6 +222,8 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
       return 'The clock is paused. Resume to keep playing.';
     case 'not-paused':
       return "The clock isn't paused.";
+    case 'no-pauses-left':
+      return 'You’ve used both pauses for this Daily Rush.';
     case 'not-pausable':
       return "This Daily Rush was started before Pause, so its clock can't pause.";
     case 'offensive-name':

@@ -1,5 +1,5 @@
 import {
-  createRun, dailyTotals, finishedLate, pauseRun, resumeRun, shuffled, dailyView, dayEnd, endRun, replayRun, submitRunGuess, suggestRun, toRunRecord, type DailyDay, type DailyTotals,
+  createRun, DAILY_PAUSES, dailyTotals, finishedLate, pausesUsed, pauseRun, resumeRun, shuffled, dailyView, dayEnd, endRun, replayRun, submitRunGuess, suggestRun, toRunRecord, type DailyDay, type DailyTotals,
   type DailyView, type Difficulty, type RunRecord,
 } from '../../src/game';
 import type { DailyError } from '../../src/app/dailyApi';
@@ -95,6 +95,9 @@ export async function handleDaily(
   if (!entry) return refuse(409, 'not-started');
   // A run still going when the day changes can be finished (the worker allows a day late), off the board.
   const run = replay(entry);
+  // Two pauses a run (README "Daily Rush"); Solo Rush's engine has no limit.
+  if (request.action === 'pause' && run.pausable && run.status === 'playing' && run.pausedAt === null
+    && pausesUsed(run) >= DAILY_PAUSES) return refuse(409, 'no-pauses-left');
   const result = request.action === 'guess' ? submitRunGuess(run, request.word, now)
     : request.action === 'suggest' ? suggestRun(run, request.word, now)
     : request.action === 'pause' ? pauseRun(run, now)

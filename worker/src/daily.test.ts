@@ -276,6 +276,24 @@ describe('Pause', () => {
     expect(replayRun(record).ok).toBe(true);
   });
 
+  it('allows two pauses a run, leaving out up to 10 minutes paused in all', async () => {
+    const { as, tick, sqlite } = setup();
+    expect((await as(ANN).start(DAY, 'medium', 'Ann')).run).toMatchObject({ pausesLeft: 2 });
+    await as(ANN).pause(DAY);
+    tick(8 * 60_000);
+    expect((await as(ANN).resume(DAY)).run).toMatchObject({ pausesLeft: 1 });
+    await as(ANN).pause(DAY);
+    tick(5 * 60_000);
+    expect((await as(ANN).resume(DAY)).run).toMatchObject({ pausesLeft: 0 });
+    expect(await refusal(as(ANN).pause(DAY))).toBe('no-pauses-left');
+    for (const word of WORDS) {
+      tick(1000);
+      await as(ANN).guess(DAY, word);
+    }
+    // 13 minutes paused, 10 of them left out: 3 minutes and the 4 seconds of guessing.
+    expect(sqlite.prepare('SELECT ms FROM daily_results').get()).toEqual({ ms: 3 * 60_000 + 4000 });
+  });
+
   it("can't pause a run started before Pause", async () => {
     const { days, as } = setup();
     await as(ANN).start(DAY, 'medium', 'Ann');

@@ -1,6 +1,6 @@
 import type { Difficulty } from './difficulty';
 import { dayEnd, type DailyDay } from './dailyDays';
-import { runElapsedMs, type RunGame, type WordOutcome } from './run';
+import type { RunGame, WordOutcome } from './run';
 import type { GuessResult } from './scoring';
 
 /*
@@ -44,6 +44,34 @@ export interface DailyView {
   pausable: boolean;
   /** When the clock was paused, or null while it runs. */
   pausedAt: number | null;
+  /** Pauses not yet used (`DAILY_PAUSES` a run). */
+  pausesLeft: number;
+}
+
+/** Pauses a Daily Rush allows (owner, 8 October 2026). */
+export const DAILY_PAUSES = 2;
+/** Paused time left out of a Daily Rush's time, in all; past it, the clock counts again. */
+export const DAILY_PAUSE_MS = 10 * 60_000;
+
+/** Pauses used so far in a run. */
+export const pausesUsed = (run: Pick<RunGame, 'moves'>): number => run.moves.filter((m) => m.kind === 'pause').length;
+
+/** What a Daily Rush's time is counted from: the server's run, or the app's view of it. */
+interface DailyClock {
+  startedAt: number;
+  pausedAt: number | null;
+  words: readonly { endedAt: number | null; pausedMs: number }[];
+}
+
+/**
+ * A Daily Rush's time at `now` (or, once over, at its last word): start to
+ * end, less the time paused, up to `DAILY_PAUSE_MS` in all. The one sum the
+ * board, the result and the clock on screen all use.
+ */
+export function dailyElapsedMs(run: DailyClock, over: boolean, now: number): number {
+  const end = over ? Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt)) : now;
+  const paused = run.words.reduce((sum, w) => sum + w.pausedMs, 0) + (!over && run.pausedAt !== null ? Math.max(0, now - run.pausedAt) : 0);
+  return Math.max(0, end - run.startedAt - Math.min(paused, DAILY_PAUSE_MS));
 }
 
 export function dailyStatus(run: RunGame): DailyStatus {
@@ -61,6 +89,7 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
     status: dailyStatus(run),
     pausable: run.pausable,
     pausedAt: run.pausedAt,
+    pausesLeft: run.pausable ? Math.max(0, DAILY_PAUSES - pausesUsed(run)) : 0,
     words: run.results.map((r) => ({
       word: r.outcome === 'solved' ? r.word : null,
       guesses: r.guesses,
@@ -76,17 +105,17 @@ export function dailyView(day: DailyDay, run: RunGame): DailyView {
 /** When the last word was found or given up: the run's end, once it's over. */
 const lastEnd = (run: RunGame): number => Math.max(run.startedAt, ...run.results.map((r) => r.endedAt ?? run.startedAt));
 
-/** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time (pauses left out). */
+/** A finished Daily Rush's totals, which the leaderboard ranks: fewer guesses first, then less time (`dailyElapsedMs`). */
 export interface DailyTotals {
   guesses: number;
   ms: number;
 }
 
-/** Null until every word is found. The clock never pauses, so the time is start to last find. */
+/** Null until every word is found. */
 export function dailyTotals(run: RunGame): DailyTotals | null {
   if (dailyStatus(run) !== 'finished') return null;
   const guesses = run.results.reduce((sum, r) => sum + r.guesses.length, 0);
-  return { guesses, ms: runElapsedMs(run, lastEnd(run)) };
+  return { guesses, ms: dailyElapsedMs({ ...run, words: run.results }, true, lastEnd(run)) };
 }
 
 /**

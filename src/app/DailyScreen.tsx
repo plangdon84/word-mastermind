@@ -1,7 +1,7 @@
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
+  addDays, betterThan, DAILY_PAUSE_MS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
   type DailyView, type DailyWordView, type Difficulty, type Marks,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
@@ -365,10 +365,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     setMarks(all.map((m, i) => (i === run.current ? cycleMark(m, letter) : m)));
   };
 
-  const lastEnd = run ? runEnd(run) : 0;
-  const pausedMs = run ? run.words.reduce((sum, w) => sum + w.pausedMs, 0) : 0;
-  const clockEnd = !run ? 0 : !playing ? lastEnd : run.pausedAt ?? now;
-  const clock = run ? formatClock(Math.max(0, clockEnd - run.startedAt - pausedMs) / 1000) : '0:00';
+  const clock = run ? formatClock(dailyElapsedMs(run, !playing, now) / 1000) : '0:00';
   const nextSet = today ? countdownText(today.nextAt - now) : '';
   /** With 5 minutes or less of the day left (README "Daily Rush"). */
   const dayEnding = today && run && !late ? dayEndingText(today.nextAt - now) : null;
@@ -400,7 +397,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
       {run && (
         <RushBar dots={<RushDots words={run.words} current={playing ? run.current : null} />} clock={clock}
           clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}>
-          {playing && run.pausable && (
+          {playing && run.pausable && (paused || run.pausesLeft > 0) && (
             <button type="button" class="btn small" disabled={confirming} onClick={() => void togglePause()}>
               {paused ? 'Resume' : 'Pause'}
             </button>
@@ -452,7 +449,8 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               <h2>Today: {today.theme}</h2>
               <p>
                 4 words on today's theme, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which
-                can't change once you start. <b>Pause</b> stops your clock and hides the board. Next set in {nextSet}.
+                can't change once you start. <b>Pause</b> stops your clock and hides the board, twice a run, for up
+                to {DAILY_PAUSE_MS / 60_000} minutes in all. Next set in {nextSet}.
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
@@ -486,7 +484,11 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
       {word && paused && (
         <section class="panel">
           <h2>Paused</h2>
-          <p>Your clock is stopped. Your guesses are hidden until you resume.</p>
+          <p>
+            Your clock is stopped, for up to {DAILY_PAUSE_MS / 60_000} minutes in all; after that it counts
+            again. Your guesses are hidden until you resume.{' '}
+            {run.pausesLeft === 0 ? "That was your last pause." : `${run.pausesLeft} pause left.`}
+          </p>
           <div class="row-btns">
             <button class="btn primary" type="button" onClick={() => void togglePause()}>Resume</button>
           </div>

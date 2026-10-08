@@ -59,7 +59,7 @@ export interface DailyBoard {
 /** The server's reasons for refusing a request, beyond a word the rules refuse. */
 export type DailyError =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'no-theme' | 'already-played'
-  | 'not-started' | 'day-over' | 'game-over' | 'offensive-name' | 'paused' | 'not-paused' | 'not-pausable'
+  | 'not-started' | 'day-over' | 'game-over' | 'offensive-name' | 'paused' | 'not-paused' | 'not-pausable' | 'no-pauses-left'
   | 'wrong-length' | 'not-letters' | 'repeated-letters' | 'not-in-word-list' | 'not-easy' | 'no-suggestions';
 
 const isGuess = (value: unknown): value is GuessResult =>
@@ -90,7 +90,8 @@ export function parseDailyView(value: unknown): DailyView | null {
   // Nor can its runs pause.
   const pausable = value.pausable === true;
   const pausedAt = isTime(value.pausedAt) ? value.pausedAt : null;
-  return { day, difficulty, startedAt, current, status, words: words as DailyWordView[], pausable, pausedAt };
+  const pausesLeft = isCount(value.pausesLeft) ? value.pausesLeft : 0;
+  return { day, difficulty, startedAt, current, status, words: words as DailyWordView[], pausable, pausedAt, pausesLeft };
 }
 
 export function parsePlacement(value: unknown): DailyPlacement | null {

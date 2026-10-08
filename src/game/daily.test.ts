@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addDays, betterThan, dailyDay, dailyTotals, dailyView, dayEnd, dayStart, isDailyDay, isTopTen, isTopTenPercent,
+  addDays, betterThan, dailyElapsedMs, dailyDay, dailyTotals, dailyView, dayEnd, dayStart, isDailyDay, isTopTen, isTopTenPercent,
   NEW_YORK_FROM, ordinal,
 } from './daily';
 import { createRun, endRun, submitRunGuess, type RunGame } from './run';
@@ -104,6 +104,21 @@ describe('a Daily Rush as its player sees it', () => {
     ]);
     expect(dailyView('2026-10-31', run).status).toBe('finished');
     expect(dailyTotals(run)).toEqual({ guesses: 5, ms: 65_000 });
+  });
+});
+
+describe("a Daily Rush's time", () => {
+  const clock = (pausedMs: number, pausedAt: number | null = null) =>
+    ({ startedAt: T, pausedAt, words: [{ endedAt: T + 20 * 60_000, pausedMs }] });
+  it('leaves out up to 10 minutes paused, in all', () => {
+    expect(dailyElapsedMs(clock(4 * 60_000), true, 0)).toBe(16 * 60_000);
+    expect(dailyElapsedMs(clock(12 * 60_000), true, 0)).toBe(10 * 60_000);
+  });
+
+  it('counts again while paused once the 10 minutes are used', () => {
+    const paused = clock(0, T + 60_000);
+    expect(dailyElapsedMs(paused, false, T + 5 * 60_000)).toBe(60_000);
+    expect(dailyElapsedMs(paused, false, T + 13 * 60_000)).toBe(3 * 60_000);
   });
 });
 
