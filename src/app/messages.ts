@@ -209,27 +209,27 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
     case 'unreachable':
       return "Can't reach the game server. Check your connection and try again.";
     case 'no-theme':
-      return "There's no Daily Rush today.";
+      return "There's no Daily Set today.";
     case 'already-played':
-      return "You've already played today's Daily Rush. A new set is out at midnight New York time.";
+      return "You've already played today's Daily Set. A new set is out at midnight New York time.";
     case 'not-started':
-      return "You haven't started today's Daily Rush.";
+      return "You haven't started today's Daily Set.";
     case 'day-over':
-      return "That day's Daily Rush is over: a new set is out.";
+      return "That day's Daily Set is over: a new set is out.";
     case 'game-over':
-      return "Today's Daily Rush is over for you.";
+      return "Today's Daily Set is over for you.";
     case 'paused':
       return 'The clock is paused. Resume to keep playing.';
     case 'not-paused':
       return "The clock isn't paused.";
     case 'no-pauses-left':
-      return 'You’ve used both pauses for this Daily Rush.';
+      return 'You’ve used both pauses for this Daily Set.';
     case 'not-pausable':
-      return "This Daily Rush was started before Pause, so its clock can't pause.";
+      return "This Daily Set was started before Pause, so its clock can't pause.";
     case 'offensive-name':
       return "Your name can't go on the leaderboard. Change it on your profile to play.";
     case 'not-found':
-      return 'There was no Daily Rush that day.';
+      return 'There was no Daily Set that day.';
     case 'signed-out':
     case 'sign-in-needed':
       return 'You were signed out. Sign in again from your profile to play.';

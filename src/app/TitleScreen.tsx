@@ -81,14 +81,14 @@ const MODES: Choice<Mode>[] = [
 ];
 
 const CONTINUE_LABEL: Record<Mode | 'daily' | 'lobby' | 'competitive', string> = {
-  single: 'Continue single player', two: 'Continue two player', rush: 'Continue Solo Rush', daily: 'Continue Daily Rush',
+  single: 'Continue single player', two: 'Continue two player', rush: 'Continue Solo Rush', daily: 'Continue Daily Set',
   lobby: 'Continue Rush with Friends', competitive: 'Continue Competitive Rush',
 };
 
 /** The kinds of Rush (README "Rush modes"); one switched off for the launch isn't offered. */
 const RUSH_KINDS = ([
   { value: 'solo', label: 'Solo Rush', detail: 'Practice solving multiple secret words in a timed trial.' },
-  { value: 'daily', label: 'Daily Rush', detail: "The day's themed set of 4 words, once a day, on a leaderboard.", later: !API_URL },
+  { value: 'daily', label: 'Daily Set', detail: "The day's themed set of 4 words, once a day, on a leaderboard.", later: !API_URL },
   { value: 'friends', label: 'Rush with Friends', detail: 'Up to 5 players solve the same 4 words on one clock.', later: !API_URL },
   { value: 'competitive', label: 'Competitive Rush', detail: "Each player sets a word and solves the others'. Rated.", later: !API_URL },
 ] satisfies Choice<RushKind>[]).filter((c) => c.value !== 'competitive' || FEATURES.competitiveRush);
@@ -495,7 +495,7 @@ export function TitleScreen({
       {step === 'difficulty' && (
         <>
           <p class="step-note">{dailyChosen
-            ? "How much the app helps you track your own guesses. It's chosen once: it can't change during today's Daily Rush, and each difficulty has its own leaderboard."
+            ? "How much the app helps you track your own guesses. It's chosen once: it can't change during today's Daily Set, and each difficulty has its own leaderboard."
             : lobbyChosen
               ? 'How much the app helps everyone track their own guesses. One difficulty for the whole lobby; you can change it until you start.'
                 + (competitiveChosen ? " It's the same for everyone, so it doesn't change the rating." : '')
@@ -507,7 +507,7 @@ export function TitleScreen({
             choices={rated ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}
             onPick={(difficulty) => onSettings({ ...settings, difficulty })} />
           <button type="button" class="btn primary big" onClick={onStart}>
-            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? 'Start Daily Rush' : lobbyChosen ? 'Open lobby' : 'Start game'}
+            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? 'Start Daily Set' : lobbyChosen ? 'Open lobby' : 'Start game'}
           </button>
         </>
       )}

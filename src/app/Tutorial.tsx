@@ -193,7 +193,7 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
             invite link, or challenge someone on your friends list. Play live on a chess clock, or take a day or
             three per guess.</li>
           <li><b>Rush:</b> 4 words in a row against the clock. <b>Solo Rush</b> ranks your average against the
-            computer's strengths; <b>Daily Rush</b> is the day's themed set, on a leaderboard; <b>Rush with
+            computer's strengths; <b>Daily Set</b> is the day's themed set, on a leaderboard; <b>Rush with
             Friends</b> is up to 5 players on the same words and one clock, joined by a code
             {FEATURES.competitiveRush
               ? <>; in <b>Competitive Rush</b> each player sets a word and solves the others', and it's rated.</>
@@ -219,7 +219,7 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
           <ol class="tut-modes">
             <li><b>Win a single player game</b> to open <b>Two player</b>.</li>
             <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Solo Rush</b>.</li>
-            <li><b>Finish a Solo Rush without giving up a word</b> to open <b>Daily Rush</b>
+            <li><b>Finish a Solo Rush without giving up a word</b> to open <b>Daily Set</b>
               {FEATURES.competitiveRush ? <>, <b>Rush with Friends</b> and <b>Competitive Rush</b></>
                 : <> and <b>Rush with Friends</b></>}.</li>
           </ol>

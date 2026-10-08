@@ -28,7 +28,7 @@ describe('dailyShareText', () => {
 
   it('gives the day, difficulty, emoji, total and place, and nothing about the words', () => {
     expect(dailyShareText({ day: '2026-10-02', difficulty: 'hard', words, place: '12th of 340 · better than 96%' }))
-      .toBe('Word Mastermind Daily Rush #2 · Hard\n🟩🟨🟩🟧\n41 guesses · 12th of 340 · better than 96%\nwordmastermind.app');
+      .toBe('Word Mastermind Daily Set #2 · Hard\n🟩🟨🟩🟧\n41 guesses · 12th of 340 · better than 96%\nwordmastermind.app');
   });
 
   it('leaves the place out until it is known', () => {
