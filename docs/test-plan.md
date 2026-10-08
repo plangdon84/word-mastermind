@@ -91,7 +91,7 @@ catch it.
 
 | Case | Target | Result |
 | --- | --- | --- |
-| Download size | App script ≤ 130 KB gzipped, styles ≤ 12 KB; definitions still load only on ⓘ | 112 KB and 8.5 KB; `npm run check:size` in CI fails over budget |
+| Download size | App script ≤ 140 KB gzipped (130 KB until Dev Plan item 18z, raised with the owner on 8 October 2026), styles ≤ 12 KB; definitions still load only on ⓘ | 112 KB and 8.5 KB at 1.0, 131.1 KB of script at 18z; `npm run check:size` in CI fails over budget |
 | First load on a slow phone | Lighthouse mobile performance ≥ 90 | 98 (accessibility 93, best practices 100); `npm run lighthouse` in CI warns under 90, and `--strict` fails |
 | A long history | 5,000 games on a slow phone's CPU: each profile page opens in under 1 second | Profile 0.35 s, stats 0.45 s, achievements 0.6–0.7 s, history 0.4–0.5 s. Opening the app reads and replays every game once first, which takes 2.1–2.2 s (the test fails past 4 s, a guard against it getting much worse); making it faster is Dev Plan item 17d. "A slow phone" is calibrated: the test times a fixed piece of work and slows the CPU until it takes 115 ms, so it means the same on a fast laptop (4×) and on GitHub's runners, which are about twice as slow (2×) |
 | The server under many players | 100 friend games, 20 full lobbies and 1,000 Daily Rush players at once: no errors, moves answered in under 300 ms | Locally (`wrangler dev`): 1,320 players and about 10,400 moves, no errors. Local times aren't Cloudflare's (it runs every Durable Object in one process, and drops connections with all 1,320 at once, so the script keeps 64 requests in flight), so the 300 ms target is for the staging run, which is in the manual checklist: this session's network can't reach staging |
