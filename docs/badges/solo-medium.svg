@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Solve a single-player word at Medium">
+<title>Solve a single-player word at Medium</title>
+<defs><linearGradient id="g-solo-medium" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDB889"/><stop offset="1" stop-color="#8C5327"/></linearGradient></defs>
+<circle cx="60" cy="60" r="57" fill="url(#g-solo-medium)"/><circle cx="60" cy="60" r="48" fill="#16191D"/><circle cx="60" cy="60" r="44.5" fill="none" stroke="#F4CFAE" stroke-opacity=".35" stroke-width="1"/>
+<g font-family="Rubik, system-ui, sans-serif" font-weight="700" text-anchor="middle">
+<text x="60" y="34" font-size="7.5" letter-spacing="1" fill="#F4CFAE">SOLO</text>
+<circle cx="29" cy="52" r="7.5" fill="#2E7D32" /><circle cx="47" cy="52" r="7.5" fill="#BDBDBD" /><circle cx="65" cy="52" r="7.5" fill="#16191D" stroke="#fff" stroke-width="1.5"/><text x="91" y="56.5" font-size="13" fill="#fff">– 2</text>
+
+<text x="60" y="93" font-size="9.5" letter-spacing="1.2" fill="#F4CFAE">MEDIUM</text>
+</g></svg>

@@ -1,0 +1,16 @@
+{
+  "word-mastermind:profile:v1": "{\"deviceId\":\"fixture-device-0000\",\"guestName\":\"Guest-4821\",\"name\":\"Fixture Player\",\"country\":\"GB\",\"memberSince\":1789769600000}",
+  "word-mastermind:settings:v1": "{\"mode\":\"rush\",\"opponent\":\"friend\",\"rushKind\":\"daily\",\"strength\":\"expert\",\"timeControl\":\"10m\",\"difficulty\":\"hard\",\"newestFirst\":{\"easy\":false,\"medium\":false,\"hard\":true,\"extreme\":true},\"showTutorial\":false}",
+  "word-mastermind:recent-secrets:v1": "[\"storm\",\"house\"]",
+  "word-mastermind:solo:v1": "{\"id\":\"fx-solo-playing\",\"record\":{\"secret\":\"beach\",\"startedAt\":1790769600000,\"difficulty\":\"medium\",\"moves\":[{\"kind\":\"guess\",\"word\":\"crane\",\"at\":1790769610000}]},\"marks\":{\"c\":\"out\"},\"draft\":\"bea\"}",
+  "word-mastermind:two-player:v1": "{\"id\":\"fx-two-playing\",\"record\":{\"humanSecret\":\"storm\",\"computerSecret\":\"beach\",\"first\":\"human\",\"startedAt\":1790769600000,\"difficulty\":\"hard\",\"strength\":\"skilled\",\"moves\":[{\"side\":\"human\",\"kind\":\"guess\",\"word\":\"crane\",\"at\":1790769610000},{\"side\":\"computer\",\"kind\":\"guess\",\"word\":\"house\",\"at\":1790769620000}]},\"marks\":{\"h\":\"in\"},\"draft\":\"st\"}",
+  "word-mastermind:rush:v1": "{\"id\":\"fx-rush-playing\",\"record\":{\"words\":[\"beach\",\"crane\",\"storm\",\"house\"],\"startedAt\":1790769600000,\"timeLimitMs\":null,\"pausable\":true,\"difficulty\":\"easy\",\"moves\":[{\"kind\":\"guess\",\"word\":\"beach\",\"at\":1790769610000},{\"kind\":\"guess\",\"word\":\"bunny\",\"at\":1790769620000},{\"kind\":\"pause\",\"at\":1790769630000}]},\"marks\":[{},{\"b\":\"in\"},{},{}],\"draft\":\"\"}",
+  "word-mastermind:daily:v1": "{\"day\":\"2026-09-30\",\"playing\":true,\"marks\":[{},{},{},{}]}",
+  "word-mastermind:daily-placements:v1": "[{\"day\":\"2026-09-29\",\"difficulty\":\"extreme\",\"rank\":3,\"total\":40,\"behind\":37,\"finishedAt\":1790779650000}]",
+  "word-mastermind:lobby:v1": "{\"code\":\"ABCDEF\",\"kind\":\"friends\",\"active\":true,\"marks\":[{},{},{},{}]}",
+  "word-mastermind:friend-games:v1": "[{\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"addedAt\":1790769600000,\"marks\":{\"e\":\"in\"},\"draft\":\"cr\",\"done\":false}]",
+  "word-mastermind:badges:v1": "{\"announced\":[\"clutch\"],\"unseen\":[]}",
+  "word-mastermind:played:v1": "{\"who\":\"fixture-device-0000\",\"cursor\":12}",
+  "word-mastermind:sync:v1": "{\"accountId\":\"acct-fixture\",\"cursor\":7,\"pending\":[\"fx-rush\"],\"profile\":null}",
+  "word-mastermind:session:v1": "{\"token\":\"fffffffffffffffffffffffffffffffffffffffffff\",\"account\":{\"id\":\"acct-fixture\",\"email\":\"player@example.com\",\"google\":false,\"createdAt\":1790669600000}}"
+}

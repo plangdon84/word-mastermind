@@ -1,0 +1,46 @@
+{
+  "name": "word-mastermind",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker && tsc --noEmit -p tsconfig.node.json",
+    "wordlist": "python3 wordlist/etl.py",
+    "test:wordlist": "python3 -m unittest discover wordlist",
+    "worker:dev": "wrangler dev --config worker/wrangler.toml --env=\"\"",
+    "worker:migrate": "wrangler d1 migrations apply DB --config worker/wrangler.toml --local --env=\"\"",
+    "deploy:staging": "wrangler d1 migrations apply DB --config worker/wrangler.toml --env staging --remote && wrangler deploy --config worker/wrangler.toml --env staging",
+    "deploy:production": "wrangler d1 migrations apply DB --config worker/wrangler.toml --env production --remote && wrangler deploy --config worker/wrangler.toml --env production",
+    "check:worker": "wrangler deploy --dry-run --config worker/wrangler.toml --env production",
+    "wipe": "node worker/scripts/wipe.ts",
+    "daily-themes": "node worker/scripts/daily-themes.ts",
+    "vapid-keys": "node worker/scripts/vapid-keys.ts",
+    "check:size": "node scripts/check-size.ts",
+    "lighthouse": "node scripts/lighthouse.ts",
+    "e2e": "playwright test",
+    "load-test": "node scripts/load-test.ts"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@cloudflare/workers-types": "^5.20260928.1",
+    "@playwright/test": "^1.63.0",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^22.20.4",
+    "fake-indexeddb": "^6.2.5",
+    "lighthouse": "^13.5.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "wrangler": "^4.142.0"
+  },
+  "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/rubik": "^5.3.0",
+    "preact": "^11.0.0"
+  }
+}

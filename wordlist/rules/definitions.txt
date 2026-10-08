@@ -1,0 +1,36 @@
+# Hand-written definitions. They replace what definitions.py generates from
+# Open English WordNet for that word.
+#
+#   word | part of speech | definition   one line per definition, in order
+#   word | = base word                   define through another word
+#   word | -                             show no definition
+#
+# Part of speech is noun, verb, adjective or adverb (the app's four labels).
+
+# Secret words WordNet doesn't define (mostly grammar words).
+among | adverb | in the middle of, or surrounded by; also, shared out between the members of a group
+could | verb | past tense of can; also used to say that something is possible or to ask politely
+fiche | noun | a flat sheet of microfilm that holds many pages of text
+ought | verb | used to say what is right, expected or likely
+since | adverb | from a past time until now; also, because
+unset | adjective | not yet set, fixed or decided
+until | adverb | up to the time that
+whose | adverb | belonging to whom or to which
+women | = woman
+would | verb | past tense of will; also used for polite requests and imagined situations
+
+# WordNet's first sense is the unusual one.
+bunny | noun | a child's word for a rabbit, especially a young one
+
+# Secret words whose generated definition is misleading or missing.
+runts | noun | the smallest and weakest animals in a litter
+denim | noun | a strong cotton cloth, usually blue, used for jeans and work clothes
+borne | verb | carried or put up with; past participle of bear
+fries | noun | thin strips of potato fried in deep fat
+fries | verb | cooks in hot fat or oil
+
+# Guess words WordNet doesn't define, reported from the app.
+stang | verb | an old or Scots past tense of sting
+knurl | noun | a small ridge, one of a row cut into metal (on a knob, a screw or the edge of a coin) for a better grip
+flams | noun | drumbeats of a quiet grace note followed at once by a louder stroke
+doled | verb | gave out in small amounts; past tense of dole

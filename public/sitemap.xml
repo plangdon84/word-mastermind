@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The pages search engines should list (Dev Plan item 18j), on the real address only. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://wordmastermind.app/</loc></url>
+  <url><loc>https://wordmastermind.app/how-to-play</loc></url>
+  <url><loc>https://wordmastermind.app/strategy</loc></url>
+  <url><loc>https://wordmastermind.app/jotto-and-wordle</loc></url>
+  <url><loc>https://wordmastermind.app/privacy</loc></url>
+  <url><loc>https://wordmastermind.app/terms</loc></url>
+</urlset>

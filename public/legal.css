@@ -1,0 +1,27 @@
+/* The static pages (public/*.html: privacy, terms, how to play, strategy, Jotto and Wordle), in the app's colours. */
+:root {
+  --bg: #EDF0F3; --surface: #FFFFFF; --ink: #16191D; --muted: #5A6470; --line: #D5DBE1; --accent: #2F63C4;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121417; --surface: #1B1E22; --ink: #E8ECF0; --muted: #9AA4AF; --line: #2C3137; --accent: #86A9F0; }
+}
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; }
+article { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; overflow-wrap: anywhere; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.1rem; margin: 28px 0 6px; }
+p, li { margin: 0 0 10px; }
+ul { padding-left: 22px; }
+a { color: var(--accent); }
+.updated, footer { color: var(--muted); font-size: 0.9rem; }
+footer { margin-top: 18px; text-align: center; }
+table { border-collapse: collapse; width: 100%; margin: 0 0 14px; font-size: 0.95rem; }
+caption { text-align: left; font-weight: 600; margin-bottom: 6px; }
+/* A table cell keeps its words whole (the article allows breaking anywhere, for long addresses). */
+th, td { overflow-wrap: break-word; border-bottom: 1px solid var(--line); padding: 6px 8px 6px 0; text-align: left; vertical-align: top; }
+/* A word from the game, as the app shows it. */
+.word { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.example { background: var(--bg); border-radius: 12px; padding: 10px 14px; }
+/* Links in the footer are taps on a phone, 44px tall like the app's buttons. */
+footer a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: center; padding: 0 4px; }

@@ -1,0 +1,213 @@
+# The Word Mastermind API (README "Backend plan"). Run wrangler from this
+# folder, or use the npm scripts at the repo root (see worker/README.md).
+name = "word-mastermind-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Local development (`npm run worker:dev`). The database lives in
+# worker/.wrangler/, so any database_id works here.
+[vars]
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173"
+# Turn notifications: the keys come from worker/.dev.vars locally
+# (`npm run vapid-keys -- --dev`); without them, notifications are off.
+VAPID_SUBJECT = "https://word-mastermind.pages.dev"
+# Sign-in emails are printed in the wrangler dev console instead of sent.
+# Google sign-in: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in worker/.dev.vars
+# (see worker/README.md); without them, it's off.
+LOG_LOGIN_LINKS = "true"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "word-mastermind-local"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# One Durable Object per game against a friend (src/gameRoom.ts). Cloudflare
+# creates them on first use; there is nothing to set up beforehand.
+[[durable_objects.bindings]]
+name = "GAMES"
+class_name = "GameRoom"
+
+# One Durable Object per day's Daily Rush (src/dailyRush.ts), named by the day.
+[[durable_objects.bindings]]
+name = "DAILY"
+class_name = "DailyRush"
+
+# One Durable Object per Rush with Friends lobby (src/rushLobby.ts), named by
+# its join code.
+[[durable_objects.bindings]]
+name = "LOBBIES"
+class_name = "RushLobby"
+
+# One Durable Object per matchmaking queue (src/matchmaker.ts), named by its
+# time control and difficulty.
+[[durable_objects.bindings]]
+name = "QUEUES"
+class_name = "Matchmaker"
+
+# Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
+# 30 a minute for what makes something new, 3 for reports and sign-in emails.
+# Each namespace_id is any number unique within the Cloudflare account.
+[[ratelimits]]
+name = "RATE_LIMIT"
+namespace_id = "1001"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "RATE_LIMIT_STRICT"
+namespace_id = "1002"
+simple = { limit = 3, period = 60 }
+
+# Durable Object classes, for every environment. Never edit an applied
+# migration; add a new tag.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["DailyRush"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["RushLobby"]
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["Matchmaker"]
+
+# Bindings and vars are not inherited by environments, so each repeats them.
+# Each database_id is its D1 database's ID (dashboard, or `wrangler d1 create`).
+# Staging: every branch deploys here (`npm run deploy:staging`, from this
+# worker's own Workers Builds; worker/README.md "Staging"), and Pages previews use it, so testing never
+# touches production data.
+[env.staging]
+name = "word-mastermind-api-staging"
+
+[env.staging.vars]
+# Every Pages preview (`https://<id or branch>.word-mastermind.pages.dev`),
+# but not the production site itself.
+ALLOWED_ORIGINS = "https://*.word-mastermind.pages.dev"
+# Turn notifications: this environment's key pair from `npm run vapid-keys`.
+# The private key is a secret (`wrangler secret put VAPID_PRIVATE_KEY`);
+# until it's set, notifications stay off. Staging's own pair, never production's.
+VAPID_PUBLIC_KEY = "BHDVO6oRVTbQ9n9PUitdAbZ5qftKkgGXKVydQKDUKK0mSBFda0xZrm6na2JiqCFtpa11o6s8_Rv_OIaF7ul9J9o"
+VAPID_SUBJECT = "https://word-mastermind.pages.dev"
+# Sign-in emails, sent through Resend from this address (a domain verified
+# there: wordmastermind.app); the API key is a secret
+# (`wrangler secret put RESEND_API_KEY`). Until it's set, sign-in by email is off.
+EMAIL_FROM = "Word Mastermind <signin@wordmastermind.app>"
+# Google sign-in: the OAuth client ID, the same client as production's (its
+# redirect URIs list this worker's callback too); its secret is a secret
+# (`wrangler secret put GOOGLE_CLIENT_SECRET`, or the dashboard). Empty, it's off.
+GOOGLE_CLIENT_ID = "450262015877-i35qvsed2vou2ioqd226c80hn6bdbeit.apps.googleusercontent.com"
+# Report an issue: issues are filed in this repository with a fine-grained
+# token (Issues: read and write on it), a secret
+# (`wrangler secret put GITHUB_TOKEN`). Without it, reports are kept in D1
+# and printed in the logs, not filed. It's the private archive, never the
+# public repo: a report can hold your secret word in a game still going.
+GITHUB_REPO = "plangdon84/word-mastermind-archive"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "word-mastermind-staging"
+database_id = "a9fa8fff-fda5-4c36-b166-8ce8a458089e"
+migrations_dir = "migrations"
+
+[[env.staging.durable_objects.bindings]]
+name = "GAMES"
+class_name = "GameRoom"
+
+[[env.staging.durable_objects.bindings]]
+name = "DAILY"
+class_name = "DailyRush"
+
+[[env.staging.durable_objects.bindings]]
+name = "LOBBIES"
+class_name = "RushLobby"
+
+[[env.staging.durable_objects.bindings]]
+name = "QUEUES"
+class_name = "Matchmaker"
+
+# Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
+# 30 a minute for what makes something new, 3 for reports and sign-in emails.
+# Each namespace_id is any number unique within the Cloudflare account.
+[[env.staging.ratelimits]]
+name = "RATE_LIMIT"
+namespace_id = "2001"
+simple = { limit = 30, period = 60 }
+
+[[env.staging.ratelimits]]
+name = "RATE_LIMIT_STRICT"
+namespace_id = "2002"
+simple = { limit = 3, period = 60 }
+
+[env.production]
+name = "word-mastermind-api"
+# The game's domain (Dev Plan item 18, issue #77): the worker answers on
+# api.wordmastermind.app, so Google's sign-in page names the game rather than
+# a workers.dev address. The domain must be on this Cloudflare account
+# (Cloudflare Registrar) before this deploys; Cloudflare makes the DNS record
+# and certificate. The workers.dev address keeps working too: with routes set,
+# wrangler would otherwise turn it off, and the live app uses it until Pages'
+# VITE_API_URL is changed (worker/README.md "The game's domain").
+routes = [{ pattern = "api.wordmastermind.app", custom_domain = true }]
+workers_dev = true
+
+[env.production.vars]
+# The app on its own domain, and its old Pages address while players move over.
+ALLOWED_ORIGINS = "https://wordmastermind.app,https://word-mastermind.pages.dev"
+# Turn notifications: this environment's key pair from `npm run vapid-keys`.
+# The private key is a secret (`wrangler secret put VAPID_PRIVATE_KEY`).
+# Empty, notifications are off.
+VAPID_PUBLIC_KEY = "BDlejyQbCAcNK5PgoUVblhu-MldRLy78ajYSTlCM7UbrSrmeQ17_xPXKTEVUf2g6RR7fO2n5oH2wye8teS3s9Pg"
+VAPID_SUBJECT = "https://wordmastermind.app"
+# Sign-in emails, sent through Resend from this address (a domain verified
+# there: wordmastermind.app); the API key is a secret
+# (`wrangler secret put RESEND_API_KEY`). Until it's set, sign-in by email is off.
+EMAIL_FROM = "Word Mastermind <signin@wordmastermind.app>"
+# Google sign-in: the OAuth client ID; its secret is a secret
+# (`wrangler secret put GOOGLE_CLIENT_SECRET`). Empty, it's off.
+GOOGLE_CLIENT_ID = "450262015877-i35qvsed2vou2ioqd226c80hn6bdbeit.apps.googleusercontent.com"
+# Report an issue: issues are filed in this repository with a fine-grained
+# token (Issues: read and write on it), a secret
+# (`wrangler secret put GITHUB_TOKEN`). Without it, reports are kept in D1
+# and printed in the logs, not filed. It's the private archive, never the
+# public repo: a report can hold your secret word in a game still going.
+GITHUB_REPO = "plangdon84/word-mastermind-archive"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "word-mastermind-production"
+database_id = "50d156d2-28d9-4908-b7a7-582ae3903dd4"
+migrations_dir = "migrations"
+
+[[env.production.durable_objects.bindings]]
+name = "GAMES"
+class_name = "GameRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "DAILY"
+class_name = "DailyRush"
+
+[[env.production.durable_objects.bindings]]
+name = "LOBBIES"
+class_name = "RushLobby"
+
+[[env.production.durable_objects.bindings]]
+name = "QUEUES"
+class_name = "Matchmaker"
+
+# Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
+# 30 a minute for what makes something new, 3 for reports and sign-in emails.
+# Each namespace_id is any number unique within the Cloudflare account.
+[[env.production.ratelimits]]
+name = "RATE_LIMIT"
+namespace_id = "3001"
+simple = { limit = 30, period = 60 }
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_STRICT"
+namespace_id = "3002"
+simple = { limit = 3, period = 60 }

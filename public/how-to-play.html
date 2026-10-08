@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to play Word Mastermind · rules and examples</title>
+<meta name="description" content="The rules of Word Mastermind: pick a secret 5-letter word, then find your opponent's from how many letters each guess shares with it. With examples and every game mode.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://wordmastermind.app/how-to-play">
+<meta property="og:title" content="How to play Word Mastermind">
+<meta property="og:description" content="Find the secret 5-letter word from how many letters each guess shares with it.">
+<meta property="og:url" content="https://wordmastermind.app/how-to-play">
+<meta property="og:image" content="https://wordmastermind.app/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<main>
+<article>
+<h1>How to play Word Mastermind</h1>
+
+<p>
+  Word Mastermind is a free word game for one or two players. Each player picks a secret 5-letter word, and you
+  take turns guessing each other's. After each guess you're told <b>how many different letters</b> your guess
+  shares with the secret word, but not which ones, and not where they are. The first to find the other's word
+  wins. <a href="/">Play it now</a>, in your browser, on any phone or computer.
+</p>
+
+<h2>The secret word</h2>
+<p>Your secret word must be:</p>
+<ul>
+  <li>a single English word of exactly <b>5 letters</b>, A to Z only;</li>
+  <li>not a name or a place (no proper nouns);</li>
+  <li>made of <b>5 different letters</b>: no letter twice, so <i>beach</i> is fine but <i>bunny</i> isn't.</li>
+</ul>
+<p>It never changes during the game.</p>
+
+<h2>Guessing</h2>
+<p>
+  Players take turns, one guess each. A guess is also a 5-letter English word, but it <b>may repeat letters</b>:
+  <i>bunny</i> is a fine guess. It can never be the answer, but it can still tell you a lot. Capitals don't
+  matter, and a word you've already guessed isn't taken again.
+</p>
+
+<h2>The score</h2>
+<p>
+  If your guess is the secret word, you win. Otherwise the game counts the letters that are in both words,
+  counting each letter once, and tells you only that number, from 0 to 5. Where the letters sit doesn't matter.
+</p>
+<p class="example" aria-label="Secret word beach, guess bunny: score 1">
+  <span class="word">beach</span> vs. <span class="word">bunny</span> – <b>1</b> (they share only the B)
+</p>
+<table>
+  <caption>More examples</caption>
+  <thead><tr><th scope="col">Secret word</th><th scope="col">Guess</th><th scope="col">Shared letters</th><th scope="col">Score</th></tr></thead>
+  <tbody>
+    <tr><td>beach</td><td>bunny</td><td>b</td><td>1</td></tr>
+    <tr><td>beach</td><td>beach</td><td>all five, in order</td><td>You win</td></tr>
+    <tr><td>crane</td><td>nacre</td><td>n, a, c, r, e</td><td>5, but not a win</td></tr>
+    <tr><td>crane</td><td>eerie</td><td>e, r</td><td>2</td></tr>
+    <tr><td>crane</td><td>plots</td><td>none</td><td>0</td></tr>
+  </tbody>
+</table>
+<p>
+  A score of 5 that isn't a win means your guess uses exactly the secret word's letters in another order (an
+  anagram): only the exact word wins. A score of 0 rules out every letter in that guess.
+</p>
+
+<h2>Who goes first, and draws</h2>
+<p>
+  A coin toss decides who goes first. If the first player finds the word, the other gets <b>one final
+  guess</b>: finding theirs too makes it a draw. If the second player finds it first, they win at once, since
+  both have had the same number of turns. There's no limit on guesses.
+</p>
+
+<h2>Keeping track</h2>
+<p>
+  The game keeps every guess and its score for you. How much more it helps depends on the difficulty you choose:
+</p>
+<ul>
+  <li><b>Easy:</b> after each guess, the game marks the letters that must be in the word, or can't be, from
+    the scores alone.</li>
+  <li><b>Medium:</b> you mark letters in (green) or out (grey) yourself, and a mark shows on that letter in
+    every guess.</li>
+  <li><b>Hard:</b> just your guesses and their scores.</li>
+  <li><b>Extreme:</b> your past words are hidden; only their scores are shown, so you have to remember what
+    you guessed.</li>
+</ul>
+<p>For how to work out the letters from the scores, see <a href="/strategy">Strategy</a>.</p>
+
+<h2>Ways to play</h2>
+<ul>
+  <li><b>Single player:</b> find the computer's secret word in as few guesses as you can.</li>
+  <li><b>Two player against the computer:</b> race it to each other's word, at one of four strengths from
+    Casual to Mastermind.</li>
+  <li><b>Two player against a friend:</b> send an invite link, live on a chess clock of 15, 10 or 5 minutes
+    each, or a guess a day.</li>
+  <li><b>Solo Rush:</b> find 4 secret words in a row against a stopwatch.</li>
+  <li><b>Daily Rush:</b> the same 4 themed words for everyone each day, with a leaderboard.</li>
+  <li><b>Rush with Friends:</b> up to 5 players race to the same 4 words on one clock.</li>
+</ul>
+<p>New players start with single player and a short tutorial; the other modes open up as you win.</p>
+</article>
+<footer>
+  <a href="/">Play Word Mastermind</a> · <a href="/strategy">Strategy</a> ·
+  <a href="/jotto-and-wordle">Jotto and Wordle</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+</footer>
+</main>
+</body>
+</html>

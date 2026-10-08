@@ -1,0 +1,2 @@
+# Force a word onto the guess list even if ESDB lacks it or the rules leave it
+# out. Must be 5 letters a-z and not in ban.txt.

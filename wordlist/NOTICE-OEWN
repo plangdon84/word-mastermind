@@ -1,0 +1,13 @@
+lists/definitions.json contains definitions adapted from Open English WordNet
+(2025 edition), https://github.com/globalwordnet/english-wordnet
+
+Open English WordNet is licensed under the Creative Commons Attribution 4.0
+International License (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
+
+It is derived from Princeton WordNet 3.0, Copyright 2006 by Princeton
+University.
+
+Changes: only the first definition for each part of speech is kept, at most
+two per word; inflected words are matched to their base word; senses whose
+definition labels the word as a slur or offensive term are removed; and some
+definitions are replaced or added by hand (rules/definitions.txt).

@@ -1,0 +1,17 @@
+{
+  "upstream": {
+    "repo": "https://github.com/en-wl/wordlist.git",
+    "commit": "1e5b7d3a72f47a71da5d28686c1dd4b397178485"
+  },
+  "definitionsSource": {
+    "source": "Open English WordNet 2025",
+    "url": "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz",
+    "sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe"
+  },
+  "counts": {
+    "secret": 2213,
+    "guess": 8670,
+    "banned": 44,
+    "definitions": 6061
+  }
+}

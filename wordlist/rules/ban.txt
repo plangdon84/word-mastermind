@@ -1,0 +1,42 @@
+# Banned words: removed from BOTH the secret and guess lists.
+# One word per line; '#' starts a comment. Upstream words tagged with a usage
+# note listed in config.json exclude.usageNotes are banned automatically; this
+# file catches the ones upstream doesn't tag.
+
+# Slurs
+dagos
+darky
+dykes
+faggy
+fagot
+gooks
+gyppo
+homos
+honky
+jewed
+kikes
+lesbo
+lezzy
+mongs
+negro
+pikey
+sambo
+spazz
+spick
+spics
+
+# Vulgar / sexual
+boner
+boobs
+dildo
+skank
+sluts
+titty
+turds
+twats
+wanks
+whore
+
+# Slang, reported from the app (Dev Plan item 18s)
+babby
+bints

@@ -1,0 +1,189 @@
+# The checks a contributor runs locally (CLAUDE.md), on every pull request and
+# every push to main, so a red check always means something. The slow jobs
+# (Lighthouse and the browser tests) wait until a PR is marked ready, which
+# happens only after its review (CLAUDE.md "Working rules"), so they run once
+# on reviewed code rather than on every review fix. A PR that only changes
+# Markdown or docs/ skips them, and a PR runs the browser tests in Chromium
+# only: main, and a run started by hand (Run workflow), add WebKit (Dev Plan
+# item 18ub). Everything is sized for GitHub's free plan (2,000 minutes a
+# month and 500 MB of storage for a private repo; issue #168).
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The quick checks, and whether the slow jobs run: on main, and on a PR
+  # marked ready that changes something besides docs. One job rather than
+  # two, since each job is billed at least a minute.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      slow: ${{ steps.decide.outputs.slow }}
+      playwright: ${{ steps.decide.outputs.playwright }}
+      webkit: ${{ steps.decide.outputs.webkit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          slow=true
+          webkit=true
+          if [ "$EVENT" = pull_request ]; then
+            webkit=false
+            if [ "$DRAFT" = true ]; then
+              slow=false
+            elif ! git diff --name-only "$BASE...$HEAD" | grep -qvE '(\.md$|^docs/)'; then
+              slow=false
+            fi
+          fi
+          echo "slow=$slow" >> "$GITHUB_OUTPUT"
+          echo "webkit=$webkit" >> "$GITHUB_OUTPUT"
+          echo "Slow jobs: $slow; WebKit: $webkit"
+          # The browsers the browser tests cache belong to the Playwright the lockfile installs.
+          echo "playwright=$(jq -r '.packages["node_modules/@playwright/test"].version' package-lock.json)" >> "$GITHUB_OUTPUT"
+      # Node 22.5 or later: the worker's tests use node:sqlite.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run check:size
+      - run: npm run test:wordlist
+
+  # First load on a mid-range phone (docs/test-plan.md "Performance"). A
+  # report for now; it warns below the target rather than failing.
+  lighthouse:
+    needs: check
+    if: needs.check.outputs.slow == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # The runner's own Chrome. It warns rather than fails, so the report is
+      # kept only when the step itself breaks.
+      - run: npm run lighthouse
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: lighthouse-report
+          path: lighthouse/
+          retention-days: 3
+
+  # The app in real browsers against the local game server (docs/test-plan.md;
+  # e2e/). The screenshot gallery (about 125 MB) and Playwright's report are
+  # kept for 3 days, and only when a test fails: the free plan stores 500 MB
+  # (issue #168).
+  e2e:
+    needs: check
+    if: needs.check.outputs.slow == 'true'
+    runs-on: ubuntu-latest
+    # About 10 minutes in Chromium only and 20 with WebKit once the system
+    # libraries are cached; the first run of a month downloads them again
+    # (9 to 13 minutes), so the limit leaves room for that.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      # npm's downloads, the browsers and their system libraries are kept in
+      # GitHub's cache between runs (which doesn't count toward the plan's
+      # storage). Playwright's container image was tried instead: it ran
+      # WebKit about 3 times slower (7 more minutes).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # The browsers and the libraries are saved by main (and by hand) with
+      # both browsers, and only read by PRs, which can't share what they save.
+      # The libraries' .deb files are about 126 MB from Ubuntu's mirror, which
+      # took 8 to 13 minutes on 7 October; their key changes each month, so
+      # they don't fall far behind the mirror's updates.
+      - id: keys
+        env:
+          PLAYWRIGHT: ${{ needs.check.outputs.playwright }}
+        run: |
+          echo "browsers=playwright-$PLAYWRIGHT" >> "$GITHUB_OUTPUT"
+          echo "apt=apt-$ImageOS-playwright-$PLAYWRIGHT-$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+      - id: browsers-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.keys.outputs.browsers }}
+      - id: apt-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/apt-cache
+          key: ${{ steps.keys.outputs.apt }}
+      - run: npm ci
+      - name: Install the browsers and their system libraries
+        env:
+          BROWSERS: ${{ needs.check.outputs.webkit == 'true' && 'chromium webkit' || 'chromium' }}
+        run: |
+          # apt keeps what it downloads, and starts from last time's files.
+          sudo rm -f /etc/apt/apt.conf.d/docker-clean
+          echo 'APT::Keep-Downloaded-Packages "true"; Binary::apt::APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99keep-downloads
+          if ls ~/apt-cache/*.deb > /dev/null 2>&1; then sudo cp ~/apt-cache/*.deb /var/cache/apt/archives/; fi
+          npx playwright install --with-deps $BROWSERS
+          mkdir -p ~/apt-cache
+          cp /var/cache/apt/archives/*.deb ~/apt-cache/ 2> /dev/null || true
+          echo "System libraries to cache: $(ls ~/apt-cache | wc -l) files, $(du -sh ~/apt-cache | cut -f1)"
+      - if: github.event_name != 'pull_request' && steps.browsers-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.keys.outputs.browsers }}
+      - if: github.event_name != 'pull_request' && steps.apt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-cache
+          key: ${{ steps.keys.outputs.apt }}
+      - env:
+          WEBKIT: ${{ needs.check.outputs.webkit }}
+        run: |
+          if [ "$WEBKIT" = true ]; then npm run e2e; else npm run e2e -- --project=chromium; fi
+      # What each failing test's page showed, in the log itself, which outlives
+      # the artifacts and can be read without downloading them.
+      - name: Failing pages
+        if: failure()
+        run: find test-results -name error-context.md -exec sh -c 'echo "::group::$1"; cat "$1"; echo "::endgroup::"' _ {} \;
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: screens-gallery
+          path: e2e-gallery/
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 3

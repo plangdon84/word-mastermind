@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "include": ["/", "/privacy", "/terms", "/how-to-play", "/strategy", "/jotto-and-wordle"],
+  "exclude": []
+}

@@ -1,0 +1,342 @@
+{
+  "stats": {
+    "played": 13,
+    "winPct": 40,
+    "totalGuesses": 30,
+    "modes": {
+      "single": {
+        "mode": "single",
+        "played": 4,
+        "gaveUp": 1,
+        "averageGuesses": 2.3333333333333335,
+        "averageTrend": null,
+        "best": {
+          "id": "fx-single-difficulty-change",
+          "value": 2
+        },
+        "fastest": {
+          "id": "fx-single-easy-suggest",
+          "value": 20
+        },
+        "record": null,
+        "firsts": null
+      },
+      "computer": {
+        "mode": "computer",
+        "played": 3,
+        "gaveUp": 1,
+        "averageGuesses": 1.5,
+        "averageTrend": null,
+        "best": {
+          "id": "fx-computer-win",
+          "value": 2
+        },
+        "fastest": {
+          "id": "fx-computer-draw",
+          "value": 10
+        },
+        "record": {
+          "wins": 1,
+          "draws": 1,
+          "losses": 1,
+          "winPct": 33.33333333333333,
+          "winPctTrend": null,
+          "currentStreak": 0,
+          "bestStreak": 1,
+          "byStrength": {
+            "casual": {
+              "wins": 0,
+              "draws": 1,
+              "losses": 0,
+              "winPct": 0
+            },
+            "skilled": {
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "winPct": null
+            },
+            "expert": {
+              "wins": 0,
+              "draws": 0,
+              "losses": 1,
+              "winPct": 0
+            },
+            "mastermind": {
+              "wins": 1,
+              "draws": 0,
+              "losses": 0,
+              "winPct": 100
+            }
+          }
+        },
+        "firsts": null
+      },
+      "rush": {
+        "mode": "rush",
+        "played": 1,
+        "gaveUp": 0,
+        "averageGuesses": 4,
+        "averageTrend": null,
+        "best": {
+          "id": "fx-rush",
+          "value": 4
+        },
+        "fastest": {
+          "id": "fx-rush",
+          "value": 10
+        },
+        "record": null,
+        "firsts": null
+      },
+      "friend": {
+        "mode": "friend",
+        "played": 2,
+        "gaveUp": 0,
+        "averageGuesses": 2,
+        "averageTrend": null,
+        "best": {
+          "id": "fx-friend-correspondence",
+          "value": 2
+        },
+        "fastest": {
+          "id": "fx-friend-correspondence",
+          "value": 20
+        },
+        "record": {
+          "wins": 1,
+          "draws": 0,
+          "losses": 1,
+          "winPct": 50,
+          "winPctTrend": null,
+          "currentStreak": 0,
+          "bestStreak": 1,
+          "byStrength": null
+        },
+        "firsts": null
+      },
+      "daily": {
+        "mode": "daily",
+        "played": 1,
+        "gaveUp": 0,
+        "averageGuesses": 1.25,
+        "averageTrend": null,
+        "best": {
+          "id": "fx-daily",
+          "value": 5
+        },
+        "fastest": {
+          "id": "fx-daily",
+          "value": 10
+        },
+        "record": null,
+        "firsts": null
+      },
+      "lobby": {
+        "mode": "lobby",
+        "played": 2,
+        "gaveUp": 1,
+        "averageGuesses": 1,
+        "averageTrend": null,
+        "best": {
+          "id": "fx-lobby-friends",
+          "value": 5
+        },
+        "fastest": {
+          "id": "fx-lobby-friends",
+          "value": 10
+        },
+        "record": null,
+        "firsts": 1
+      }
+    },
+    "byDifficulty": {
+      "easy": 2,
+      "medium": 7,
+      "hard": 2,
+      "extreme": 2
+    },
+    "topGuesses": [
+      {
+        "word": "crane",
+        "count": 12
+      },
+      {
+        "word": "beach",
+        "count": 10
+      },
+      {
+        "word": "house",
+        "count": 4
+      },
+      {
+        "word": "bunny",
+        "count": 3
+      },
+      {
+        "word": "storm",
+        "count": 1
+      }
+    ],
+    "secondsPlayed": 2160
+  },
+  "badges": [
+    {
+      "id": "solo-easy",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "id": "solo-medium",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "id": "solo-guesses-20",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "id": "solo-guesses-15",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "id": "solo-guesses-10",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "id": "unlock-two-player",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "id": "casual-cpu-easy",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "casual-cpu-medium",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "skilled-cpu-easy",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "skilled-cpu-medium",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "expert-cpu-easy",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "expert-cpu-medium",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "mastermind-cpu-easy",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "mastermind-cpu-medium",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "cpu-guesses-20",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "cpu-guesses-15",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "cpu-guesses-10",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "unlock-solo-rush",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "hunter-25",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    },
+    {
+      "id": "solo-hard",
+      "at": 1790774620000,
+      "gameId": "fx-computer-draw"
+    },
+    {
+      "id": "rush-casual",
+      "at": 1790777240000,
+      "gameId": "fx-rush"
+    },
+    {
+      "id": "rush-skilled",
+      "at": 1790777240000,
+      "gameId": "fx-rush"
+    },
+    {
+      "id": "rush-expert",
+      "at": 1790777240000,
+      "gameId": "fx-rush"
+    },
+    {
+      "id": "rush-mastermind",
+      "at": 1790777240000,
+      "gameId": "fx-rush"
+    },
+    {
+      "id": "friend-win",
+      "at": 1790777640000,
+      "gameId": "fx-friend-correspondence"
+    },
+    {
+      "id": "solo-extreme",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    },
+    {
+      "id": "daily-rush-extreme",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    },
+    {
+      "id": "daily-top-10",
+      "at": 1790779650000,
+      "gameId": "daily:2026-09-29"
+    },
+    {
+      "id": "hunter-50",
+      "at": 1790779650000,
+      "gameId": "fx-daily"
+    }
+  ],
+  "unlocks": [
+    {
+      "step": "two-player",
+      "at": 1790769630000,
+      "gameId": "fx-single-medium"
+    },
+    {
+      "step": "solo-rush",
+      "at": 1790773640000,
+      "gameId": "fx-computer-win"
+    }
+  ]
+}

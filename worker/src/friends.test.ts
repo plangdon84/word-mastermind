@@ -1,0 +1,436 @@
+import { describe, expect, it } from 'vitest';
+import { authApi, type Session } from '../../src/app/account';
+import { friendApi, FriendApiError } from '../../src/app/friendApi';
+import { friendsApi, FriendsApiError, isFriendCode, isInviteKey, normalizeFriendCode, formatFriendCode } from '../../src/app/friendsApi';
+import { lobbyApi, LobbyApiError } from '../../src/app/lobbyApi';
+import { fetchRatings } from '../../src/app/ratingsApi';
+import { syncApi } from '../../src/app/syncApi';
+import { fakeD1 } from './fakeD1';
+import { fakeLobbies } from './fakeLobbies';
+import { fakeRooms } from './fakeRooms';
+import { newFriendCode } from './friends';
+import { handle, type Env } from './index';
+import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
+
+/*
+ * Friends (README "Friends"): signed-in players add each other by friend
+ * code, then challenge each other or invite each other to a lobby.
+ */
+
+const NOW = Date.UTC(2026, 8, 28);
+const APP = 'https://app.example';
+const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
+const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
+const CAT = '9f8e7d6c-5b4a-4c3d-a2e1-f0e9d8c7b6a5';
+
+async function vapidKeys(): Promise<VapidKeys> {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair;
+  const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey) as JsonWebKey;
+  const publicKey = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey) as ArrayBuffer);
+  return { publicKey: toBase64Url(publicKey), privateKey: jwk.d!, subject: APP };
+}
+
+/** A device's push keys (p256dh, auth), as a browser makes them. */
+async function deviceKeys(): Promise<{ p256dh: string; auth: string }> {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']) as CryptoKeyPair;
+  const p256dh = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey) as ArrayBuffer);
+  return { p256dh: toBase64Url(p256dh), auth: toBase64Url(crypto.getRandomValues(new Uint8Array(16))) };
+}
+
+async function setup() {
+  const { db, sqlite } = fakeD1();
+  let clock = NOW;
+  const { namespace: games } = fakeRooms({ db, now: () => clock });
+  const lobbies = fakeLobbies({ db, now: () => clock });
+  const keys = await vapidKeys();
+  const emails: string[] = [];
+  /** Pushes sent, as [endpoint, topic] (a hash of what the notification is about: `topicOf`). */
+  const pushes: [string, string][] = [];
+  const outside = (async (url: RequestInfo | URL, init?: RequestInit) => {
+    if (String(url).startsWith('https://fcm.googleapis.com/')) {
+      pushes.push([String(url), new Headers(init?.headers).get('topic') ?? '']);
+      return new Response(null, { status: 201 });
+    }
+    emails.push((JSON.parse(String(init?.body)) as { text: string }).text);
+    return new Response('{}');
+  }) as typeof fetch;
+  const env: Env = {
+    DB: db, GAMES: games, DAILY: undefined as unknown as DurableObjectNamespace, LOBBIES: lobbies.namespace, QUEUES: undefined as unknown as DurableObjectNamespace,
+    ALLOWED_ORIGINS: APP, RESEND_API_KEY: 'key', EMAIL_FROM: 'play@example.com',
+    VAPID_PUBLIC_KEY: keys.publicKey, VAPID_PRIVATE_KEY: keys.privateKey, VAPID_SUBJECT: APP,
+  };
+  const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) =>
+    handle(new Request(input, init), env, clock, outside)) as typeof fetch;
+  const identity = (guestId: string, session: Session | null) => ({ guestId, token: session?.token ?? null });
+
+  /** Signs a device in, with a synced name and a device that gets turn alerts. */
+  const player = async (guestId: string, name: string) => {
+    clock += 60_000;
+    const email = `${name.toLowerCase()}@example.com`;
+    await authApi('https://api.example', guestId, fetchFn).sendLink(email, APP);
+    const token = /\?login=([\w-]+)/.exec(emails[emails.length - 1])![1];
+    const session = await authApi('https://api.example', guestId, fetchFn).signIn(token);
+    const id = identity(guestId, session);
+    await syncApi('https://api.example', id, fetchFn).putProfile({
+      guestName: 'Guest-1234', name, country: null, memberSince: NOW,
+      settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
+    });
+    await saveSubscription(db, guestId, { endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, ...await deviceKeys() }, NOW);
+    return {
+      session,
+      ratings: () => fetchRatings('https://api.example', id, fetchFn),
+      friends: friendsApi('https://api.example', id, fetchFn),
+      games: friendApi('https://api.example', id, fetchFn),
+      lobbies: lobbyApi('https://api.example', id, fetchFn),
+    };
+  };
+  /** Pushes sent since the last call, as [who, topic]. */
+  const pushed = () => pushes.splice(0).map(([url, topic]) => [url.split('/').pop(), topic]);
+  return { sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null) };
+}
+
+describe('friend codes', () => {
+  it('are 8 letters and digits, read however they are typed', () => {
+    const code = newFriendCode(() => 0.5);
+    expect(isFriendCode(code)).toBe(true);
+    expect(normalizeFriendCode(` ${formatFriendCode(code).toLowerCase()} `)).toBe(code);
+    expect(normalizeFriendCode('ABCD-O1I0')).toBeNull();
+  });
+});
+
+describe('the friends list', () => {
+  it('is for accounts only', async () => {
+    const { fetchFn, guest } = await setup();
+    await expect(friendsApi('https://api.example', guest(ANN), fetchFn).list()).rejects.toMatchObject({ code: 'signed-out' });
+  });
+
+  it('adds a friend once they accept the request, telling each of them', async () => {
+    const { player, pushed } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    const annCode = (await ann.friends.list()).code;
+    expect(annCode).not.toBe(bobCode);
+
+    const sent = await ann.friends.add(bobCode);
+    expect(sent.sent).toMatchObject([{ code: bobCode, name: 'Bob' }]);
+    expect((await bob.friends.list()).received).toMatchObject([{ code: annCode, name: 'Ann' }]);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+
+    // Adding again changes nothing; Bob adding Ann back accepts.
+    await ann.friends.add(bobCode);
+    expect(pushed()).toEqual([]);
+    const accepted = await bob.friends.add(annCode);
+    expect(accepted).toMatchObject({ friends: [{ code: annCode, name: 'Ann' }], received: [], sent: [] });
+    expect((await ann.friends.list()).friends).toMatchObject([{ code: bobCode, name: 'Bob' }]);
+    expect(pushed()).toEqual([['Ann', await topicOf('friends')]]);
+  });
+
+  it('refuses an unknown code or your own', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const refusal = (call: Promise<unknown>) => call.then(() => 'accepted', (e: FriendsApiError) => e.code);
+    expect(await refusal(ann.friends.add('ZZZZZZZZ'))).toBe('not-found');
+    expect(await refusal(ann.friends.add((await ann.friends.list()).code))).toBe('own-code');
+  });
+
+  it('removes a friend, or a request, from both sides', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    expect(await bob.friends.remove((await ann.friends.list()).code)).toMatchObject({ received: [] });
+    expect((await ann.friends.list()).sent).toEqual([]);
+  });
+});
+
+describe('private invite links', () => {
+  const refusal = (call: Promise<unknown>) => call.then(() => 'accepted', (e: FriendsApiError) => e.code);
+
+  it('make friends at once, telling the link\'s owner', async () => {
+    const { player, pushed } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const annList = await ann.friends.list();
+    expect(isInviteKey(annList.invite)).toBe(true);
+    expect(annList.invite).not.toBe((await bob.friends.list()).invite);
+    pushed();
+
+    const { list, friend } = await bob.friends.acceptInvite(annList.invite!);
+    expect(friend).toMatchObject({ code: annList.code, name: 'Ann' });
+    expect(list).toMatchObject({ friends: [{ code: annList.code, name: 'Ann' }], received: [], sent: [] });
+    expect((await ann.friends.list()).friends).toMatchObject([{ name: 'Bob' }]);
+    expect(pushed()).toEqual([['Ann', await topicOf('friends')]]);
+
+    // Opening it again changes nothing, and tells nobody.
+    expect((await bob.friends.acceptInvite(annList.invite!)).friend).toMatchObject({ name: 'Ann' });
+    expect(pushed()).toEqual([]);
+  });
+
+  it("name their owner first, so the app can ask, and change nothing by it", async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const key = (await ann.friends.list()).invite!;
+    expect(await bob.friends.peekInvite(key)).toEqual({ name: 'Ann' });
+    expect((await bob.friends.list()).friends).toEqual([]);
+    expect(await refusal(ann.friends.peekInvite(key))).toBe('own-code');
+    expect(await refusal(bob.friends.peekInvite('ABCDEFGHJKLMNPQR'))).toBe('not-found');
+  });
+
+  it('settle a request either way', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const annList = await ann.friends.list();
+    await ann.friends.add((await bob.friends.list()).code);
+    await bob.friends.acceptInvite(annList.invite!);
+    expect(await ann.friends.list()).toMatchObject({ friends: [{ name: 'Bob' }], sent: [], received: [] });
+    expect(await bob.friends.list()).toMatchObject({ friends: [{ name: 'Ann' }], sent: [], received: [] });
+  });
+
+  it('stop working once reset, and never add yourself', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const old = (await ann.friends.list()).invite!;
+    expect(await refusal(ann.friends.acceptInvite(old))).toBe('own-code');
+    const reset = await ann.friends.resetInvite();
+    expect(reset.invite).not.toBe(old);
+    expect(await refusal(bob.friends.acceptInvite(old))).toBe('not-found');
+    expect(await refusal(bob.friends.acceptInvite(reset.invite!))).toBe('accepted');
+  });
+
+  it('renew when you remove a friend, so the old link can\'t bring them back', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const annList = await ann.friends.list();
+    await bob.friends.acceptInvite(annList.invite!);
+    const after = await ann.friends.remove((await bob.friends.list()).code);
+    expect(after.friends).toEqual([]);
+    expect(after.invite).not.toBe(annList.invite);
+    expect(await refusal(bob.friends.acceptInvite(annList.invite!))).toBe('not-found');
+  });
+
+  it('are made once, however many ask at the same time', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const lists = await Promise.all([ann.friends.list(), ann.friends.list(), ann.friends.list()]);
+    expect(new Set(lists.map((l) => l.invite)).size).toBe(1);
+    expect((await ann.friends.list()).invite).toBe(lists[0].invite);
+  });
+
+  it('are for accounts only', async () => {
+    const { player, fetchFn, guest } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const key = (await ann.friends.list()).invite!;
+    expect(await refusal(friendsApi('https://api.example', guest(BOB), fetchFn).acceptInvite(key))).toBe('signed-out');
+  });
+});
+
+describe('challenging a friend', () => {
+  async function friends() {
+    const s = await setup();
+    const ann = await s.player(ANN, 'Ann');
+    const bob = await s.player(BOB, 'Bob');
+    const cat = await s.player(CAT, 'Cat');
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    await bob.friends.add((await ann.friends.list()).code);
+    s.pushed();
+    return { ...s, ann, bob, cat, bobCode };
+  }
+  const invite = { name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d' } as const;
+
+  it("puts the challenge in the friend's list, tells them, and lets only them accept", async () => {
+    const { ann, bob, cat, bobCode, pushed } = await friends();
+    const game = await ann.games.create({ ...invite, friend: bobCode });
+    expect(game).toMatchObject({ seat: 'host', state: 'waiting', inviteeName: 'Bob' });
+    expect(pushed()).toEqual([['Bob', await topicOf(game.id)]]);
+    expect((await bob.games.list()).map((g) => g.id)).toEqual([game.id]);
+    expect(await bob.games.get(game.id)).toMatchObject({ seat: null, hostName: 'Ann', inviteeName: 'Bob' });
+
+    const refused = await cat.games.join(game.id, { name: 'Cat', secret: 'beach', difficulty: 'medium' })
+      .catch((e: FriendApiError) => e.code);
+    expect(refused).toBe('not-invited');
+    expect(await bob.games.join(game.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' }))
+      .toMatchObject({ seat: 'guest', state: 'playing' });
+  });
+
+  it('can be rated: the difficulty is fixed, and the result changes both ratings once', async () => {
+    const { ann, bob, bobCode, pushed, sqlite } = await friends();
+    const { id } = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    expect(pushed()).toEqual([['Bob', await topicOf(id)]]);
+    expect(await bob.games.get(id)).toMatchObject({ seat: null, rated: true, ratings: null });
+    const joined = await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+    const fresh = { rating: 1500, provisional: true, after: null };
+    expect(joined).toMatchObject({ rated: true, ratings: { you: fresh, opponent: fresh }, view: { rated: true } });
+    expect(await bob.games.setDifficulty(id, 'medium').catch((e: FriendApiError) => e.code)).toBe('difficulty-fixed');
+
+    // Ann goes first and finds Bob's word; Bob's final guess misses.
+    await ann.games.guess(id, 'beach');
+    const over = await bob.games.guess(id, 'crane');
+    expect(over.view?.outcome).toEqual({ result: 'lost', reason: 'found' });
+    expect(over.ratings).toEqual({
+      you: { ...fresh, after: { rating: 1338, provisional: true } },
+      opponent: { ...fresh, after: { rating: 1662, provisional: true } },
+    });
+    await ann.games.get(id);
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM rated_games WHERE game_id = ?').get(id)).toEqual({ n: 2 });
+    expect(await ann.ratings()).toEqual([{ pool: 'correspondence', rating: 1662, provisional: true, games: 1 }]);
+    expect(await bob.ratings()).toEqual([{ pool: 'correspondence', rating: 1338, provisional: true, games: 1 }]);
+  });
+
+  it("shows each rated game's own change, when another finished while it was going (#156)", async () => {
+    const { ann, bob, bobCode } = await friends();
+    const first = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    const second = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    await bob.games.join(first.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    await bob.games.join(second.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    // Bob gives up the second game first, so Ann starts the first one's rating at 1662.
+    await bob.games.concede(second.id);
+    await ann.games.guess(first.id, 'beach');
+    const over = await bob.games.guess(first.id, 'crane');
+    const [annNow] = (await ann.ratings())!;
+    expect(over.ratings?.opponent.rating).toBe(1662);
+    expect(over.ratings?.opponent.after?.rating).toBe(annNow.rating);
+    expect(annNow.rating).toBeGreaterThan(1662);
+    expect(over.ratings!.you.after!.rating).toBeLessThan(over.ratings!.you.rating);
+  });
+
+  it('leaves both ratings where they were after a rated draw, which still counts as a game', async () => {
+    const { ann, bob, bobCode } = await friends();
+    const { id } = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    // Ann goes first and finds Bob's word; Bob's final guess finds hers.
+    await ann.games.guess(id, 'beach');
+    const over = await bob.games.guess(id, 'storm');
+    expect(over.view?.outcome).toMatchObject({ result: 'draw' });
+    expect(over.ratings?.you).toMatchObject({ rating: 1500, after: { rating: 1500 } });
+    expect(await ann.ratings()).toEqual([{ pool: 'correspondence', rating: 1500, provisional: true, games: 1 }]);
+  });
+
+  it("rematches a rated game rated, telling the other player, whichever device they're on", async () => {
+    const { ann, bob, bobCode, pushed } = await friends();
+    const { id } = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+    await bob.games.concede(id);
+    pushed();
+    const rematch = await bob.games.rematch(id, { name: 'Bob', secret: 'crane' });
+    expect(rematch).toMatchObject({ rated: true, inviteeName: 'Ann', rematchOf: id });
+    expect(pushed()).toEqual([['Ann', await topicOf(rematch.id)]]);
+    expect(await ann.games.get(rematch.id)).toMatchObject({ seat: null, invitedYou: true, rated: true });
+  });
+
+  it('refuses Easy in a rated game, from either player, but not in an unrated one', async () => {
+    const { ann, bob, bobCode } = await friends();
+    const code = (e: FriendApiError) => e.code;
+    expect(await ann.games.create({ ...invite, difficulty: 'easy', friend: bobCode, rated: true }).catch(code)).toBe('easy-unrated');
+    const { id } = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    expect(await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'easy' }).catch(code)).toBe('easy-unrated');
+    const unrated = await ann.games.create({ ...invite, difficulty: 'easy', friend: bobCode });
+    expect(await bob.games.join(unrated.id, { name: 'Bob', secret: 'beach', difficulty: 'easy' }))
+      .toMatchObject({ state: 'playing', view: { difficulty: 'easy' } });
+    // Easy's suggestions are recorded for each player, whoever's turn it is.
+    expect(await bob.games.suggest(unrated.id, 'crane')).toMatchObject({ view: { suggested: 1, yourGuesses: [] } });
+    expect(await ann.games.get(unrated.id)).toMatchObject({ view: { suggested: 0 } });
+  });
+
+  it('leaves an unrated challenge, and an invite link, out of ratings', async () => {
+    const { ann, bob, bobCode } = await friends();
+    const { id } = await ann.games.create({ ...invite, friend: bobCode });
+    await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+    await ann.games.concede(id);
+    expect(await ann.ratings()).toEqual([]);
+    // Only a challenge to a friend can be rated.
+    expect(await ann.games.create({ ...invite, rated: true }).catch((e: FriendApiError) => e.code)).toBe('bad-request');
+  });
+
+  it('only challenges friends', async () => {
+    const { cat, bobCode } = await friends();
+    expect(await cat.games.create({ ...invite, name: 'Cat', friend: bobCode }).catch((e: FriendApiError) => e.code))
+      .toBe('not-a-friend');
+  });
+});
+
+describe("a friend game's names", () => {
+  const profile = (name: string | null) => ({
+    guestName: 'Guest-1234', name, country: null, memberSince: NOW,
+    settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
+  } as const);
+
+  it("are each player's current one: a guest who signs in, and a renamed profile (#133)", async () => {
+    const { player, fetchFn, guest } = await setup();
+    const asGuest = friendApi('https://api.example', guest(CAT), fetchFn);
+    const { id } = await asGuest.create({ name: 'Guest-5678', secret: 'storm', difficulty: 'medium', timeControl: '1d' });
+    const bob = await player(BOB, 'Bob');
+    expect(await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'medium' }))
+      .toMatchObject({ hostName: 'Guest-5678', guestName: 'Bob' });
+
+    // The guest signs in on that device and names their profile.
+    const cat = await player(CAT, 'Cat');
+    expect(await bob.games.get(id)).toMatchObject({ hostName: 'Cat', guestName: 'Bob' });
+    await syncApi('https://api.example', { guestId: BOB, token: bob.session.token }, fetchFn).putProfile(profile('Robert'));
+    expect(await cat.games.get(id)).toMatchObject({ hostName: 'Cat', guestName: 'Robert' });
+    // Without a profile name, the guest name the profile has.
+    await syncApi('https://api.example', { guestId: BOB, token: bob.session.token }, fetchFn).putProfile(profile(null));
+    expect(await cat.games.get(id)).toMatchObject({ guestName: 'Guest-1234' });
+  });
+
+  it('keep the name played under when the current one no longer passes the filter', async () => {
+    const { player, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const { id } = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d' });
+    await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    sqlite.prepare("UPDATE profiles SET name = 'Shithead' WHERE name = 'Ann'").run();
+    expect(await bob.games.get(id)).toMatchObject({ hostName: 'Ann' });
+  });
+});
+
+describe('inviting a friend to a lobby', () => {
+  it("lists the invite on the friend's title screen until they join, and tells them", async () => {
+    const { player, pushed } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    await bob.friends.add((await ann.friends.list()).code);
+    pushed();
+
+    const { lobby } = await ann.lobbies.create('Ann', 'medium');
+    await ann.lobbies.invite(lobby.code, bobCode);
+    expect(pushed()).toEqual([['Bob', await topicOf(`lobby-${lobby.code}`)]]);
+    expect((await bob.friends.list()).lobbyInvites).toMatchObject([{ code: lobby.code, fromName: 'Ann' }]);
+
+    // Only the host, and only friends.
+    const refusal = (call: Promise<unknown>) => call.then(() => 'accepted', (e: LobbyApiError) => e.code);
+    expect(await refusal(cat.lobbies.invite(lobby.code, bobCode))).toBe('not-a-friend');
+    await cat.lobbies.join(lobby.code, 'Cat');
+
+    await bob.lobbies.join(lobby.code, 'Bob');
+    expect((await bob.friends.list()).lobbyInvites).toEqual([]);
+  });
+});
+
+describe('ratings', () => {
+  it('are for accounts only', async () => {
+    const { fetchFn, guest } = await setup();
+    expect(await fetchRatings('https://api.example', guest(ANN), fetchFn)).toBeNull();
+  });
+});
+
+describe('deleting an account', () => {
+  it("takes it off its friends' lists", async () => {
+    const { player, fetchFn } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    await ann.friends.add((await bob.friends.list()).code);
+    expect((await bob.friends.list()).received).toHaveLength(1);
+    await authApi('https://api.example', ANN, fetchFn).deleteAccount(ann.session.token);
+    expect((await bob.friends.list()).received).toEqual([]);
+  });
+});

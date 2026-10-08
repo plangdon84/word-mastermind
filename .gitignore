@@ -1,0 +1,15 @@
+node_modules/
+dist/
+wordlist/.cache/
+__pycache__/
+worker/.wrangler/
+worker/.dev.vars
+lighthouse/
+
+# Browser tests (e2e/): their database, the server config they make, the test build and reports.
+e2e/.state/
+worker/wrangler.e2e.toml
+dist-e2e/
+test-results/
+playwright-report/
+e2e-gallery/

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Word Mastermind strategy · working out the letters from the scores</title>
+<meta name="description" content="How to deduce the secret word in Word Mastermind: what a score of 0 or 5 tells you, changing one letter at a time, and how two guesses' scores rule letters in or out.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://wordmastermind.app/strategy">
+<meta property="og:title" content="Word Mastermind strategy">
+<meta property="og:description" content="Working out the secret word's letters from the scores alone.">
+<meta property="og:url" content="https://wordmastermind.app/strategy">
+<meta property="og:image" content="https://wordmastermind.app/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<main>
+<article>
+<h1>Strategy: working out the letters</h1>
+
+<p>
+  In <a href="/">Word Mastermind</a> each guess tells you only <b>how many</b> different letters it shares with
+  the secret word, never which ones or where (the <a href="/how-to-play">rules</a> in full). The secret word
+  always has 5 different letters. Everything below follows from those two facts.
+</p>
+
+<h2>What a single score tells you</h2>
+<ul>
+  <li><b>0:</b> none of the guess's letters are in the word. Rule them all out at once: on Medium, mark them
+    out, and they turn grey in every guess.</li>
+  <li><b>5 without a win:</b> you have all five letters in the wrong order. The answer is an anagram of your
+    guess.</li>
+  <li><b>Anything else:</b> that many of the guess's letters are in, and the rest out. You don't know which
+    yet, but the next guesses will tell you.</li>
+</ul>
+
+<h2>Cover the alphabet first</h2>
+<p>
+  Open with words that share no letters, each made of common letters. If two such guesses score 5 between them,
+  every letter of the secret word is among their ten letters, and the other sixteen letters of the alphabet are
+  all out.
+</p>
+<p class="example">
+  <span class="word">crane</span> – <b>2</b>, then <span class="word">plots</span> – <b>3</b>. The scores add
+  up to 5, so the word is made only of C R A N E P L O T S.
+</p>
+
+<h2>Change one letter at a time</h2>
+<p>Once you have a few scores, guess a word that differs from an earlier one in a single letter:</p>
+<ul>
+  <li><b>The score goes up by 1:</b> the new letter is in, the one you dropped is out.</li>
+  <li><b>It goes down by 1:</b> the dropped letter is in, the new one is out.</li>
+  <li><b>It stays the same:</b> the two letters are both in or both out. Another guess will settle which.</li>
+</ul>
+<p class="example">
+  After <span class="word">crane</span> – <b>2</b>, <span class="word">crate</span> – <b>2</b> swaps N for T
+  with no change, so N and T are both in or both out.
+</p>
+
+<h2>Use letters you've ruled out</h2>
+<p>
+  A letter you know is out adds nothing to a score, so it makes a good filler: put one or two in a guess to test
+  the other letters on their own. A guess may repeat a letter, too: <span class="word">eerie</span> tests only
+  E, R and I, so its score is about those three alone.
+</p>
+
+<h2>Check your marks</h2>
+<p>
+  Every letter you mark in or out has to agree with every score so far. On Medium, <b>Check for mistakes</b> in
+  the ☰ menu tells you whether your marks still fit the scores. On Easy, the game marks the letters for you,
+  using only this letter logic, never the word list.
+</p>
+
+<h2>Then find the word</h2>
+<p>
+  Once you know the five letters, or most of them, think of words that use them. Only the exact word wins, so
+  if several words fit, guess the one that would tell you most if it's wrong. In the example above, the word
+  was <span class="word">plant</span>.
+</p>
+
+<h2>Against an opponent</h2>
+<p>
+  In a two player game you're racing: the first to find the other's word wins, and if the first player finds
+  it, the second gets one final guess to draw. A guess that might win now can beat a safer one that only
+  narrows things down, especially when your opponent is close. Pick a secret word with uncommon letters to make
+  yours harder to find.
+</p>
+</article>
+<footer>
+  <a href="/">Play Word Mastermind</a> · <a href="/how-to-play">How to play</a> ·
+  <a href="/jotto-and-wordle">Jotto and Wordle</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+</footer>
+</main>
+</body>
+</html>

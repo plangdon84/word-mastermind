@@ -1,0 +1,25 @@
+# Security headers for every page Cloudflare Pages serves (security review,
+# Dev Plan item 15). The app loads nothing from a third-party host, so the
+# Content Security Policy allows only this site, plus the game server
+# (api.wordmastermind.app, and the workers on this Cloudflare account, with
+# their WebSockets) for the API.
+# Styles allow 'unsafe-inline' for the logo's inline SVG; scripts never do.
+# Nothing may frame the site, and no page's address (a sign-in link's
+# token, say) is sent to another site as a referrer.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.wordmastermind.app wss://api.wordmastermind.app https://*.paul-m-langdon.workers.dev wss://*.paul-m-langdon.workers.dev; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+
+# Only wordmastermind.app is listed by search engines (Dev Plan item 18j):
+# the old address and every preview (a branch or a commit) ask not to be.
+https://word-mastermind.pages.dev/*
+  X-Robots-Tag: noindex
+https://:version.word-mastermind.pages.dev/*
+  X-Robots-Tag: noindex
+
+# The app checks this for a newer build (issue #136), so no cache may keep an old one.
+/version.json
+  Cache-Control: no-store

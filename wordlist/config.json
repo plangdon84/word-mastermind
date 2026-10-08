@@ -1,0 +1,101 @@
+{
+  "upstream": {
+    "repo": "https://github.com/en-wl/wordlist.git",
+    "commit": "1e5b7d3a72f47a71da5d28686c1dd4b397178485"
+  },
+  "wordLength": 5,
+  "secret": {
+    "maxSize": 35,
+    "spellings": [
+      "_",
+      "A"
+    ],
+    "regions": [
+      "",
+      "US"
+    ],
+    "maxVariantLevel": 1,
+    "basePoses": [
+      "n0",
+      "v0",
+      "m0",
+      "aj0",
+      "av0",
+      "a0",
+      "pn0",
+      "c",
+      "pp",
+      "d",
+      "i"
+    ],
+    "inflectedPoses": [
+      "ns",
+      "ms",
+      "vs",
+      "vd",
+      "vn",
+      "vg",
+      "aj1",
+      "aj2",
+      "a1",
+      "a2",
+      "av1",
+      "av2"
+    ],
+    "excludeFormAnnotations": [
+      "~",
+      "!",
+      "-",
+      "@",
+      "*"
+    ]
+  },
+  "guess": {
+    "maxSize": 80,
+    "spellings": [
+      "_",
+      "A",
+      "B",
+      "Z",
+      "C"
+    ],
+    "regions": [
+      "",
+      "US",
+      "GB",
+      "CA"
+    ],
+    "maxVariantLevel": 4
+  },
+  "exclude": {
+    "categories": [
+      "hacker",
+      "roman-numerals"
+    ],
+    "posCategories": [
+      "nonword",
+      "special",
+      "wordpart"
+    ],
+    "poses": [
+      "abbr",
+      "x",
+      "pre",
+      "suf"
+    ],
+    "usageNotes": [
+      "offensive-1",
+      "offensive-2",
+      "vulgar-1",
+      "vulgar-2",
+      "vulgar-3"
+    ]
+  },
+  "definitions": {
+    "source": "Open English WordNet 2025",
+    "url": "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025.xml.gz",
+    "sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe",
+    "maxPerWord": 2
+  },
+  "logRetentionDays": 365
+}

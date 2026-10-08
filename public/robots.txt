@@ -1,0 +1,7 @@
+# Search engines may read every page (Dev Plan item 18j). The old address
+# and previews send X-Robots-Tag: noindex (public/_headers), so only
+# wordmastermind.app is listed.
+User-agent: *
+Allow: /
+
+Sitemap: https://wordmastermind.app/sitemap.xml
