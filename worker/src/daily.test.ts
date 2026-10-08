@@ -185,8 +185,12 @@ describe("today's Daily Rush", () => {
     // Bob never started: nothing to finish, and the day is over for starting.
     expect((await as(BOB).today()).run).toBeNull();
     expect(await refusal(as(BOB).start(DAY, 'medium', 'Bob'))).toBe('day-over');
+    // That day's words are on its board, but not for Ann until her run is over.
+    expect((await as(BOB).board(DAY, 'medium')).words).toEqual(WORDS);
+    expect((await as(ANN).board(DAY, 'medium')).words).toBeNull();
     for (const word of WORDS.slice(1, 3)) await as(ANN).guess(DAY, word);
     const done = await as(ANN).guess(DAY, WORDS[3]);
+    expect((await as(ANN).board(DAY, 'medium')).words).toEqual(WORDS);
     expect(done).toMatchObject({ day: '2026-11-01', runTheme: 'Test set A', run: { day: DAY, status: 'finished' } });
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM daily_results').get()).toEqual({ n: 0 });
     expect(sqlite.prepare("SELECT COUNT(*) AS n FROM games WHERE mode = 'daily'").get()).toEqual({ n: 1 });

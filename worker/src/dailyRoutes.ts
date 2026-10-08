@@ -116,12 +116,17 @@ async function board(
     `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(only('o.player_id', 4))}
      FROM daily_results r WHERE r.day = ?1 AND r.difficulty = ?2 AND ${isPlayers('r.player_id', '?3')}`,
   ).bind(day, difficulty, player.id, ...circleArgs).first<PlaceRow>();
+  // The words stay secret until the day is over, and from you while you finish that day's run late.
+  let shown = now >= dayEnd(day);
+  if (shown && now < dayEnd(addDays(day, 1))) {
+    const yours = await toDay(env, { action: 'get', day, playerId: player.id, aliases: player.aliases });
+    shown = !('run' in yours.body && yours.body.run?.status === 'playing');
+  }
   const body: DailyBoard = {
     day,
     theme: theme.theme,
     difficulty,
-    // The words stay secret until the day is over.
-    words: now >= dayEnd(day) ? [...theme.words] : null,
+    words: shown ? [...theme.words] : null,
     total: total ?? 0,
     // Player IDs are credentials, so rows only say which one is yours.
     top: top.map((r): DailyBoardRow => ({ rank: r.rank, name: r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id) })),

@@ -1,8 +1,8 @@
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
-  type DailyWordView, type Difficulty, type Marks,
+  addDays, betterThan, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
+  type DailyView, type DailyWordView, type Difficulty, type Marks,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
 import type { ApiIdentity } from './apiIdentity';
@@ -31,6 +31,9 @@ import { dailyShareText } from './shareText';
 /** The server's refusal code, or `unreachable`. */
 const codeOf = (e: unknown) => (e instanceof DailyApiError ? e.code : 'unreachable');
 
+
+/** When the run's last word was found or given up. */
+const runEnd = (run: DailyView): number => Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt));
 
 /** A word's time in seconds, leaving out its pauses; null if it wasn't reached. */
 function unpausedSeconds(w: DailyWordView): number | null {
@@ -181,8 +184,11 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
   const playing = run?.status === 'playing';
   /** Paused: the clock is stopped and the board covered until Resume (README "Daily Rush"). */
   const paused = playing && run?.pausedAt != null;
-  /** The run's day is over: it can still be finished, but it's off the board (README "Daily Rush"). */
-  const late = !!today && !!run && (run.day !== today.day || now >= today.nextAt);
+  /**
+   * The run's day ended before it did: it can still be finished, but it's off the board (README "Daily
+   * Rush"). Judged by when it ended, so a result left open past midnight stays on time.
+   */
+  const late = !!run && (playing ? now : runEnd(run)) >= dayEnd(run.day);
   const difficulty = run?.difficulty ?? settings.difficulty;
   const medium = difficulty === 'medium';
   // Easy and Medium: the Shuffle key reorders the typed letters, whenever the letter keys would type.
@@ -359,7 +365,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     setMarks(all.map((m, i) => (i === run.current ? cycleMark(m, letter) : m)));
   };
 
-  const lastEnd = run ? Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt)) : 0;
+  const lastEnd = run ? runEnd(run) : 0;
   const pausedMs = run ? run.words.reduce((sum, w) => sum + w.pausedMs, 0) : 0;
   const clockEnd = !run ? 0 : !playing ? lastEnd : run.pausedAt ?? now;
   const clock = run ? formatClock(Math.max(0, clockEnd - run.startedAt - pausedMs) / 1000) : '0:00';
@@ -568,7 +574,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
           <div class="row-btns">
             {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's Daily Rush</button>}
             <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
-            {run.status === 'finished' && (
+            {run.status === 'finished' && !late && (
               <ShareResult text={dailyShareText({
                 day: run.day,
                 difficulty: run.difficulty,

@@ -1624,7 +1624,7 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   1st place isn't in the top 10%). Also a badge for finishing the day's set
   at each difficulty (Easy, Medium, Hard, Extreme; a harder one doesn't
   award the easier ones, since each is its own day's run), and a **Daily
-  Rush streak** (finishing the day's set on consecutive UTC days) of 7, 30
+  Rush streak** (finishing the day's set, before the day ends, on consecutive Daily Rush days, which change at midnight in New York) of 7, 30
   and 100, tagged DAILY RUSH.
 - **Friends:** a **win against a friend** (a seal tagged FRIENDS, with two
   bubbles and VS), a **Rush with Friends win** (first in a lobby's final
