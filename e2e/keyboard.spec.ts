@@ -39,7 +39,7 @@ async function tabTo(page: Page, name: RegExp) {
 async function title(page: Page) {
   await unlockAll(page);
   await expect(page.getByRole('button', { name: /^Profile/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Single player/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Practice/ })).toBeVisible();
 }
 
 async function typeWord(page: Page, word: string) {
@@ -49,7 +49,7 @@ async function typeWord(page: Page, word: string) {
 
 test('a whole single player game with the keyboard alone', async ({ page }) => {
   await title(page);
-  await tabTo(page, /^Single player/);
+  await tabTo(page, /^Practice/);
   await page.keyboard.press('Enter');
   await tabTo(page, /^Hard/);
   await page.keyboard.press('Enter');

@@ -154,8 +154,8 @@ test('signing in during a friend game keeps playing it', async ({ page, browser 
 test("Solo Rush's stopwatch leaves out hours away from the page", async ({ page }) => {
   await page.clock.install();
   await unlockAll(page);
-  await modeButton(page, 'Rush').click();
-  await modeButton(page, 'Solo Rush').click();
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'Solo').click();
   await button(page, /^Medium/).click();
   await button(page, 'Start game').click();
   await guess(page, 'crane');

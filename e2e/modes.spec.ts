@@ -66,8 +66,8 @@ test('two player vs. the computer: finding its word ends the game', async ({ pag
 
 test('Solo Rush: four words in a row, then the result', async ({ page }) => {
   await unlockAll(page);
-  await modeButton(page, 'Rush').click();
-  await modeButton(page, 'Solo Rush').click();
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'Solo').click();
   await button(page, /^Medium/).click();
   await button(page, 'Start game').click();
   await expect(page.getByText(/No guesses yet/)).toBeVisible();
@@ -76,15 +76,14 @@ test('Solo Rush: four words in a row, then the result', async ({ page }) => {
   await expect(page.locator('.rush-result')).toBeVisible();
 });
 
-test("Daily Rush: today's words, once a day", async ({ page }) => {
+test("Daily Set: today's words, once a day", async ({ page }) => {
   // e2e/worker.ts loads the made-up test sets.
   const words: string[] = [...testThemeFor(dailyDay(Date.now())).words];
 
   await unlockAll(page);
-  await modeButton(page, 'Rush').click();
-  await modeButton(page, 'Daily Rush').click();
+  await modeButton(page, 'Daily Set').click();
   await button(page, /^Medium/).click();
-  await button(page, 'Start Daily Rush').click();
+  await button(page, 'Start Daily Set').click();
   await expect(page.getByText(/Type a 5-letter word/)).toBeVisible();
   // Pause covers the board until Resume.
   await button(page, 'Pause').click();
@@ -109,10 +108,12 @@ test("Daily Rush: today's words, once a day", async ({ page }) => {
   await expect(page.getByText(/\b\d+(st|nd|rd|th)\b/).first()).toBeVisible();
   await expectAccessible(page);
 
-  // Once a day: the title screen now offers today's board, not a new run.
+  // Once a day: the title screen's Daily card greys today's row, which opens your result, not a new run.
   await page.goto('/');
-  await modeButton(page, 'Rush').click();
-  await expect(page.getByText(/Today: .* · next set in/)).toBeVisible();
+  const daily = page.getByRole('region', { name: 'Daily' });
+  await expect(daily.getByText('Played')).toBeVisible();
+  await daily.getByRole('button', { name: /Your place ›/ }).click();
+  await expect(result).toBeVisible();
 });
 
 test('two player vs. a friend: an invite link, live moves both ways, and the result on both screens', async ({ page, browser }) => {
@@ -166,8 +167,8 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
 test('Rush with Friends: the largest lobby, 5 players, plays to the end', async ({ page, browser }) => {
   test.setTimeout(120_000);
   await unlockAll(page);
-  await modeButton(page, 'Rush').click();
-  await modeButton(page, 'Rush with Friends').click();
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'With friends').click();
   await button(page, 'Open a lobby').click();
   await button(page, /^Medium/).click();
   await button(page, 'Open lobby').click();

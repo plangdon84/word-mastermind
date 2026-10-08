@@ -117,7 +117,7 @@ Run `npm test` and `npm run typecheck` before committing.
   `POST /api/lobbies/CODE/invite`. The app side is `src/app/friendsApi.ts`
   (shared with the worker), `FriendsSection.tsx` (profile; `useFriendsList`),
   challenges in `FriendScreen.tsx` and `FriendGamesList.tsx`, lobby invites
-  in `LobbyScreen.tsx` and on the title screen (`LobbyInvitesList`).
+  in `LobbyScreen.tsx` and on the title screen's Games in progress (`LobbyInviteButton`).
 - Repeated guesses (README "Repeated guesses"): every screen refuses a word
   already guessed (in Rush, at this word) before submitting, with
   `earlierGuess` (`src/game/repeats.ts`) and `repeatMessage` (the score too on
