@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdownText, errorMessage, repeatMessage, scoreMessage, secretErrorMessage, shortTimeLeft, timeLeftText } from './messages';
+import { countdownText, dayEndingStartText, dayEndingText, errorMessage, repeatMessage, scoreMessage, secretErrorMessage, shortTimeLeft, timeLeftText } from './messages';
 
 describe('errorMessage', () => {
   it('names the rejected word', () => {
@@ -66,6 +66,22 @@ describe('timeLeftText', () => {
     expect(shortTimeLeft(24 * 3_600_000)).toBe('24h');
     expect(shortTimeLeft(53 * 3_600_000)).toBe('2d 5h');
     expect(shortTimeLeft(72 * 3_600_000)).toBe('3d');
+  });
+});
+
+describe("the Daily Rush day's last minutes", () => {
+  it('warn from 5 minutes left, counting down, and stop once the day is over', () => {
+    expect(dayEndingText(5 * 60_000 + 1)).toBeNull();
+    expect(dayEndingText(5 * 60_000)).toBe("5 minutes left to finish for today's board.");
+    expect(dayEndingText(61_000)).toBe("2 minutes left to finish for today's board.");
+    expect(dayEndingText(60_000)).toBe("1 minute left to finish for today's board.");
+    expect(dayEndingText(59_000)).toBe("Under a minute left to finish for today's board.");
+    expect(dayEndingText(0)).toBeNull();
+  });
+
+  it('warn before you start too', () => {
+    expect(dayEndingStartText(6 * 60_000)).toBeNull();
+    expect(dayEndingStartText(3 * 60_000)).toBe("Only 3 minutes of today left: a run not finished by then won't go on the board.");
   });
 });
 

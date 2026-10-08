@@ -173,6 +173,28 @@ export function countdownText(ms: number): string {
   return hours === 0 ? `${minutes}m` : `${hours}h ${minutes % 60}m`;
 }
 
+/** How close to the day's end the Daily Rush warns (README "Daily Rush"). */
+export const DAY_ENDING_MS = 5 * 60_000;
+
+/** "4 minutes", "1 minute", "under a minute": the last minutes of the day. */
+function minutesLeft(ms: number): string {
+  const minutes = Math.ceil(ms / 60_000);
+  return ms < 60_000 ? 'under a minute' : minutes === 1 ? '1 minute' : `${minutes} minutes`;
+}
+
+/** With 5 minutes or less of the day left, while playing: "4 minutes left to finish for today's board". */
+export function dayEndingText(ms: number): string | null {
+  if (ms > DAY_ENDING_MS || ms <= 0) return null;
+  const left = minutesLeft(ms);
+  return `${left[0].toUpperCase()}${left.slice(1)} left to finish for today's board.`;
+}
+
+/** The same warning before you start. */
+export function dayEndingStartText(ms: number): string | null {
+  if (ms > DAY_ENDING_MS || ms <= 0) return null;
+  return `Only ${minutesLeft(ms)} of today left: a run not finished by then won't go on the board.`;
+}
+
 /** What to tell the player when the server refuses a Daily Rush request. */
 export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''): string {
   switch (error) {

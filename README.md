@@ -1087,6 +1087,11 @@ clocks only.
 - **Give up today's Daily Rush** (☰ menu) asks first, then ends it with no
   leaderboard entry; the words you didn't find stay hidden until the day is
   over.
+- **The day's last minutes** (Dev Plan item 18y, issue 161): with 5
+  minutes or less of the day left, the game warns above the board,
+  counting down ("4 minutes left to finish for today's board."), and the
+  start screen warns before you begin ("Only 4 minutes of today left: a
+  run not finished by then won't go on the board.").
 - **Late finishes** (Dev Plan item 18y, issue 160): a run still going when
   the day changes can be finished during the next day, but it isn't on the
   leaderboard or the Daily Rush streak. While you play it, a note says the

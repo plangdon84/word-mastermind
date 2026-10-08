@@ -18,7 +18,7 @@ import { NO_GUESSES, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useDefinitions } from './definitions';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
-import { countdownText, dailyErrorMessage, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
+import { countdownText, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
 import { formatClock, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
@@ -334,6 +334,9 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
   const lastEnd = run ? Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt)) : 0;
   const clock = run ? formatClock(((playing ? now : lastEnd) - run.startedAt) / 1000) : '0:00';
   const nextSet = today ? countdownText(today.nextAt - now) : '';
+  /** With 5 minutes or less of the day left (README "Daily Rush"). */
+  const dayEnding = today && run && !late ? dayEndingText(today.nextAt - now) : null;
+  const dayEndingStart = today && !run ? dayEndingStartText(today.nextAt - now) : null;
   const totalGuesses = run ? run.words.reduce((sum, w) => sum + w.guesses.length, 0) : 0;
 
   const header = (
@@ -408,6 +411,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
                 4 words on today's theme, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which
                 can't change once you start, and the clock doesn't pause. Next set in {nextSet}.
               </p>
+              {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
                 <button class="btn primary" type="button" onClick={() => {
                   api.start(today.day, settings.difficulty, displayName(profile))
@@ -433,6 +437,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
           The day has changed. You can finish this Daily Rush, but it won't go on the leaderboard.
         </p>
       )}
+      {word && dayEnding && <p class="daily-note warn" role="status">{dayEnding}</p>}
 
       {run && word && (
         <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
