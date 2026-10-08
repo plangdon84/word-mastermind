@@ -30,24 +30,58 @@ first; on 7 October 2026, ordered by value in as few PRs as make sense:
 into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
 later that day, 18ub went first, since the browser tests passed CI's 30-minute
 limit; on 8 October 2026, 18ud went first: small fixes players hit now,
-and 7b moved after 18d, ahead of 18m)
+and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
+from a mock-up, went before 18z)
 
+- [ ] **18za. A new title screen** (agreed with the owner on 8 October 2026
+  from a clickable mock-up; UI only; changes README "Title screen",
+  "Unlocking modes", "Tutorial" and "Achievements" wording)
+  - Top to bottom: a **Daily** card, **Games in progress**, then
+    **Practice**, **Two player** and **Word Sets**, then **Leaderboards**,
+    How to play and Report an issue. The tagline goes, to save height
+  - **Daily card:** one row per daily game, each with its own marker (4
+    words, 1 word) and **Play**: Daily Set (today's Daily Rush, renamed;
+    its theme on the row) and, once 7b ships, Daily Word. A played row
+    is greyed but still a button, with a line that isn't greyed ("Your
+    places ›") opening that game's result, which links to its board. A
+    new player sees both rows locked, saying how to unlock them. Daily
+    leaves the Rush menu
+  - **Games in progress:** one collapsible list for Continue, friend games
+    (your turn first), Rush invites and lobbies. Open when something waits
+    on you, closed otherwise; your own open or close holds until something
+    new arrives. Its header counts the games and what's your turn, even
+    closed. A Daily game in progress stays on the Daily card
+  - **Practice** is Single player renamed (one word, no opponent), and
+    only the name changes: it counts toward stats, badges and the first
+    unlock as before ("Win a Practice game"), and saved data keeps its
+    mode, so old games and backups load. **Two player** is one-word games
+    against the computer, a friend or (once switched on) a random
+    opponent. **Word Sets** is Rush renamed: Solo and With friends
+    (Competitive once switched on), not Daily
+  - The tutorial's steps, the static How to play page and the browser
+    tests' screens follow; a minor release with its notes
 - [ ] **18z. Rush and Crush** (issue #167; worker, review gate; changes
   README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
-  "Achievements")
+  "Achievements"; after 18za, whose title screen it builds on)
   - Players read "Rush" as a race, so: **Rush** ranks by fastest total time
     (fewer guesses break ties), and **Crush** is today's scoring, fewest
     guesses with time breaking ties. A word given up still adds its
     penalty to both time and guesses (README "Scoring")
-  - Solo Rush and Rush with Friends: the host (or you, solo) picks Rush or
-    Crush before starting, and it's shown on the game and in the history.
-    Past games stay as they were scored (Crush)
-  - Daily: still played once a day, and each run goes on two boards by
-    difficulty: Daily Rush (fastest) and Daily Crush (fewest guesses).
-    Playing twice would give away the day's words
+  - Word Sets (18za): Solo picks Rush or Crush with a **Ranked by: Rush ·
+    fastest / Crush · fewest** switch above the difficulty, remembering
+    the last pick; in a lobby the host sets it with the lobby's settings.
+    The games are named **Solo Rush**, **Solo Crush**, **Rush with
+    Friends** and **Crush with Friends** in the header, history and
+    badges. Past games stay as they were scored (Crush)
+  - Daily Set: still played once a day, and each run goes on one board
+    per difficulty with a **Rush · fastest / Crush · fewest** switch,
+    opening on Crush the first time, then on your last pick, and keeping
+    the day, difficulty and Everyone / Friends as you flip. The result
+    shows both places, each opening the board at its side. Playing twice
+    would give away the day's words
   - Badges and their labels follow the two names (a Rush level by time, a
     Crush level by guesses); badges already earned stay earned
-  - Competitive Rush (switched off at 1.0) gets the same choice when it's
+  - Competitive (switched off at 1.0) gets the same choice when it's
     switched on. If the PR grows past a reviewable size, split it: Solo
     and lobbies first, then Daily
   - A minor release with its notes
@@ -78,10 +112,11 @@ and 7b moved after 18d, ahead of 18m)
     (not themed), played once, at a difficulty you choose once, changing
     at the same time as Daily Rush (18y)
   - Its own board per difficulty, by fewest guesses, time breaking ties,
-    on the Leaderboards page beside Daily Rush, with place and "better
-    than X%" (as 18x)
-  - A tile on the title screen, a streak badge and a Share button like
-    Daily Rush's; unlocked with Daily Rush
+    on the Leaderboards page beside Daily Set, with place and "better
+    than X%" (as 18x); Leaderboards then lists the two boards
+  - Its row on 18za's Daily card (greyed once played, "Your place ›"
+    opening its result), a streak badge and a Share button like Daily
+    Set's; unlocked with Daily Set
   - A minor release with its notes
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
