@@ -67,7 +67,7 @@ function SetupOffers({ apiUrl, identity, onSignIn }: { apiUrl: string; identity:
     );
   }
   return <TurnAlertsPrompt apiUrl={apiUrl} identity={identity}
-    offer="Get a notification when it's your turn against a friend, or a Rush with Friends ends, even with the game closed." />;
+    offer="Get a notification when it's your turn against a friend, or a Word Set with friends ends, even with the game closed." />;
 }
 
 type Step = 'home' | 'rush' | 'friends' | 'opponent' | 'strength' | 'turn' | 'difficulty' | 'news';
@@ -282,6 +282,7 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
 /** One row of Games in progress: a game on this device to continue. */
 interface ContinueRow {
   key: Mode | 'lobby' | 'competitive';
+  label: string;
   onOpen: () => void;
 }
 
@@ -325,9 +326,9 @@ function GamesInProgress({ continues, identity, onOpenFriendGame, onLobby }: {
         <div class="choices" id="games-in-progress">
           {waitingGames.map((row) => <FriendGameButton key={row.id} row={row} onOpen={onOpenFriendGame} />)}
           {invites.map((invite) => <LobbyInviteButton key={invite.code} invite={invite} onOpen={onLobby} />)}
-          {continues.map(({ key, onOpen }) => (
+          {continues.map(({ key, label, onOpen }) => (
             <button type="button" class="choice" key={key} onClick={onOpen}>
-              <span class="choice-label">{continueLabel(key)}</span>
+              <span class="choice-label">{label}</span>
             </button>
           ))}
           {others.map((row) => <FriendGameButton key={row.id} row={row} onOpen={onOpenFriendGame} />)}
@@ -373,10 +374,13 @@ export function TitleScreen({
   /** Which modes you've unlocked (README "Unlocking modes"); null while your games load, when nothing shows locked. */
   open: OpenModes | null;
 }) {
-  // A Daily Set in progress stays on the Daily card.
+  // A Daily Set in progress stays on the Daily card. A Solo game's label reads its saved run, once.
+  const soloLabel = useMemo(() => continueLabel('rush'), [inProgress.rush]);
   const continues: ContinueRow[] = [
-    ...(['single', 'two', 'rush'] as const).filter((m) => inProgress[m]).map((m) => ({ key: m, onOpen: () => onContinue(m) })),
-    ...(lobbyInProgress ? [{ key: lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const, onOpen: () => onLobby() }] : []),
+    ...(['single', 'two', 'rush'] as const).filter((m) => inProgress[m])
+      .map((m) => ({ key: m, label: m === 'rush' ? soloLabel : CONTINUE_LABEL[m], onOpen: () => onContinue(m) })),
+    ...(lobbyInProgress ? [lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const]
+      .map((key) => ({ key, label: CONTINUE_LABEL[key], onOpen: () => onLobby() })) : []),
   ];
   // Today's Daily Rush, for its theme and countdown, and whether you've played it.
   const [daily, setDaily] = useState<DailyToday | null>(null);

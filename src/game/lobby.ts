@@ -6,13 +6,10 @@ import {
   type RunMove, type RunRecord, toWordResult, type WordOutcome,
 } from './run';
 import {
-  averageWord, compareRanked, evaluateGuess, penalized, totalSeconds, type GuessResult, type RankBy, type ScoredWord,
-  type WordResult,
+  averageWord, compareRanked, evaluateGuess, penalized, totalSeconds, type GuessResult, type RankBy, type Ranked,
+  type ScoredWord, type WordResult,
 } from './scoring';
 import { validateSecretWord } from './words';
-
-/** A finished standing: its score and time are set. */
-type Ranked = { score: number; seconds: number };
 
 /*
  * Rush with Friends (README "Rush modes"): a lobby of up to 5 players, one

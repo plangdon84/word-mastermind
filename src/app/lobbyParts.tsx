@@ -100,7 +100,7 @@ export const rankedText = (rankBy: RankBy, p: { score: number | null; seconds: n
 export function Standings({ lobby }: { lobby: LobbyView }) {
   const rankBy = lobbyRankBy(lobby.settings);
   return (
-    <ol class="lobby-standings" aria-label="Standings">
+    <ol class={rankBy === 'rush' ? 'lobby-standings rush' : 'lobby-standings'} aria-label="Standings">
       {(lobby.standings ?? []).map((p, i) => {
         const found = p.words.filter((w) => w.outcome === 'solved').length;
         const guesses = p.words.reduce((sum, w) => sum + w.guesses, 0);

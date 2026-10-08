@@ -77,8 +77,8 @@ export function TurnAlertsPrompt({ apiUrl, identity, offer = "Get a notification
 }
 
 const STATE_TEXT: Record<AlertsState, string> = {
-  'on': "On for this device. You get a notification when it's your turn against a friend, and when players finish a Rush with Friends.",
-  'off': "Off. Turn them on to get a notification when it's your turn against a friend, and when players finish a Rush with Friends.",
+  'on': "On for this device. You get a notification when it's your turn against a friend, and when players finish a Word Set with friends.",
+  'off': "Off. Turn them on to get a notification when it's your turn against a friend, and when players finish a Word Set with friends.",
   'blocked': "Blocked. Notifications for this site are turned off in your browser's settings; allow them there first.",
   'needs-home-screen': HOME_SCREEN_TIP,
   'unsupported': "This browser can't show turn alerts.",

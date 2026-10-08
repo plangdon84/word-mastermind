@@ -251,7 +251,7 @@ export function lobbyErrorMessage(error: LobbyErrorCode, word = '', secret = fal
     case 'need-word':
       return 'Set your secret word first: the other players solve it.';
     case 'same-words':
-      return "Two players set the same word, so the Rush can't start. Ask everyone to check: one of them needs to change it.";
+      return "Two players set the same word, so the game can't start. Ask everyone to check: one of them needs to change it.";
     case 'unreachable':
       return "Can't reach the game server. Check your connection and try again.";
     case 'not-found':
@@ -259,7 +259,7 @@ export function lobbyErrorMessage(error: LobbyErrorCode, word = '', secret = fal
     case 'lobby-full':
       return 'This lobby is full: 5 players at most.';
     case 'already-started':
-      return 'This Rush has already started without you.';
+      return 'This game has already started without you.';
     case 'lobby-closed':
       return 'This lobby is closed.';
     case 'not-host':
@@ -267,20 +267,20 @@ export function lobbyErrorMessage(error: LobbyErrorCode, word = '', secret = fal
     case 'not-in-lobby':
       return "You're not in this lobby.";
     case 'not-started':
-      return "The host hasn't started the Rush yet.";
+      return "The host hasn't started the game yet.";
     case 'need-players':
-      return 'A Rush needs at least one other player.';
+      return 'A game needs at least one other player.';
     case 'bad-settings':
       return "That setting isn't one of the choices.";
     case 'game-over':
-      return 'This Rush is over for you.';
+      return 'This game is over for you.';
     case 'not-easy':
     case 'difficulty-harder':
       return errorMessage(error, word);
     case 'no-suggestions':
       return RUSH_NO_SUGGESTIONS;
     case 'time-up':
-      return "Time's up: this Rush is over.";
+      return "Time's up: this game is over.";
     case 'offensive-name':
       return "Your name can't be shown to other players. Change it on your profile to play.";
     case 'not-a-friend':

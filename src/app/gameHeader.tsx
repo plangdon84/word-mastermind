@@ -187,7 +187,7 @@ export function GameMenuItems({
           <button class="btn" type="button" onClick={() => { close(); onClearMarks(); }}>Clear all highlights</button>
           <span class="menu-note">
             Check says if your green and grey letters contradict a score, not which one.
-            {checksLeft !== undefined && ' One check a game (a word in a Rush).'}
+            {checksLeft !== undefined && ' One check a game (a word in a Word Set).'}
           </span>
         </div>
       )}

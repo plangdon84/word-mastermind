@@ -590,7 +590,8 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
               {/* Your place on each board, a tap from that board (README "Daily Rush"). */}
               <RushSummary tiers={[
                 ['Guesses', totalGuesses],
-                ...RANK_BYS.map((rankBy): [string, ComponentChildren] => [`${rankByName(rankBy)} · ${rankByHow(rankBy)}`, (
+                // Crush first, as the line below and the README put it.
+                ...(['crush', 'rush'] as const).map((rankBy): [string, ComponentChildren] => [`${rankByName(rankBy)} · ${rankByHow(rankBy)}`, (
                   <button type="button" class="link-btn" aria-label={`Your ${rankByName(rankBy)} place: open that board`}
                     onClick={() => openBoard(rankBy)}>
                     {placements[rankBy] ? ordinal(placements[rankBy]!.rank) : '…'} ›

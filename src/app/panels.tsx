@@ -174,7 +174,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
       <h3>Difficulty</h3>
       <ul>
         <li><b>Easy:</b> after each guess the app marks the letters that must be in or can't be, from the scores
-          alone. <b>Suggest</b> fills in a word that fits every score, once a game (once a word in a Rush). Not in
+          alone. <b>Suggest</b> fills in a word that fits every score, once a game (once a word in a Word Set). Not in
           rated games.</li>
         <li><b>Medium:</b> mark letters in or out yourself.</li>
         <li><b>Hard:</b> just your guesses and their scores.</li>

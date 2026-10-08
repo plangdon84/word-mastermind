@@ -223,7 +223,7 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
         <p class="field-note">
           {invite ? "Sign in to answer your friend's invite"
             : addCode ? `Sign in to add ${formatFriendCode(addCode)} as a friend` : 'Sign in to add friends'}, then
-          challenge them to a game or invite them to a Rush with Friends from here.
+          challenge them to a game or invite them to a Word Set with friends from here.
         </p>
         <div class="row-btns start"><button type="button" class="btn primary" onClick={onSignIn}>Sign in</button></div>
       </section>
@@ -244,7 +244,7 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
           {offer && invite && (
             <div class="panel inline" role="status">
               <h2>Add {offer.name} as a friend?</h2>
-              <p>They sent you their invite link. Friends can challenge each other and invite each other to a Rush.</p>
+              <p>They sent you their invite link. Friends can challenge each other and invite each other to a Word Set.</p>
               <div class="row-btns">
                 <button type="button" class="btn primary" disabled={busy} onClick={acceptOffer}>Add</button>
                 <button type="button" class="btn" disabled={busy} onClick={declineOffer}>No thanks</button>

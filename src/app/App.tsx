@@ -675,7 +675,8 @@ export function App() {
     if (screen.name === 'lobby') {
       return (
         <LobbyScreen key={screen.code ?? `new-${screen.kind ?? 'friends'}`} {...game} identity={identity} signedIn={session !== null}
-          code={screen.code} kind={screen.kind ?? 'friends'} onCode={(code) => setScreen({ name: 'lobby', code })} />
+          code={screen.code} kind={screen.kind ?? 'friends'} onCode={(code) => setScreen({ name: 'lobby', code })}
+          onRankBy={(rankBy) => setSettings({ ...settings, rankBy })} />
       );
     }
     const resume = screen.name !== 'title' && screen.name !== 'review' && screen.resume;

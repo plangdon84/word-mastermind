@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   cycleMark, DIFFICULTIES, DIFFICULTY_FACTOR, isRatedDifficulty, ratedDifficultyFor, earlierGuess, LOBBY_MINUTES,
   LOBBY_SEATS, lobbyRankBy, marksFitScores, ordinal, PENALTY_GUESSES, PENALTY_SECONDS, rankByName, STRENGTHS, validateGuess,
-  type Difficulty, type LobbyKind,
+  type Difficulty, type LobbyKind, type RankBy,
   type LobbySettings, type Marks,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
@@ -47,8 +47,10 @@ const codeOf = (e: unknown): LobbyErrorCode => (e instanceof LobbyApiError ? e.c
  * each player sets a word and solves the others', and it's rated. With no
  * `code`, it opens a new lobby of `kind` with you as host.
  */
-export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, onExit, code, kind: newKind, onCode }: {
+export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, onProfile, onExit, code, kind: newKind, onCode }: {
   settings: Settings;
+  /** The host flipped Rush · fastest / Crush · fewest: their next lobby opens on it. */
+  onRankBy: (rankBy: RankBy) => void;
   profile: Profile;
   identity: ApiIdentity;
   /** Competitive Rush is rated, so it needs an account. */
@@ -452,7 +454,10 @@ export function LobbyScreen({ settings, profile, identity, signedIn, onProfile, 
               {host && <InviteFriends lobby={lobby} api={api} identity={identity} />}
               {host ? (
                 <div class="lobby-settings">
-                  <RankBySwitch label rankBy={rankBy} onPick={(r) => changeSettings({ rankBy: r === 'rush' ? 'rush' : undefined })} />
+                  <RankBySwitch label rankBy={rankBy} onPick={(r) => {
+                    onRankBy(r);
+                    changeSettings({ rankBy: r === 'rush' ? 'rush' : undefined });
+                  }} />
                   <span class="menu-label" id="lobby-diff">Difficulty, for everyone</span>
                   <div class="seg" role="group" aria-labelledby="lobby-diff">
                     {/* Competitive Rush is rated, so it leaves Easy out. */}

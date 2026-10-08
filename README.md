@@ -382,7 +382,7 @@ timer, and a result for each word (guesses, seconds, and whether it was
 solved or given up). Each word is played like a single-player game, with no
 timer on the individual word. **Rush** on the title screen offers four kinds:
 
-**Rush and Crush** (Dev Plan item 18z, issue #167): players read "Rush" as
+**Rush and Crush** (Dev Plan item 18z, Issue 167 in the archive): players read "Rush" as
 a race, so every Word Set is ranked one of two ways. A **Rush** ranks by
 **fastest total time**, fewer guesses breaking ties; a **Crush** ranks by
 **fewest guesses**, time breaking ties (the scoring every Rush had before).

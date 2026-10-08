@@ -128,7 +128,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     setRun(result.game);
     if (result.game.scoredDifficulty !== current.scoredDifficulty) {
       setMessage({
-        text: `This Rush will now be scored at ${DIFFICULTY_LABEL[result.game.scoredDifficulty]}.`,
+        text: `This ${rankByName(runRankBy(result.game))} will now be scored at ${DIFFICULTY_LABEL[result.game.scoredDifficulty]}.`,
         error: false,
       });
     }
@@ -406,7 +406,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
       )}
 
       {confirming === 'replace' && (
-        <ReplaceGamePanel what="a Rush" onConfirm={startNewRun} onCancel={() => setConfirming(null)} />
+        <ReplaceGamePanel what={`a ${rankByName(rankBy)}`} onConfirm={startNewRun} onCancel={() => setConfirming(null)} />
       )}
 
       {over && confirming !== 'replace' && (
@@ -458,7 +458,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
               {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
             </p>
           ) : (
-            <p class="tally">{ended ? 'No score: this Rush was given up.' : 'No score: no words were found.'}</p>
+            <p class="tally">{ended ? `No score: this ${rankByName(rankBy)} was given up.` : 'No score: no words were found.'}</p>
           )}
           <BadgeToast badges={newBadges} onOpen={onProfile} />
           <div class="row-btns">

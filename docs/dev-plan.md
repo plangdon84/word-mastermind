@@ -142,7 +142,7 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
-- [x] **18z. Rush and Crush** (issue #167; worker, review gate; changes
+- [x] **18z. Rush and Crush** (Issue 167; worker, review gate; changes
   README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
   "Achievements"; after 18za, whose title screen it builds on)
   - Players read "Rush" as a race, so: **Rush** ranks by fastest total time
