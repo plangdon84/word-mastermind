@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.9.0',
+    notes: [
+      { text: 'Two new badges for beating a friend by finding their word while playing at a harder level than them: one level harder, and two or more.' },
+      { text: 'A new Clairvoyant badge for finding a word with your first guess, in any mode, without Suggest.' },
+      { text: 'Achievement Hunter now counts the new badges, but any Hunter badge you’ve already earned stays earned.' },
+    ],
+  },
+  {
     version: '1.8.0',
     notes: [
       { text: 'Daily Rush now changes over at midnight New York time (4am or 5am UTC, depending on the time of year). On the day it switches, that day’s set runs a few hours longer.' },
