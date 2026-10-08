@@ -1,7 +1,7 @@
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, DAILY_PAUSE_MS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
+  addDays, betterThan, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, validateGuess, type DailyDay,
   type DailyView, type DailyWordView, type Difficulty, type Marks,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
@@ -449,8 +449,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
               <h2>Today: {today.theme}</h2>
               <p>
                 4 words on today's theme, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which
-                can't change once you start. <b>Pause</b> stops your clock and hides the board, twice a run, for up
-                to {DAILY_PAUSE_MS / 60_000} minutes in all. Next set in {nextSet}.
+                can't change once you start. <b>Pause</b> stops your clock and hides the board, twice a run. Next set in {nextSet}.
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
@@ -485,8 +484,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
         <section class="panel">
           <h2>Paused</h2>
           <p>
-            Your clock is stopped, for up to {DAILY_PAUSE_MS / 60_000} minutes in all; after that it counts
-            again. Your guesses are hidden until you resume.{' '}
+            Your clock is stopped, and your guesses are hidden until you resume.{' '}
             {run.pausesLeft === 0 ? "That was your last pause." : `${run.pausesLeft} pause left.`}
           </p>
           <div class="row-btns">

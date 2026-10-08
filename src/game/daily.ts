@@ -50,8 +50,6 @@ export interface DailyView {
 
 /** Pauses a Daily Rush allows (owner, 8 October 2026). */
 export const DAILY_PAUSES = 2;
-/** Paused time left out of a Daily Rush's time, in all; past it, the clock counts again. */
-export const DAILY_PAUSE_MS = 10 * 60_000;
 
 /** Pauses used so far in a run. */
 export const pausesUsed = (run: Pick<RunGame, 'moves'>): number => run.moves.filter((m) => m.kind === 'pause').length;
@@ -65,13 +63,13 @@ interface DailyClock {
 
 /**
  * A Daily Rush's time at `now` (or, once over, at its last word): start to
- * end, less the time paused, up to `DAILY_PAUSE_MS` in all. The one sum the
- * board, the result and the clock on screen all use.
+ * end, less the time paused. The one sum the board, the result and the clock
+ * on screen all use.
  */
 export function dailyElapsedMs(run: DailyClock, over: boolean, now: number): number {
   const end = over ? Math.max(run.startedAt, ...run.words.map((w) => w.endedAt ?? run.startedAt)) : now;
   const paused = run.words.reduce((sum, w) => sum + w.pausedMs, 0) + (!over && run.pausedAt !== null ? Math.max(0, now - run.pausedAt) : 0);
-  return Math.max(0, end - run.startedAt - Math.min(paused, DAILY_PAUSE_MS));
+  return Math.max(0, end - run.startedAt - paused);
 }
 
 export function dailyStatus(run: RunGame): DailyStatus {

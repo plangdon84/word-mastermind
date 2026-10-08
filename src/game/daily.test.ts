@@ -110,15 +110,15 @@ describe('a Daily Rush as its player sees it', () => {
 describe("a Daily Rush's time", () => {
   const clock = (pausedMs: number, pausedAt: number | null = null) =>
     ({ startedAt: T, pausedAt, words: [{ endedAt: T + 20 * 60_000, pausedMs }] });
-  it('leaves out up to 10 minutes paused, in all', () => {
+  it('leaves out all the time paused', () => {
     expect(dailyElapsedMs(clock(4 * 60_000), true, 0)).toBe(16 * 60_000);
-    expect(dailyElapsedMs(clock(12 * 60_000), true, 0)).toBe(10 * 60_000);
+    expect(dailyElapsedMs(clock(12 * 60_000), true, 0)).toBe(8 * 60_000);
   });
 
-  it('counts again while paused once the 10 minutes are used', () => {
+  it('stands still while paused', () => {
     const paused = clock(0, T + 60_000);
     expect(dailyElapsedMs(paused, false, T + 5 * 60_000)).toBe(60_000);
-    expect(dailyElapsedMs(paused, false, T + 13 * 60_000)).toBe(3 * 60_000);
+    expect(dailyElapsedMs(paused, false, T + 60 * 60_000)).toBe(60_000);
   });
 });
 
