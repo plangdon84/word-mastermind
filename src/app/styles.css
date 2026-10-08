@@ -480,6 +480,11 @@ button.bubble:active { transform: scale(0.94); }
 
 /* Two player */
 .setup-space { flex: 1 1 auto; }
+/* Choosing your word: what's above the keyboard scrolls when it can't all fit, the word's slots
+   pinned to its bottom edge, and the keyboard never shrinks (issue 191). */
+.setup-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.setup-body ~ .keyboard { flex: none; }
+.setup-word { position: sticky; bottom: 0; z-index: 1; background: var(--bg); padding-top: 4px; }
 .tabs {
   display: flex;
   background: var(--surface);
@@ -706,8 +711,10 @@ button.bubble:active { transform: scale(0.94); }
 .row3:empty { display: none; }
 
 /* Extreme: scores only */
-.scores-only { display: flex; flex-direction: column; gap: 12px; }
-.last-score { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 4px; text-align: center; }
+/* The latest guess stays put and only the scores scroll under it (issue 194). */
+.scores-only { display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+.score-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.last-score { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0 4px; text-align: center; }
 .last-score-value { font-family: var(--mono); font-weight: 700; font-size: 3.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .last-score-label { color: var(--muted); font-size: 0.85rem; }
 .score-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
@@ -1257,7 +1264,11 @@ button.bubble:active { transform: scale(0.94); }
 
 /* A rated game's rating change on the result panel. */
 .rating-change { margin: 0; font-variant-numeric: tabular-nums; }
-.headline dd .rating-pool { display: block; font-size: 0.68rem; font-weight: 500; color: var(--muted); }
+/* The rating and its pool stay inside the tile at every phone size (issue 182). */
+.headline .rating-tile { container-type: inline-size; }
+/* A provisional rating (4 digits and a ?) is about 3em wide: it shrinks to the tile on a narrow phone. */
+.headline dd.rating { max-width: 100%; text-align: center; font-size: min(1.15rem, 30cqi); }
+.headline dd .rating-pool { display: block; font-size: 0.68rem; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ratings-line { margin-top: 6px; }
 
 /* Waiting in the matchmaking queue. */

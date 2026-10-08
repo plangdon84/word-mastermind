@@ -372,3 +372,89 @@ test('a declined rematch says so, and either player can ask again from the last 
   await guess(host, 'plant');
   await expect(host.getByRole('heading', { name: /Rematch sent to/ })).toBeVisible();
 });
+
+test("a challenge from the friends list keeps the whole keyboard on screen at every phone size (issue 191)", async ({ page, browser }) => {
+  await unlockAll(page);
+  await signIn(page, 'challenger@example.com');
+  await button(page, 'Back to profile').click();
+  await button(page, /^Friends/).click();
+  const link = await page.locator('#friend-link').inputValue();
+
+  // Their invite link makes them friends at once.
+  const friend = await newPlayer(browser, page);
+  await unlockAll(friend);
+  await signIn(friend, 'challenged@example.com');
+  await friend.goto(link);
+  await button(friend, 'Add').click();
+  // The longest the settings get: past words to offer, and Rated moving an Easy game to Medium.
+  await friend.evaluate(() => localStorage.setItem('word-mastermind:recent-secrets:v1',
+    JSON.stringify(['storm', 'beach', 'crane', 'plant', 'house', 'light', 'brick', 'chair', 'dream', 'flute'])));
+  await button(friend, 'Challenge').click();
+  await button(friend, 'Easy').click();
+  await friend.getByLabel(/Rated game/).check();
+  await expect(friend.getByText(/so this one is at Medium/)).toBeVisible();
+
+  const phones = [
+    { width: 320, height: 568 }, { width: 375, height: 667 }, { width: 390, height: 844 },
+    { width: 412, height: 915 }, { width: 844, height: 390 },
+  ];
+  for (const size of phones) {
+    await friend.setViewportSize(size);
+    const bottom = await friend.locator('.keyboard').evaluate((el) => el.getBoundingClientRect().bottom);
+    expect(bottom, `the keyboard's bottom at ${size.width}×${size.height}`).toBeLessThanOrEqual(size.height);
+    // The word's slots stay in view above the keyboard, the settings scrolling behind them.
+    const [slotsTop, slotsBottom, keysTop] = await friend.evaluate(() => {
+      const slots = document.querySelector('.slots')!.getBoundingClientRect();
+      return [slots.top, slots.bottom, document.querySelector('.keyboard')!.getBoundingClientRect().top];
+    });
+    expect(slotsTop, `the word's slots at ${size.width}×${size.height}`).toBeGreaterThanOrEqual(0);
+    expect(slotsBottom, `the word's slots at ${size.width}×${size.height}`).toBeLessThanOrEqual(keysTop);
+  }
+});
+
+test('at Extreme, the latest guess stays at the top while the scores scroll under it (issue 194)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await unlockAll(page);
+  await startSolo(page, 'Extreme');
+  const saved = (await getStorage(page, 'solo'))!;
+  const record = saved.record as { secret: string; startedAt: number };
+  const words = ['crane', 'bunny', 'storm', 'house', 'plumb', 'light'].filter((w) => w !== record.secret);
+  const moves = Array.from({ length: 40 }, (_, i) => ({ kind: 'guess', word: words[i % words.length], at: record.startedAt + (i + 1) * 1000 }));
+  await page.evaluate((value) => localStorage.setItem('word-mastermind:solo:v1', value), JSON.stringify({ ...saved, record: { ...record, moves } }));
+  await page.reload();
+  await resume(page);
+  const latest = page.getByLabel(`Last guess: ${moves[39].word.toUpperCase()}`);
+  await expect(latest).toBeInViewport();
+  // Back to the first scores, and the latest guess hasn't moved.
+  const scores = page.getByRole('list', { name: 'Your scores' });
+  await scores.locator('li').first().scrollIntoViewIfNeeded();
+  await expect(scores.locator('li').first()).toBeInViewport();
+  await expect(latest).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Enter' })).toBeInViewport();
+});
+
+test("the stats headline's provisional rating stays inside its tile at every phone size (issue 182)", async ({ page }) => {
+  await unlockAll(page);
+  // A provisional rating with the widest digits, in the pool with the longest name.
+  await page.route('**/api/ratings', (route) => route.fulfill({
+    json: { ratings: [{ pool: 'correspondence', rating: 1888, provisional: true, games: 3 }] },
+  }));
+  await signIn(page, 'rated@example.com');
+  await button(page, 'Back to profile').click();
+  await button(page, /^Stats/).click();
+  await expect(page.locator('.rating-pool')).toHaveText('Corresp.');
+  for (const width of [320, 375, 390, 412]) {
+    await page.setViewportSize({ width, height: 800 });
+    const [tile, rating, pool] = await page.evaluate(() => {
+      const box = (el: Element | Range) => { const r = el.getBoundingClientRect(); return [r.left, r.right] as const; };
+      const dd = document.querySelector('.headline dd.rating')!;
+      const digits = document.createRange();
+      digits.selectNodeContents(dd.firstChild!);
+      return [box(document.querySelector('.rating-tile')!), box(digits), box(document.querySelector('.rating-pool')!)];
+    });
+    for (const [what, [left, right]] of [['1888?', rating], ['Corresp.', pool]] as const) {
+      expect(left, `${what}'s left at ${width}px`).toBeGreaterThanOrEqual(tile[0]);
+      expect(right, `${what}'s right at ${width}px`).toBeLessThanOrEqual(tile[1]);
+    }
+  }
+});
