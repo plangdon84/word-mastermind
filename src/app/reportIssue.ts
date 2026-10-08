@@ -10,9 +10,6 @@ import { APP_VERSION } from './releases';
  * with `openReport`; the app shows it over whatever is on screen.
  */
 
-/** The public repo, for the fallback that opens GitHub's own form, where players post it themselves. The server files reports in the private archive instead (`GITHUB_REPO` in worker/wrangler.toml). */
-export const GITHUB_REPO = 'plangdon84/word-mastermind';
-
 /** The version and build, for the report: Cloudflare Pages' commit, or "dev" (`vite.config.ts`). */
 const APP_BUILD = `${APP_VERSION} (${(import.meta.env.VITE_APP_BUILD as string | undefined) || 'dev'})`;
 

@@ -148,19 +148,3 @@ export function issueBody(report: IssueReport, { id, screenshotUrl, sentAt }: Is
   lines.push('', '---', '_Sent from the app with Report an issue._');
   return lines.join('\n');
 }
-
-/**
- * GitHub's new-issue page, filled in: the app's fallback when the server can't
- * take the report. It's the public repo, so the game record never goes: it
- * holds your own secret word, which an opponent could read mid-game. Reports
- * the server files (to the private archive) keep it.
- */
-export function newIssueUrl(repo: string, report: IssueReport, sentAt: number): string {
-  const sent: IssueReport = { ...report, record: null };
-  const params = new URLSearchParams({
-    title: issueTitle(sent),
-    body: issueBody({ ...sent, screenshot: null }, { id: null, screenshotUrl: null, sentAt }),
-    labels: [REPORT_KIND_ISSUE_LABEL[report.kind], REPORT_LABEL].join(','),
-  });
-  return `https://github.com/${repo}/issues/new?${params}`;
-}
