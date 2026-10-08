@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  DIFFICULTIES, HISTORY_MODES, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
-  type HistoryMode, type HistoryResult, type RatingChange,
+  DIFFICULTIES, HISTORY_MODES, isServerMode, matchesFilter, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
+  type DailyPlacement, type HistoryMode, type HistoryResult, type RatingChange,
 } from '../game';
 import { API_URL } from './config';
 import { loadPlacements } from './dailyStorage';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { downloadFile } from './backup';
 import { formatClock } from './rushParts';
-import { loadAllMatching, loadGamesPage, type HistoryGame } from './historyDb';
+import { loadAllMatching, loadGamesPage, type HistoryGame, type HistoryPage } from './historyDb';
 import { CSV_ROW_LIMIT, csvRowCount, historyCsv } from './historyCsv';
 import { guessCount } from './messages';
 
@@ -38,7 +38,7 @@ function ratingText({ before, after }: RatingChange): string {
 }
 
 /** What a row shows: its border, the tag in it, and its two lines. */
-function rowParts(game: HistoryGame): { tone: string; tag: string; tagLabel: string; who: string; detail: string } {
+function rowParts(game: HistoryGame, placements: readonly DailyPlacement[]): { tone: string; tag: string; tagLabel: string; who: string; detail: string } {
   const { summary, replayed } = game;
   const played = guessCount(summary.yourGuesses);
   const rating = summary.rating ? ` · ${ratingText(summary.rating)}` : '';
@@ -57,7 +57,7 @@ function rowParts(game: HistoryGame): { tone: string; tag: string; tagLabel: str
     }
     case 'daily': {
       // The day's final place on its Crush board, by guesses like the row's total, once the server has sent it.
-      const place = replayed.mode === 'daily' ? loadPlacements().find((p) => p.day === replayed.day && !p.rankBy) : undefined;
+      const place = replayed.mode === 'daily' ? placements.find((p) => p.day === replayed.day && !p.rankBy) : undefined;
       return {
         tone: 'no-score',
         tag: String(summary.yourGuesses),
@@ -98,9 +98,9 @@ function rowParts(game: HistoryGame): { tone: string; tag: string; tagLabel: str
  * grey D. A Rush has no result, so its border takes its level's badge metal;
  * finishing first in a lobby shows as a win.
  */
-function HistoryRow({ game, onOpen }: { game: HistoryGame; onOpen: () => void }) {
+function HistoryRow({ game, placements, onOpen }: { game: HistoryGame; placements: readonly DailyPlacement[]; onOpen: () => void }) {
   const { summary } = game;
-  const { tone, tag, tagLabel, who, detail } = rowParts(game);
+  const { tone, tag, tagLabel, who, detail } = rowParts(game, placements);
   return (
     <li>
       <button type="button" class={`history-row ${tone}`} onClick={onOpen}>
@@ -142,15 +142,35 @@ interface Loaded {
   status: 'loading' | 'ready' | 'error';
 }
 
+/** A page of games from a list already loaded (a friend's), as `loadGamesPage` gives this browser's. */
+export function listPage(games: readonly HistoryGame[]) {
+  // Newest first, as this browser's are.
+  const sorted = [...games].sort((a, b) => b.entry.record.startedAt - a.entry.record.startedAt);
+  return (filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage> => {
+    const matching = sorted.filter((g) => matchesFilter(g.summary, filter));
+    const end = offset + limit;
+    return Promise.resolve({ games: matching.slice(offset, end), next: end < matching.length ? end : null });
+  };
+}
+
 /**
  * The game history list (README "Game history"): newest first, a page at a
  * time, with filters and a word search. Tapping a game opens its review.
+ * By default it's this browser's games; a friend's profile passes `load`
+ * with theirs, and their list has no export.
  */
-export function GameHistory({ filter, onFilter, onOpen }: {
+export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGamesPage, friend, placements: theirPlaces }: {
   filter: HistoryFilter;
   onFilter: (filter: HistoryFilter) => void;
   onOpen: (game: HistoryGame) => void;
+  load?: (filter: HistoryFilter, offset: number, limit: number) => Promise<HistoryPage>;
+  /** Their name, for a friend's games. */
+  friend?: string;
+  /** A friend's Daily Rush places; yours are this browser's. */
+  placements?: readonly DailyPlacement[];
 }) {
+  // Yours are read each time, so a place the server sends while the list is open shows.
+  const placements = theirPlaces ?? loadPlacements();
   const [loaded, setLoaded] = useState<Loaded>({ games: [], next: null, status: 'loading' });
   const [csvMessage, setCsvMessage] = useState<string | null>(null);
   const [search, setSearch] = useState(filter.search ?? '');
@@ -160,7 +180,7 @@ export function GameHistory({ filter, onFilter, onOpen }: {
   const load = (offset: number, append: boolean) => {
     const id = ++request.current;
     setLoaded((l) => ({ ...l, status: 'loading' }));
-    loadGamesPage(filter, offset, PAGE_SIZE).then(
+    loadPage(filter, offset, PAGE_SIZE).then(
       (page) => {
         if (id !== request.current) return;
         setLoaded((l) => ({ games: append ? [...l.games, ...page.games] : page.games, next: page.next, status: 'ready' }));
@@ -203,7 +223,7 @@ export function GameHistory({ filter, onFilter, onOpen }: {
   return (
     <section class="profile-section" aria-label="Game history">
       <div class="section-head">
-        {loaded.games.length > 0 && (
+        {loaded.games.length > 0 && !friend && (
           <button type="button" class="btn small" onClick={exportCsv}
             title="One row per move, for spreadsheets. To restore your games, use Save a backup.">
             Export CSV
@@ -226,12 +246,14 @@ export function GameHistory({ filter, onFilter, onOpen }: {
         </label>
       </div>
       {loaded.status === 'error' ? (
-        <p class="field-note error">Couldn't load your games.</p>
+        <p class="field-note error">Couldn't load {friend ? 'their' : 'your'} games.</p>
       ) : loaded.games.length === 0 && loaded.status === 'ready' ? (
-        <p class="field-note">{filtered ? 'No games match.' : 'No games yet. Finished games appear here.'}</p>
+        <p class="field-note">
+          {filtered ? 'No games match.' : friend ? `${friend} hasn't finished a game yet.` : 'No games yet. Finished games appear here.'}
+        </p>
       ) : (
         <ol class="history-list" aria-busy={loaded.status === 'loading'}>
-          {loaded.games.map((g) => <HistoryRow key={g.entry.id} game={g} onOpen={() => onOpen(g)} />)}
+          {loaded.games.map((g) => <HistoryRow key={g.entry.id} game={g} placements={placements} onOpen={() => onOpen(g)} />)}
         </ol>
       )}
       {loaded.next !== null && (

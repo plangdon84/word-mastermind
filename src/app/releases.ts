@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.12.0',
+    notes: [
+      { text: 'Tap a friend’s name on your friends list to see their profile: their country, stats, badges and every game they’ve finished, each one open to review.' },
+      { text: 'A friend’s stats start with your record against them: wins, draws and losses in two player games and Word Sets you’ve played together.' },
+      { text: 'Your friends can see your profile the same way. Your settings and email stay private, and today’s Daily Set stays hidden until the day is over.' },
+    ],
+  },
+  {
     version: '1.11.0',
     notes: [
       { text: 'Word Sets now come in two kinds: Rush ranks by fastest time, and Crush by fewest guesses. Pick one with the new “Ranked by” switch before you start.' },

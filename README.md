@@ -57,6 +57,7 @@ Build and deploy a **web app** for **Word Mastermind**, a 2-player word-guessing
   - [Accounts](#accounts)
   - [Synced profile](#synced-profile)
   - [Friends](#friends)
+  - [Friends' profiles](#friends-profiles)
   - [Launch switches](#launch-switches)
 - [Word Lists](#word-lists)
 - [Tech Stack (Confirmed)](#tech-stack-confirmed)
@@ -1962,7 +1963,8 @@ first.
   pushes them out of reach (issue #147), then your friends by name, then the
   requests you sent. Each friend has **Challenge** and ✕ (remove, asked
   first); removing takes you off each other's lists. Names are your friends'
-  synced profile names.
+  synced profile names, and a friend's name opens [their
+  profile](#friends-profiles).
 - **Challenge:** choose your secret word as for an invite link, pick your
   difficulty and the clock (live 15 / 10 / 5 minutes, or 1 or 3 days a
   guess), both starting from your defaults and set for this game only, and
@@ -1982,6 +1984,46 @@ first.
 - The server keeps the list in D1 (`friends`, two rows per pair, and
   `lobby_invites`), with each account's code on `accounts.friend_code`.
   Deleting the account removes you from every list.
+
+### Friends' profiles
+
+Built in [Dev Plan](#dev-plan) item 18c (issues 64 and 155). Tapping a
+friend's name on your friends list opens their profile, read-only, laid out
+like your own: a card with their name, country (if they chose one) and
+member since, then a row each for **Stats**, **Achievements** and **Game
+history**.
+
+- **What a friend sees:** your name and country, your stats, your badges
+  and your whole game history as you see it: every finished game, with
+  your opponents' names, each opening to review as you would, your secret
+  words included (the owner chose to keep them, even during a game against
+  that friend, who could try your recent words). Nothing else
+  of your profile: never your settings, email, friends list or an ID.
+  Only your friends see it, and only while signed in; a request not yet
+  accepted shows nothing either way.
+- **Where it comes from:** the server builds it each time from what your
+  devices synced (README [Synced profile](#synced-profile)) and the games it
+  refereed for you (as `GET /api/played` does), so a game only on a device
+  that never signed in isn't in it. It's loaded once and kept for five
+  minutes, so going back from one of their games doesn't load it again;
+  opening your friends list or signing out forgets it. A game the server
+  can't read for now is left out rather than holding up the rest.
+- **A Daily Set is left out** until the day after it is over (one started
+  before midnight can still be finished the next day), so its words can't
+  be read off a friend before you've played it. Their Daily Rush places
+  (for the top 10 badges and each Daily Set's place) are only for days that
+  are over too.
+- **Stats** are theirs, with their top guesses, but not their rating,
+  which their rated games in the history leave out too. At
+  the top, **You vs. Bob** is your record against them: won–drawn–lost for
+  two player games against them, and for Word Sets you both played (a
+  higher place than theirs is a win, the same place a draw; not placed
+  comes last, and one neither of you placed in isn't counted). It's worked out from your own games: a game the server
+  refereed has the same history ID in both histories, so it counts the
+  games in yours that are in theirs too.
+- **Game history** has the same filters and search as yours, without
+  **Export CSV**. A game opens to review with a **← Bob's game** tag
+  instead of **← Past game**, back to their history.
 
 ### Launch switches
 

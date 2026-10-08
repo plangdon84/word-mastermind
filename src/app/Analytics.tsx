@@ -145,12 +145,16 @@ function RatingTile({ ratings }: { ratings?: RatingsState }) {
  * mode, games by difficulty, your most used guesses and time played. `stats`
  * is null while the games load.
  */
-export function Analytics({ stats, games, onOpen, ratings }: {
+export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
   stats: Stats | null;
   games: readonly HistoryGame[];
   onOpen: (game: HistoryGame) => void;
   /** Your ratings, where there's a server; undefined without one. */
   ratings?: RatingsState;
+  /** A friend's stats, from their profile (Dev Plan item 18c): their name. Their rating isn't shown. */
+  friend?: string;
+  /** Shown before the stats: your record against a friend. */
+  children?: ComponentChildren;
 }) {
   const open = (id: string) => {
     const game = games.find((g) => g.entry.id === id);
@@ -162,8 +166,9 @@ export function Analytics({ stats, games, onOpen, ratings }: {
         <p class="field-note">Loading…</p>
       ) : (
         <>
-          <dl class="headline">
-            <RatingTile ratings={ratings} />
+          {children}
+          <dl class={friend ? 'headline three' : 'headline'}>
+            {!friend && <RatingTile ratings={ratings} />}
             <div><dt>Games</dt><dd>{stats.played}</dd></div>
             <div><dt>Win %</dt><dd>{percent(stats.winPct)}</dd></div>
             <div><dt>Guesses</dt><dd>{stats.totalGuesses.toLocaleString()}</dd></div>
@@ -175,7 +180,7 @@ export function Analytics({ stats, games, onOpen, ratings }: {
             </p>
           )}
           {stats.played === 0 ? (
-            <p class="field-note">Play a game to see your stats.</p>
+            <p class="field-note">{friend ? `${friend} hasn't finished a game yet.` : 'Play a game to see your stats.'}</p>
           ) : (
             <>
               <div class="mode-cards">
@@ -196,7 +201,7 @@ export function Analytics({ stats, games, onOpen, ratings }: {
                 </ul>
               </div>
               <div class="stat-block">
-                <h4>Your top guesses</h4>
+                <h4>{friend ? 'Their' : 'Your'} top guesses</h4>
                 <ol class="top-guesses">
                   {stats.topGuesses.map((g) => (
                     <li key={g.word}><span class="top-word">{g.word}</span> <span class="stat-aside">×{g.count}</span></li>

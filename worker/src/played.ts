@@ -117,15 +117,21 @@ async function toPlayed(env: Env, row: GameRow, player: Player, ids: readonly st
   return null;
 }
 
-/** Routes `/api/played`, or returns null for any other path. */
-export async function routePlayed(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (pathname !== '/api/played') return null;
-  if (request.method !== 'GET') return errorResponse(405, 'bad-request');
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const { player } = who;
-  const after = Number(new URL(request.url).searchParams.get('after') ?? 0);
-  if (!Number.isSafeInteger(after) || after < 0) return errorResponse(400, 'bad-request');
+/** A page of a player's games; `stopped` when a lookup failed for now, the page ending before that game. */
+export interface PlayedGamesPage {
+  games: PlayedGame[];
+  next: number | null;
+  cursor: number;
+  stopped: boolean;
+}
+
+/**
+ * The player's finished server games after `after`, a page at a time, in the
+ * order they finished. With `skipStuck` (a friend's profile, which keeps
+ * nothing), a game whose lookup fails for now is left out rather than ending
+ * the page, so one stuck room can't hold up the rest.
+ */
+export async function playedPage(env: Env, player: Player, after: number, skipStuck = false): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
@@ -142,12 +148,24 @@ export async function routePlayed(request: Request, env: Env, now: number, pathn
       played = await toPlayed(env, row, player, ids);
     } catch (e) {
       // A lookup failed for now: stop before this game, so the next pull asks for it again.
-      if (e instanceof TryAgain) return json({ games, next: null, cursor });
+      if (e instanceof TryAgain && !skipStuck) return { games, next: null, cursor, stopped: true };
       // A game that can't be read never holds up the rest.
       played = null;
     }
     if (played) games.push({ ...played, seq: row.seq });
     cursor = row.seq;
   }
-  return json({ games, next: results.length > PLAYED_PAGE ? cursor : null, cursor });
+  return { games, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false };
+}
+
+/** Routes `/api/played`, or returns null for any other path. */
+export async function routePlayed(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
+  if (pathname !== '/api/played') return null;
+  if (request.method !== 'GET') return errorResponse(405, 'bad-request');
+  const who = await identify(request, env.DB, now);
+  if (!who.ok) return errorResponse(who.status, who.error);
+  const after = Number(new URL(request.url).searchParams.get('after') ?? 0);
+  if (!Number.isSafeInteger(after) || after < 0) return errorResponse(400, 'bad-request');
+  const { games, next, cursor } = await playedPage(env, who.player, after);
+  return json({ games, next, cursor });
 }

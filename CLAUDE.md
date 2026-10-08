@@ -118,6 +118,15 @@ Run `npm test` and `npm run typecheck` before committing.
   (shared with the worker), `FriendsSection.tsx` (profile; `useFriendsList`),
   challenges in `FriendScreen.tsx` and `FriendGamesList.tsx`, lobby invites
   in `LobbyScreen.tsx` and on the title screen's Games in progress (`LobbyInviteButton`).
+- Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
+  friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
+  read from `GET /api/friends/profile` (`friendProfilePage` in
+  `worker/src/friends.ts`, friends only): their synced games, then their
+  server games (`playedPage` in `worker/src/played.ts`, run as them with
+  `playerOfAccount`), only entries (never a `ref`, which is a credential),
+  leaving out a Daily Set until the day after it is over. Your record against them is
+  `headToHead` (`src/game/headToHead.ts`): games whose history ID is in
+  both histories.
 - Repeated guesses (README "Repeated guesses"): every screen refuses a word
   already guessed (in Rush, at this word) before submitting, with
   `earlierGuess` (`src/game/repeats.ts`) and `repeatMessage` (the score too on

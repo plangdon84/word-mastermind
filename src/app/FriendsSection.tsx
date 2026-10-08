@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiIdentity } from './apiIdentity';
+import { forgetFriendProfiles } from './FriendProfileScreen';
 import { isPhone, ShareIcon } from './friendParts';
 import { smsLink } from './friendGames';
 import {
@@ -119,7 +120,7 @@ function YourCode({ code, invite, name, busy, onReset }: {
  * a friend by theirs, requests to answer, and your friends, each with
  * Challenge. Friends are accounts, so it asks you to sign in first.
  */
-export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInviteDone, onSignIn, onChallenge }: {
+export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInviteDone, onSignIn, onChallenge, onOpenFriend }: {
   apiUrl: string;
   identity: ApiIdentity;
   /** Your display name, for the message sent with your link. */
@@ -133,8 +134,12 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
   /** Opens the profile's Account page. */
   onSignIn: () => void;
   onChallenge: (friend: Friend) => void;
+  /** Opens a friend's profile (Dev Plan item 18c): tapping their name. */
+  onOpenFriend: (friend: Friend) => void;
 }) {
   const signedIn = identity.token !== null;
+  // A friend removed here, or elsewhere, mustn't still show from a profile kept a few minutes.
+  useEffect(forgetFriendProfiles, []);
   const api: FriendsApi = useMemo(() => friendsApi(apiUrl, identity), [apiUrl, identity]);
   const [list, setList] = useFriendsList(apiUrl, identity);
   const [typed, setTyped] = useState(addCode ? formatFriendCode(addCode) : '');
@@ -230,9 +235,12 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
     );
   }
 
-  const row = (friend: Friend, buttons: ComponentChildren) => (
+  const row = (friend: Friend, buttons: ComponentChildren, open = false) => (
     <li key={friend.code}>
-      <span class="lobby-name">{friend.name}</span>
+      {open ? (
+        <button type="button" class="link-btn lobby-name friend-name" aria-label={`${friend.name}'s profile`}
+          onClick={() => onOpenFriend(friend)}>{friend.name}</button>
+      ) : <span class="lobby-name">{friend.name}</span>}
       <span class="friend-btns">{buttons}</span>
     </li>
   );
@@ -295,7 +303,7 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
                   <button type="button" class="btn small" aria-label={`Remove ${f.name}`}
                     onClick={() => setRemoving(f.code)}>✕</button>
                 </>
-              )))}
+              ), true))}
             </ul>
           )}
           {removing && list.friends.some((f) => f.code === removing) && (
