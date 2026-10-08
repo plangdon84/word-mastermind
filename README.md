@@ -427,7 +427,7 @@ penalty still compares results word by word (`seatKeys` in
     the leaderboard is your profile name (or guest name) when you start.
   - You choose **Medium, Hard or Extreme** before you start, and it can't
     change during the run.
-  - The clock stops only for **Pause**, and there is no time limit: a run
+  - The clock stops only for **Pause** (twice a run), and there is no time limit: a run
     not finished when the day changes can still be finished, but it has no
     leaderboard entry (Dev Plan item 18y; it used to be void).
   - **Giving up** (a word or the run) quits that day's Daily Rush, with no
