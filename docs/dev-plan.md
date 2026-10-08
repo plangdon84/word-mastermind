@@ -31,23 +31,6 @@ into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
 later that day, 18ub went first, since the browser tests passed CI's 30-minute
 limit; on 8 October 2026, 18ud went first: small fixes players hit now)
 
-- [ ] **18ud. Small screen fixes** (issues
-  plangdon84/word-mastermind-archive#194,
-  plangdon84/word-mastermind-archive#191 and
-  plangdon84/word-mastermind-archive#182; app only, no review gate)
-  - Issue 194: at Extreme, the latest guessed word and its score are
-    pinned at the top of the guess area, and only the score list below it
-    scrolls, so the word never scrolls out of view. The header and tabs
-    are unchanged, and newest-first order stays a profile setting
-  - Issue 191: on a challenge from the friends list, the difficulty and
-    rating choices push the keyboard below the bottom of an iPhone screen.
-    The whole keyboard fits at every phone size, with the settings more
-    compact or scrolling above it; a browser test checks it
-  - Issue 182: the stats headline's Rating stays inside its box at every
-    phone size. 1-day and 3-day games share one Correspondence rating, so
-    the tile's label reads **Corresp.** and the "Ratings:" line below keeps
-    the full name
-  - A patch release with its notes
 - [ ] **18y. Daily Rush: New York's midnight, late finishes and a pause**
   (issues #166, #160, #161 and #170; worker, review gate; changes README
   "Daily Rush")
@@ -210,6 +193,23 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18ud. Small screen fixes** (issues
+  plangdon84/word-mastermind-archive#194,
+  plangdon84/word-mastermind-archive#191 and
+  plangdon84/word-mastermind-archive#182; app only, no review gate)
+  - Issue 194: at Extreme, the latest guessed word and its score are
+    pinned at the top of the guess area, and only the score list below it
+    scrolls, so the word never scrolls out of view. The header and tabs
+    are unchanged, and newest-first order stays a profile setting
+  - Issue 191: on a challenge from the friends list, the difficulty and
+    rating choices push the keyboard below the bottom of an iPhone screen.
+    The whole keyboard fits at every phone size, with the settings more
+    compact or scrolling above it; a browser test checks it
+  - Issue 182: the stats headline's Rating stays inside its box at every
+    phone size. 1-day and 3-day games share one Correspondence rating, so
+    the tile's label reads **Corresp.** and the "Ratings:" line below keeps
+    the full name
+  - A patch release with its notes
 - [x] **18uc. Reports only through the server** (agreed with the owner on
   8 October 2026, once issues were turned off in this repo; app only, no
   review gate)
