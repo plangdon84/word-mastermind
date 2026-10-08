@@ -1,6 +1,6 @@
 import {
-  isCount, isDailyDay, isDifficulty, isObject, isTime, type DailyDay, type DailyPlacement, type DailyView, type DailyWordView,
-  type Difficulty, type GuessResult,
+  isCount, isDailyDay, isDifficulty, isObject, isRankBy, isTime, type DailyDay, type DailyPlacement, type DailyView,
+  type DailyWordView, type Difficulty, type GuessResult, type RankBy,
 } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import type { Circle } from './leaderboardsApi';
@@ -41,11 +41,13 @@ export interface DailyBoardRow {
   you: boolean;
 }
 
-/** A day's leaderboard for one difficulty. */
+/** A day's leaderboard for one difficulty, ranked one of two ways. */
 export interface DailyBoard {
   day: DailyDay;
   theme: string;
   difficulty: Difficulty;
+  /** Rush: by fastest time, fewer guesses breaking ties. Crush: by fewest guesses, time breaking ties. */
+  rankBy: RankBy;
   /** The day's words, once the day is over; null before. */
   words: string[] | null;
   /** Everyone who finished on this difficulty. */
@@ -98,8 +100,8 @@ export function parsePlacement(value: unknown): DailyPlacement | null {
   if (!isObject(value)) return null;
   const { day, difficulty, rank, total, behind, finishedAt } = value;
   if (!isDailyDay(day) || !isDifficulty(difficulty) || !isCount(rank) || !isCount(total) || !isCount(behind)) return null;
-  if (!isTime(finishedAt)) return null;
-  return { day, difficulty, rank, total, behind, finishedAt };
+  if (!isTime(finishedAt) || (value.rankBy !== undefined && !isRankBy(value.rankBy))) return null;
+  return { day, difficulty, rank, total, behind, finishedAt, ...(value.rankBy === 'rush' ? { rankBy: 'rush' as const } : {}) };
 }
 
 export function parseDailyToday(value: unknown): DailyToday | null {
@@ -134,7 +136,9 @@ export function parseDailyBoard(value: unknown): DailyBoard | null {
     if (!placement || !isCount(v.guesses) || !isCount(v.ms)) return null;
     you = { ...placement, guesses: v.guesses, ms: v.ms };
   }
-  return { day, theme, difficulty, words: words as string[] | null, total, top, you };
+  // An older server only had the Crush board.
+  const rankBy = isRankBy(value.rankBy) ? value.rankBy : 'crush';
+  return { day, theme, difficulty, rankBy, words: words as string[] | null, total, top, you };
 }
 
 /** A request the server refused, with its reason. */
@@ -156,8 +160,11 @@ export interface DailyApi {
   resume(day: DailyDay): Promise<DailyToday>;
   /** Records that Easy's Suggest offered `word` at the word being played (README "Easy"). */
   suggest(day: DailyDay, word: string): Promise<DailyToday>;
-  /** A day's board for one difficulty: everyone's, or (signed in) you and your friends'. */
-  board(day: DailyDay, difficulty: Difficulty, circle?: Circle): Promise<DailyBoard>;
+  /**
+   * A day's board for one difficulty: everyone's, or (signed in) you and your
+   * friends'. Crush (fewest guesses) unless `rankBy` is Rush (fastest).
+   */
+  board(day: DailyDay, difficulty: Difficulty, circle?: Circle, rankBy?: RankBy): Promise<DailyBoard>;
 }
 
 /**
@@ -179,8 +186,8 @@ export function dailyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof 
     pause: (day) => today('POST', '/api/daily/pause', { day }),
     resume: (day) => today('POST', '/api/daily/resume', { day }),
     suggest: (day, word) => today('POST', '/api/daily/suggest', { day, word }),
-    board: async (day, difficulty, circle = 'everyone') => {
-      const query = `day=${day}&difficulty=${difficulty}${circle === 'friends' ? '&circle=friends' : ''}`;
+    board: async (day, difficulty, circle = 'everyone', rankBy = 'crush') => {
+      const query = `day=${day}&difficulty=${difficulty}${circle === 'friends' ? '&circle=friends' : ''}${rankBy === 'rush' ? '&by=rush' : ''}`;
       const board = parseDailyBoard(await request('GET', `/api/daily/board?${query}`));
       if (!board) throw new DailyApiError('bad-request', 200);
       return board;

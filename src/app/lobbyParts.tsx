@@ -1,5 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
-import { LOBBY_SEATS, validateSecretWord, type LobbyKind, type LobbyView, type Strength } from '../game';
+import {
+  LOBBY_SEATS, lobbyRankBy, rankByName, validateSecretWord, wordSetName, type LobbyKind, type LobbyView, type RankBy, type Strength,
+} from '../game';
 import type { ApiIdentity } from './apiIdentity';
 import { Keyboard, STRENGTH_LABEL } from './components';
 import { API_URL } from './config';
@@ -16,7 +18,11 @@ import { shareLink } from './share';
 
 /** The parts of a lobby around the board: your Competitive Rush word, the seats, the join code and the standings. */
 
-export const MODE_NAME: Record<LobbyKind, string> = { friends: 'Rush with Friends', competitive: 'Competitive Rush' };
+/** A lobby's name: Rush with Friends or Crush with Friends, Competitive Rush or Competitive Crush. */
+export const lobbyName = (kind: LobbyKind, rankBy: RankBy) => wordSetName(kind, rankBy);
+
+/** What a lobby ranks by, in its settings line: "Rush (fastest time)" or "Crush (fewest guesses)". */
+export const rankByLine = (rankBy: RankBy) => `${rankByName(rankBy)} (${rankBy === 'rush' ? 'fastest time' : 'fewest guesses'})`;
 
 /**
  * Choosing your secret word for Competitive Rush: to open a lobby, to join
@@ -81,12 +87,18 @@ const seatName = (p: { name: string; strength: Strength | null }) =>
 /** A score to one decimal place: 9.5. */
 export const scoreText = (score: number) => score.toFixed(1);
 
+/** A finished player's result as a lobby ranks it: a Rush's total time, or a Crush's score. */
+export const rankedText = (rankBy: RankBy, p: { score: number | null; seconds: number | null }) =>
+  rankBy === 'rush' ? (p.seconds === null ? '' : formatClock(p.seconds)) : p.score === null ? '' : scoreText(p.score);
+
 /**
- * The standings: finished players ranked by score (time breaks ties), then
+ * The standings: finished players ranked by score (time breaks ties; a Rush
+ * by time, score breaking ties), then
  * those still playing, with their words found and guesses so far. Never
  * anyone's guesses.
  */
 export function Standings({ lobby }: { lobby: LobbyView }) {
+  const rankBy = lobbyRankBy(lobby.settings);
   return (
     <ol class="lobby-standings" aria-label="Standings">
       {(lobby.standings ?? []).map((p, i) => {
@@ -99,9 +111,11 @@ export function Standings({ lobby }: { lobby: LobbyView }) {
             <span class="board-rank">{p.rank ?? ''}</span>
             <span class="lobby-name">{seatName(p)}{p.you && ' (you)'}</span>
             <RushDots words={p.words} current={p.finished ? null : current} label={p.name} />
-            <span class="lobby-score">{p.score === null ? '' : scoreText(p.score)}</span>
+            <span class="lobby-score">{rankedText(rankBy, p)}</span>
             <span class="lobby-stat">
-              {p.finished
+              {p.finished && rankBy === 'rush'
+                ? `${found} found · ${formatClock(p.seconds ?? 0)}${counted > guesses ? ', with penalties' : ''} · ${guessCount(counted)}`
+                : p.finished
                 ? `${found} found · ${guessCount(counted)}${counted > guesses ? ', with penalties' : ''} · ${formatClock(p.seconds ?? 0)}`
                 : `${found} found · ${guessCount(guesses)} so far · playing`}
             </span>

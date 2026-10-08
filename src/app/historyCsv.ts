@@ -1,4 +1,4 @@
-import { evaluateGuess, ordinal, otherSeat, type HistoryEntry, type RunRecord } from '../game';
+import { evaluateGuess, ordinal, otherSeat, runRankBy, type HistoryEntry, type RunRecord } from '../game';
 import type { HistoryGame } from './historyDb';
 
 /*
@@ -12,8 +12,18 @@ export const CSV_ROW_LIMIT = 20_000;
 
 export const CSV_COLUMNS = [
   'game_id', 'mode', 'started_at', 'difficulty', 'scored_difficulty', 'strength', 'first', 'your_word',
-  'secret_words', 'result', 'rush_score', 'move', 'side', 'kind', 'word_no', 'word', 'score', 'time',
+  'secret_words', 'result', 'rush_score', 'move', 'side', 'kind', 'word_no', 'word', 'score', 'time', 'ranked_by',
 ] as const;
+
+/**
+ * A Word Set's `ranked_by` cell: `rush` (by time, its `rush_score` in seconds)
+ * or `crush` (by guesses); `both` for the Daily Set, which is on both
+ * boards. Empty for the other modes.
+ */
+function rankedBy(entry: HistoryEntry): Cell {
+  if (entry.mode === 'daily') return 'both';
+  return entry.mode === 'rush' || entry.mode === 'lobby' ? runRankBy(entry.record) : null;
+}
 
 type Cell = string | number | null;
 
@@ -138,7 +148,7 @@ export function historyCsv(games: readonly HistoryGame[]): string {
   for (const game of games) {
     const details = gameCells(game);
     moveRows(game.entry).forEach((m, i) => {
-      const cells: Cell[] = [...details, i + 1, m.side, m.kind, m.wordNo, m.word, m.score, iso(m.at)];
+      const cells: Cell[] = [...details, i + 1, m.side, m.kind, m.wordNo, m.word, m.score, iso(m.at), rankedBy(game.entry)];
       lines.push(cells.map(csvCell).join(','));
     });
   }

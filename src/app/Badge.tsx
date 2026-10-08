@@ -237,7 +237,7 @@ export function BadgeToast({ badges, onOpen }: { badges: readonly Badge[]; onOpe
 
 const FAMILY_TITLE: Record<BadgeFamily, string> = {
   difficulty: 'Difficulty',
-  rush: 'Rush level',
+  rush: 'Rush and Crush levels',
   guesses: 'Few guesses',
   streak: 'Streaks',
   feat: 'Feats',

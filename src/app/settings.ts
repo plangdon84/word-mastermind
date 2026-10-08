@@ -1,5 +1,6 @@
 import {
-  DIFFICULTIES, FEATURES, isTimeControl, isTurnDays, type Difficulty, type Features, type Strength, type TimeControl,
+  DIFFICULTIES, FEATURES, isRankBy, isTimeControl, isTurnDays, type Difficulty, type Features, type RankBy, type Strength,
+  type TimeControl,
 } from '../game';
 
 export type { Difficulty };
@@ -23,6 +24,10 @@ export interface Settings {
   timeControl: TimeControl;
   /** Your difficulty: how much the app helps you track your own guesses. */
   difficulty: Difficulty;
+  /** What a Word Set you start (Solo, or a lobby you open) ranks by: Rush or Crush. */
+  rankBy: RankBy;
+  /** Which Daily Set board opens: the last one picked, Crush the first time. */
+  boardRankBy: RankBy;
   /**
    * Per difficulty: show the newest guess at the top instead of the bottom,
    * e.g. newest first on Hard and Extreme but oldest first on Medium.
@@ -43,6 +48,8 @@ export const DEFAULT_SETTINGS: Settings = {
   strength: 'skilled',
   timeControl: '1d',
   difficulty: 'medium',
+  rankBy: 'crush',
+  boardRankBy: 'crush',
   newestFirst: { easy: false, medium: false, hard: false, extreme: false },
   showTutorial: true,
   enterRight: false,
@@ -96,6 +103,8 @@ export function parseSettings(raw: string | null, legacySoloRaw: string | null =
     // Before live games, only the days per guess were kept.
     timeControl: isTimeControl(s.timeControl) ? s.timeControl : isTurnDays(s.turnDays) ? `${s.turnDays}d` : d.timeControl,
     difficulty: pick(s.difficulty, DIFFICULTIES, d.difficulty),
+    rankBy: isRankBy(s.rankBy) ? s.rankBy : d.rankBy,
+    boardRankBy: isRankBy(s.boardRankBy) ? s.boardRankBy : d.boardRankBy,
     newestFirst: parseNewestFirst(s.newestFirst),
     showTutorial: s.showTutorial !== false,
     enterRight: s.enterRight === true,

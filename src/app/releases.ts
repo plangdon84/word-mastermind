@@ -25,6 +25,17 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.11.0',
+    notes: [
+      { text: 'Word Sets now come in two kinds: Rush ranks by fastest time, and Crush by fewest guesses. Pick one with the new “Ranked by” switch before you start.' },
+      { text: 'A Solo Rush scores your average time a word, with its own levels: under 2 minutes a word is Mastermind. Giving up a word in a Rush adds 2 minutes.' },
+      { text: 'In Word Sets with friends, the host picks Rush or Crush for the lobby.' },
+      { text: 'The Daily Set now has two leaderboards for each difficulty, Rush and Crush. Your result shows your place on both, and a switch on the leaderboard flips between them.' },
+      { text: 'New Rush level badges, earned by time. The old Rush level badges are now Crush level badges, and any you’ve earned stay earned.' },
+      { text: 'Your past Word Sets were scored by guesses, so they now show as Crush.' },
+    ],
+  },
+  {
     version: '1.10.0',
     notes: [
       { text: 'A new title screen: today’s Daily Set is at the top, then your games in progress, then Practice, Two player and Word Sets.' },

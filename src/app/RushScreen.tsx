@@ -3,8 +3,8 @@ import type { OpenProfile } from './profilePages';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import {
   createRun, cycleMark, earlierGuess, endRun, giveUpWord, HISTORY_VERSION, pauseRun, PENALTY_GUESSES, pickRunWords, resumeRun,
-  runElapsedMs, SECRET_WORDS, setRunDifficulty, submitRunGuess, suggestRun, summarizeSoloRun, toRunRecord, wordSeconds,
-  marksFitScores, type Difficulty, type Marks, type RunGame,
+  PENALTY_SECONDS, rankByName, runElapsedMs, runRankBy, SECRET_WORDS, setRunDifficulty, wordSetName, submitRunGuess, suggestRun, summarizeSoloRun, toRunRecord, wordSeconds,
+  marksFitScores, type Difficulty, type Marks, type RankBy, type RunGame,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
 import { InSet, DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
@@ -31,15 +31,16 @@ import { shuffleLetters } from './keyboard';
 /** How many words a Rush has (README "Rush modes"). */
 export const RUSH_WORDS = 4;
 
-/** A solo Rush is only against yourself, so its stopwatch can pause. */
-function newRun(difficulty: Difficulty): RunGame {
-  const result = createRun(pickRunWords(SECRET_WORDS, RUSH_WORDS), Date.now(), { pausable: true, difficulty });
+/** A solo Rush (or Crush) is only against yourself, so its stopwatch can pause. */
+function newRun(difficulty: Difficulty, rankBy: RankBy): RunGame {
+  const result = createRun(pickRunWords(SECRET_WORDS, RUSH_WORDS), Date.now(), { pausable: true, difficulty, rankBy });
   if (!result.ok) throw new Error(`Secret list produced an invalid word: ${result.error}`);
   return result.game;
 }
 
 /**
- * Solo Rush: find 4 random words in a row against a stopwatch. With `resume`, it
+ * Solo Rush or Solo Crush: find 4 random words in a row against a stopwatch,
+ * ranked by time (Rush) or guesses (Crush). With `resume`, it
  * picks up the saved run in progress; otherwise it starts a new one. The
  * stopwatch pauses while you're away (another tab, the main menu, or the page
  * closed) and when you press Pause.
@@ -62,7 +63,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const [id, setId] = useState(() => saved?.id ?? newId());
   const idRef = useRef(id);
   idRef.current = id;
-  const [run, setRunState] = useState<RunGame>(() => saved?.run ?? newRun(settings.difficulty));
+  const [run, setRunState] = useState<RunGame>(() => saved?.run ?? newRun(settings.difficulty, settings.rankBy));
   const [draft, setDraftState] = useState(saved?.draft ?? '');
   // Preact renders asynchronously, so fast typing can outrun it. Handlers read
   // and write these refs, which always hold the latest run and draft.
@@ -240,11 +241,11 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
 
   usePhysicalKeyboard({ onLetter: typeLetter, onEnter: enter, onBackspace: backspace });
 
-  /** Play again: at the difficulty the last Rush ended at. */
+  /** Play again: at the difficulty the last Rush ended at, ranked the same way. */
   const startNewRun = () => {
     autoPaused.current = false;
     setReviewing(false);
-    const next = newRun(runRef.current.playingDifficulty);
+    const next = newRun(runRef.current.playingDifficulty, runRankBy(runRef.current));
     const nextMarks = next.words.map(() => ({}));
     idRef.current = newId();
     marksRef.current = nextMarks;
@@ -255,7 +256,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     setDraft('');
     setOpenDef(-1);
     setConfirming(null);
-    setMessage({ text: `New Rush: find ${RUSH_WORDS} words. The clock is running.`, error: false });
+    setMessage({ text: `New ${wordSetName('solo', runRankBy(next))}: find ${RUSH_WORDS} words. The clock is running.`, error: false });
   };
 
   /** From a review, a new Rush would replace the one in progress, so that's confirmed first. */
@@ -294,6 +295,8 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   };
 
   const summary = summarizeSoloRun(run);
+  const rankBy = runRankBy(run);
+  const name = wordSetName('solo', rankBy);
   const givenUp = run.results.filter((r) => r.outcome === 'gave-up').length;
   const ended = run.results.some((r) => r.outcome === 'unsolved');
   const clock = formatClock(runElapsedMs(run, now) / 1000);
@@ -304,7 +307,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         review={reviewing ? review : null} suggested={run.results.reduce((n, r) => n + r.suggested, 0)}
         matchup={
           <span>
-            <b>{review?.heading ?? 'Solo Rush'}</b>
+            <b>{review?.heading ?? name}</b>
             {!over && <> · Word {run.current + 1} of {run.words.length}</>}
           </span>
         }
@@ -317,7 +320,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
             giveUpLabel="Give up and reveal the words" canGiveUp={!over}
             onGiveUp={() => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
             onReport={() => openReport({
-              screen: `Solo Rush · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
+              screen: `${name} · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
               record: toRunRecord(runRef.current),
             })}
             onCheckMarks={medium && !over && !paused
@@ -369,9 +372,9 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         <section class="panel warning">
           <h2>Give up this word and move on?</h2>
           <p>
-            <b>This will hurt your score.</b> The word counts as your worst word found in this Rush
-            plus {PENALTY_GUESSES} guesses, and at least the guesses and time you've spent on it.
-            The clock keeps running.
+            <b>This will hurt your score.</b> The word counts as your worst word found in this {rankByName(rankBy)}
+            plus {PENALTY_GUESSES} guesses{rankBy === 'rush' && <> and {PENALTY_SECONDS / 60} minutes</>}, and at least
+            the guesses and time you've spent on it. The clock keeps running.
           </p>
           <div class="row-btns">
             <button class="btn primary" type="button" onClick={confirmMoveOn}>Give up this word</button>
@@ -382,8 +385,8 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
 
       {confirming === 'give-up' && !over && (
         <section class="panel">
-          <h2>End this Rush and reveal the words?</h2>
-          <p>A Rush you give up doesn't get a score.</p>
+          <h2>End this {rankByName(rankBy)} and reveal the words?</h2>
+          <p>A {rankByName(rankBy)} you give up doesn't get a score.</p>
           <div class="row-btns">
             <button class="btn primary" type="button" onClick={confirmGiveUp}>Reveal the words</button>
             <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
@@ -393,10 +396,10 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
 
       {confirming === 'new-game' && !over && (
         <section class="panel">
-          <h2>Start a new Rush?</h2>
+          <h2>Start a new {rankByName(rankBy)}?</h2>
           <p>This one will end without revealing the words.</p>
           <div class="row-btns">
-            <button class="btn primary" type="button" onClick={startNewRun}>New Rush</button>
+            <button class="btn primary" type="button" onClick={startNewRun}>New {rankByName(rankBy)}</button>
             <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
           </div>
         </section>
@@ -411,7 +414,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
           <h2>
             {ended ? 'The words were'
               : givenUp === 0 ? `All ${run.words.length} words in ${clock}.`
-                : `Rush done in ${clock}.`}
+                : `${rankByName(rankBy)} done in ${clock}.`}
           </h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
             rows={run.results.map((r) => ({
@@ -423,9 +426,25 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
               seconds: wordSeconds(r),
             }))} />
           {review?.heading ? review.result : summary && (
-            <RushSummary tiers={[['Score', summary.score.toFixed(1)], ['Your level', STRENGTH_LABEL[summary.level]]]} />
+            <RushSummary tiers={[
+              ['Score', rankBy === 'rush' ? formatClock(summary.score) : summary.score.toFixed(1)],
+              ['Your level', STRENGTH_LABEL[summary.level]],
+            ]} />
           )}
-          {review?.heading ? null : summary ? (
+          {review?.heading ? null : summary && rankBy === 'rush' ? (
+            <p class="tally">
+              {/* A Rush is scored by time: the average a word, × the difficulty factor where it isn't 1. */}
+              {summary.factor !== 1 && <>
+                {formatClock(summary.average.seconds)} a word × {summary.factor}{' '}
+                ({DIFFICULTY_LABEL[summary.difficulty]}) = {formatClock(summary.score)}.{' '}
+              </>}
+              Faster is better.{' '}
+              {guessCount(summary.words.reduce((sum, w) => sum + w.guesses, 0))} in {formatClock(summary.totalSeconds)}
+              {summary.factor === 1 && <> · {formatClock(summary.average.seconds)} and {summary.average.guesses.toFixed(1)} guesses a word</>}
+              {summary.factor !== 1 && <> · {summary.average.guesses.toFixed(1)} guesses a word</>}
+              {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
+            </p>
+          ) : review?.heading ? null : summary ? (
             <p class="tally">
               {/* The sum only where the difficulty changes the number: at Medium the score is the average. */}
               {summary.factor !== 1 && <>
@@ -447,6 +466,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
             {!reviewing && summary && (
               <ShareResult text={soloRushShareText({
                 difficulty: summary.difficulty,
+                rankBy,
                 words: run.results.map((r) => ({ guesses: r.guesses.length, found: r.outcome === 'solved' })),
                 score: summary.score,
                 level: summary.level,

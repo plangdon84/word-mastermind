@@ -9,7 +9,8 @@ import { DIFFICULTY_LABEL } from './components';
 import { NoServerSection, UpdateBar } from './panels';
 import { forgetTappedLink, TAP_LOOKS_MS, takeTappedLink } from './notificationTaps';
 import {
-  BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, type HistoryFilter, type HistoryMode, type LobbyKind,
+  BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
+  type HistoryFilter, type HistoryMode, type LobbyKind,
 } from '../game';
 import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
@@ -624,11 +625,13 @@ export function App() {
         );
       }
       if (replayed.mode === 'daily' && entry.mode === 'daily') {
-        const placement = loadPlacements().find((p) => p.day === replayed.day) ?? null;
+        const places = loadPlacements().filter((p) => p.day === replayed.day);
+        const crush = places.find((p) => !p.rankBy) ?? null;
+        const rush = places.find((p) => p.rankBy === 'rush') ?? null;
         return (
           <RushScreen key={entry.id} {...game} resume={false} review={{
             ...review, run: replayed.game, marks: entry.marks, heading: 'Daily Set',
-            result: <DailyResult total={summary.yourGuesses} placement={placement} />,
+            result: <DailyResult total={summary.yourGuesses} crush={crush} rush={rush} />,
           }} />
         );
       }
@@ -636,8 +639,8 @@ export function App() {
         return (
           <RushScreen key={entry.id} {...game} resume={false} review={{
             ...review, run: replayed.game, marks: entry.marks,
-            heading: replayed.kind === 'competitive' ? 'Competitive Rush' : 'Rush with Friends',
-            result: <LobbyPlaces places={replayed.places} rating={ratingLine(replayed.rating)} />,
+            heading: wordSetName(replayed.kind, runRankBy(replayed.game)),
+            result: <LobbyPlaces places={replayed.places} rankBy={runRankBy(replayed.game)} rating={ratingLine(replayed.rating)} />,
           }} />
         );
       }
@@ -662,10 +665,12 @@ export function App() {
       );
     }
     if (screen.name === 'daily') {
-      return <DailyScreen {...game} identity={identity} start={screen.start} />;
+      return <DailyScreen {...game} identity={identity} start={screen.start}
+        onBoardRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} />;
     }
     if (screen.name === 'leaderboards') {
-      return <LeaderboardsScreen identity={identity} difficulty={settings.difficulty} board={screen.board} onExit={exit} />;
+      return <LeaderboardsScreen identity={identity} difficulty={settings.difficulty} board={screen.board} onExit={exit}
+        rankBy={settings.boardRankBy} onRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} />;
     }
     if (screen.name === 'lobby') {
       return (

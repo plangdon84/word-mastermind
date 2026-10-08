@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import logo from '../assets/logo.svg?raw';
 import { ProfileButton } from './gameHeader';
 import { BackIcon, HowToPlay, LockIcon } from './panels';
+import { RankBySwitch } from './rushParts';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
 import { dailyApi, type DailyToday } from './dailyApi';
@@ -15,7 +16,11 @@ import { openReport } from './reportIssue';
 import type { ApiIdentity } from './apiIdentity';
 import type { Profile } from './profileStorage';
 import type { Difficulty, Mode, Opponent, RushKind, Settings, Strength } from './settings';
-import { FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, type LobbyKind, type OpenModes, type TimeControl } from '../game';
+import {
+  FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, runRankBy, wordSetName, type LobbyKind, type OpenModes,
+  type TimeControl,
+} from '../game';
+import { loadRush } from './rushStorage';
 import type { BoardId } from './LeaderboardsScreen';
 import { Tutorial } from './Tutorial';
 import { TurnAlertsPrompt } from './TurnAlerts';
@@ -84,8 +89,15 @@ const MODES: Choice<Mode>[] = [
 
 const CONTINUE_LABEL: Record<Mode | 'lobby' | 'competitive', string> = {
   single: 'Continue Practice', two: 'Continue two player', rush: 'Continue Solo Rush',
-  lobby: 'Continue Rush with Friends', competitive: 'Continue Competitive Rush',
+  lobby: 'Continue Word Set with friends', competitive: 'Continue Competitive Word Set',
 };
+
+/** Continue's label: a Solo Word Set says whether it's a Rush or a Crush. */
+function continueLabel(key: keyof typeof CONTINUE_LABEL): string {
+  if (key !== 'rush') return CONTINUE_LABEL[key];
+  const saved = loadRush();
+  return saved ? `Continue ${wordSetName('solo', runRankBy(saved.run))}` : CONTINUE_LABEL.rush;
+}
 
 /** The kinds of Word Set (README "Rush modes"), Daily Set aside on its own card; one switched off for the launch isn't offered. */
 const RUSH_KINDS = ([
@@ -146,7 +158,7 @@ interface Done {
 const HOW_TO_UNLOCK = {
   two: 'Win a Practice game to unlock.',
   rush: 'Win a two player game to unlock.',
-  otherRush: 'Finish a Solo Rush in Word Sets without giving up a word to unlock.',
+  otherRush: 'Finish a Solo Rush or Solo Crush in Word Sets without giving up a word to unlock.',
 };
 
 const locked = (how: string, link?: Done['link']): { done: Done; detail: string } =>
@@ -315,7 +327,7 @@ function GamesInProgress({ continues, identity, onOpenFriendGame, onLobby }: {
           {invites.map((invite) => <LobbyInviteButton key={invite.code} invite={invite} onOpen={onLobby} />)}
           {continues.map(({ key, onOpen }) => (
             <button type="button" class="choice" key={key} onClick={onOpen}>
-              <span class="choice-label">{CONTINUE_LABEL[key]}</span>
+              <span class="choice-label">{continueLabel(key)}</span>
             </button>
           ))}
           {others.map((row) => <FriendGameButton key={row.id} row={row} onOpen={onOpenFriendGame} />)}
@@ -426,7 +438,7 @@ export function TitleScreen({
   const heading: Record<Step, string> = {
     home: '',
     rush: 'Word Sets',
-    friends: 'Rush with Friends',
+    friends: 'Word Sets with friends',
     opponent: 'Who do you want to play?',
     strength: 'How strong is the computer?',
     turn: 'How is the game timed?',
@@ -601,6 +613,10 @@ export function TitleScreen({
               : random
               ? "How much the app helps you track your own guesses. You'll be matched with a player at the same difficulty, and it's fixed for the game."
               : 'How much the app helps you track your own guesses. You can change it during a game from the menu.'}</p>
+          {/* A Word Set ranks by time (Rush) or guesses (Crush); the Daily Set is on both boards. */}
+          {settings.mode === 'rush' && !dailyChosen && (
+            <RankBySwitch label rankBy={settings.rankBy} onPick={(rankBy) => onSettings({ ...settings, rankBy })} />
+          )}
           <Choices label="Your difficulty" selected={rated ? ratedDifficultyFor(settings.difficulty) : settings.difficulty}
             // A matched game and Competitive Rush are rated, so they leave Easy out.
             choices={rated ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}

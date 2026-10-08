@@ -194,11 +194,11 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
             the other gets one final guess to tie. Play the computer (Casual to Mastermind), or a friend: send an
             invite link, or challenge someone on your friends list. Play live on a chess clock, or take a day or
             three per guess.</li>
-          <li><b>Word Sets:</b> 4 words in a row against the clock. <b>Solo Rush</b> ranks your average against the
-            computer's strengths; <b>Rush with Friends</b> is up to 5 players on the same words and one clock,
-            joined by a code
+          <li><b>Word Sets:</b> 4 words in a row against the clock, ranked as a <b>Rush</b> (fastest) or a
+            <b> Crush</b> (fewest guesses). <b>Solo</b> ranks your average against the computer's strengths;
+            <b> With friends</b> is up to 5 players on the same words and one clock, joined by a code
             {FEATURES.competitiveRush
-              ? <>; in <b>Competitive Rush</b> each player sets a word and solves the others', and it's rated.</>
+              ? <>; in <b>Competitive</b> each player sets a word and solves the others', and it's rated.</>
               : '.'}</li>
           <li><b>Your profile</b> (top right) has a page each for your stats, achievements, game history, settings and
             more. Games against friends and every Word Set land in your history too.</li>
@@ -220,10 +220,10 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
           </div>
           <ol class="tut-modes">
             <li><b>Win a Practice game</b> to open <b>Two player</b>.</li>
-            <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Word Sets</b> and its <b>Solo Rush</b>.</li>
-            <li><b>Finish a Solo Rush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>
-              {FEATURES.competitiveRush ? <>, <b>Rush with Friends</b> and <b>Competitive Rush</b></>
-                : <> and <b>Rush with Friends</b></>}.</li>
+            <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Word Sets</b> and its <b>Solo</b> games.</li>
+            <li><b>Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>
+              {FEATURES.competitiveRush ? <>, Word Sets <b>With friends</b> and <b>Competitive</b></>
+                : <> and Word Sets <b>With friends</b></>}.</li>
           </ol>
           <p class="field-note">Each step earns a badge. A friend's invite link or join code always works, locked
             or not.</p>

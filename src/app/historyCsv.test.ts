@@ -51,16 +51,16 @@ const rush = load({
 describe('historyCsv', () => {
   it('writes one row per move, each with its game details', () => {
     expect(historyCsv([single, computer, rush]).split('\r\n')).toEqual([
-      'game_id,mode,started_at,difficulty,scored_difficulty,strength,first,your_word,secret_words,result,rush_score,move,side,kind,word_no,word,score,time',
-      'g1,single,2026-09-28T12:00:00.000Z,hard,medium,,,,beach,won,,1,you,guess,,bunny,1,2026-09-28T12:00:10.000Z',
-      'g1,single,2026-09-28T12:00:00.000Z,hard,medium,,,,beach,won,,2,you,difficulty,,medium,,2026-09-28T12:00:20.000Z',
-      'g1,single,2026-09-28T12:00:00.000Z,hard,medium,,,,beach,won,,3,you,guess,,beach,win,2026-09-28T12:00:30.000Z',
-      'g2,computer,2026-09-28T12:00:00.000Z,medium,medium,expert,computer,storm,beach,gave up,,1,computer,guess,,moist,4,2026-09-28T12:00:01.000Z',
-      'g2,computer,2026-09-28T12:00:00.000Z,medium,medium,expert,computer,storm,beach,gave up,,2,you,concede,,,,2026-09-28T12:00:02.000Z',
-      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,1,you,guess,1,beach,win,2026-09-28T12:00:05.000Z',
-      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,2,you,pause,2,,,2026-09-28T12:00:06.000Z',
-      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,3,you,resume,2,,,2026-09-28T12:00:09.000Z',
-      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,4,you,give-up-word,2,,,2026-09-28T12:00:12.000Z',
+      'game_id,mode,started_at,difficulty,scored_difficulty,strength,first,your_word,secret_words,result,rush_score,move,side,kind,word_no,word,score,time,ranked_by',
+      'g1,single,2026-09-28T12:00:00.000Z,hard,medium,,,,beach,won,,1,you,guess,,bunny,1,2026-09-28T12:00:10.000Z,',
+      'g1,single,2026-09-28T12:00:00.000Z,hard,medium,,,,beach,won,,2,you,difficulty,,medium,,2026-09-28T12:00:20.000Z,',
+      'g1,single,2026-09-28T12:00:00.000Z,hard,medium,,,,beach,won,,3,you,guess,,beach,win,2026-09-28T12:00:30.000Z,',
+      'g2,computer,2026-09-28T12:00:00.000Z,medium,medium,expert,computer,storm,beach,gave up,,1,computer,guess,,moist,4,2026-09-28T12:00:01.000Z,',
+      'g2,computer,2026-09-28T12:00:00.000Z,medium,medium,expert,computer,storm,beach,gave up,,2,you,concede,,,,2026-09-28T12:00:02.000Z,',
+      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,1,you,guess,1,beach,win,2026-09-28T12:00:05.000Z,crush',
+      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,2,you,pause,2,,,2026-09-28T12:00:06.000Z,crush',
+      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,3,you,resume,2,,,2026-09-28T12:00:09.000Z,crush',
+      'g3,rush,2026-09-28T12:00:00.000Z,extreme,extreme,,,,beach crane,mastermind,4.8,4,you,give-up-word,2,,,2026-09-28T12:00:12.000Z,crush',
       '',
     ]);
   });

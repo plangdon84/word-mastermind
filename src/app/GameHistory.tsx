@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  DIFFICULTIES, HISTORY_MODES, isServerMode, ordinal, type Difficulty, type HistoryFilter, type HistoryMode,
-  type HistoryResult, type RatingChange,
+  DIFFICULTIES, HISTORY_MODES, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
+  type HistoryMode, type HistoryResult, type RatingChange,
 } from '../game';
 import { API_URL } from './config';
 import { loadPlacements } from './dailyStorage';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { downloadFile } from './backup';
+import { formatClock } from './rushParts';
 import { loadAllMatching, loadGamesPage, type HistoryGame } from './historyDb';
 import { CSV_ROW_LIMIT, csvRowCount, historyCsv } from './historyCsv';
 import { guessCount } from './messages';
@@ -15,8 +16,8 @@ import { guessCount } from './messages';
 export const PAGE_SIZE = 20;
 
 export const MODE_LABEL: Record<HistoryMode, string> = {
-  single: 'Practice', computer: 'vs. Computer', rush: 'Solo Rush', friend: 'vs. a friend', daily: 'Daily Set',
-  lobby: 'Rush with Friends',
+  single: 'Practice', computer: 'vs. Computer', rush: 'Solo Rush & Crush', friend: 'vs. a friend', daily: 'Daily Set',
+  lobby: 'Rush & Crush with Friends',
 };
 
 const RESULT_LABEL: Record<HistoryResult, string> = { won: 'Won', lost: 'Lost', drawn: 'Drawn' };
@@ -42,17 +43,21 @@ function rowParts(game: HistoryGame): { tone: string; tag: string; tagLabel: str
   const played = guessCount(summary.yourGuesses);
   const rating = summary.rating ? ` · ${ratingText(summary.rating)}` : '';
   switch (summary.mode) {
-    case 'rush':
+    case 'rush': {
+      // A Rush is scored by time, a Crush by guesses.
+      const rankBy = replayed.mode === 'rush' ? runRankBy(replayed.game) : 'crush';
+      const score = summary.rush && (rankBy === 'rush' ? formatClock(summary.rush.score) : summary.rush.score.toFixed(1));
       return {
         tone: summary.rush ? `metal-${summary.rush.level}` : 'no-score',
-        tag: summary.rush ? summary.rush.score.toFixed(1) : '–',
-        tagLabel: summary.rush ? `Score ${summary.rush.score.toFixed(1)}` : 'No score',
-        who: MODE_LABEL.rush,
+        tag: score || '–',
+        tagLabel: score ? `Score ${score}` : 'No score',
+        who: wordSetName('solo', rankBy),
         detail: `${summary.rush ? STRENGTH_LABEL[summary.rush.level] : 'No score'} · ${played}`,
       };
+    }
     case 'daily': {
-      // The day's final place, once the server has sent it.
-      const place = replayed.mode === 'daily' ? loadPlacements().find((p) => p.day === replayed.day) : undefined;
+      // The day's final place on its Crush board, by guesses like the row's total, once the server has sent it.
+      const place = replayed.mode === 'daily' ? loadPlacements().find((p) => p.day === replayed.day && !p.rankBy) : undefined;
       return {
         tone: 'no-score',
         tag: String(summary.yourGuesses),
@@ -63,7 +68,7 @@ function rowParts(game: HistoryGame): { tone: string; tag: string; tagLabel: str
     }
     case 'lobby': {
       const rank = summary.place?.rank ?? null;
-      const kind = replayed.mode === 'lobby' && replayed.kind === 'competitive' ? 'Competitive Rush' : MODE_LABEL.lobby;
+      const kind = replayed.mode === 'lobby' ? wordSetName(replayed.kind, runRankBy(replayed.game)) : MODE_LABEL.lobby;
       return {
         // Finishing first is a win; any other place has no result.
         tone: rank === 1 ? 'won' : 'no-score',

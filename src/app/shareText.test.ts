@@ -44,7 +44,17 @@ describe('soloRushShareText', () => {
       words: [{ guesses: 8, found: true }, { guesses: 14, found: true }, { guesses: 6, found: false }, { guesses: 11, found: true }],
       score: 11.25,
       level: 'expert',
-    })).toBe('Word Mastermind Solo Rush · Medium\n🟩🟨⬛🟨\nScore 11.3 · Expert level\nwordmastermind.app');
+    })).toBe('Word Mastermind Solo Crush · Medium\n🟩🟨⬛🟨\nScore 11.3 · Expert level\nwordmastermind.app');
+  });
+
+  it('gives a Solo Rush its score as a time', () => {
+    expect(soloRushShareText({
+      difficulty: 'hard',
+      rankBy: 'rush',
+      words: [{ guesses: 8, found: true }],
+      score: 125.4,
+      level: 'skilled',
+    })).toBe('Word Mastermind Solo Rush · Hard\n🟩\nScore 2:05 · Skilled level\nwordmastermind.app');
   });
 });
 
@@ -106,5 +116,15 @@ describe('lobbyShareText', () => {
         { rank: 1, name: 'Paul', strength: null, you: true, words: words(5, 5, 5, 5) },
       ],
     }).split('\n')[0]).toBe('I tied for 1st place in Word Mastermind Rush with Friends!');
+  });
+
+  it('gives each player their time in a Rush, ranked by time', () => {
+    expect(lobbyShareText({
+      mode: 'Rush with Friends',
+      rankBy: 'rush',
+      players: [
+        { rank: 1, name: 'Sam', strength: null, you: true, seconds: 581, words: words(4, 8, 6, 9) },
+      ],
+    }).split('\n')[1]).toBe('1st 🟩🟩🟩🟩 9:41 Sam');
   });
 });

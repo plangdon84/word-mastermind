@@ -1,12 +1,39 @@
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { FEATURES, SUGGEST_LIMIT, type Difficulty, type GuessResult, type Marks } from '../game';
+import {
+  FEATURES, RANK_BYS, rankByHow, rankByName, SUGGEST_LIMIT, type Difficulty, type GuessResult, type Marks, type RankBy,
+} from '../game';
 import { Bubble, DefinitionBox, History, InfoIcon, Keyboard, ScoreHistory, Slots, SuggestButton } from './components';
 import type { DefinitionsState } from './definitions';
 import type { Message } from './hooks';
 import { guessCount } from './messages';
 
 /** The parts Solo Rush, Daily Rush and the lobbies share: the board while playing, and the words at the end. */
+
+/**
+ * The Rush · fastest / Crush · fewest switch (README "Rush modes"): what a
+ * Word Set ranks by, or which Daily Set board is shown. With `label`, it's
+ * headed "Ranked by:".
+ */
+export function RankBySwitch({ rankBy, onPick, label = false, disabled = false }: {
+  rankBy: RankBy;
+  onPick: (rankBy: RankBy) => void;
+  label?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <div class="rank-by">
+      {label && <span class="rank-by-label" id="rank-by-label">Ranked by:</span>}
+      <div class="seg" role="group" aria-label={label ? undefined : 'Ranked by'} aria-labelledby={label ? 'rank-by-label' : undefined}>
+        {RANK_BYS.map((r) => (
+          <button type="button" key={r} aria-pressed={rankBy === r} disabled={disabled} onClick={() => onPick(r)}>
+            {rankByName(r)} · {rankByHow(r)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** 83.4 seconds → "1:23". */
 export function formatClock(seconds: number): string {
