@@ -235,7 +235,7 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
             giveUpLabel={unstarted ? 'Cancel this game' : 'Give up and reveal the word'} canGiveUp={!over}
             onGiveUp={unstarted ? cancelGame : () => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
             onReport={() => openReport({
-              screen: `Single player · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
+              screen: `Practice · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
               record: toSoloRecord(gameRef.current),
             })}
             onCheckMarks={medium && !over && !reviewing

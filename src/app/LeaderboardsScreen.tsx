@@ -18,7 +18,7 @@ import { fetchRatings, ratingText, type PoolRating } from './ratingsApi';
 export type BoardId = 'daily' | RatingPool;
 
 export const BOARD_TITLE: Record<BoardId, string> = {
-  daily: 'Daily Rush',
+  daily: 'Daily Set',
   '15m': 'Live PvP · 15 min',
   '10m': 'Live PvP · 10 min',
   '5m': 'Live PvP · 5 min',

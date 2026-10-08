@@ -84,7 +84,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
   });
   const youShown = board?.top.some((r) => r.you);
   return (
-    <section class="panel daily-board" aria-label="Daily Rush leaderboard">
+    <section class="panel daily-board" aria-label="Daily Set leaderboard">
       <div class="board-day">
         <button type="button" class="btn small" aria-label="The day before" disabled={first !== null && day <= first}
           onClick={() => setDay(addDays(day, -1))}>‹</button>
@@ -376,17 +376,17 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
       matchup={
         <span>
-          <b>Daily Rush</b>
+          <b>Daily Set</b>
           {today?.runTheme && <> · {today.runTheme}</>}
         </span>
       }
       menu={(close) => (
         <GameMenuItems close={close} difficulty={difficulty}
-          difficultyNote="Chosen for today's Daily Rush: it can't change."
-          giveUpLabel={late ? 'Give up this Daily Rush' : "Give up today's Daily Rush"} canGiveUp={playing}
+          difficultyNote="Chosen for today's Daily Set: it can't change."
+          giveUpLabel={late ? 'Give up this Daily Set' : "Give up today's Daily Set"} canGiveUp={playing}
           onGiveUp={() => setConfirming(true)} onExit={onExit} onHowToPlay={() => setHowTo(true)}
           onReport={() => openReport({
-            screen: `Daily Rush · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
+            screen: `Daily Set · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
           })}
           onCheckMarks={medium && word && !paused
             ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
@@ -415,14 +415,14 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
         <section class="panel">
           {loadError ? (
             <>
-              <h2>Daily Rush</h2>
+              <h2>Daily Set</h2>
               <p>{loadError}</p>
               <div class="row-btns">
                 <button class="btn primary" type="button" onClick={() => load()}>Try again</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>
             </>
-          ) : <p>Loading today's Daily Rush…</p>}
+          ) : <p>Loading today's Daily Set…</p>}
         </section>
       </div>
     );
@@ -430,7 +430,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
   if (showBoard) {
     return (
-      <BoardPage title="Daily Rush" onBack={() => setShowBoard(false)} circle={identity.token ? circle : null}
+      <BoardPage title="Daily Set" onBack={() => setShowBoard(false)} circle={identity.token ? circle : null}
         onCircle={setCircle}>
         <DailyBoardPanel api={api} today={today.day} day={run?.day ?? today.day} difficulty={difficulty}
           circle={identity.token ? circle : 'everyone'} />
@@ -456,14 +456,14 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
                 <button class="btn primary" type="button" onClick={() => {
                   api.start(today.day, settings.difficulty, displayName(profile))
                     .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e)), error: true }));
-                }}>Start Daily Rush</button>
+                }}>Start Daily Set</button>
                 <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>
             </>
           ) : (
             <>
-              <h2>No Daily Rush today</h2>
+              <h2>No Daily Set today</h2>
               <p>There's no themed set today. Try Solo Rush instead.</p>
               <div class="row-btns"><button class="btn" type="button" onClick={onExit}>Main menu</button></div>
             </>
@@ -474,7 +474,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
 
       {run && word && late && (
         <p class="daily-note" role="status">
-          The day has changed. You can finish this Daily Rush, but it won't go on the leaderboard.
+          The day has changed. You can finish this Daily Set, but it won't go on the leaderboard.
         </p>
       )}
       {word && dayEnding && <p class="daily-note warn" role="status">{dayEnding}</p>}
@@ -511,15 +511,15 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
         <section class="panel warning">
           {late ? (
             <>
-              <h2>Give up this Daily Rush?</h2>
+              <h2>Give up this Daily Set?</h2>
               <p>The day it was for is over, so it's not on the leaderboard either way.</p>
             </>
           ) : (
             <>
-              <h2>Give up today's Daily Rush?</h2>
+              <h2>Give up today's Daily Set?</h2>
               <p>
                 <b>You won't be on today's leaderboard</b>, and you can't play again until the next set, in {nextSet}.
-                Giving up one word gives up the whole Daily Rush.
+                Giving up one word gives up the whole Daily Set.
               </p>
             </>
           )}
@@ -534,7 +534,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
         <section class="panel rush-result">
           <h2>
             {run.status === 'finished' ? `All 4 words in ${clock}.`
-              : late ? 'You gave up this Daily Rush.' : "You gave up today's Daily Rush."}
+              : late ? 'You gave up this Daily Set.' : "You gave up today's Daily Set."}
           </h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
             hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
@@ -572,7 +572,7 @@ export function DailyScreen({ settings, profile, identity, onProfile, onExit, st
             </p>
           )}
           <div class="row-btns">
-            {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's Daily Rush</button>}
+            {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's Daily Set</button>}
             <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
             {run.status === 'finished' && !late && (
               <ShareResult text={dailyShareText({

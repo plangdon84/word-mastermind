@@ -4,6 +4,7 @@ import { loadFriendGames, updateFriendGame } from './friendGames';
 import { durationText, timeLeftText } from './messages';
 import type { ApiIdentity } from './apiIdentity';
 import { useFriendsList } from './FriendsSection';
+import type { LobbyInvite } from './friendsApi';
 
 type Row = { id: string; game: FriendGame | null; failed: boolean };
 
@@ -34,20 +35,24 @@ function describe(game: FriendGame, now: number): string {
   return view.turn === 'you' ? left : `${opponent}'s turn · ${left}`;
 }
 
+/** One of your games against a friend, as the title screen lists it: loaded from the server, or still loading. */
+export type FriendGameRow = Row;
+
+/** Whether a game against a friend waits on you: your turn, or a challenge to you. */
+export const friendGameWaits = (game: FriendGame | null): boolean =>
+  (game?.state === 'playing' && game.view?.turn === 'you') || (game?.state === 'waiting' && !game.seat);
+
 /**
- * The title screen's list of your games against a friend that you haven't
- * finished looking at, each loaded from the server.
+ * Your games against a friend that you haven't finished looking at, each
+ * loaded from the server, those waiting on you first.
  */
-export function FriendGamesList({ apiUrl, identity, onOpen }: {
-  apiUrl: string;
-  identity: ApiIdentity;
-  onOpen: (id: string) => void;
-}) {
-  const api = useMemo(() => friendApi(apiUrl, identity), [apiUrl, identity]);
+export function useFriendGames(apiUrl: string | null, identity: ApiIdentity): FriendGameRow[] {
+  const api = useMemo(() => (apiUrl ? friendApi(apiUrl, identity) : null), [apiUrl, identity]);
   const [rows, setRows] = useState<Row[]>(() =>
-    loadFriendGames().filter((e) => !e.done).map((e) => ({ id: e.id, game: null, failed: false })));
+    (apiUrl ? loadFriendGames().filter((e) => !e.done) : []).map((e) => ({ id: e.id, game: null, failed: false })));
 
   useEffect(() => {
+    if (!api) return;
     let live = true;
     for (const { id } of rows) {
       api.get(id).then(
@@ -74,52 +79,42 @@ export function FriendGamesList({ apiUrl, identity, onOpen }: {
     };
   }, [api]);
 
-  if (rows.length === 0) return null;
-  // Games waiting on you first.
-  const yours = (g: FriendGame | null) => g?.view?.turn === 'you' || (g?.state === 'waiting' && !g.seat);
-  const sorted = [...rows].sort((a, b) => Number(yours(b.game)) - Number(yours(a.game)));
+  return [...rows].sort((a, b) => Number(friendGameWaits(b.game)) - Number(friendGameWaits(a.game)));
+}
+
+/** A row for one of your games against a friend. */
+export function FriendGameButton({ row: { id, game, failed }, onOpen }: { row: FriendGameRow; onOpen: (id: string) => void }) {
   return (
-    <section class="friend-games" aria-label="Your online games">
-      <h2 class="info-label">Online games</h2>
-      {sorted.map(({ id, game, failed }) => (
-        <button type="button" class="choice" key={id} onClick={() => onOpen(id)}>
-          <span class="choice-label">
-            <span class="choice-name">
-              {!game ? (failed ? 'A game with a friend' : 'Loading…')
-                : game.state === 'waiting' ? (!game.seat ? `${game.hostName} ${game.rematchOf ? 'wants a rematch' : 'challenges you'}`
-                  : game.inviteeName ? `${game.rematchOf ? 'Rematch' : 'Challenge'} sent to ${game.inviteeName}` : 'Invite sent')
-                  : `vs. ${opponentName(game) ?? 'a friend'}`}
-            </span>
-            {((game?.view?.turn === 'you' && game.state === 'playing') || (game?.state === 'waiting' && !game.seat))
-              && <span class="tag yours">Your turn</span>}
-          </span>
-          <span class="choice-detail">{game ? describe(game, Date.now()) : failed ? "Couldn't reach the server. Tap to try again." : ''}</span>
-        </button>
-      ))}
-    </section>
+    <button type="button" class="choice" onClick={() => onOpen(id)}>
+      <span class="choice-label">
+        <span class="choice-name">
+          {!game ? (failed ? 'A game with a friend' : 'Loading…')
+            : game.state === 'waiting' ? (!game.seat ? `${game.hostName} ${game.rematchOf ? 'wants a rematch' : 'challenges you'}`
+              : game.inviteeName ? `${game.rematchOf ? 'Rematch' : 'Challenge'} sent to ${game.inviteeName}` : 'Invite sent')
+              : `vs. ${opponentName(game) ?? 'a friend'}`}
+        </span>
+        {friendGameWaits(game) && <span class="tag yours">Your turn</span>}
+      </span>
+      <span class="choice-detail">{game ? describe(game, Date.now()) : failed ? "Couldn't reach the server. Tap to try again." : ''}</span>
+    </button>
   );
 }
 
 /** Friends' invites to their Rush with Friends or Competitive Rush lobbies (signed in), each opening the lobby to join. */
-export function LobbyInvitesList({ apiUrl, identity, onOpen }: {
-  apiUrl: string;
-  identity: ApiIdentity;
-  onOpen: (code: string) => void;
-}) {
+export function useLobbyInvites(apiUrl: string | null, identity: ApiIdentity): LobbyInvite[] {
   const [list] = useFriendsList(apiUrl, identity);
-  if (!list || list.lobbyInvites.length === 0) return null;
+  return list?.lobbyInvites ?? [];
+}
+
+/** A row for a friend's invite to their lobby. */
+export function LobbyInviteButton({ invite, onOpen }: { invite: LobbyInvite; onOpen: (code: string) => void }) {
   return (
-    <section class="friend-games" aria-label="Rush invites from friends">
-      <h2 class="info-label">Rush invites</h2>
-      {list.lobbyInvites.map((invite) => (
-        <button type="button" class="choice" key={invite.code} onClick={() => onOpen(invite.code)}>
-          <span class="choice-label">
-            <span class="choice-name">{invite.fromName}'s Rush lobby</span>
-            <span class="tag yours">Join</span>
-          </span>
-          <span class="choice-detail">You're invited. Tap to see the lobby and join.</span>
-        </button>
-      ))}
-    </section>
+    <button type="button" class="choice" onClick={() => onOpen(invite.code)}>
+      <span class="choice-label">
+        <span class="choice-name">{invite.fromName}'s Rush lobby</span>
+        <span class="tag yours">Join</span>
+      </span>
+      <span class="choice-detail">You're invited. Tap to see the lobby and join.</span>
+    </button>
   );
 }

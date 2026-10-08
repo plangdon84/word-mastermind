@@ -33,33 +33,6 @@ limit; on 8 October 2026, 18ud went first: small fixes players hit now,
 and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
 from a mock-up, went before 18z)
 
-- [ ] **18za. A new title screen** (agreed with the owner on 8 October 2026
-  from a clickable mock-up; UI only; changes README "Title screen",
-  "Unlocking modes", "Tutorial" and "Achievements" wording)
-  - Top to bottom: a **Daily** card, **Games in progress**, then
-    **Practice**, **Two player** and **Word Sets**, then **Leaderboards**,
-    How to play and Report an issue. The tagline goes, to save height
-  - **Daily card:** one row per daily game, each with its own marker (4
-    words, 1 word) and **Play**: Daily Set (today's Daily Rush, renamed;
-    its theme on the row) and, once 7b ships, Daily Word. A played row
-    is greyed but still a button, with a line that isn't greyed ("Your
-    places ›") opening that game's result, which links to its board. A
-    new player sees both rows locked, saying how to unlock them. Daily
-    leaves the Rush menu
-  - **Games in progress:** one collapsible list for Continue, friend games
-    (your turn first), Rush invites and lobbies. Open when something waits
-    on you, closed otherwise; your own open or close holds until something
-    new arrives. Its header counts the games and what's your turn, even
-    closed. A Daily game in progress stays on the Daily card
-  - **Practice** is Single player renamed (one word, no opponent), and
-    only the name changes: it counts toward stats, badges and the first
-    unlock as before ("Win a Practice game"), and saved data keeps its
-    mode, so old games and backups load. **Two player** is one-word games
-    against the computer, a friend or (once switched on) a random
-    opponent. **Word Sets** is Rush renamed: Solo and With friends
-    (Competitive once switched on), not Daily
-  - The tutorial's steps, the static How to play page and the browser
-    tests' screens follow; a minor release with its notes
 - [ ] **18z. Rush and Crush** (issue #167; worker, review gate; changes
   README "Rush modes", "Scoring", "Daily Rush", "Leaderboards" and
   "Achievements"; after 18za, whose title screen it builds on)
@@ -194,6 +167,33 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18za. A new title screen** (agreed with the owner on 8 October 2026
+  from a clickable mock-up; UI only; changes README "Title screen",
+  "Unlocking modes", "Tutorial" and "Achievements" wording)
+  - Top to bottom: a **Daily** card, **Games in progress**, then
+    **Practice**, **Two player** and **Word Sets**, then **Leaderboards**,
+    How to play and Report an issue. The tagline goes, to save height
+  - **Daily card:** one row per daily game, each with its own marker (4
+    words, 1 word) and **Play**: Daily Set (today's Daily Rush, renamed;
+    its theme on the row) and, once 7b ships, Daily Word. A played row
+    is greyed but still a button, with a line that isn't greyed ("Your
+    places ›") opening that game's result, which links to its board. A
+    new player sees both rows locked, saying how to unlock them. Daily
+    leaves the Rush menu
+  - **Games in progress:** one collapsible list for Continue, friend games
+    (your turn first), Rush invites and lobbies. Open when something waits
+    on you, closed otherwise; your own open or close holds until something
+    new arrives. Its header counts the games and what's your turn, even
+    closed. A Daily game in progress stays on the Daily card
+  - **Practice** is Single player renamed (one word, no opponent), and
+    only the name changes: it counts toward stats, badges and the first
+    unlock as before ("Win a Practice game"), and saved data keeps its
+    mode, so old games and backups load. **Two player** is one-word games
+    against the computer, a friend or (once switched on) a random
+    opponent. **Word Sets** is Rush renamed: Solo and With friends
+    (Competitive once switched on), not Daily
+  - The tutorial's steps, the static How to play page and the browser
+    tests' screens follow; a minor release with its notes
 - [x] **18o. New badges: beating a friend at a harder level, and
   Clairvoyant** (issues #104 and #141; app only: a friend game's record
   holds both players' levels; changes README "Achievements")

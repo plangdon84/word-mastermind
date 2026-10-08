@@ -187,19 +187,21 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
       title: 'Ways to play',
       body: (
         <ul class="tut-modes">
-          <li><b>Single player:</b> find the computer's word.</li>
+          <li><b>Daily Set</b> (the Daily card at the top): the day's 4 themed words, once a day, on a
+            leaderboard. <b>Games in progress</b> below it lists the games waiting for you.</li>
+          <li><b>Practice:</b> find the computer's word on your own.</li>
           <li><b>Two player:</b> you and an opponent each pick a word and take turns. If the first player finds it,
             the other gets one final guess to tie. Play the computer (Casual to Mastermind), or a friend: send an
             invite link, or challenge someone on your friends list. Play live on a chess clock, or take a day or
             three per guess.</li>
-          <li><b>Rush:</b> 4 words in a row against the clock. <b>Solo Rush</b> ranks your average against the
-            computer's strengths; <b>Daily Rush</b> is the day's themed set, on a leaderboard; <b>Rush with
-            Friends</b> is up to 5 players on the same words and one clock, joined by a code
+          <li><b>Word Sets:</b> 4 words in a row against the clock. <b>Solo Rush</b> ranks your average against the
+            computer's strengths; <b>Rush with Friends</b> is up to 5 players on the same words and one clock,
+            joined by a code
             {FEATURES.competitiveRush
               ? <>; in <b>Competitive Rush</b> each player sets a word and solves the others', and it's rated.</>
               : '.'}</li>
           <li><b>Your profile</b> (top right) has a page each for your stats, achievements, game history, settings and
-            more. Games against friends and every Rush land in your history too.</li>
+            more. Games against friends and every Word Set land in your history too.</li>
         </ul>
       ),
     },
@@ -209,17 +211,17 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
         <>
           {/* A mock-up of the title screen's choices: inert, like the other steps'. */}
           <div class="choices tut-locks" inert aria-hidden="true">
-            <div class="choice"><span class="choice-label">Single player</span></div>
+            <div class="choice"><span class="choice-label">Practice</span></div>
             <div class="choice done locked">
               <LockIcon />
               <span class="choice-label">Two player <span class="tag">Locked</span></span>
-              <span class="choice-detail choice-extra">Win a single player game to unlock.</span>
+              <span class="choice-detail choice-extra">Win a Practice game to unlock.</span>
             </div>
           </div>
           <ol class="tut-modes">
-            <li><b>Win a single player game</b> to open <b>Two player</b>.</li>
-            <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Solo Rush</b>.</li>
-            <li><b>Finish a Solo Rush without giving up a word</b> to open <b>Daily Rush</b>
+            <li><b>Win a Practice game</b> to open <b>Two player</b>.</li>
+            <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Word Sets</b> and its <b>Solo Rush</b>.</li>
+            <li><b>Finish a Solo Rush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>
               {FEATURES.competitiveRush ? <>, <b>Rush with Friends</b> and <b>Competitive Rush</b></>
                 : <> and <b>Rush with Friends</b></>}.</li>
           </ol>

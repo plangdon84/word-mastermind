@@ -42,7 +42,7 @@ export function dailyShareText({ day, difficulty, words, place }: {
 }): string {
   const total = words.reduce((sum, w) => sum + w.guesses, 0);
   return [
-    `Word Mastermind Daily Rush #${dailyNumber(day)} · ${DIFFICULTY_LABEL[difficulty]}`,
+    `Word Mastermind Daily Set #${dailyNumber(day)} · ${DIFFICULTY_LABEL[difficulty]}`,
     wordEmoji(words),
     guessCount(total) + (place ? ` · ${place}` : ''),
     SHARE_ADDRESS,

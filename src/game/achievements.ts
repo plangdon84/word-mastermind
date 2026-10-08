@@ -29,7 +29,7 @@ export interface Badge {
    * Daily Rush's places, DAILY RUSH for finishing it; FRIENDS and
    * COMPETITIVE for the lobbies' and friend games'.
    */
-  tag: 'SOLO' | 'VS CPU' | 'DAILY' | 'DAILY RUSH' | 'FRIENDS' | 'COMPETITIVE' | 'UNLOCKED' | null;
+  tag: 'SOLO' | 'VS CPU' | 'DAILY' | 'DAILY SET' | 'FRIENDS' | 'COMPETITIVE' | 'UNLOCKED' | null;
   /** The word across the bottom, e.g. HARD, GUESSES, WINS. */
   label: string;
   /** What earns it, e.g. "Beat the Expert computer at Hard or harder". */
@@ -81,9 +81,9 @@ export const cpuBadgeId = (strength: Strength, difficulty: Difficulty) => `${str
 
 /** The badge for each step of unlocking modes (README "Unlocking modes"), and what its toast names. */
 export const UNLOCKS: readonly { step: UnlockStep; label: string; title: string; how: string }[] = [
-  { step: 'two-player', label: 'TWO PLAYER', title: 'Two player', how: 'win a single player game' },
-  { step: 'solo-rush', label: 'SOLO RUSH', title: 'Solo Rush', how: 'win a two player game' },
-  { step: 'all-rush', label: 'ALL RUSH', title: 'Every Rush', how: 'finish a Solo Rush with every word solved, none given up' },
+  { step: 'two-player', label: 'TWO PLAYER', title: 'Two player', how: 'win a Practice game' },
+  { step: 'solo-rush', label: 'WORD SETS', title: 'Word Sets', how: 'win a two player game' },
+  { step: 'all-rush', label: 'ALL SETS', title: 'Daily Set and With friends', how: 'finish a Solo Rush with every word solved, none given up' },
 ];
 
 /** Every badge, including those of modes switched off, in the order the profile shows them. */
@@ -118,20 +118,20 @@ const ALL_BADGES: readonly Badge[] = [
   },
   {
     id: 'daily-top-10', family: 'feat', metal: 'gold', tag: 'DAILY', label: 'TOP 10',
-    title: "Finish in the top 10 of a day's Daily Rush leaderboard", count: 10,
+    title: "Finish in the top 10 of a day's Daily Set leaderboard", count: 10,
   },
   {
     id: 'daily-top-10-percent', family: 'feat', metal: 'silver', tag: 'DAILY', label: 'TOP 10%',
-    title: "Finish in the top 10% of a day's Daily Rush leaderboard", count: 10, feature: 'dailyTopTenPercent',
+    title: "Finish in the top 10% of a day's Daily Set leaderboard", count: 10, feature: 'dailyTopTenPercent',
   },
   // Each difficulty is its own day's run, so a harder one doesn't award the easier.
   ...DIFFICULTIES.map((d): Badge => ({
-    id: `daily-rush-${d}`, family: 'difficulty', metal: DIFFICULTY_METAL[d], tag: 'DAILY RUSH', label: d.toUpperCase(),
-    title: `Finish the Daily Rush at ${title(d)}`, difficulty: d,
+    id: `daily-rush-${d}`, family: 'difficulty', metal: DIFFICULTY_METAL[d], tag: 'DAILY SET', label: d.toUpperCase(),
+    title: `Finish the Daily Set at ${title(d)}`, difficulty: d,
   })),
   ...DAILY_STREAKS.map((n, i): Badge => ({
-    id: `daily-rush-streak-${n}`, family: 'streak', metal: COUNT_METALS[i], tag: 'DAILY RUSH', label: 'DAYS',
-    title: `Finish the Daily Rush ${n} days in a row`, count: n,
+    id: `daily-rush-streak-${n}`, family: 'streak', metal: COUNT_METALS[i], tag: 'DAILY SET', label: 'DAYS',
+    title: `Finish the Daily Set ${n} days in a row`, count: n,
   })),
   {
     id: 'friend-win', family: 'feat', metal: 'silver', tag: 'FRIENDS', label: 'VS WIN',

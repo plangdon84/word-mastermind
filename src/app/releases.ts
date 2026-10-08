@@ -25,6 +25,15 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.10.0',
+    notes: [
+      { text: 'A new title screen: today’s Daily Set is at the top, then your games in progress, then Practice, Two player and Word Sets.' },
+      { text: 'Daily Rush is now called Daily Set. It has its own card at the top, with your place a tap away once you’ve played, instead of sitting in the Rush menu.' },
+      { text: 'Games in progress: all your in-progress multiplayer games and solo play are grouped here, except the Daily ones. The list is open by default when a game is waiting on you.' },
+      { text: 'Single player is now called Practice, and Rush is now Word Sets. Your past games, badges and unlocks stay as they were.' },
+    ],
+  },
+  {
     version: '1.9.0',
     notes: [
       { text: 'Two new badges for beating a friend by finding their word while playing at a harder level than them: one level harder, and two or more.' },

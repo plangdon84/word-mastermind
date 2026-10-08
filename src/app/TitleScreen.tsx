@@ -7,7 +7,8 @@ import { BackIcon, HowToPlay, LockIcon } from './panels';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
 import { dailyApi, type DailyToday } from './dailyApi';
-import { FriendGamesList, LobbyInvitesList } from './FriendGamesList';
+import { FriendGameButton, friendGameWaits, LobbyInviteButton, useFriendGames, useLobbyInvites } from './FriendGamesList';
+import { listOpen, loadListChoice, saveListChoice } from './gamesInProgress';
 import { useNow } from './hooks';
 import { countdownText } from './messages';
 import { openReport } from './reportIssue';
@@ -74,23 +75,23 @@ interface Choice<T> {
   later?: boolean;
 }
 
+// Single player is Practice, and Rush is Word Sets, to players (Dev Plan item 18za); saved data keeps the old names.
 const MODES: Choice<Mode>[] = [
-  { value: 'single', label: 'Single player', detail: "Find the computer's secret word." },
-  { value: 'two', label: 'Two player', detail: "Race an opponent to find each other's word." },
-  { value: 'rush', label: 'Rush', detail: 'Find 4 words in a row against the clock.' },
+  { value: 'single', label: 'Practice', detail: 'Find a secret word on your own, at your own pace.' },
+  { value: 'two', label: 'Two player', detail: "Race an opponent to find each other's word: the computer or a friend." },
+  { value: 'rush', label: 'Word Sets', detail: 'Find 4 words in a row against the clock, on your own or with friends.' },
 ];
 
-const CONTINUE_LABEL: Record<Mode | 'daily' | 'lobby' | 'competitive', string> = {
-  single: 'Continue single player', two: 'Continue two player', rush: 'Continue Solo Rush', daily: 'Continue Daily Rush',
+const CONTINUE_LABEL: Record<Mode | 'lobby' | 'competitive', string> = {
+  single: 'Continue Practice', two: 'Continue two player', rush: 'Continue Solo Rush',
   lobby: 'Continue Rush with Friends', competitive: 'Continue Competitive Rush',
 };
 
-/** The kinds of Rush (README "Rush modes"); one switched off for the launch isn't offered. */
+/** The kinds of Word Set (README "Rush modes"), Daily Set aside on its own card; one switched off for the launch isn't offered. */
 const RUSH_KINDS = ([
-  { value: 'solo', label: 'Solo Rush', detail: 'Practice solving multiple secret words in a timed trial.' },
-  { value: 'daily', label: 'Daily Rush', detail: "The day's themed set of 4 words, once a day, on a leaderboard.", later: !API_URL },
-  { value: 'friends', label: 'Rush with Friends', detail: 'Up to 5 players solve the same 4 words on one clock.', later: !API_URL },
-  { value: 'competitive', label: 'Competitive Rush', detail: "Each player sets a word and solves the others'. Rated.", later: !API_URL },
+  { value: 'solo', label: 'Solo', detail: "4 random words, on your own. The clock pauses while you're away." },
+  { value: 'friends', label: 'With friends', detail: 'Up to 5 players solve the same 4 words on one clock.', later: !API_URL },
+  { value: 'competitive', label: 'Competitive', detail: "Each player sets a word and solves the others'. Rated.", later: !API_URL },
 ] satisfies Choice<RushKind>[]).filter((c) => c.value !== 'competitive' || FEATURES.competitiveRush);
 
 const OPPONENTS = ([
@@ -143,9 +144,9 @@ interface Done {
 
 /** How to open each locked choice (README "Unlocking modes"). */
 const HOW_TO_UNLOCK = {
-  two: 'Win a single player game to unlock.',
+  two: 'Win a Practice game to unlock.',
   rush: 'Win a two player game to unlock.',
-  otherRush: 'Finish a Solo Rush without giving up a word to unlock.',
+  otherRush: 'Finish a Solo Rush in Word Sets without giving up a word to unlock.',
 };
 
 const locked = (how: string, link?: Done['link']): { done: Done; detail: string } =>
@@ -201,17 +202,127 @@ function Choices<T>({ label, choices, selected, onPick, details, done }: {
   );
 }
 
-/** What Daily Rush says on the title screen: today's theme and the time until the next set. */
-function dailyDetail(today: DailyToday | null, now: number): string | undefined {
-  if (!today) return undefined;
-  const next = `next set in ${countdownText(today.nextAt - now)}`;
-  const status = today.run?.status;
+/**
+ * The Daily card (Dev Plan item 18za, README "Title screen"): a row per daily
+ * game, each with its marker (the number of words) and Play. A played row is
+ * greyed but still opens that game's result, through a line that isn't.
+ */
+function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
+  /** Today's Daily Set from the server, or null while it loads (or without one). */
+  today: DailyToday | null;
+  now: number;
+  /** Today's run was started on this device and isn't over. */
+  inProgress: boolean;
+  /** How to unlock it, while it's locked. */
+  lock: string | null;
+  onPlay: () => void;
+  /** Opens the run you've started or played: its board, or its result. */
+  onResult: () => void;
+}) {
+  const head = (
+    <div class="daily-head">
+      <h2>Daily</h2>
+      {today && <span class="daily-next">New set in {countdownText(today.nextAt - now)}</span>}
+    </div>
+  );
+  const marker = <span class="daily-marker" aria-hidden="true">4</span>;
+  if (!API_URL || lock) {
+    return (
+      <section class="daily-card" aria-label="Daily">
+        {head}
+        <div class="daily-game locked">
+          {marker}
+          <span class="daily-name">Daily Set{!API_URL && <span class="tag">Coming later</span>}</span>
+          <span class="daily-detail">{lock ?? 'The same 4 themed words for everyone, once a day.'}</span>
+          {lock && <LockIcon />}
+        </div>
+      </section>
+    );
+  }
+  const run = today?.run ?? null;
   // Yesterday's run, still going when the day changed: it can be finished, off the board.
-  if (status === 'playing' && today.run?.day !== today.day) return `Yesterday's ${today.runTheme ?? 'set'} · in progress`;
-  if (!today.theme) return `No set today · ${next}`;
-  if (status === 'playing') return `Today: ${today.theme} · in progress`;
-  if (status) return `Today: ${today.theme} · ${next}`;
-  return `Today: ${today.theme} · ${next}`;
+  const late = run?.status === 'playing' && run.day !== today?.day;
+  const playing = run ? run.status === 'playing' : inProgress;
+  const over = run !== null && run.status !== 'playing';
+  const detail = late ? `Yesterday's ${today?.runTheme ?? 'set'} · in progress`
+    : !today ? '4 themed words'
+    : !today.theme ? 'No set today'
+    : `4 themed words · Today: ${today.theme}${playing ? ' · in progress' : ''}`;
+  return (
+    <section class="daily-card" aria-label="Daily">
+      {head}
+      <button type="button" class={over ? 'daily-game done' : 'daily-game'}
+        disabled={!!today && !today.theme && !run && !inProgress}
+        onClick={run || inProgress ? onResult : onPlay}>
+        {marker}
+        <span class="daily-name">
+          Daily Set
+          {over && <span class="tag">{run.status === 'finished' ? 'Played' : 'Given up'}</span>}
+        </span>
+        <span class="daily-detail">{detail}</span>
+        {!over && <span class="daily-play">{playing ? 'Continue' : 'Play'}</span>}
+        {over && <span class="daily-result">{run.status === 'finished' ? 'Your place ›' : 'Your result ›'}</span>}
+      </button>
+    </section>
+  );
+}
+
+/** One row of Games in progress: a game on this device to continue. */
+interface ContinueRow {
+  key: Mode | 'lobby' | 'competitive';
+  onOpen: () => void;
+}
+
+/**
+ * Games in progress (Dev Plan item 18za, README "Title screen"): Continue,
+ * games against friends (your turn first) and friends' lobby invites in one
+ * list, open when something waits on you. Its header counts them, closed too.
+ */
+function GamesInProgress({ continues, identity, onOpenFriendGame, onLobby }: {
+  continues: ContinueRow[];
+  identity: ApiIdentity;
+  onOpenFriendGame: (id: string) => void;
+  onLobby: (code: string) => void;
+}) {
+  const friendGames = useFriendGames(API_URL, identity);
+  const invites = useLobbyInvites(API_URL, identity);
+  const waitingGames = friendGames.filter((r) => friendGameWaits(r.game));
+  // Your turn against a friend, or an invite; the tag counts these.
+  const yourTurn = [...waitingGames.map((r) => r.id), ...invites.map((i) => `lobby:${i.code}`)];
+  // Your own games here wait on your move too, so they open the list.
+  const waiting = [...yourTurn, ...continues.map((c) => `continue:${c.key}`)];
+  const [choice, setChoice] = useState(loadListChoice);
+  const total = continues.length + friendGames.length + invites.length;
+  if (total === 0) return null;
+  const open = listOpen(choice, waiting);
+  const toggle = () => {
+    const next = { open: !open, waiting };
+    saveListChoice(next);
+    setChoice(next);
+  };
+  const others = friendGames.filter((r) => !friendGameWaits(r.game));
+  return (
+    <section class="games-in-progress friend-games" aria-label="Games in progress">
+      <button type="button" class="progress-head" aria-expanded={open} aria-controls="games-in-progress" onClick={toggle}>
+        <h2>Games in progress</h2>
+        {yourTurn.length > 0 && <span class="tag yours">{yourTurn.length} your turn</span>}
+        <span class="tag" aria-label={`${total} ${total === 1 ? 'game' : 'games'}`}>{total}</span>
+        <span class="progress-chevron" aria-hidden="true">›</span>
+      </button>
+      {open && (
+        <div class="choices" id="games-in-progress">
+          {waitingGames.map((row) => <FriendGameButton key={row.id} row={row} onOpen={onOpenFriendGame} />)}
+          {invites.map((invite) => <LobbyInviteButton key={invite.code} invite={invite} onOpen={onLobby} />)}
+          {continues.map(({ key, onOpen }) => (
+            <button type="button" class="choice" key={key} onClick={onOpen}>
+              <span class="choice-label">{CONTINUE_LABEL[key]}</span>
+            </button>
+          ))}
+          {others.map((row) => <FriendGameButton key={row.id} row={row} onOpen={onOpenFriendGame} />)}
+        </div>
+      )}
+    </section>
+  );
 }
 
 /**
@@ -250,10 +361,10 @@ export function TitleScreen({
   /** Which modes you've unlocked (README "Unlocking modes"); null while your games load, when nothing shows locked. */
   open: OpenModes | null;
 }) {
-  const resumable = (['single', 'two', 'rush'] as const).filter((m) => inProgress[m]);
-  const continues: (Mode | 'daily' | 'lobby' | 'competitive')[] = [
-    ...resumable, ...(dailyInProgress ? ['daily' as const] : []),
-    ...(lobbyInProgress ? [lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const] : []),
+  // A Daily Set in progress stays on the Daily card.
+  const continues: ContinueRow[] = [
+    ...(['single', 'two', 'rush'] as const).filter((m) => inProgress[m]).map((m) => ({ key: m, onOpen: () => onContinue(m) })),
+    ...(lobbyInProgress ? [{ key: lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const, onOpen: () => onLobby() }] : []),
   ];
   // Today's Daily Rush, for its theme and countdown, and whether you've played it.
   const [daily, setDaily] = useState<DailyToday | null>(null);
@@ -302,7 +413,7 @@ export function TitleScreen({
     strength: 'opponent',
     turn: 'opponent',
     news: 'home',
-    difficulty: friend || random ? 'turn' : two ? 'strength' : lobbyChosen ? 'friends' : settings.mode === 'rush' ? 'rush' : 'home',
+    difficulty: friend || random ? 'turn' : two ? 'strength' : lobbyChosen ? 'friends' : dailyChosen ? 'home' : settings.mode === 'rush' ? 'rush' : 'home',
   };
 
   // Modes not yet unlocked are greyed out, saying how to open them. The tutorial, How to play and Leaderboards never are.
@@ -314,7 +425,7 @@ export function TitleScreen({
 
   const heading: Record<Step, string> = {
     home: '',
-    rush: 'Which Rush?',
+    rush: 'Word Sets',
     friends: 'Rush with Friends',
     opponent: 'Who do you want to play?',
     strength: 'How strong is the computer?',
@@ -331,7 +442,6 @@ export function TitleScreen({
           <div class="logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: logo }} />
           {/* The logo spells out the name, so the heading is for screen readers only. */}
           <h1 class="visually-hidden">Word Mastermind</h1>
-          <p class="tagline">Find the secret word from how many letters each guess shares with it.</p>
         </header>
       ) : (
         <header class="step-head">
@@ -344,16 +454,14 @@ export function TitleScreen({
 
       {step === 'home' && (
         <>
-          {continues.map((mode) => (
-            <button type="button" class="btn primary big" key={mode}
-              onClick={() => (mode === 'daily' ? onDaily() : mode === 'lobby' || mode === 'competitive' ? onLobby() : onContinue(mode))}>
-              {CONTINUE_LABEL[mode]}
-            </button>
-          ))}
+          <DailyCard today={daily} now={now} inProgress={dailyInProgress} lock={rushLock?.detail ?? null}
+            onResult={onDaily} onPlay={() => {
+              onSettings({ ...settings, mode: 'rush', rushKind: 'daily' });
+              setStep('difficulty');
+            }} />
           {/* Games and invites waiting on you come before starting something new. */}
-          {API_URL && <LobbyInvitesList apiUrl={API_URL} identity={identity} onOpen={(code) => onLobby(code)} />}
-          {API_URL && <FriendGamesList key={friendGamesVersion} apiUrl={API_URL} identity={identity}
-            onOpen={onOpenFriendGame} />}
+          <GamesInProgress key={friendGamesVersion} continues={continues} identity={identity}
+            onOpenFriendGame={onOpenFriendGame} onLobby={(code) => onLobby(code)} />
           <Choices label="Game mode" choices={MODES} selected={null}
             details={{ two: modeLocks.two?.detail, rush: modeLocks.rush?.detail }}
             done={{ two: modeLocks.two?.done, rush: modeLocks.rush?.done }}
@@ -397,27 +505,18 @@ export function TitleScreen({
 
       {step === 'rush' && (
         <Choices label="Kind of Rush" choices={RUSH_KINDS} selected={settings.rushKind}
-          details={rushLock ? { daily: rushLock.detail, friends: rushLock.detail, competitive: rushLock.detail }
-            : { daily: dailyDetail(daily, now) }}
+          details={rushLock ? { friends: rushLock.detail, competitive: rushLock.detail } : undefined}
           done={rushLock ? {
-            daily: rushLock.done,
             // A friend's join code still works: the lock is only on opening a lobby.
             friends: { ...rushLock.done, link: { label: 'Join with a code', onClick: () => {
               onSettings({ ...settings, rushKind: 'friends' });
               setStep('friends');
             } } },
             competitive: rushLock.done,
-          } : daily?.run && daily.run.status !== 'playing' ? {
-            daily: {
-              tag: daily.run.status === 'finished' ? 'Played today' : 'Given up today',
-              link: { label: "See today's leaderboard", onClick: () => onLeaderboards('daily') },
-            },
           } : undefined}
           onPick={(kind) => {
             onSettings({ ...settings, rushKind: kind });
-            // Played or started today: its difficulty is set, so straight to it.
-            if (kind === 'daily' && daily?.run) onDaily();
-            else setStep(kind === 'friends' || kind === 'competitive' ? 'friends' : 'difficulty');
+            setStep(kind === 'friends' || kind === 'competitive' ? 'friends' : 'difficulty');
           }} />
       )}
 
@@ -495,7 +594,7 @@ export function TitleScreen({
       {step === 'difficulty' && (
         <>
           <p class="step-note">{dailyChosen
-            ? "How much the app helps you track your own guesses. It's chosen once: it can't change during today's Daily Rush, and each difficulty has its own leaderboard."
+            ? "How much the app helps you track your own guesses. It's chosen once: it can't change during today's Daily Set, and each difficulty has its own leaderboard."
             : lobbyChosen
               ? 'How much the app helps everyone track their own guesses. One difficulty for the whole lobby; you can change it until you start.'
                 + (competitiveChosen ? " It's the same for everyone, so it doesn't change the rating." : '')
@@ -507,7 +606,7 @@ export function TitleScreen({
             choices={rated ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}
             onPick={(difficulty) => onSettings({ ...settings, difficulty })} />
           <button type="button" class="btn primary big" onClick={onStart}>
-            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? 'Start Daily Rush' : lobbyChosen ? 'Open lobby' : 'Start game'}
+            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? 'Start Daily Set' : lobbyChosen ? 'Open lobby' : 'Start game'}
           </button>
         </>
       )}

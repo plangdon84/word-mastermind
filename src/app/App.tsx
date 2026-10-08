@@ -627,7 +627,7 @@ export function App() {
         const placement = loadPlacements().find((p) => p.day === replayed.day) ?? null;
         return (
           <RushScreen key={entry.id} {...game} resume={false} review={{
-            ...review, run: replayed.game, marks: entry.marks, heading: 'Daily Rush',
+            ...review, run: replayed.game, marks: entry.marks, heading: 'Daily Set',
             result: <DailyResult total={summary.yourGuesses} placement={placement} />,
           }} />
         );

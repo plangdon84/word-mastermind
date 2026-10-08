@@ -61,6 +61,18 @@ async function twoPlayerOver(page: Page) {
 export const SCREENS: Screen[] = [
   { name: 'title-new-player', open: async (page) => { await page.goto('/'); } },
   { name: 'title', open: unlockAll },
+  {
+    // A Practice game left part-way: Games in progress opens with it.
+    name: 'title-in-progress',
+    open: async (page) => {
+      await unlockAll(page);
+      await startSolo(page);
+      await guess(page, 'crane');
+      await button(page, 'Menu').click();
+      await button(page, 'Main menu').click();
+      await expect(page.getByRole('button', { name: 'Continue Practice' })).toBeVisible();
+    },
+  },
   { name: 'how-to-play', open: async (page) => { await unlockAll(page); await button(page, 'How to play').click(); } },
   { name: 'tutorial', open: async (page) => { await unlockAll(page); await button(page, 'Tutorial').click(); } },
   { name: 'whats-new', open: async (page) => { await unlockAll(page); await button(page, /^Version .* What's new$/).click(); } },
@@ -77,7 +89,7 @@ export const SCREENS: Screen[] = [
   { name: 'report-issue', open: async (page) => { await unlockAll(page); await button(page, 'Report an issue').click(); } },
   {
     name: 'single-difficulty',
-    open: async (page) => { await unlockAll(page); await modeButton(page, 'Single player').click(); },
+    open: async (page) => { await unlockAll(page); await modeButton(page, 'Practice').click(); },
   },
   {
     name: 'single-game',
@@ -150,13 +162,13 @@ export const SCREENS: Screen[] = [
     name: 'friend-timing',
     open: async (page) => { await twoPlayerSetup(page); await modeButton(page, 'A friend').click(); },
   },
-  { name: 'rush-kind', open: async (page) => { await unlockAll(page); await modeButton(page, 'Rush').click(); } },
+  { name: 'rush-kind', open: async (page) => { await unlockAll(page); await modeButton(page, 'Word Sets').click(); } },
   {
     name: 'solo-rush',
     open: async (page) => {
       await unlockAll(page);
-      await modeButton(page, 'Rush').click();
-      await modeButton(page, 'Solo Rush').click();
+      await modeButton(page, 'Word Sets').click();
+      await modeButton(page, 'Solo').click();
       await button(page, /^Medium/).click();
       await button(page, 'Start game').click();
       await guess(page, 'crane');
@@ -166,18 +178,16 @@ export const SCREENS: Screen[] = [
     name: 'daily-rush',
     open: async (page) => {
       await unlockAll(page);
-      await modeButton(page, 'Rush').click();
-      await modeButton(page, 'Daily Rush').click();
+      await modeButton(page, 'Daily Set').click();
     },
   },
   {
     name: 'daily-rush-paused',
     open: async (page) => {
       await unlockAll(page);
-      await modeButton(page, 'Rush').click();
-      await modeButton(page, 'Daily Rush').click();
+      await modeButton(page, 'Daily Set').click();
       await button(page, /^Medium/).click();
-      await button(page, 'Start Daily Rush').click();
+      await button(page, 'Start Daily Set').click();
       await button(page, 'Pause').click();
       await page.getByRole('heading', { name: 'Paused' }).waitFor();
     },
@@ -186,16 +196,16 @@ export const SCREENS: Screen[] = [
     name: 'lobby-setup',
     open: async (page) => {
       await unlockAll(page);
-      await modeButton(page, 'Rush').click();
-      await modeButton(page, 'Rush with Friends').click();
+      await modeButton(page, 'Word Sets').click();
+      await modeButton(page, 'With friends').click();
     },
   },
   {
     name: 'lobby-close',
     open: async (page) => {
       await unlockAll(page);
-      await modeButton(page, 'Rush').click();
-      await modeButton(page, 'Rush with Friends').click();
+      await modeButton(page, 'Word Sets').click();
+      await modeButton(page, 'With friends').click();
       await button(page, 'Open a lobby').click();
       await button(page, /^Medium/).click();
       await button(page, 'Open lobby').click();

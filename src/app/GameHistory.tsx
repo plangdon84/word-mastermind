@@ -15,7 +15,7 @@ import { guessCount } from './messages';
 export const PAGE_SIZE = 20;
 
 export const MODE_LABEL: Record<HistoryMode, string> = {
-  single: 'Single player', computer: 'vs. Computer', rush: 'Solo Rush', friend: 'vs. a friend', daily: 'Daily Rush',
+  single: 'Practice', computer: 'vs. Computer', rush: 'Solo Rush', friend: 'vs. a friend', daily: 'Daily Set',
   lobby: 'Rush with Friends',
 };
 

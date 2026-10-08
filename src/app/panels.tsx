@@ -180,8 +180,16 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
         <li><b>Hard:</b> just your guesses and their scores.</li>
         <li><b>Extreme:</b> your words are hidden. Only the scores are shown, so remember what you guessed.</li>
       </ul>
-      {/* The modes in the home screen's order. */}
-      <h3>Single player</h3>
+      {/* The modes in the title screen's order. */}
+      <h3>Daily Set</h3>
+      <p>
+        Everyone gets the same 4 words each day, on a theme, once. Choose your difficulty before you start:
+        it can't change. Pause stops your clock and hides the board, twice a run. Find all 4 before midnight New York time to go on that day's
+        leaderboard for your difficulty, ranked by total guesses, with time breaking ties (a run still going then can
+        be finished, off the board). Giving up a
+        word ends your Daily Set for the day, with no place on the leaderboard.
+      </p>
+      <h3>Practice</h3>
       <p>Find the computer's secret word in as few guesses as you can.</p>
       <h3>Two player</h3>
       <p>
@@ -203,7 +211,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
         At Medium, a friend sees your marks with each guess you send, unless you turn off <b>Share my
         Medium marks</b> in your profile's settings.
       </p>
-      <h3>Solo Rush</h3>
+      <h3>Word Sets: Solo Rush</h3>
       <p>
         Find 4 random secret words, one after another, against a stopwatch. Each word starts as soon as
         you find the last. The stopwatch pauses while you're away. You can give up a word and move on,
@@ -212,15 +220,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
         difficulties (Hard ×0.9, Extreme ×0.8) at the easiest difficulty you used. It ranks you against the computer's strengths:
         under 10 is Mastermind, under 15 Expert, up to 20 Skilled, and above that Casual.
       </p>
-      <h3>Daily Rush</h3>
-      <p>
-        Everyone gets the same 4 words each day, on a theme, once. Choose your difficulty before you start:
-        it can't change. Pause stops your clock and hides the board, twice a run. Find all 4 before midnight New York time to go on that day's
-        leaderboard for your difficulty, ranked by total guesses, with time breaking ties (a run still going then can
-        be finished, off the board). Giving up a
-        word ends your Daily Rush for the day, with no place on the leaderboard.
-      </p>
-      <h3>Rush with Friends</h3>
+      <h3>Word Sets: Rush with Friends</h3>
       <p>
         Up to 5 players, joined by a code or link, solve the same 4 words on one clock that never pauses.
         The host picks the difficulty and how long it runs, and can fill empty seats with computers. Scores

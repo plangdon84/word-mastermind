@@ -102,7 +102,7 @@ export const modeButton = (page: Page, name: string) => page.getByRole('button',
 
 /** From the title screen: a single player game at a difficulty. Returns its secret word. */
 export async function startSolo(page: Page, difficulty = 'Medium'): Promise<string> {
-  await modeButton(page, 'Single player').click();
+  await modeButton(page, 'Practice').click();
   await page.getByRole('button', { name: new RegExp(`^${difficulty}`) }).click();
   await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.getByText(/No guesses yet/)).toBeVisible();
