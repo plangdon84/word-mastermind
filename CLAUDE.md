@@ -28,7 +28,7 @@ Run `npm test` and `npm run typecheck` before committing.
   WordNet (pinned by URL and SHA-256; `wordlist/definitions.py`). Fix a bad or
   missing definition in `wordlist/rules/definitions.txt`, never in the JSON.
 - The UI is Preact in `src/app/` (Vite; `npm run dev`, `npm run build` →
-  `dist/`). Single player, two player vs. computer, a friend or a random opponent, Solo Rush, Daily Rush, Rush with Friends and Competitive Rush are playable at Easy,
+  `dist/`). Single player, two player vs. computer, a friend or a random opponent, Solo Rush, Daily Rush, the Daily Word, Rush with Friends and Competitive Rush are playable at Easy,
   Medium, Hard and Extreme (Easy everywhere but rated play; README "Easy"). Keep game
   rules in `src/game/` and only presentation in `src/app/`. Nothing may load
   from a third-party host at runtime (fonts are bundled via fontsource).
@@ -176,6 +176,19 @@ Run `npm test` and `npm run typecheck` before committing.
   and top 10% badges come from the server's final places, passed to
   `computeAchievements`. Names shown to others pass `validateName`'s
   profanity filter (`isOffensive`).
+- Daily Word (Dev Plan item 7b, README "Daily Word"): one word a day for
+  everyone, a run of one word with no Pause, refereed beside the Daily Set
+  by the same day's Durable Object (`DailyRequest.mode: 'dailyWord'`,
+  storage `word:`) through `/api/daily/word…` (`routeDaily` strips the
+  `/word`). The server picks each day's word at random from the secret
+  list when it's first started (`pickWordFor` in `worker/src/dailyWords.ts`,
+  D1 `daily_words`: never the past year's or that day's Daily Set's), so
+  never pick it from anything in this repo. Its board is
+  `daily_word_results` (Crush only, `DAILY_BOARDS`), its places carry
+  `mode: 'dailyWord'` (kept out of the Daily Set's top 10 badges), and it's
+  the history mode `dailyWord` (`DAILY_MODES`, `isDailyMode`). The app
+  reuses `DailyScreen`, `DailyBoardPanel`, `dailyApi` and `dailyStorage`
+  with a `mode`, and `DAILY_NAME` names both games.
 - Leaderboards (Dev Plan item 9b, README "Leaderboards"): a **Leaderboards**
   button on the title screen at all times opens `src/app/LeaderboardsScreen.tsx`,
   a tile per board, each board (`BoardPage` in `panels.tsx`) with ← Back

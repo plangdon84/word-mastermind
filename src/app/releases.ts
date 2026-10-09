@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.14.0',
+    notes: [
+      { text: 'New: Daily Word. One word a day, the same for everyone, with its own leaderboard for each difficulty.' },
+      { text: 'Daily Word has its own streak badges and a Share button.' },
+    ],
+  },
+  {
     version: '1.13.4',
     notes: [
       { text: 'Friends’ profiles open much faster, and their game history loads as you scroll.' },

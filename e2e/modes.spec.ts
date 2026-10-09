@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { dailyDay } from '../src/game/dailyDays';
-import { testThemeFor } from '../worker/src/testThemes';
+import { TEST_DAILY_WORD, testThemeFor } from '../worker/src/testThemes';
 import { getStorage, guess, historyCount, listening, modeButton, newPlayer, savedGame, startSolo, trackSockets, unlockAll } from './helpers';
 
 /*
@@ -113,6 +113,37 @@ test("Daily Set: today's words, once a day", async ({ page }) => {
   const daily = page.getByRole('region', { name: 'Daily' });
   await expect(daily.getByText('Played')).toBeVisible();
   await daily.getByRole('button', { name: /Your place ›/ }).click();
+  await expect(result).toBeVisible();
+});
+
+test('Daily Word: one word for everyone, once a day, on its own board', async ({ page }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Daily Word').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start Daily Word').click();
+  await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
+  // One word, and no Pause.
+  await expect(button(page, 'Pause')).toHaveCount(0);
+  // Each guess after the server's answer to the last, so none is typed while one is on its way.
+  const reply = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/daily/word/guess');
+  await guess(page, 'storm');
+  await reply;
+  // e2e/worker.ts sets the test Daily Word.
+  await guess(page, TEST_DAILY_WORD);
+  const result = page.locator('.rush-result');
+  await expect(result.getByRole('heading', { name: /^Found in 2 guesses/ })).toBeVisible();
+  await expect(result.getByRole('button', { name: 'Your place: open the board' })).toHaveText(/\d+(st|nd|rd|th) ›/);
+  await expectAccessible(page);
+  await result.getByRole('button', { name: 'Your place: open the board' }).click();
+  await expect(page.getByRole('region', { name: 'Daily Word leaderboard' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Ranked by' })).toHaveCount(0);
+
+  // Once a day, apart from the Daily Set, whose row still plays.
+  await page.goto('/');
+  const daily = page.getByRole('region', { name: 'Daily' });
+  await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
+  await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('Play');
+  await daily.getByRole('button', { name: /^Daily Word/ }).click();
   await expect(result).toBeVisible();
 });
 
