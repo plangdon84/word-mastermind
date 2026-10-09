@@ -3,7 +3,7 @@ import { authApi, type Session } from '../../src/app/account';
 import { dailyApi } from '../../src/app/dailyApi';
 import { friendApi, FriendApiError } from '../../src/app/friendApi';
 import {
-  friendsApi, FriendsApiError, isFriendCode, isInviteKey, MAX_SHARED_CHARS, normalizeFriendCode, formatFriendCode,
+  EMAIL_REQUESTS_PER_DAY, MAX_FRIENDS, friendsApi, FriendsApiError, isFriendCode, isInviteKey, MAX_SHARED_CHARS, normalizeFriendCode, formatFriendCode,
   type SharedSummary,
 } from '../../src/app/friendsApi';
 import { addDays, dailyDay, headToHead, replayEntry, type HistoryEntry, type HistoryFilter } from '../../src/game';
@@ -11,12 +11,12 @@ import { dailyEntry, lobbyEntry, soloEntry } from '../../src/game/testGames';
 import { sharedSummary } from '../../src/app/sharedSummary';
 import { lobbyApi, LobbyApiError } from '../../src/app/lobbyApi';
 import { fetchRatings } from '../../src/app/ratingsApi';
-import { syncApi } from '../../src/app/syncApi';
+import { syncApi, type SyncedProfile } from '../../src/app/syncApi';
 import { fakeD1 } from './fakeD1';
 import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
 import { LINKED_GAMES_SQL, NEXT_LINKS_SQL, RETRY_PLAYED_SQL } from './friendProfiles';
-import { newFriendCode } from './friends';
+import { addFriend, newFriendCode } from './friends';
 import { handle, type Env } from './index';
 import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
 
@@ -31,6 +31,11 @@ const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
 const CAT = '9f8e7d6c-5b4a-4c3d-a2e1-f0e9d8c7b6a5';
 const DAN = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
+/** A synced profile, as `player` sends it. */
+const SYNCED: SyncedProfile = {
+  guestName: 'Guest-1234', name: null, country: null, memberSince: NOW,
+  settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
+};
 
 async function vapidKeys(): Promise<VapidKeys> {
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair;
@@ -91,10 +96,7 @@ async function setup() {
     const token = /\?login=([\w-]+)/.exec(emails[emails.length - 1])![1];
     const session = await authApi('https://api.example', guestId, fetchFn).signIn(token);
     const id = identity(guestId, session);
-    await syncApi('https://api.example', id, fetchFn).putProfile({
-      guestName: 'Guest-1234', name, country: null, memberSince: NOW,
-      settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
-    });
+    await syncApi('https://api.example', id, fetchFn).putProfile({ ...SYNCED, name });
     await saveSubscription(db, guestId, { endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, ...await deviceKeys() }, NOW);
     return {
       guestId,
@@ -109,7 +111,10 @@ async function setup() {
   /** Pushes sent since the last call, as [who, topic]. */
   const pushed = () => pushes.splice(0).map(([url, topic]) => [url.split('/').pop(), topic]);
   return {
-    sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock, roomAsks: () => roomAsks, stuck,
+    db, sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock,
+    advance: (ms: number) => {
+      clock += ms;
+    }, roomAsks: () => roomAsks, stuck,
   };
 }
 
@@ -166,6 +171,175 @@ describe('the friends list', () => {
     await ann.friends.add(bobCode);
     expect(await bob.friends.remove((await ann.friends.list()).code)).toMatchObject({ received: [] });
     expect((await ann.friends.list()).sent).toEqual([]);
+  });
+});
+
+describe('friend requests by email', () => {
+  const refusal = (call: Promise<unknown>) => call.then(() => 'sent', (e: FriendsApiError) => e.code);
+
+  it("reach a player with that email, staying off the sender's list until accepted", async () => {
+    const { player, pushed } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const annCode = (await ann.friends.list()).code;
+    pushed();
+
+    await ann.friends.requestByEmail(' Bob@Example.com ');
+    expect((await ann.friends.list()).sent).toEqual([]);
+    expect((await bob.friends.list()).received).toMatchObject([{ code: annCode, name: 'Ann' }]);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+
+    // Asking again tells nobody; Bob accepting makes them friends, on both lists.
+    await ann.friends.requestByEmail('bob@example.com');
+    expect(pushed()).toEqual([]);
+    await bob.friends.add(annCode);
+    expect((await ann.friends.list()).friends).toMatchObject([{ name: 'Bob' }]);
+    expect(pushed()).toEqual([['Ann', await topicOf('friends')]]);
+  });
+
+  it('answer the same for an email with no account, and keep nothing of it', async () => {
+    const { player, pushed, fetchFn, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    await player(BOB, 'Bob');
+    pushed();
+    const raw = async (email: string) => {
+      const response = await fetchFn('https://api.example/api/friends/email', {
+        method: 'POST', headers: { 'x-guest-id': ANN, authorization: `Bearer ${ann.session.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      return [response.status, await response.text()];
+    };
+    expect(await raw('nobody@example.com')).toEqual(await raw('bob@example.com'));
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+    const kept = JSON.stringify(sqlite.prepare('SELECT * FROM email_requests').all());
+    expect(kept).not.toContain('nobody');
+    expect(kept).not.toContain('bob@');
+  });
+
+  it('refuse your own email, or something that is not one', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    expect(await refusal(ann.friends.requestByEmail('ANN@example.com'))).toBe('own-email');
+    expect(await refusal(ann.friends.requestByEmail('ann at example'))).toBe('bad-email');
+  });
+
+  it(`stop at ${EMAIL_REQUESTS_PER_DAY} a day, found or not`, async () => {
+    const { player, advance } = await setup();
+    const ann = await player(ANN, 'Ann');
+    await player(BOB, 'Bob');
+    for (let i = 0; i < EMAIL_REQUESTS_PER_DAY; i++) expect(await refusal(ann.friends.requestByEmail(`someone${i}@example.com`))).toBe('sent');
+    expect(await refusal(ann.friends.requestByEmail('bob@example.com'))).toBe('too-many-emails');
+    advance(24 * 60 * 60 * 1000);
+    expect(await refusal(ann.friends.requestByEmail('bob@example.com'))).toBe('sent');
+  });
+
+  it('are forgotten once the sender adds the same player by code, which goes just as it would without them', async () => {
+    const { player, pushed } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    const [bobCode, catCode] = [(await bob.friends.list()).code, (await cat.friends.list()).code];
+    await ann.friends.requestByEmail('bob@example.com');
+    pushed();
+    // Bob, whose email it was, and Cat, whose it wasn't: the same list, and the same notification.
+    expect((await ann.friends.add(bobCode)).sent).toMatchObject([{ code: bobCode, name: 'Bob' }]);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+    await ann.friends.add(catCode);
+    expect(pushed()).toEqual([['Cat', await topicOf('friends')]]);
+    expect((await bob.friends.list()).received).toMatchObject([{ name: 'Ann' }]);
+  });
+
+  it('end as a plain request by code when one lands while adding that player by code', async () => {
+    const { db, sqlite, player, now } = await setup();
+    await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    // A request by email to Bob, still under way after answering, lands just as Ann's add looks at where they stand.
+    let landed = false;
+    const racing = { ...db, prepare: (sql: string) => {
+      if (!landed && sql.includes("AND NOT (state = 'sent' AND by_email = 1)") && sql.startsWith('SELECT state')) {
+        landed = true;
+        sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?, ?, 'sent', ?, 1), (?, ?, 'received', ?, 1)`)
+          .run(ANN, BOB, now(), BOB, ANN, now());
+      }
+      return db.prepare(sql);
+    } } as D1Database;
+    const added = await addFriend(racing, ANN, bobCode, now());
+    expect(landed).toBe(true);
+    expect(added).toMatchObject({ ok: true, notices: [{ guestId: BOB }] });
+    expect(sqlite.prepare('SELECT state, by_email FROM friends ORDER BY state').all())
+      .toEqual([{ state: 'received', by_email: 0 }, { state: 'sent', by_email: 0 }]);
+  });
+
+  it("never count against the sender's limit, so a full list can't tell whose email it was", async () => {
+    const { player, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    const insert = sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?, ?, 'sent', ?)`);
+    sqlite.exec('PRAGMA foreign_keys = OFF');
+    for (let i = 0; i < MAX_FRIENDS - 1; i++) insert.run(ANN, `filler-${i}`, NOW);
+    await ann.friends.requestByEmail('bob@example.com');
+    expect(await refusal(ann.friends.add((await cat.friends.list()).code))).toBe('sent');
+  });
+
+  it("send nothing to a friend, or to someone who already asked you (who you'd accept on your list)", async () => {
+    const { player, pushed } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    await bob.friends.add((await ann.friends.list()).code);
+    await cat.friends.acceptInvite((await ann.friends.list()).invite!);
+    pushed();
+    await ann.friends.requestByEmail('bob@example.com');
+    await ann.friends.requestByEmail('cat@example.com');
+    expect(pushed()).toEqual([]);
+    expect(await ann.friends.list()).toMatchObject({ received: [{ name: 'Bob' }], friends: [{ name: 'Cat' }], sent: [] });
+  });
+});
+
+describe('searching players by name', () => {
+  const refusal = (call: Promise<unknown>) => call.then(() => 'found', (e: FriendsApiError) => e.code);
+
+  it('finds names with the search in them, the closest first, with their country and where you stand', async () => {
+    const { player } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bobby = await player(BOB, 'Bobby');
+    const bob = await player(CAT, 'Bob');
+    const jimbob = await player(DAN, 'Jimbob');
+    await bob.sync.putProfile({ ...SYNCED, name: 'Bob', country: 'GB' });
+    await ann.friends.add((await bobby.friends.list()).code);
+
+    const found = await ann.friends.search('BOB');
+    expect(found.map((p) => p.name)).toEqual(['Bob', 'Bobby', 'Jimbob']);
+    expect(found[0]).toMatchObject({ country: 'GB', state: null });
+    expect(found[1]).toMatchObject({ code: (await bobby.friends.list()).code, state: 'sent' });
+    // Jimbob has never opened his friends list, so had no code until he was found.
+    expect(found[2].code).toBe((await jimbob.friends.list()).code);
+    expect(await refusal(ann.friends.search('bo'))).toBe('bad-request');
+    expect(await ann.friends.search('ann')).toEqual([]);
+  });
+
+  it("leaves out a player who'd rather not be found, a guest name, and a request you sent by email", async () => {
+    const { player } = await setup();
+    // Ann has never opened her friends list: a request by email still reaches Bob, under her new code.
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Bobcat');
+    await bob.sync.putProfile({ ...SYNCED, name: 'Bob', settings: { ...SYNCED.settings, findByName: false } });
+    await cat.sync.putProfile({ ...SYNCED, name: null });
+    expect(await ann.friends.search('bob')).toEqual([]);
+    expect(await ann.friends.search('guest')).toEqual([]);
+
+    await bob.sync.putProfile({ ...SYNCED, name: 'Bob' });
+    await ann.friends.requestByEmail('bob@example.com');
+    expect(await ann.friends.search('bob')).toMatchObject([{ name: 'Bob', state: null }]);
+    expect((await bob.friends.list()).received).toMatchObject([{ name: 'Ann' }]);
+  });
+
+  it('is for accounts only', async () => {
+    const { fetchFn, guest } = await setup();
+    await expect(friendsApi('https://api.example', guest(ANN), fetchFn).search('bob')).rejects.toMatchObject({ code: 'signed-out' });
   });
 });
 
@@ -382,7 +556,7 @@ describe('challenging a friend', () => {
 describe("a friend game's names", () => {
   const profile = (name: string | null) => ({
     guestName: 'Guest-1234', name, country: null, memberSince: NOW,
-    settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
+    settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
   } as const);
 
   it("are each player's current one: a guest who signs in, and a renamed profile (#133)", async () => {
@@ -523,7 +697,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     const { ann, bob, bobCode, now } = await friends();
     await bob.sync.putProfile({
       guestName: 'Guest-1234', name: 'Bob', country: 'GB', memberSince: NOW,
-      settings: { difficulty: 'hard', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
+      settings: { difficulty: 'hard', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
     });
     const solo = soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach']);
     await bob.sync.upload([solo]);

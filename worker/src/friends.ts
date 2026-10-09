@@ -1,11 +1,12 @@
-import { DAILY_MODES, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { DAILY_MODES, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS, validateName } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
-  FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, parseFriendGamesParams, type Friend,
-  type FriendProfile, type FriendProfileAnswer, type FriendsList, type LobbyInvite,
+  EMAIL_REQUESTS_PER_DAY, FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, normalizeSearch,
+  parseFriendGamesParams, SEARCH_MAX, type FoundPlayer, type FoundState, type Friend, type FriendProfile,
+  type FriendProfileAnswer, type FriendsList, type LobbyInvite,
 } from '../../src/app/friendsApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
-import { identify, playerOfAccount } from './accounts';
+import { identify, normalizeEmail, playerOfAccount } from './accounts';
 import { pastPlacements } from './dailyRoutes';
 import { friendGamesPage, sharedSummaryOf, versusOf } from './friendProfiles';
 import { errorResponse, json, readJson } from './http';
@@ -18,7 +19,8 @@ import { syncedName } from './sync';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
- * code. A request becomes a friendship once the other player adds you back
+ * code, or find each other by email or name (Dev Plan item 18d). A request
+ * becomes a friendship once the other player adds you back
  * (accepts). A private invite link (its key) makes friends at once. Friends can challenge each other to a game (`games.ts`) and
  * invite each other to a Rush with Friends lobby (`lobbyRoutes.ts`).
  */
@@ -158,7 +160,7 @@ export async function listFriends(env: Env, accountId: string, now: number): Pro
   const db = env.DB;
   const { results } = await db.prepare(
     `SELECT f.friend_id, f.state, f.since, a.friend_code FROM friends f JOIN accounts a ON a.id = f.friend_id
-     WHERE f.account_id = ?1 ORDER BY f.since DESC`,
+     WHERE f.account_id = ?1 AND NOT (f.state = 'sent' AND f.by_email = 1) ORDER BY f.since DESC`,
   ).bind(accountId).all<{ friend_id: string; state: string; since: number; friend_code: string }>();
   const list: FriendsList = {
     code: await friendCodeOf(db, accountId), invite: await inviteKeyOf(db, accountId), friends: [], received: [], sent: [], lobbyInvites: [],
@@ -175,6 +177,35 @@ export async function listFriends(env: Env, accountId: string, now: number): Pro
 }
 
 type Added = { ok: true; notices: Notice[] } | { ok: false; status: number; error: string };
+
+/**
+ * How many friends and requests count against `accountId`'s limit: a
+ * request they sent by email, still off their list, doesn't, or filling a
+ * list to the brim could tell whether an email has an account.
+ */
+const listSize = async (db: D1Database, accountId: string) => (await db.prepare(
+  `SELECT COUNT(*) AS n FROM friends WHERE account_id = ?1 AND NOT (state = 'sent' AND by_email = 1)`,
+).bind(accountId).first<{ n: number }>())?.n ?? 0;
+
+/**
+ * Forgets a request `accountId` sent `friendId` by email, still off their
+ * list, before adding them another way, which then goes exactly as if it
+ * never was (a new request, and its notification): how it goes, and how
+ * long it takes, can't tell whose email it was. One statement either way.
+ */
+const forgetEmailRequest = (db: D1Database, accountId: string, friendId: string) => db.prepare(
+  `DELETE FROM friends WHERE ((account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1))
+     AND EXISTS (SELECT 1 FROM friends WHERE account_id = ?1 AND friend_id = ?2 AND state = 'sent' AND by_email = 1)`,
+).bind(accountId, friendId).run();
+
+/**
+ * Where `accountId` stands with `friendId` as their list shows it: a
+ * request they sent by email, even one made a moment ago by a request
+ * still under way, is none, so adding them goes as if it weren't there.
+ */
+const visibleState = (db: D1Database, accountId: string, friendId: string) => db.prepare(
+  `SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2 AND NOT (state = 'sent' AND by_email = 1)`,
+).bind(accountId, friendId).first<{ state: string }>();
 type Accepted = { ok: true; notices: Notice[]; code: string } | { ok: false; status: number; error: string };
 
 /**
@@ -185,8 +216,8 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
   const friendId = await accountByCode(db, code);
   if (!friendId) return { ok: false, status: 404, error: 'not-found' };
   if (friendId === accountId) return { ok: false, status: 400, error: 'own-code' };
-  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first<{ state: string }>();
+  await forgetEmailRequest(db, accountId, friendId);
+  const existing = await visibleState(db, accountId, friendId);
   if (existing?.state === 'friends' || existing?.state === 'sent') return { ok: true, notices: [] };
   const name = await nameOrDefault(db, accountId);
   if (existing?.state === 'received') {
@@ -195,14 +226,103 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
     return { ok: true, notices: [friendAcceptedNotice(friendId, name)] };
   }
   for (const id of [accountId, friendId]) {
-    const count = await db.prepare('SELECT COUNT(*) AS n FROM friends WHERE account_id = ?1').bind(id).first<{ n: number }>();
-    if ((count?.n ?? 0) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
+    if (await listSize(db, id) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
   }
-  await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?1, ?2, 'sent', ?3)`)
-    .bind(accountId, friendId, now).run();
-  await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?2, ?1, 'received', ?3)`)
-    .bind(accountId, friendId, now).run();
+  // One statement that also takes the place of a request by email made meanwhile, so that overlap ends as this request alone.
+  await db.prepare(
+    `INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 0), (?2, ?1, 'received', ?3, 0)
+     ON CONFLICT (account_id, friend_id) DO UPDATE SET state = excluded.state, since = excluded.since, by_email = 0
+     WHERE friends.by_email = 1`,
+  ).bind(accountId, friendId, now).run();
   return { ok: true, notices: [friendRequestNotice(friendId, name)] };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * A friend request to whoever has an account with `email` (Dev Plan item
+ * 18d), first counted against the sender's limits: whether anyone has
+ * that email must never show, so every refusal is here, before the email
+ * is looked up, and depends only on the sender. The rest is
+ * `deliverEmailRequest`, run after answering where the server allows. Each
+ * try counts, found or not, in one statement, so tries at once can't pass
+ * the daily limit together.
+ */
+export async function countEmailRequest(
+  db: D1Database, accountId: string, email: string, now: number,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const own = await db.prepare('SELECT email FROM accounts WHERE id = ?1').bind(accountId).first<{ email: string }>();
+  if (own?.email === email) return { ok: false, status: 400, error: 'own-email' };
+  if (await listSize(db, accountId) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
+  await db.prepare('DELETE FROM email_requests WHERE account_id = ?1 AND at <= ?2').bind(accountId, now - DAY_MS).run();
+  const { meta } = await db.prepare(
+    `INSERT INTO email_requests (account_id, at) SELECT ?1, ?2
+     WHERE (SELECT COUNT(*) FROM email_requests WHERE account_id = ?1) < ${EMAIL_REQUESTS_PER_DAY}`,
+  ).bind(accountId, now).run();
+  if (!meta.changes) return { ok: false, status: 429, error: 'too-many-emails' };
+  // Your request shows on their list by your code, so you need one, even if you've never opened your own list.
+  await friendCodeOf(db, accountId);
+  return { ok: true };
+}
+
+/**
+ * Sends a request counted by `countEmailRequest`, if anyone has `email`,
+ * returning its notification. None goes to someone already a friend,
+ * already asked either way, or whose list is full. The request stays off
+ * the sender's list until it's accepted, and nothing is emailed or kept
+ * for an email with no account.
+ */
+export async function deliverEmailRequest(db: D1Database, accountId: string, email: string, now: number): Promise<Notice[]> {
+  const found = await db.prepare('SELECT id FROM accounts WHERE email = ?1').bind(email).first<{ id: string }>();
+  const friendId = found?.id;
+  if (!friendId || friendId === accountId) return [];
+  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
+    .bind(accountId, friendId).first();
+  if (existing || await listSize(db, friendId) >= MAX_FRIENDS) return [];
+  await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 1), (?2, ?1, 'received', ?3, 1)`)
+    .bind(accountId, friendId, now).run();
+  return [friendRequestNotice(friendId, await nameOrDefault(db, accountId))];
+}
+
+/**
+ * Players whose name has `search` in it (Dev Plan item 18d), for
+ * `accountId` to send a request to: the best SEARCH_MAX, a name that is the
+ * search first, then one that starts with it. Only names a player set
+ * (never a made-up guest name), only those who haven't turned off
+ * "Let players find me by name" (`findByName` in their synced settings),
+ * never you, and never a name the profanity filter now refuses. A request
+ * you sent by email shows as none, so a search can't tell you whose email
+ * it was.
+ */
+export async function searchPlayers(db: D1Database, accountId: string, search: string): Promise<FoundPlayer[]> {
+  const find = () => db.prepare(
+    `SELECT a.id, a.friend_code AS code, p.name, p.country,
+       (SELECT f.state FROM friends f WHERE f.account_id = ?1 AND f.friend_id = a.id
+         AND NOT (f.state = 'sent' AND f.by_email = 1)) AS state
+     FROM profiles p JOIN accounts a ON a.id = p.account_id
+     WHERE p.name IS NOT NULL AND a.id <> ?1 AND COALESCE(json_extract(p.settings, '$.findByName'), 1) <> 0
+       AND instr(lower(p.name), lower(?2)) > 0
+     ORDER BY lower(p.name) = lower(?2) DESC, instr(lower(p.name), lower(?2)) = 1 DESC, lower(p.name), a.id
+     LIMIT ${SEARCH_MAX}`,
+  ).bind(accountId, search).all<{ id: string; code: string | null; name: string; country: string | null; state: string | null }>();
+  let { results } = await find();
+  // A player who never opened their friends list has no code yet: make theirs, in one go, then look again.
+  const codeless = results.filter((r) => r.code === null);
+  if (codeless.length > 0) {
+    try {
+      await db.batch(codeless.map((r) => db.prepare('UPDATE accounts SET friend_code = ?2 WHERE id = ?1 AND friend_code IS NULL')
+        .bind(r.id, newFriendCode(secureRandom))));
+    } catch {
+      // A new code that's already someone's (all but impossible): those players are left out of this search, not the rest.
+    }
+    ({ results } = await find());
+  }
+  return results.flatMap((r): FoundPlayer[] => {
+    const shown = validateName(r.name);
+    if (!r.code || !shown.ok) return [];
+    const state: FoundState = (['friends', 'sent', 'received'] as const).find((s) => s === r.state) ?? null;
+    return [{ code: r.code, name: shown.name, country: isCountry(r.country) ? r.country : null, state }];
+  });
 }
 
 /**
@@ -218,14 +338,13 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
   // The owner has opened their list (that's where the link came from), so they have a code.
   const code = row.friend_code ?? await friendCodeOf(db, friendId);
   if (friendId === accountId) return { ok: false, status: 400, error: 'own-code' };
-  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first<{ state: string }>();
+  await forgetEmailRequest(db, accountId, friendId);
+  const existing = await visibleState(db, accountId, friendId);
   if (existing?.state === 'friends') return { ok: true, notices: [], code };
-  // A pending request already counts against both lists.
+  // A pending request already counts against both lists (one you sent by email, which doesn't, was forgotten above).
   if (!existing) {
     for (const id of [accountId, friendId]) {
-      const count = await db.prepare('SELECT COUNT(*) AS n FROM friends WHERE account_id = ?1').bind(id).first<{ n: number }>();
-      if ((count?.n ?? 0) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
+      if (await listSize(db, id) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
     }
   }
   await db.batch([
@@ -274,6 +393,8 @@ async function friendProfile(db: D1Database, friendId: string, now: number): Pro
 /** Routes `/api/friends…`, or returns null for any other path. */
 export async function routeFriends(
   request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
+  /** Runs work after the answer is sent (the worker's `waitUntil`); without it, the work is awaited first. */
+  defer?: (work: Promise<unknown>) => void,
 ): Promise<Response | null> {
   if (pathname !== '/api/friends' && !pathname.startsWith('/api/friends/')) return null;
   const who = await identify(request, env.DB, now);
@@ -282,6 +403,16 @@ export async function routeFriends(
   const accountId = who.player.accountId;
   if (!accountId) return errorResponse(401, 'signed-out');
   const method = request.method;
+  /**
+   * Notifications go out after answering where the server allows (else
+   * first), so how long an answer takes never says whether one went: a
+   * friend request by email, or adding someone you'd emailed.
+   */
+  const afterAnswering = async (work: Promise<Notice[]>) => {
+    const sending = work.then((notices) => sendNotices(env, notices, now, fetchFn)).catch(() => {});
+    if (defer) defer(sending);
+    else await sending;
+  };
   if (pathname === '/api/friends') {
     return method === 'GET' ? json(await listFriends(env, accountId, now)) : errorResponse(405, 'bad-request');
   }
@@ -302,8 +433,23 @@ export async function routeFriends(
     };
     return json(answer);
   }
+  if (pathname === '/api/friends/search') {
+    if (method !== 'GET') return errorResponse(405, 'bad-request');
+    const search = normalizeSearch(new URL(request.url).searchParams.get('name') ?? '');
+    if (!search) return errorResponse(400, 'bad-request');
+    return json({ players: await searchPlayers(env.DB, accountId, search) });
+  }
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   const body = await readJson(request);
+  if (pathname === '/api/friends/email') {
+    const email = normalizeEmail(isObject(body) ? body.email : undefined);
+    if (!email) return errorResponse(400, 'bad-email');
+    const counted = await countEmailRequest(env.DB, accountId, email, now);
+    if (!counted.ok) return errorResponse(counted.status, counted.error);
+    // Looking the email up, too, comes after answering, so the answer takes as long whoever it is.
+    await afterAnswering(deliverEmailRequest(env.DB, accountId, email, now));
+    return json({ ok: true });
+  }
   if (pathname === '/api/friends/invite/reset') {
     await inviteKeyOf(env.DB, accountId, true);
     return json(await listFriends(env, accountId, now));
@@ -322,7 +468,7 @@ export async function routeFriends(
     if (!isInviteKey(key)) return errorResponse(400, 'bad-request');
     const accepted = await acceptInvite(env.DB, accountId, key, now);
     if (!accepted.ok) return errorResponse(accepted.status, accepted.error);
-    await sendNotices(env, accepted.notices, now, fetchFn);
+    await afterAnswering(Promise.resolve(accepted.notices));
     // Which friend the link was from: the app knows them only by the link's key.
     const list = await listFriends(env, accountId, now);
     return json({ ...list, accepted: list.friends.find((f) => f.code === accepted.code) ?? null });
@@ -332,7 +478,7 @@ export async function routeFriends(
   if (pathname === '/api/friends/add') {
     const added = await addFriend(env.DB, accountId, code, now);
     if (!added.ok) return errorResponse(added.status, added.error);
-    await sendNotices(env, added.notices, now, fetchFn);
+    await afterAnswering(Promise.resolve(added.notices));
   } else if (pathname === '/api/friends/remove') {
     await removeFriend(env.DB, accountId, code);
   } else {

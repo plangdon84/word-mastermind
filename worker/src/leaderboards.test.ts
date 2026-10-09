@@ -48,7 +48,7 @@ function setup() {
     const identity = { guestId: device, token: session.token };
     await syncApi(API, identity, fetchFn).putProfile({
       guestName: 'Guest-1234', name, country: null, memberSince: NOW,
-      settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true },
+      settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
     });
     return {
       id: session.account.id,

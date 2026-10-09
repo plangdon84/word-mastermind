@@ -34,18 +34,6 @@ and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
 from a mock-up, went before 18z; and 18c was split, opening a friend's
 profile from games and boards becoming 18ca)
 
-- [ ] **18d. Finding friends** (issues #79 and #78; server and privacy,
-  review gate)
-  - Type a friend's email to send them a request, without ever saying
-    whether they have an account ("If they play, they'll get your
-    request")
-  - Search players by name (name and country shown, so you can pick the
-    right one) and send a request
-  - A **Share** button for your invite link (Messages, WhatsApp and so
-    on). A phone's contacts and social accounts are left out (a web app
-    can't read an iPhone's contacts)
-  - Once Random opponent is switched on: add your opponent as a friend
-    during or after the game (#78)
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
     the game), kept out of 18j's sitemap and footers and sent with
@@ -102,6 +90,9 @@ profile from games and boards becoming 18ca)
 
 **Later** (when their cost is worth it)
 
+- [ ] **18da. Friending your random opponent** (issue #78; split from
+  18d on 9 October 2026; when Random opponent is switched back on)
+  - Add your opponent as a friend during or after the game
 - [ ] **12a. Sign in with Apple** (needs the $99-a-year Apple Developer
   Program membership)
 - [ ] **Competitive Rush shared places** (issue
@@ -122,6 +113,23 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18d. Finding friends** (issue #79, and #78 but its last part, now 18da; server and privacy,
+  review gate)
+  - Type a friend's email to send them a request, without ever saying
+    whether they have an account ("If they play, they'll get your
+    request")
+  - Search players by name (name and country shown, so you can pick the
+    right one) and send a request
+  - A **Share** button for your invite link (Messages, WhatsApp and so
+    on): already built in item 18, so nothing new. A phone's contacts and
+    social accounts are left out (a web app can't read an iPhone's
+    contacts)
+  - A request by email goes only to an existing account, says the same
+    whether or not there is one, and stays off the sender's list until
+    accepted; nothing is emailed or kept for an email with no account
+    (decided with the owner on 9 October 2026). Search finds every
+    signed-in player who set a name, unless they turn off **Let players
+    find me by name**
 - [x] **7b. Daily Word** (issue #159; worker, review gate; changes README
   "Daily Rush" and "Leaderboards", and adds a "Daily Word" section)
   - One word a day, the same for everyone, picked from the secret list

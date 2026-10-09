@@ -1,12 +1,13 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiIdentity } from './apiIdentity';
+import { countryName } from './countries';
 import { forgetFriendProfiles } from './FriendProfileScreen';
 import { isPhone, ShareIcon } from './friendParts';
 import { smsLink } from './friendGames';
 import {
   formatFriendCode, friendMessage, friendsApi, FriendsApiError, friendsErrorMessage, inviteLink, normalizeFriendCode,
-  type Friend, type FriendsApi, type FriendsList,
+  normalizeSearch, SEARCH_MIN, type FoundPlayer, type Friend, type FriendsApi, type FriendsList,
 } from './friendsApi';
 import { shareLink } from './share';
 
@@ -115,12 +116,18 @@ function YourCode({ code, invite, name, busy, onReset }: {
   );
 }
 
+/** Typed into Find a friend: an email (it has an @ and a dot after it), else a name. */
+const looksLikeEmail = (typed: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed.trim());
+
 /**
- * The profile's Friends section (README "Friends"): your friend code, adding
+ * The profile's Friends section (README "Friends"): finding a friend by
+ * name or email (Dev Plan item 18d), your friend code, adding
  * a friend by theirs, requests to answer, and your friends, each with
  * Challenge. Friends are accounts, so it asks you to sign in first.
  */
-export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInviteDone, onSignIn, onChallenge, onOpenFriend }: {
+export function FriendsSection({
+  apiUrl, identity, name, addCode, invite, findByName, onFindByName, onInviteDone, onSignIn, onChallenge, onOpenFriend,
+}: {
   apiUrl: string;
   identity: ApiIdentity;
   /** Your display name, for the message sent with your link. */
@@ -129,6 +136,9 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
   addCode: string | null;
   /** A friend's private invite (`?invite=…`), accepted once you're signed in. */
   invite: string | null;
+  /** The synced setting Let players find me by name. */
+  findByName: boolean;
+  onFindByName: (findable: boolean) => void;
   /** The invite was accepted, or can't be: it's forgotten. */
   onInviteDone: () => void;
   /** Opens the profile's Account page. */
@@ -146,6 +156,11 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [findTyped, setFindTyped] = useState('');
+  /** The last search's players, or null before one. */
+  const [found, setFound] = useState<FoundPlayer[] | null>(null);
+  /** What Find a friend last said: a search's or a request's outcome. */
+  const [findNotice, setFindNotice] = useState<Notice | null>(null);
 
   const change = async (call: () => Promise<FriendsList>, done: (list: FriendsList) => string | null) => {
     setBusy(true);
@@ -205,6 +220,48 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
     setOffer(null);
     onInviteDone();
   };
+
+  const find = (e: Event) => {
+    e.preventDefault();
+    const typed = findTyped.trim();
+    setFound(null);
+    setFindNotice(null);
+    const failed = (error: unknown) => setFindNotice({
+      text: friendsErrorMessage(error instanceof FriendsApiError ? error.code : 'unreachable'), error: true,
+    });
+    if (looksLikeEmail(typed)) {
+      setBusy(true);
+      api.requestByEmail(typed).then(() => {
+        setFindTyped('');
+        // The same words whether or not anyone has that email: the server never says.
+        setFindNotice({
+          text: "If they have a wordmastermind.app account, they'll get your request. They'll be on your list once they accept.",
+          error: false,
+        });
+      }, failed).finally(() => setBusy(false));
+      return;
+    }
+    const search = normalizeSearch(typed);
+    if (!search) {
+      setFindNotice({ text: `Type at least ${SEARCH_MIN} letters of their name, or their email.`, error: true });
+      return;
+    }
+    setBusy(true);
+    api.search(search).then((players) => {
+      setFound(players);
+      if (players.length === 0) {
+        setFindNotice({ text: `Nobody called “${search}” found. Try their email or friend code instead.`, error: false });
+      }
+    }, failed).finally(() => setBusy(false));
+  };
+
+  /** A found player's request sent (or theirs accepted): their row shows where you stand now. */
+  const addFound = (player: FoundPlayer) => void change(() => api.add(player.code), (next) => {
+    const state = next.friends.some((f) => f.code === player.code) ? 'friends' : 'sent';
+    setFound((players) => players?.map((p) => (p.code === player.code ? { ...p, state } : p)) ?? null);
+    return state === 'friends' ? `You and ${player.name} are friends.`
+      : `Friend request sent to ${player.name}. They'll be on your list once they accept.`;
+  });
 
   const add = (e: Event) => {
     e.preventDefault();
@@ -274,6 +331,34 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
               </ul>
             </>
           )}
+          <form class="account-form" onSubmit={find}>
+            <label class="info-label" for="friend-find">Find a friend</label>
+            <input id="friend-find" class="text-input" type="text" value={findTyped} maxLength={254}
+              placeholder="Their name or email" autoComplete="off" spellcheck={false}
+              onInput={(e) => setFindTyped(e.currentTarget.value)} />
+            <button type="submit" class="btn" disabled={busy}>Find</button>
+          </form>
+          {found && found.length > 0 && (
+            <ul class="friend-list" aria-label="Players found">
+              {found.map((p) => (
+                <li key={p.code}>
+                  <span class="lobby-name">
+                    {p.name}
+                    {p.country && <span class="field-note found-country">{countryName(p.country)}</span>}
+                  </span>
+                  <span class="friend-btns">
+                    {p.state === 'friends' ? <span class="field-note">Friends</span>
+                      : p.state === 'sent' ? <span class="field-note">Request sent</span>
+                      : (
+                        <button type="button" class="btn small primary" disabled={busy} aria-label={`Add ${p.name}`}
+                          onClick={() => addFound(p)}>{p.state === 'received' ? 'Accept' : 'Add'}</button>
+                      )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {findNotice && <p class={findNotice.error ? 'field-note error' : 'field-note'} role="status">{findNotice.text}</p>}
           <form class="account-form" onSubmit={add}>
             <label class="info-label" for="friend-code">Add a friend by their code</label>
             <input id="friend-code" class="text-input" type="text" value={typed} maxLength={12} placeholder="ABCD-2345"
@@ -284,8 +369,17 @@ export function FriendsSection({ apiUrl, identity, name, addCode, invite, onInvi
           {notice && <p class={notice.error ? 'field-note error' : 'field-note'} role="status">{notice.text}</p>}
           <YourCode code={list.code} invite={list.invite} name={name} busy={busy}
             onReset={() => void change(() => api.resetInvite(), () => 'Your invite link is new. Links you shared before no longer work.')} />
+          <div class="menu-group">
+            <label class="toggle">
+              <input type="checkbox" checked={findByName} onChange={(e) => onFindByName(e.currentTarget.checked)} />
+              Let players find me by name
+            </label>
+            <span class="field-note">
+              Players who search for your name see it and your country, and can send you a friend request.
+            </span>
+          </div>
           {list.friends.length === 0 ? (
-            <p class="field-note">No friends yet. Send them your friend code, or add theirs above.</p>
+            <p class="field-note">No friends yet. Find them above by name or email, or send them your invite link.</p>
           ) : (
             <ul class="friend-list">
               {list.friends.map((f) => row(f, removing === f.code ? (

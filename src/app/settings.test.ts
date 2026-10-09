@@ -6,7 +6,7 @@ describe('parseSettings', () => {
     const settings = {
       mode: 'two', opponent: 'friend', rushKind: 'daily', strength: 'expert', timeControl: '5m', difficulty: 'extreme',
       newestFirst: { easy: true, medium: false, hard: true, extreme: true }, showTutorial: false,
-      enterRight: true, shareMarks: false, rankBy: 'rush', boardRankBy: 'rush',
+      enterRight: true, shareMarks: false, rankBy: 'rush', boardRankBy: 'rush', findByName: false,
     };
     expect(parseSettings(JSON.stringify(settings))).toEqual(settings);
   });
@@ -78,6 +78,8 @@ describe('parseSettings', () => {
   it('shares Medium marks until it is turned off', () => {
     expect(parseSettings(JSON.stringify({})).shareMarks).toBe(true);
     expect(parseSettings(JSON.stringify({ shareMarks: false })).shareMarks).toBe(false);
+    expect(parseSettings(JSON.stringify({})).findByName).toBe(true);
+    expect(parseSettings(JSON.stringify({ findByName: false })).findByName).toBe(false);
   });
 
   it('offers the tutorial until it is turned off', () => {

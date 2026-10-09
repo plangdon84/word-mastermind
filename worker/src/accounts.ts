@@ -305,6 +305,7 @@ export async function deleteAccount(db: D1Database, accountId: string): Promise<
   await db.prepare('DELETE FROM profiles WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM friends WHERE account_id = ?1 OR friend_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM lobby_invites WHERE account_id = ?1').bind(accountId).run();
+  await db.prepare('DELETE FROM email_requests WHERE account_id = ?1').bind(accountId).run();
   await deleteRatings(db, accountId);
   await db.prepare('UPDATE guests SET account_id = NULL WHERE account_id = ?1').bind(accountId).run();
   // Its profile for friends (Dev Plan item 18cb) last, with the account, so a request indexing it meanwhile can't leave rows behind.

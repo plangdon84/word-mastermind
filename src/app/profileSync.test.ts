@@ -8,7 +8,7 @@ const here = {
 };
 const account: SyncedProfile = {
   guestName: 'Guest-4821', name: null, country: null, memberSince: 9,
-  settings: { difficulty: 'hard', newestFirst: { easy: false, medium: true, hard: true, extreme: false }, showTutorial: false, shareMarks: true },
+  settings: { difficulty: 'hard', newestFirst: { easy: false, medium: true, hard: true, extreme: false }, showTutorial: false, shareMarks: true, findByName: true },
 };
 
 describe('the synced profile', () => {

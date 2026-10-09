@@ -2011,6 +2011,28 @@ first.
   `ABCD-2345`. The code is public: it finds you and shows your name, nothing
   else, never your account's ID or email. Links with it (`/?friend=…`, shared
   before 1.0) still open the profile with the code filled in.
+- **Finding a friend** (Dev Plan item 18d, issue #79): one **Find a friend**
+  field takes a name or an email.
+  - **By name:** at least 3 characters of their name finds up to 20 players
+    whose name has them in it (an exact match first, then names starting
+    with it), each with their country, to tell two of one name apart, and
+    **Add** (or **Accept** if they've asked you, **Request sent** or
+    **Friends** if that's done). Only names a player set are searched, never
+    a made-up guest name, and never yours.
+  - **Let players find me by name** (on the Friends page, on by default,
+    synced with your account) leaves you out of every search when off.
+  - **By email:** a request goes to whoever has an account with that email.
+    The app always answers "If they have a wordmastermind.app account,
+    they'll get your request", and the request stays off your list (and
+    out of your friends limit) until they accept; adding them by code or
+    name starts a new request as if it never was, so nobody can use it to
+    learn whether an email plays. The server looks the email up after
+    answering, and sends friend notifications after answering too. Nothing is emailed, and an email with no
+    account isn't kept. At most 20 a day, found or not. Someone who already
+    asked you, or is already a friend, gets nothing new.
+  - A phone's contacts and social accounts are left out: a web app can't
+    read an iPhone's contacts, and each social account needs its own
+    sign-in setup.
 - **Adding a friend by code:** type their code (any case, with or without the dash)
   and **Add friend**. That sends a request; you're friends once they **Accept**
   it (or add your code too). They can **Decline**, and you can **Cancel** a
@@ -2038,8 +2060,10 @@ first.
   tap **Join** in the lobby.
 - **Turn alerts** also tell you about a friend request, an accepted request,
   a challenge and a lobby invite; the first two open the friends list.
-- The server keeps the list in D1 (`friends`, two rows per pair, and
-  `lobby_invites`), with each account's code on `accounts.friend_code`.
+- The server keeps the list in D1 (`friends`, two rows per pair, marked
+  `by_email` for a request sent by email, and `lobby_invites`), with each
+  account's code on `accounts.friend_code`; `email_requests` counts each
+  account's requests by email for the daily limit, never the email.
   Deleting the account removes you from every list.
 
 ### Friends' profiles

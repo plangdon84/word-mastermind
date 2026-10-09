@@ -17,6 +17,8 @@ export interface SyncedSettings {
   newestFirst: Readonly<Record<Difficulty, boolean>>;
   showTutorial: boolean;
   shareMarks: boolean;
+  /** Others can find you by searching for your name (Dev Plan item 18d). */
+  findByName: boolean;
 }
 
 /** The profile as the server keeps it. The device ID stays on each device. */
@@ -38,7 +40,12 @@ function parseSyncedSettings(value: unknown): SyncedSettings | null {
   const newestFirst = Object.fromEntries(DIFFICULTIES.map((d) => [d, known(d) as boolean])) as Record<Difficulty, boolean>;
   // Share my Medium marks came later (Dev Plan item 18i): settings saved before it share them.
   if (value.shareMarks !== undefined && typeof value.shareMarks !== 'boolean') return null;
-  return { difficulty: value.difficulty, newestFirst, showTutorial: value.showTutorial, shareMarks: value.shareMarks !== false };
+  // Find me by name came later (Dev Plan item 18d): settings saved before it can be found.
+  if (value.findByName !== undefined && typeof value.findByName !== 'boolean') return null;
+  return {
+    difficulty: value.difficulty, newestFirst, showTutorial: value.showTutorial, shareMarks: value.shareMarks !== false,
+    findByName: value.findByName !== false,
+  };
 }
 
 /** Reads a synced profile strictly: the server refuses anything that doesn't parse, and the app ignores it. */

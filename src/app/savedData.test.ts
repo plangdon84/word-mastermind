@@ -75,10 +75,11 @@ describe('1.0 localStorage', () => {
       deviceId: 'fixture-device-0000', guestName: 'Guest-4821', name: 'Fixture Player', country: 'GB', memberSince: 1789769600000,
     });
     // Every 1.0 setting is kept as it was; settings added since take their defaults.
-    const { enterRight, shareMarks, rankBy, boardRankBy, ...settings } = parseSettings(key('settings'));
+    const { enterRight, shareMarks, rankBy, boardRankBy, findByName, ...settings } = parseSettings(key('settings'));
     expect(settings).toEqual(JSON.parse(key('settings')));
     expect(enterRight).toBe(false);
     expect(shareMarks).toBe(true);
+    expect(findByName).toBe(true);
     expect(rankBy).toBe('crush');
     expect(boardRankBy).toBe('crush');
     expect(parseRecentSecrets(key('recent-secrets'))).toEqual(['storm', 'house']);

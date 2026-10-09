@@ -40,6 +40,8 @@ export interface Settings {
   enterRight: boolean;
   /** Against a friend at Medium, send your marks with each guess for them to see (README "Two player vs. a friend"). */
   shareMarks: boolean;
+  /** Signed in, other players can find you by searching for your name (README "Friends"). Synced. */
+  findByName: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -55,6 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showTutorial: true,
   enterRight: false,
   shareMarks: true,
+  findByName: true,
 };
 
 /** One guess order for every difficulty. */
@@ -110,6 +113,7 @@ export function parseSettings(raw: string | null, legacySoloRaw: string | null =
     showTutorial: s.showTutorial !== false,
     enterRight: s.enterRight === true,
     shareMarks: s.shareMarks !== false,
+    findByName: s.findByName !== false,
   };
 }
 
