@@ -409,7 +409,7 @@ export function App() {
     const { session: signedIn, profile: here, identity: who } = latest.current;
     if (!API_URL || pulling.current) return;
     pulling.current = true;
-    pullPlayedGames(API_URL, who, signedIn?.account.id ?? here.deviceId, here.memberSince, historyStore)
+    pullPlayedGames(API_URL, who, signedIn?.account.id ?? here.deviceId, historyStore)
       .then(async (ids) => {
         if (ids.length === 0) return;
         setHistoryVersion((v) => v + 1);

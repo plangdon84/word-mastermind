@@ -51,18 +51,34 @@ describe('pulling your server games', () => {
       7: { games: [{ entry: day, ref: '2026-10-31' }], next: null, cursor: 9 },
     });
     const { s, games } = store();
-    expect(await pullPlayedGames('https://api.example', identity, 'guest', 0, s, fetchFn)).toEqual(['friend-1', 'daily-1']);
+    expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1', 'daily-1']);
     expect(games.get('friend-1')).toMatchObject({ marks: { b: 'in' } });
-    expect(await pullPlayedGames('https://api.example', identity, 'guest', 0, s, fetchFn)).toEqual([]);
+    expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual([]);
     expect(asked).toEqual([0, 7, 9]);
   });
 
-  it('starts from the beginning for someone else (signing in), and skips games from before the profile', async () => {
-    const { fetchFn, asked } = server({ 0: { games: [{ entry: won, ref: ID }, { entry: day, ref: '2026-10-31' }], next: null, cursor: 3 } });
+  it('starts from the beginning for someone else (signing in)', async () => {
+    const { fetchFn, asked } = server({ 0: { games: [{ entry: won, ref: ID }], next: null, cursor: 3 } });
     const { s } = store();
-    expect(await pullPlayedGames('https://api.example', identity, 'guest', T, s, fetchFn)).toEqual(['friend-1']);
-    expect(await pullPlayedGames('https://api.example', identity, 'account', T, s, fetchFn)).toEqual([]);
+    expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1']);
+    expect(await pullPlayedGames('https://api.example', identity, 'account', s, fetchFn)).toEqual([]);
     expect(asked).toEqual([0, 0]);
+  });
+
+  it("keeps games from before this device's profile, so signing in on a new device brings every one (Issue 203)", async () => {
+    const { fetchFn } = server({ 0: { games: [{ entry: won, ref: ID }, { entry: day, ref: '2026-10-31' }], next: null, cursor: 3 } });
+    const { s, games } = store();
+    // A profile made after both games, as on a fresh install that then signs in.
+    expect(await pullPlayedGames('https://api.example', identity, 'account', s, fetchFn)).toEqual(['friend-1', 'daily-1']);
+    expect(games.size).toBe(2);
+  });
+
+  it('reads from the start once on a device whose old place may have skipped games', async () => {
+    localStorage.setItem('word-mastermind:played:v1', JSON.stringify({ who: 'account', cursor: 3 }));
+    const { fetchFn, asked } = server({ 0: { games: [{ entry: won, ref: ID }], next: null, cursor: 3 } });
+    const { s } = store();
+    expect(await pullPlayedGames('https://api.example', identity, 'account', s, fetchFn)).toEqual(['friend-1']);
+    expect(asked).toEqual([0]);
   });
 
   it("stops just before a game this version can't read, so it comes once the app is updated", async () => {
@@ -71,8 +87,8 @@ describe('pulling your server games', () => {
       0: { games: [{ entry: won, ref: ID, seq: 4 }, { entry: future, ref: 'x', seq: 5 }, { entry: day, ref: '2026-10-31', seq: 6 }], next: null, cursor: 6 },
     } as never);
     const { s } = store();
-    expect(await pullPlayedGames('https://api.example', identity, 'guest', 0, s, fetchFn)).toEqual(['friend-1']);
-    await pullPlayedGames('https://api.example', identity, 'guest', 0, s, fetchFn);
+    expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1']);
+    await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
     expect(asked).toEqual([0, 4]);
   });
 });

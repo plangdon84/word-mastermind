@@ -1758,7 +1758,9 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
 
 - **Only games started since your profile was created are saved**, so games
   played before profiles existed never appear in the history or count
-  towards stats or achievements.
+  towards stats or achievements. The server's games are the exception:
+  every one is yours, so signing in on a new device brings them all, even
+  those from before that device's profile.
 - **The server's games:** games against a friend, Daily Rush, Rush with
   Friends and Competitive Rush are refereed and kept by the server. The app
   asks it for your finished ones (`GET /api/played`, `src/app/playedGames.ts`)
