@@ -1,6 +1,6 @@
 import type { DailyPlacement } from '../game';
 import { localDay } from './badges';
-import type { FriendsApi, SharedSummary } from './friendsApi';
+import { FriendsApiError, type FriendsApi, type SharedSummary } from './friendsApi';
 import type { HistoryGame } from './historyDb';
 import { sharedSummary } from './sharedSummary';
 
@@ -15,6 +15,10 @@ import { sharedSummary } from './sharedSummary';
 const SENT_KEY = 'word-mastermind:shared-profile:v1';
 /** The most index requests one round makes: up to 50 games each, enough for 25,000 games a round. */
 const MAX_INDEX_STEPS = 500;
+/** How long an unchanged summary goes before it's sent again anyway. */
+const RESEND_MS = 24 * 60 * 60 * 1000;
+/** How long to wait when the server says too many requests: its limits count a minute. */
+const LIMIT_WAIT_MS = 61_000;
 
 /** A short fingerprint of what was last sent for this account, so an unchanged summary isn't sent again. */
 function fingerprint(accountId: string, summary: SharedSummary): string {
@@ -24,9 +28,10 @@ function fingerprint(accountId: string, summary: SharedSummary): string {
   return `${text.length}:${hash}`;
 }
 
-/** The last round of sharing that finished: what it sent, and when. */
+/** The last round of sharing that finished: when, and what it last sent, when. */
 interface Shared {
   print: string;
+  sentAt: number;
   at: number;
 }
 
@@ -59,12 +64,22 @@ export const clearSharedState = () => noteShared(null);
  */
 export async function shareProfile(
   api: FriendsApi, accountId: string, games: readonly HistoryGame[], placements: readonly DailyPlacement[], now: number,
+  wait: (ms: number) => Promise<unknown> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<void> {
   for (let steps = 0; steps < MAX_INDEX_STEPS; steps++) {
-    if ((await api.indexStep()).done) break;
+    try {
+      if ((await api.indexStep()).done) break;
+    } catch (e) {
+      // A long first index can reach the server's limit of requests a minute: wait it out and carry on.
+      if (!(e instanceof FriendsApiError && e.status === 429)) throw e;
+      await wait(LIMIT_WAIT_MS);
+    }
   }
   const summary = sharedSummary(games, placements, now, localDay);
   const print = fingerprint(accountId, summary);
-  if (lastShared()?.print !== print) await api.share(summary);
-  noteShared({ print, at: now });
+  // Sent again at least once a day, in case the server lost it.
+  const last = lastShared();
+  const resend = last?.print !== print || !(now - last.sentAt <= RESEND_MS);
+  if (resend) await api.share(summary);
+  noteShared({ print, sentAt: resend ? now : last!.sentAt, at: now });
 }

@@ -536,21 +536,35 @@ export function App() {
   /**
    * Signed in, shares your stats and badges with friends and indexes your
    * games for them (Dev Plan item 18cb), shortly after the history loads or
-   * changes. One round at a time; a failed one waits for the next change.
+   * changes. One round at a time; a change during one brings another after
+   * it, and a failed one waits for the next change.
    */
   const sharing = useRef(false);
+  const shareAgain = useRef(false);
+  const sharedGames = useRef(historyGames);
+  sharedGames.current = historyGames;
+  const shareNow = () => {
+    const signedIn = latest.current.session;
+    const games = sharedGames.current;
+    if (!API_URL || !signedIn || !games) return;
+    if (sharing.current) {
+      shareAgain.current = true;
+      return;
+    }
+    sharing.current = true;
+    shareProfile(friendsApi(API_URL, latest.current.identity), signedIn.account.id, games, loadPlacements(), Date.now())
+      .catch(() => {})
+      .finally(() => {
+        sharing.current = false;
+        if (shareAgain.current) {
+          shareAgain.current = false;
+          shareNow();
+        }
+      });
+  };
   useEffect(() => {
-    const signedIn = session;
-    if (!API_URL || !signedIn || !historyGames || sharing.current) return;
-    const games = historyGames;
-    const timer = setTimeout(() => {
-      sharing.current = true;
-      shareProfile(friendsApi(API_URL!, latest.current.identity), signedIn.account.id, games, loadPlacements(), Date.now())
-        .catch(() => {})
-        .finally(() => {
-          sharing.current = false;
-        });
-    }, SHARE_DELAY_MS);
+    if (!API_URL || !session || !historyGames) return;
+    const timer = setTimeout(shareNow, SHARE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [historyGames, session?.account.id]);
 

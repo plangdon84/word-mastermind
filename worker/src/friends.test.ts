@@ -15,6 +15,7 @@ import { syncApi } from '../../src/app/syncApi';
 import { fakeD1 } from './fakeD1';
 import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
+import { LINKED_GAMES_SQL, NEXT_LINKS_SQL, RETRY_PLAYED_SQL } from './friendProfiles';
 import { newFriendCode } from './friends';
 import { handle, type Env } from './index';
 import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
@@ -569,6 +570,25 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     }
   });
 
+  it("shows a featured server game only as the server's own copy, and never indexes a synced game posing as one", async () => {
+    const { ann, bob, bobCode, now, sqlite } = await friends();
+    await annBeatsBob(ann, bob, bobCode);
+    // A made-up game against Ann, featured in Bob's summary, and a synced game with a server game's kind of ID.
+    const fake = { ...soloEntry('x', now() - 60_000, ['beach']), id: `friend-${'a'.repeat(40)}` };
+    const accountId = (sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string }).account_id;
+    sqlite.prepare(`INSERT INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at)
+      VALUES (?, ?, 'single', 1, ?, ?, ?)`).run(accountId, fake.id, JSON.stringify(fake), now(), now());
+    await index(bob);
+    expect((await ann.friends.profileGames(bobCode, everything)).games.map((g) => g.mode)).toEqual(['friend']);
+    const [real] = (await ann.friends.profileGames(bobCode, everything)).games;
+    const madeUp: HistoryEntry = { ...real, id: `friend-${'b'.repeat(40)}` };
+    const tampered: HistoryEntry = { ...real, opponent: 'Nobody' } as HistoryEntry;
+    await bob.friends.share({ ...sharedSummary([], [], now(), dayOf), featured: [madeUp, tampered] });
+    const { summary } = await ann.friends.profile(bobCode);
+    expect(summary!.featured).toHaveLength(1);
+    expect(summary!.featured[0]).toMatchObject({ id: real.id, opponent: 'Ann' });
+  });
+
   it('indexes a few games a request, and asks a game room about each game once', async () => {
     const { ann, bob, bobCode, now, roomAsks } = await friends();
     const entries = Array.from({ length: 120 }, (_, i) => soloEntry(`bob-solo-${i}`, now() - (200 - i) * 60_000, ['crane', 'beach']));
@@ -576,12 +596,24 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     for (let i = 0; i < 12; i++) await annBeatsBob(ann, bob, bobCode);
     const before = roomAsks();
     // 120 synced games 50 a request, then 12 server games 10 a request.
-    expect(await index(bob)).toBe(4);
+    expect(await index(bob)).toBe(5);
     expect(roomAsks() - before).toBe(12);
     await index(bob);
     expect(roomAsks() - before).toBe(12);
     const pages = await ann.friends.profileGames(bobCode, everything);
     expect(pages.games).toHaveLength(50);
+  });
+
+  it('reads only past its bookmarks, however long the history (round 1 review of PR #16)', () => {
+    const { sqlite } = fakeD1();
+    const plan = (sql: string) => (sqlite.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[]).map((r) => r.detail).join('\n');
+    // Each ID's games in order from the bookmark, stopping at the limit: no sort of everything after it.
+    const next = plan(NEXT_LINKS_SQL);
+    expect(next).toMatch(/game_players_by_guest \(guest_id=\? AND rowid>\?\)/);
+    expect(next).toMatch(/profile_games_by_game \(account_id=\? AND game_seq=\?\)/);
+    expect(next).not.toMatch(/SCAN (gp|g|p)\b|TEMP B-TREE FOR ORDER BY/);
+    expect(plan(LINKED_GAMES_SQL)).not.toMatch(/SCAN (gp|g)\b/);
+    expect(plan(RETRY_PLAYED_SQL)).not.toMatch(/SCAN (g|p)\b/);
   });
 
   it("passes over a game whose room can't answer for now, and adds every one once it can", async () => {

@@ -54,7 +54,7 @@ export interface Env {
   /** Rate limits by address (`limits.ts`): 30 a minute, and 3 a minute for reports and sign-in emails. Without them, nothing is limited. */
   RATE_LIMIT?: RateLimit;
   RATE_LIMIT_STRICT?: RateLimit;
-  /** 60 a minute for opening a friend's profile (Dev Plan item 18cb). */
+  /** 60 a minute for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb). */
   RATE_LIMIT_PROFILE?: RateLimit;
 }
 

@@ -48,8 +48,10 @@ describe('rate limits by address', () => {
       expect(limitOf('POST', path)).toBeNull();
     }
     expect(limitOf('GET', '/api/games')).toBeNull();
-    // Opening a friend's profile can be a lot of work for the server (item 18cb); a page of their history isn't.
+    // Friends' profiles (item 18cb): opening one and indexing your games; a page of their history is one query.
     expect(limitOf('GET', '/api/friends/profile')).toBe('profile');
+    expect(limitOf('POST', '/api/profile/index')).toBe('profile');
+    expect(limitOf('POST', '/api/profile/shared')).toBeNull();
     expect(limitOf('GET', '/api/friends/profile/games')).toBeNull();
   });
 

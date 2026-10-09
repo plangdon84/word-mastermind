@@ -1,16 +1,15 @@
 import {
   addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, type DailyPlacement, type HistoryEntry, type ReplayedGame,
 } from '../game';
-import type { SharedSummary } from './friendsApi';
-import { RELEASES } from './releases';
+import { SHARED_FORMAT, type SharedSummary } from './friendsApi';
 
 /*
  * What a player shares with friends (Dev Plan item 18cb, README "Friends'
  * profiles"), worked out by their own device: `profileShare.ts` sends it.
  */
 
-/** A friend's game without your rating change: friends never see your rating. */
-const withoutRating = (entry: HistoryEntry): HistoryEntry =>
+/** A game without your rating change: friends never see your rating (the server applies it too). */
+export const withoutRating = (entry: HistoryEntry): HistoryEntry =>
   entry.mode === 'friend' || entry.mode === 'lobby' ? { ...entry, rating: null } : entry;
 
 /**
@@ -34,7 +33,7 @@ export function sharedSummary(
     for (const ref of [best, bestRush, fastest]) if (ref) featuredIds.add(ref.id);
   }
   return {
-    version: RELEASES[0].version,
+    format: SHARED_FORMAT,
     games: shown.length,
     stats,
     badges: computeAchievements(statsGames, dayOf, placements.filter((p) => p.day < hiddenFrom)),

@@ -1,3 +1,4 @@
+import { Component, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   BADGES, HEAD_TO_HEAD_MODES, initials, type HeadToHead, type HeadToHeadMode, type DailyPlacement, type HistoryEntry,
@@ -83,6 +84,21 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
     };
   }, [apiUrl, identity, code, attempt]);
   return state;
+}
+
+/**
+ * Shows what a friend shared, or `fallback` if it won't show: their device
+ * works it out and the server keeps it as sent, so a broken one mustn't
+ * break the screen.
+ */
+class Shared extends Component<{ fallback: ComponentChildren; children: ComponentChildren }, { failed: boolean }> {
+  state = { failed: false };
+  componentDidCatch() {
+    this.setState({ failed: true });
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
 }
 
 const HEAD_TO_HEAD_LABEL: Record<HeadToHeadMode, string> = { friend: 'Two player', lobby: 'Word Sets with friends' };
@@ -180,12 +196,16 @@ export function FriendProfileScreen({
         );
       }
       return (
-        <Analytics stats={summary.stats} games={state.featured} onOpen={open} friend={name}>
-          <YouVersus name={name} record={state.versus} />
-        </Analytics>
+        <Shared fallback={<><YouVersus name={name} record={state.versus} />{notShared}</>}>
+          <Analytics stats={summary.stats} games={state.featured} onOpen={open} friend={name}>
+            <YouVersus name={name} record={state.versus} />
+          </Analytics>
+        </Shared>
       );
     }
-    if (page === 'achievements') return summary ? <Achievements earned={summary.badges} fresh={new Set()} /> : notShared;
+    if (page === 'achievements') {
+      return summary ? <Shared fallback={notShared}><Achievements earned={summary.badges} fresh={new Set()} /></Shared> : notShared;
+    }
     if (page === 'history') {
       if (!summary) return notShared;
       return <GameHistory filter={filter} onFilter={onFilter} onOpen={open} load={load} friend={name} placements={state.profile.placements} />;

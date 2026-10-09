@@ -2005,10 +2005,13 @@ history**.
   accepted shows nothing either way.
 - **Where it comes from** (Dev Plan item 18cb): your own device works out
   your stats and badges, as it does for your own profile, and shares them
-  for friends after each sync; the server keeps them as sent (working them
+  for friends a few seconds after your game history loads or changes (and
+  at least once a day); the server keeps them as sent (working them
   out itself would take far longer than a request may run on the server's
   plan). A made-up badge would only fool friends, so that's accepted; the
-  leaderboards and games the server refereed can't be faked this way. Your
+  leaderboards and games the server refereed can't be faked this way: a
+  best or fastest game the server refereed opens from the server's own
+  copy. Your
   device also has the server index your games for friends, a few at a
   time: what your devices synced (README [Synced profile](#synced-profile))
   and the games the server refereed for you, which the server builds
@@ -2020,7 +2023,9 @@ history**.
   count their own local days, as on their device. It's loaded once and kept
   for five minutes, so going back from one of their games doesn't load it
   again; opening your friends list or signing out forgets it. Opening a
-  profile is limited to 60 a minute from one internet address.
+  profile and indexing your games share a limit of 60 requests a minute
+  from one internet address; a long first index waits a minute when it
+  reaches it, then carries on.
 - **A Daily Set is left out** until the day after it is over (one started
   before midnight can still be finished the next day), so its words can't
   be read off a friend before you've played it. Their Daily Rush places

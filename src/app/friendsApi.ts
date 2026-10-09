@@ -1,5 +1,5 @@
 import {
-  HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, normalizeWord,
+  BADGE_BY_ID, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, normalizeWord,
   parseHistoryEntry, type DailyPlacement, type Difficulty, type EarnedBadge, type HeadToHead, type HistoryEntry,
   type HistoryFilter, type HistoryMode, type HistoryResult, type Stats,
 } from '../game';
@@ -137,15 +137,22 @@ function parseFriendProfile(value: unknown): FriendProfile | null {
  * games their history lists, and the games their stats point at, to open
  * from the stats. The server keeps it as sent: it can't work stats out
  * within a request's limits, and a made-up badge only fools friends.
- * `version` is the app version that worked it out.
+ * `format` is `SHARED_FORMAT` when it was worked out.
  */
 export interface SharedSummary {
-  version: string;
+  format: number;
   games: number;
   stats: Stats;
   badges: EarnedBadge[];
   featured: HistoryEntry[];
 }
+
+/**
+ * The shape of the stats and badges a summary holds: raise it when they
+ * change, so a friend's app never reads one in a shape it doesn't know (it
+ * shows "not shared yet" until their device sends the new one).
+ */
+export const SHARED_FORMAT = 1;
 
 /** The longest summary the server keeps, as JSON: far more than any real one. */
 export const MAX_SHARED_CHARS = 200_000;
@@ -223,7 +230,7 @@ const isTally = (value: unknown) =>
  * checks what a device sends with it too), or null if it isn't one.
  */
 export function parseSharedSummary(value: unknown): SharedSummary | null {
-  if (!isObject(value) || typeof value.version !== 'string' || value.version.length > 20 || !Number.isSafeInteger(value.games)
+  if (!isObject(value) || value.format !== SHARED_FORMAT || !Number.isSafeInteger(value.games)
     || (value.games as number) < 0 || !Array.isArray(value.badges) || value.badges.length > MAX_BADGES
     || !Array.isArray(value.featured) || value.featured.length > MAX_FEATURED) {
     return null;
@@ -233,11 +240,16 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     || !Array.isArray(stats.topGuesses) || !HISTORY_MODES.every((m) => isObject((stats.modes as Record<string, unknown>)[m]))) {
     return null;
   }
-  const badges = value.badges.filter((b): b is EarnedBadge =>
-    isObject(b) && typeof b.id === 'string' && isTime(b.at) && typeof b.gameId === 'string')
-    .map(({ id, at, gameId }) => ({ id, at, gameId }));
+  // Only badges this version knows, each once.
+  const badges = new Map<string, EarnedBadge>();
+  for (const b of value.badges) {
+    if (isObject(b) && typeof b.id === 'string' && BADGE_BY_ID.has(b.id) && !badges.has(b.id) && isTime(b.at)
+      && typeof b.gameId === 'string') {
+      badges.set(b.id, { id: b.id, at: b.at, gameId: b.gameId });
+    }
+  }
   return {
-    version: value.version, games: value.games as number, stats: stats as unknown as Stats, badges,
+    format: SHARED_FORMAT, games: value.games as number, stats: stats as unknown as Stats, badges: [...badges.values()],
     featured: parseEntries(value.featured),
   };
 }

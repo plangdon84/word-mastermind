@@ -47,7 +47,7 @@ class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
 # 30 a minute for what makes something new, 3 for reports and sign-in emails,
-# and 60 for opening a friend's profile (Dev Plan item 18cb).
+# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[ratelimits]]
 name = "RATE_LIMIT"
@@ -138,7 +138,7 @@ class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
 # 30 a minute for what makes something new, 3 for reports and sign-in emails,
-# and 60 for opening a friend's profile (Dev Plan item 18cb).
+# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[env.staging.ratelimits]]
 name = "RATE_LIMIT"
@@ -213,7 +213,7 @@ class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
 # 30 a minute for what makes something new, 3 for reports and sign-in emails,
-# and 60 for opening a friend's profile (Dev Plan item 18cb).
+# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[env.production.ratelimits]]
 name = "RATE_LIMIT"

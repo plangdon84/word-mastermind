@@ -1,13 +1,14 @@
 import {
-  addDays, dailyDay, parseHistoryEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
+  addDays, dailyDay, isServerMode, parseHistoryEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
   MAX_SHARED_CHARS, parseSharedSummary, type FriendGamesQuery, type SharedSummary,
 } from '../../src/app/friendsApi';
-import { identify, playerOfAccount } from './accounts';
+import { withoutRating } from '../../src/app/sharedSummary';
+import { identify, isPlayers, playerOfAccount, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
-import { playedPage } from './played';
+import { toPlayed, TryAgain, type GameRow } from './played';
 
 /*
  * Friends' profiles kept ready (Dev Plan item 18cb, README "Friends'
@@ -37,9 +38,6 @@ const parse = (text: string): unknown => {
   }
 };
 
-/** A friend's game without their rating change: their profile never shows their rating. */
-const withoutRating = (entry: HistoryEntry): HistoryEntry =>
-  entry.mode === 'friend' || entry.mode === 'lobby' ? { ...entry, rating: null } : entry;
 
 /** The entries of `profile_games` rows (a synced game's from history_entries), as a friend sees them. */
 const entriesOf = (rows: readonly { entry: string | null }[]): HistoryEntry[] => rows.flatMap((r) => {
@@ -86,59 +84,138 @@ interface IndexRow {
   retry: string;
 }
 
+/** The longest stretch of synced games one request indexes, as JSON: parsing and replaying them takes time. */
+const INDEX_SYNCED_CHARS = 200_000;
+/** A server game's history ID: never a synced game's (sync refuses server modes), so one that looks like it is left out. */
+const SERVER_ENTRY_ID = /^(?:friend|daily|lobby)-[0-9a-f]{40}$/;
+
+/** Whether the account (`param`) has indexed game `g` already: one lookup in `profile_games_by_game`. */
+const notIndexed = (param: string) => `NOT EXISTS (SELECT 1 FROM profile_games p WHERE p.account_id = ${param} AND p.game_seq = g.rowid)`;
+
+/**
+ * Each of a player's IDs' next server games not yet indexed, past the
+ * bookmark (?1, a `game_players` rowid; ?2 the player's ID, ?3 the
+ * account), up to a request's worth each, as a JSON array of `game_players`
+ * rowids. Each ID's are read in order through `game_players_by_guest` from
+ * the bookmark and stop at the limit, so only rows after the bookmark are
+ * read, however long the history.
+ */
+export const NEXT_LINKS_SQL = `SELECT (SELECT json_group_array(link) FROM (
+    SELECT gp.rowid AS link FROM game_players gp JOIN games g ON g.id = gp.game_id
+    WHERE gp.guest_id = ids.id AND gp.rowid > ?1 AND g.finished_at IS NOT NULL AND ${notIndexed('?3')}
+    ORDER BY gp.rowid LIMIT ${INDEX_PLAYED + 1})) AS links
+  FROM (SELECT ?2 AS id UNION SELECT id FROM guests WHERE account_id = ?2) ids`;
+
+/** The games these `game_players` rowids (?1, JSON) are for. */
+export const LINKED_GAMES_SQL = `SELECT gp.rowid AS link, g.rowid AS seq, g.id, g.mode, g.record, g.finished_at
+  FROM game_players gp JOIN games g ON g.id = gp.game_id
+  WHERE gp.rowid IN (SELECT value FROM json_each(?1)) ORDER BY gp.rowid`;
+
+/** The games to retry (?1, JSON games rowids) not yet indexed (?2 the account). */
+export const RETRY_PLAYED_SQL = `SELECT 0 AS link, g.rowid AS seq, g.id, g.mode, g.record, g.finished_at FROM games g
+  WHERE g.rowid IN (SELECT value FROM json_each(?1)) AND ${notIndexed('?2')} ORDER BY g.rowid`;
+
+/** A server game row for `toPlayed`, with its `game_players` row (`link`), which indexing goes through in order. */
+type LinkedRow = GameRow & { link: number };
+
 /**
  * Indexes a few more of the account's games for friends: its synced games
  * first (`INDEX_SYNCED` a request), then its server games (`INDEX_PLAYED`
- * room lookups a request). A server game whose room can't answer for now
- * is passed over and retried next time; a newly linked guest ID's games
- * (which can come before where indexing got to) are looked through again,
- * leaving out games already indexed. `done` once nothing is left for now.
+ * room lookups a request, and as many again for games to retry). Each
+ * request reads only past its bookmarks, so a long history costs no more
+ * than a short one. Server games go in the order the players were added to
+ * them (as each game finished); a newly linked guest ID's games come
+ * earlier, so they're looked through again, a game indexed already being
+ * passed over at the cost of one lookup. A game whose room can't answer
+ * for now is passed over and retried later. `done` once nothing is left
+ * for now.
  */
 export async function indexStep(env: Env, accountId: string): Promise<{ done: boolean }> {
   const db = env.DB;
+  await db.prepare('INSERT OR IGNORE INTO shared_profiles (account_id) VALUES (?1)').bind(accountId).run();
   const row = await db.prepare('SELECT synced_through, played_through, players, retry FROM shared_profiles WHERE account_id = ?1')
     .bind(accountId).first<IndexRow>();
-  const save = (fields: Partial<Record<keyof IndexRow, number | string>>) => {
-    const names = Object.keys(fields);
-    return db.prepare(
-      `INSERT INTO shared_profiles (account_id, ${names.join(', ')}) VALUES (?1, ${names.map((_, i) => `?${i + 2}`).join(', ')})
-       ON CONFLICT (account_id) DO UPDATE SET ${names.map((n) => `${n} = excluded.${n}`).join(', ')}`,
-    ).bind(accountId, ...Object.values(fields)).run();
-  };
+  if (!row) return { done: true };
 
-  const syncedFrom = row?.synced_through ?? 0;
   const { results } = await db.prepare(
-    `SELECT seq, entry FROM history_entries WHERE account_id = ?1 AND seq > ?2 ORDER BY seq LIMIT ${INDEX_SYNCED + 1}`,
-  ).bind(accountId, syncedFrom).all<{ seq: number; entry: string }>();
+    `SELECT seq, entry FROM history_entries WHERE account_id = ?1 AND seq > ?2 ORDER BY seq LIMIT ${INDEX_SYNCED}`,
+  ).bind(accountId, row.synced_through).all<{ seq: number; entry: string }>();
   if (results.length > 0) {
-    const page = results.slice(0, INDEX_SYNCED);
+    let chars = 0;
+    const page = results.filter((r) => (chars += r.entry.length) <= INDEX_SYNCED_CHARS || r === results[0]);
     await insertRows(db, accountId, page.map((r) => {
       const entry = parseHistoryEntry(parse(r.entry));
-      return entry && indexRow(entry, null);
+      // Sync refuses the server's games, so an entry that is one, or looks like one, isn't the device's to add.
+      if (!entry || isServerMode(entry.mode) || SERVER_ENTRY_ID.test(entry.id)) return null;
+      return indexRow(entry, null);
     }));
-    await save({ synced_through: page[page.length - 1].seq });
-    if (results.length > INDEX_SYNCED) return { done: false };
+    await db.prepare('UPDATE shared_profiles SET synced_through = MAX(synced_through, ?2) WHERE account_id = ?1')
+      .bind(accountId, page[page.length - 1].seq).run();
+    // One kind of work a request: the server games come next time.
+    return { done: false };
   }
 
   const player = await playerOfAccount(db, accountId);
-  const relinked = row !== null && row.players !== player.aliases.length;
-  const retry = row ? (parse(row.retry) as number[] | null) ?? [] : [];
-  const page = await playedPage(env, player, relinked ? 0 : row?.played_through ?? 0, { accountId, retry: [], limit: INDEX_PLAYED });
-  await insertRows(db, accountId, page.games.map((g) => g.seq === undefined ? null : indexRow(g.entry, g.seq)));
-  let left = retry;
-  let done = page.next === null;
-  if (done && retry.length > 0) {
-    // New games all looked at: a request's worth of the games to retry, oldest first, which games after every row skip.
-    const tried = retry.slice(0, INDEX_PLAYED);
-    const again = await playedPage(env, player, Number.MAX_SAFE_INTEGER, { accountId, retry: tried, limit: INDEX_PLAYED });
-    await insertRows(db, accountId, again.games.map((g) => g.seq === undefined ? null : indexRow(g.entry, g.seq)));
-    // One tried and not returned is indexed already or gone; one stuck again goes to the back.
-    left = [...retry.slice(INDEX_PLAYED), ...again.stuck];
-    // Done once the retries run out or stop getting anywhere: the next round tries again.
-    done = left.length === again.stuck.length || again.stuck.length >= tried.length;
+  const ids = [player.id, ...player.aliases];
+  const relinked = row.players !== player.aliases.length;
+  const after = relinked ? 0 : row.played_through;
+  // Every ID's next few, the earliest of them all next: none of any ID's comes between.
+  const { results: next } = await db.prepare(NEXT_LINKS_SQL).bind(after, player.id, accountId).all<{ links: string }>();
+  const links = next.flatMap((r) => (parse(r.links) as number[] | null) ?? []).sort((a, b) => a - b);
+  const taken = links.slice(0, INDEX_PLAYED);
+  const page = taken.length === 0 ? [] : (await db.prepare(LINKED_GAMES_SQL).bind(JSON.stringify(taken)).all<LinkedRow>()).results;
+  const built = await buildGames(env, page, player, ids);
+  const bookmark = taken.length > 0 ? taken[taken.length - 1] : after;
+  const more = links.length > INDEX_PLAYED;
+
+  // New games all looked at: a request's worth of the games to retry, oldest first.
+  const retry = (parse(row.retry) as number[] | null) ?? [];
+  const tried = more ? [] : retry.slice(0, INDEX_PLAYED);
+  let again: Built = { rows: [], stuck: [] };
+  if (tried.length > 0) {
+    const { results: retried } = await db.prepare(RETRY_PLAYED_SQL).bind(JSON.stringify(tried), accountId).all<LinkedRow>();
+    again = await buildGames(env, retried, player, ids);
   }
-  await save({ played_through: page.cursor, players: player.aliases.length, retry: JSON.stringify([...left, ...page.stuck]) });
-  return { done };
+  await insertRows(db, accountId, [...built.rows, ...again.rows]);
+  // In one statement, so two devices indexing at once can't undo each other: the bookmark (back to the start
+  // for a newly linked guest ID), and the games to retry, those tried dropped and those stuck added at the back.
+  await db.prepare(
+    `UPDATE shared_profiles SET
+       played_through = CASE WHEN ?2 THEN ?3 ELSE MAX(played_through, ?3) END, players = ?4,
+       retry = (SELECT COALESCE(json_group_array(value), '[]') FROM (
+         SELECT value, MIN(k) AS k FROM (
+           SELECT value, CAST(key AS INTEGER) AS k FROM json_each(shared_profiles.retry)
+             WHERE value NOT IN (SELECT value FROM json_each(?5))
+           UNION ALL SELECT value, 1000000 + CAST(key AS INTEGER) FROM json_each(?6)
+         ) GROUP BY value ORDER BY k))
+     WHERE account_id = ?1`,
+  ).bind(
+    accountId, relinked ? 1 : 0, bookmark, player.aliases.length, JSON.stringify(tried),
+    JSON.stringify([...again.stuck, ...built.stuck]),
+  ).run();
+  // Done once no new game is left and the retries run out or stop getting anywhere: the next round tries again.
+  const left = retry.length - tried.length + again.stuck.length;
+  return { done: !more && (left === again.stuck.length || again.stuck.length >= tried.length) };
+}
+
+interface Built {
+  rows: ReturnType<typeof indexRow>[];
+  stuck: number[];
+}
+
+/** Builds these server games' entries from the account's side, one room at a time; a room that can't answer is `stuck`. */
+async function buildGames(env: Env, rows: readonly LinkedRow[], player: Player, ids: readonly string[]): Promise<Built> {
+  const built: Built = { rows: [], stuck: [] };
+  for (const row of rows) {
+    try {
+      const played = await toPlayed(env, row, player, ids, false);
+      if (played) built.rows.push(indexRow(played.entry, row.seq));
+    } catch (e) {
+      // A game that can't be read is left out for good; one whose room can't answer for now, retried.
+      if (e instanceof TryAgain) built.stuck.push(row.seq);
+    }
+  }
+  return built;
 }
 
 /** Keeps what the account's device shares with friends, as sent: only its shape is checked. */
@@ -154,11 +231,25 @@ async function saveShared(db: D1Database, accountId: string, text: string, now: 
   return true;
 }
 
-/** What a friend shares, or null until a device of theirs on this version has sent it. */
+/**
+ * What a friend shares, or null until a device of theirs has sent it. A
+ * featured game the server refereed is the server's own copy from their
+ * index (left out until it's indexed), so a device can't show friends a
+ * game against them that never happened.
+ */
 export async function sharedSummaryOf(db: D1Database, friendId: string): Promise<SharedSummary | null> {
   const row = await db.prepare('SELECT summary FROM shared_profiles WHERE account_id = ?1').bind(friendId)
     .first<{ summary: string | null }>();
-  return row?.summary ? parseSharedSummary(parse(row.summary)) : null;
+  const summary = row?.summary ? parseSharedSummary(parse(row.summary)) : null;
+  if (!summary) return null;
+  const serverIds = summary.featured.filter((e) => isServerMode(e.mode)).map((e) => e.id);
+  if (serverIds.length === 0) return summary;
+  const { results } = await db.prepare(
+    `SELECT entry FROM profile_games WHERE account_id = ?1 AND id IN (SELECT value FROM json_each(?2)) AND entry IS NOT NULL`,
+  ).bind(friendId, JSON.stringify(serverIds)).all<{ entry: string | null }>();
+  const indexed = new Map(entriesOf(results).map((e) => [e.id, e]));
+  const featured = summary.featured.flatMap((e) => !isServerMode(e.mode) ? [e] : indexed.has(e.id) ? [indexed.get(e.id)!] : []);
+  return { ...summary, featured };
 }
 
 /**

@@ -17,7 +17,7 @@ import type { Env } from './index';
  */
 
 /** A `games` row. `seq` is its rowid: rows are added as games finish, so it only grows. */
-interface GameRow {
+export interface GameRow {
   seq: number;
   id: string;
   mode: string;
@@ -39,7 +39,7 @@ async function entryId(mode: string, gameId: string): Promise<string> {
  * A lookup that failed for now (a busy room, the database), not a game that
  * can't be read: the page stops before its game, so the app asks again.
  */
-class TryAgain extends Error {}
+export class TryAgain extends Error {}
 
 /** Runs a lookup, turning any failure into `TryAgain`. */
 async function lookup<T>(run: () => Promise<T>): Promise<T> {
@@ -66,8 +66,13 @@ const parse = (text: string): unknown => {
   }
 };
 
-/** One game as your history entry, or null if it can't be (a room that's gone, a record that doesn't read). */
-async function toPlayed(env: Env, row: GameRow, player: Player, ids: readonly string[], rated = true): Promise<PlayedGame | null> {
+/**
+ * One game as your history entry, or null if it can't be (a room that's gone, a record that doesn't read).
+ * Without `rated` (a friend's profile, which never shows a rating), no rating is looked up.
+ */
+export async function toPlayed(
+  env: Env, row: GameRow, player: Player, ids: readonly string[], rated = true,
+): Promise<PlayedGame | null> {
   const base = { id: await entryId(row.mode, row.id), version: HISTORY_VERSION };
   const data = parse(row.record);
   if (row.mode === 'friend') {
@@ -117,73 +122,40 @@ async function toPlayed(env: Env, row: GameRow, player: Player, ids: readonly st
   return null;
 }
 
-/**
- * A page of a player's games; `stopped` when a lookup failed for now, the
- * page ending before that game, or, copying to a profile, those games in `stuck`.
- */
+/** A page of a player's games; `stopped` when a lookup failed for now, the page ending before that game. */
 export interface PlayedGamesPage {
   games: PlayedGame[];
   next: number | null;
   cursor: number;
   stopped: boolean;
-  stuck: number[];
-  /** Every game the page looked at. */
-  seen: number[];
 }
 
-/**
- * Copying a player's games to their profile for friends (`friendProfiles.ts`):
- * games the profile already has are left out, and `retry` (games whose room
- * couldn't answer before) are asked about again. A friend's profile never
- * shows a rating, so none is looked up.
- */
-export interface ProfileCopy {
-  accountId: string;
-  retry: readonly number[];
-  /** The most games the page looks at: few, to stay within a request's limits. */
-  limit: number;
-}
-
-/**
- * The player's finished server games after `after`, a page at a time, in the
- * order they finished. A game whose room can't answer for now ends the page
- * before it, so the next pull asks again; with `copy`, it's passed over
- * instead (in `stuck`), so one stuck room can't hold up a friend's view of
- * every game after it.
- */
-export async function playedPage(env: Env, player: Player, after: number, copy?: ProfileCopy): Promise<PlayedGamesPage> {
+/** The player's finished server games after `after`, a page at a time, in the order they finished. */
+export async function playedPage(env: Env, player: Player, after: number): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
-  const size = copy?.limit ?? PLAYED_PAGE;
-  const copying = copy
-    ? `(rowid > ?1 OR rowid IN (SELECT value FROM json_each(?3)))
-       AND rowid NOT IN (SELECT game_seq FROM profile_games WHERE account_id = ?4 AND game_seq IS NOT NULL)`
-    : 'rowid > ?1';
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
-     WHERE finished_at IS NOT NULL AND ${copying}
+     WHERE finished_at IS NOT NULL AND rowid > ?1
        AND id IN (SELECT game_id FROM game_players WHERE ${isPlayers('guest_id', '?2')})
-     ORDER BY rowid LIMIT ${size + 1}`,
-  ).bind(after, player.id, ...(copy ? [JSON.stringify(copy.retry), copy.accountId] : [])).all<GameRow>();
-  const page = results.slice(0, size);
+     ORDER BY rowid LIMIT ${PLAYED_PAGE + 1}`,
+  ).bind(after, player.id).all<GameRow>();
+  const page = results.slice(0, PLAYED_PAGE);
   const games: PlayedGame[] = [];
-  const stuck: number[] = [];
-  const seen: number[] = [];
   let cursor = after;
   for (const row of page) {
-    seen.push(row.seq);
     let played: PlayedGame | null;
     try {
-      played = await toPlayed(env, row, player, ids, !copy);
+      played = await toPlayed(env, row, player, ids);
     } catch (e) {
-      if (e instanceof TryAgain && !copy) return { games, next: null, cursor, stopped: true, stuck, seen };
-      if (e instanceof TryAgain) stuck.push(row.seq);
+      // A lookup failed for now: stop before this game, so the next pull asks for it again.
+      if (e instanceof TryAgain) return { games, next: null, cursor, stopped: true };
       // A game that can't be read never holds up the rest.
       played = null;
     }
     if (played) games.push({ ...played, seq: row.seq });
-    cursor = Math.max(cursor, row.seq);
+    cursor = row.seq;
   }
-  return { games, next: results.length > size ? cursor : null, cursor, stopped: false, stuck, seen };
+  return { games, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false };
 }
 
 /** Routes `/api/played`, or returns null for any other path. */
