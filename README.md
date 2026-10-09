@@ -1229,9 +1229,10 @@ takes 20 to 25 minutes.
 - **Result:** "Found in 7 guesses, 2:31.", the word with its guesses and
   time, and your **Place** so far ("3rd of 40 · better than 94%"), a tap
   from the board; places are final at midnight New York time. **Share**
-  gives "Word Mastermind Daily Word #12 · Medium", one coloured square (as
-  a Daily Set's words are coloured), and your guesses and place; the
-  number is the day's, the same as that day's Daily Set.
+  gives "Word Mastermind Daily Word #12 · Medium", then one line of one
+  coloured square (as a Daily Set's words are coloured), your guesses and
+  place ("🟩 7 guesses · 3rd of 40 · better than 94%"); the number is the
+  day's, the same as that day's Daily Set.
 - **Leaderboard:** one board per day and difficulty, by fewest guesses,
   time breaking ties (owner's decision), with no Rush / Crush switch: the
   top 10 (ties share a rank), your place below them, earlier days (‹ ›)

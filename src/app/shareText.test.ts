@@ -36,9 +36,11 @@ describe('dailyShareText', () => {
       .toBe('41 guesses');
   });
 
-  it("names the Daily Word, numbered as the day's Daily Set is, with one emoji", () => {
+  it("names the Daily Word, numbered as the day's Daily Set is, with its one emoji on the line with its guesses and place", () => {
     expect(dailyShareText({ mode: 'dailyWord', day: '2026-10-12', difficulty: 'easy', words: [{ guesses: 6, found: true }], place: '3rd of 40 · better than 94%' }))
-      .toBe('Word Mastermind Daily Word #12 · Easy\n🟩\n6 guesses · 3rd of 40 · better than 94%\nwordmastermind.app');
+      .toBe('Word Mastermind Daily Word #12 · Easy\n🟩 6 guesses · 3rd of 40 · better than 94%\nwordmastermind.app');
+    expect(dailyShareText({ mode: 'dailyWord', day: '2026-10-12', difficulty: 'easy', words: [{ guesses: 6, found: true }], place: null }).split('\n')[1])
+      .toBe('🟩 6 guesses');
   });
 });
 

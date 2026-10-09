@@ -182,8 +182,11 @@ export function GameMenuItems({
         <div class="menu-group menu-highlights">
           <span class="menu-label">Highlights</span>
           <button class="btn menu-check" type="button" disabled={checksLeft === 0} onClick={() => { close(); onCheckMarks(); }}>
-            Check for mistakes
-            {checksLeft !== undefined && <span class="menu-count">{checksLeft === 0 ? 'used' : `${checksLeft} check${checksLeft === 1 ? '' : 's'} left`}</span>}
+            {/* One line of text, so the button centres it and the count sits on its baseline (issue #196). */}
+            <span>
+              Check for mistakes
+              {checksLeft !== undefined && <span class="menu-count">{checksLeft === 0 ? 'used' : `${checksLeft} check${checksLeft === 1 ? '' : 's'} left`}</span>}
+            </span>
           </button>
           <button class="btn" type="button" onClick={() => { close(); onClearMarks(); }}>Clear all highlights</button>
           <span class="menu-note">

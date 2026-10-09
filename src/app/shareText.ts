@@ -36,8 +36,9 @@ export const wordEmoji = (words: readonly SharedWord[]) =>
   words.map((w) => (w.found ? WORD_EMOJI[strengthForAverage(w.guesses)] : NOT_FOUND)).join('');
 
 /**
- * "Daily Set #2 · Hard" (or "Daily Word #2 · Hard"), the emoji (one per
- * word), "23 guesses · 12th of 340 · better than 96%".
+ * "Daily Set #2 · Hard", the emoji (one per word), "23 guesses · 12th of
+ * 340 · better than 96%". The Daily Word's one square shares the line with
+ * its guesses and place: "🟩 6 guesses · 3rd of 40 · better than 94%".
  */
 export function dailyShareText({ mode = 'daily', day, difficulty, words, place }: {
   mode?: DailyMode;
@@ -48,10 +49,10 @@ export function dailyShareText({ mode = 'daily', day, difficulty, words, place }
   place: string | null;
 }): string {
   const total = words.reduce((sum, w) => sum + w.guesses, 0);
+  const tally = guessCount(total) + (place ? ` · ${place}` : '');
   return [
     `Word Mastermind ${DAILY_NAME[mode]} #${dailyNumber(day)} · ${DIFFICULTY_LABEL[difficulty]}`,
-    wordEmoji(words),
-    guessCount(total) + (place ? ` · ${place}` : ''),
+    ...(mode === 'dailyWord' ? [`${wordEmoji(words)} ${tally}`] : [wordEmoji(words), tally]),
     SHARE_ADDRESS,
   ].join('\n');
 }

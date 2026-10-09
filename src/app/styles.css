@@ -196,8 +196,7 @@ h1 {
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
 .menu .btn { align-self: flex-start; }
 /* Check for mistakes: how many are left, once a game (issue #134). */
-.menu-check { display: inline-flex; align-items: baseline; gap: 8px; }
-.menu-count { font-size: 0.78rem; font-weight: 400; color: var(--muted); }
+.menu-count { margin-left: 8px; font-size: 0.78rem; font-weight: 400; color: var(--muted); }
 .seg {
   display: inline-flex;
   background: var(--surface);
@@ -678,7 +677,8 @@ button.bubble:active { transform: scale(0.94); }
 .matchup { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.88rem; color: var(--muted); }
 .matchup b { color: var(--ink); font-weight: 500; }
 /* One line: a long opponent name is cut short (…), never the rating after it or the difficulty. */
-.matchup-who { display: flex; align-items: baseline; min-width: 0; white-space: nowrap; }
+/* Centred, not on the baseline: a friend's name is a button, whose baseline (cut short with …) is its bottom edge (issue #204). */
+.matchup-who { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
 .matchup-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .matchup-rating, .matchup-diff { flex: none; }
 .matchup-diff {
@@ -815,6 +815,8 @@ button.bubble:active { transform: scale(0.94); }
 .rush-tier { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .rush-tier-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .rush-tier-value { font-size: 1.5rem; font-weight: 700; color: var(--in-text); }
+/* A place to tap ("1st ›") keeps its tap height without making its tile taller than its neighbours (issue #215). */
+.rush-tier-value .link-btn { min-height: 0; padding-block: 8px; margin-block: -8px; }
 .menu-note { font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
 
 /* Daily Set */
