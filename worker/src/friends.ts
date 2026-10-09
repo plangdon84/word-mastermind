@@ -1,4 +1,4 @@
-import { addDays, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS, type HistoryEntry } from '../../src/game';
+import { dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
   FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, parseFriendGamesParams, type Friend,
@@ -13,9 +13,8 @@ import type { Env } from './index';
 import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
-import { playedPage } from './played';
 import { vapidKeysOf } from './pushRoutes';
-import { loadEntries, syncedName } from './sync';
+import { syncedName } from './sync';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend

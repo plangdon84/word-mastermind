@@ -135,14 +135,15 @@ function parseFriendProfile(value: unknown): FriendProfile | null {
  * What the server works out from a friend's games (Dev Plan item 18cb), so
  * their profile shows at once: how many games their history lists, their
  * stats and badges, the games their stats point at (to open from the
- * stats), and your record against them.
+ * stats), and your record against them (null while the server is still
+ * copying your own games: ask again).
  */
 export interface FriendSummary {
   games: number;
   stats: Stats;
   badges: EarnedBadge[];
   featured: HistoryEntry[];
-  versus: HeadToHead;
+  versus: HeadToHead | null;
 }
 
 /** `GET /api/friends/profile`: the summary is null while the server is still catching up on their games, to ask again. */
@@ -213,12 +214,12 @@ function parseFriendSummary(value: unknown): FriendSummary | null {
     || !Array.isArray(stats.topGuesses) || !HISTORY_MODES.every((m) => isObject((stats.modes as Record<string, unknown>)[m]))) {
     return null;
   }
-  if (!isObject(versus) || !HEAD_TO_HEAD_MODES.every((m) => isTally(versus[m]))) return null;
+  if (versus !== null && !(isObject(versus) && HEAD_TO_HEAD_MODES.every((m) => isTally(versus[m])))) return null;
   const badges = value.badges.filter((b): b is EarnedBadge =>
     isObject(b) && typeof b.id === 'string' && isTime(b.at) && typeof b.gameId === 'string');
   return {
     games: value.games as number, stats: stats as unknown as Stats, badges, featured: parseEntries(value.featured),
-    versus: versus as unknown as HeadToHead,
+    versus: versus as HeadToHead | null,
   };
 }
 
@@ -238,7 +239,7 @@ export function parseFriendGamesPage(value: unknown): FriendGamesPage | null {
 /** The server's reasons for refusing. */
 export type FriendsErrorCode =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'own-code' | 'too-many-friends'
-  | 'unreachable'
+  | 'too-many-requests' | 'unreachable'
   // Opening an invite link: not codes the server sends, but how the app words its not-found and own-code.
   | 'invite-gone' | 'own-invite';
 
@@ -305,18 +306,25 @@ export function friendsApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeo
   };
 }
 
-/** How many times the app asks for a friend's summary while the server catches up on their games. */
-const MAX_PROFILE_ASKS = 100;
+/** How many times the app asks for a friend's summary while the server catches up on games, and how long it waits between. */
+const MAX_PROFILE_ASKS = 60;
+export const PROFILE_ASK_MS = 1000;
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * A friend's profile and summary. The first time the server sees a friend
- * with many games, it copies them over a few requests: this asks until it's
- * done. Rejects with a `FriendsApiError`.
+ * A friend's profile and summary. The first time the server sees a player
+ * with many games, it copies them over a few requests: this asks, a second
+ * apart, until their summary is ready, and with `whole` until your record
+ * against them is too. Rejects with a `FriendsApiError`.
  */
-export async function loadFriendProfile(api: FriendsApi, code: string): Promise<{ profile: FriendProfile; summary: FriendSummary }> {
+export async function loadFriendProfile(
+  api: FriendsApi, code: string, whole = false, wait: (ms: number) => Promise<unknown> = pause,
+): Promise<{ profile: FriendProfile; summary: FriendSummary }> {
   for (let asks = 0; asks < MAX_PROFILE_ASKS; asks++) {
+    if (asks > 0) await wait(PROFILE_ASK_MS);
     const { profile, summary } = await api.profile(code);
-    if (summary) return { profile, summary };
+    if (summary && (!whole || summary.versus)) return { profile, summary };
   }
   throw new FriendsApiError('unreachable', 503);
 }
@@ -337,6 +345,8 @@ export function friendsErrorMessage(code: FriendsErrorCode): string {
     case 'signed-out':
     case 'sign-in-needed':
       return 'You were signed out. Sign in again to see your friends.';
+    case 'too-many-requests':
+      return 'Too many tries from this connection just now. Wait a minute and try again.';
     case 'unreachable':
       return "Can't reach the game server. Check your connection and try again.";
     case 'bad-request':

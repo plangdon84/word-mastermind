@@ -131,7 +131,9 @@ Run `npm test` and `npm run typecheck` before committing.
   them (D1 `profile_games`, a friend game's room asked once) and its stats
   and badges (`profile_summaries`), refreshed after a device's last upload
   or played pull (`later`, the request's `waitUntil`) and on opening if
-  anything is new; `GET /api/friends/profile` gives the summary and your
+  anything is new (or the release changed, `SUMMARY_VERSION`); a stuck
+  room's game is retried later (`retry`). `GET /api/friends/profile`
+  (its own rate limit, `RATE_LIMIT_PROFILE`) gives the summary and your
   record against them, `/api/friends/profile/games` a page of history
   (filters in SQL). A friend's name in a game against them, a lobby's
   results or a board's Friends view opens it too (item 18ca): the server

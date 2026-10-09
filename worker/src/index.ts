@@ -53,10 +53,15 @@ export interface Env {
   /** Rate limits by address (`limits.ts`): 30 a minute, and 3 a minute for reports and sign-in emails. Without them, nothing is limited. */
   RATE_LIMIT?: RateLimit;
   RATE_LIMIT_STRICT?: RateLimit;
+  /** 60 a minute for opening a friend's profile, which the app asks for again while the server catches up (item 18cb). */
+  RATE_LIMIT_PROFILE?: RateLimit;
 }
 
-/** Work that goes on after the answer is sent (`ExecutionContext.waitUntil`). It catches its own failures. */
-export type Later = (work: Promise<unknown>) => void;
+/**
+ * Work that goes on after the answer is sent (`ExecutionContext.waitUntil`),
+ * started only when there is one: without it (tests) it isn't started.
+ */
+export type Later = (work: () => Promise<unknown>) => void;
 
 /**
  * Handles one API request. `now` is the server's clock, passed in (as game
@@ -129,5 +134,5 @@ export { Matchmaker } from './matchmaker';
 export { RushLobby } from './rushLobby';
 
 export default {
-  fetch: (request, env, ctx) => handle(request, env, Date.now(), fetch, (work) => ctx.waitUntil(work)),
+  fetch: (request, env, ctx) => handle(request, env, Date.now(), fetch, (work) => ctx.waitUntil(work())),
 } satisfies ExportedHandler<Env>;

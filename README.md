@@ -2012,13 +2012,16 @@ history**.
   game or fetches its new server games, and again, if anything is new, when
   a friend opens your profile, so it's never behind. Opening a profile is
   one small request; the first time the server sees a player with many
-  games, it copies them over a few requests, which the app asks for until
-  it's done. Badges that count days in a row use Daily Rush's day (midnight
+  games, it copies them over a few requests, which the app asks for a
+  second apart until it's done (with a limit of its own, 60 a minute, so
+  it never uses up the one for starting games). Your record against them
+  can follow a moment after their stats, while the server copies your own
+  games. A summary is worked out again after each release. Badges that count days in a row use Daily Rush's day (midnight
   in New York), since the server doesn't know your time zone. It's loaded
   once and kept for five minutes, so going back from one of their games
   doesn't load it again; opening your friends list or signing out forgets
-  it. A server game whose room can't answer for now waits, with the games
-  after it, until it can, as in your own history.
+  it. A server game whose room can't answer for now is passed over and
+  added once it can, so it doesn't hold up the games after it.
 - **A Daily Set is left out** until the day after it is over (one started
   before midnight can still be finished the next day), so its words can't
   be read off a friend before you've played it. Their Daily Rush places

@@ -3,7 +3,7 @@ import { authApi, type Session } from '../../src/app/account';
 import { dailyApi } from '../../src/app/dailyApi';
 import { friendApi, FriendApiError } from '../../src/app/friendApi';
 import {
-  friendsApi, FriendsApiError, isFriendCode, isInviteKey, loadFriendProfile, normalizeFriendCode, formatFriendCode,
+  friendsApi, FriendsApiError, isFriendCode, type FriendsApi, isInviteKey, loadFriendProfile, normalizeFriendCode, formatFriendCode,
 } from '../../src/app/friendsApi';
 import { addDays, dailyDay, type HistoryFilter } from '../../src/game';
 import { dailyEntry, soloEntry } from '../../src/game/testGames';
@@ -48,10 +48,15 @@ async function setup() {
   let clock = NOW;
   const { namespace: rooms } = fakeRooms({ db, now: () => clock });
   // Counts what's asked of game rooms, to check a friend's profile asks about each game once.
+  // Rooms in `stuck` can't answer for now.
   let roomAsks = 0;
+  const stuck = new Set<string>();
   const games = { ...rooms, get: (id: DurableObjectId) => {
     const room = rooms.get(id);
-    return { fetch: (url: string, init: RequestInit) => (roomAsks++, room.fetch(url, init)) };
+    return { fetch: (url: string, init: RequestInit) => {
+      roomAsks++;
+      return stuck.has(id.toString()) ? Promise.resolve(new Response('busy', { status: 503 })) : room.fetch(url, init);
+    } };
   } } as unknown as DurableObjectNamespace;
   const lobbies = fakeLobbies({ db, now: () => clock });
   const keys = await vapidKeys();
@@ -101,7 +106,7 @@ async function setup() {
   /** Pushes sent since the last call, as [who, topic]. */
   const pushed = () => pushes.splice(0).map(([url, topic]) => [url.split('/').pop(), topic]);
   return {
-    sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock, roomAsks: () => roomAsks,
+    sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock, roomAsks: () => roomAsks, stuck,
   };
 }
 
@@ -463,6 +468,8 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     return { ...s, ann, bob, cat, bobCode };
   }
   const everything = { filter: {}, offset: 0, limit: 50 };
+  /** The whole profile, asking again at once while the server catches up. */
+  const load = (api: FriendsApi, code: string) => loadFriendProfile(api, code, true, async () => undefined);
 
   /** A Daily Set Bob played on `day`, as the server keeps it. */
   function bobsDaily(sqlite: ReturnType<typeof fakeD1>['sqlite'], day: string, at: number, player = BOB) {
@@ -501,7 +508,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     await ann.games.guess(game.id, 'beach');
     await bob.games.guess(game.id, 'crane');
 
-    const { profile, summary } = await loadFriendProfile(ann.friends, bobCode);
+    const { profile, summary } = await load(ann.friends, bobCode);
     expect(profile).toEqual({ name: 'Bob', country: 'GB', memberSince: NOW, placements: [] });
     expect(summary.games).toBe(2);
     expect(summary.stats.played).toBe(2);
@@ -527,7 +534,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
   it('keeps up as games finish, and asks a game room about each game once', async () => {
     const { ann, bob, bobCode, now, roomAsks } = await friends();
     await bob.sync.upload([soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach'])]);
-    expect((await loadFriendProfile(ann.friends, bobCode)).summary.games).toBe(1);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(1);
     const game = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d', friend: bobCode });
     await bob.games.join(game.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
     await ann.games.guess(game.id, 'beach');
@@ -535,12 +542,36 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     await bob.sync.upload([soloEntry('bob-solo-2', now() - 30_000, ['storm', 'beach'])]);
 
     const before = roomAsks();
-    expect((await loadFriendProfile(ann.friends, bobCode)).summary.games).toBe(3);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(3);
     // Bob's side, and Ann's for your record against him.
     expect(roomAsks() - before).toBe(2);
-    await loadFriendProfile(ann.friends, bobCode);
+    await load(ann.friends, bobCode);
     await bob.friends.profile((await ann.friends.list()).code);
     expect(roomAsks() - before).toBe(2);
+  });
+
+  it("passes over a game whose room can't answer for now, and adds it once it can", async () => {
+    const { ann, bob, bobCode, now, stuck } = await friends();
+    const game = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d', friend: bobCode });
+    await bob.games.join(game.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    await ann.games.guess(game.id, 'beach');
+    await bob.games.guess(game.id, 'crane');
+    await bob.sync.upload([soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach'])]);
+    stuck.add(game.id);
+    const first = await load(ann.friends, bobCode);
+    expect(first.summary.games).toBe(1);
+    stuck.delete(game.id);
+    const then = await load(ann.friends, bobCode);
+    expect(then.summary.games).toBe(2);
+    expect(then.summary.versus?.friend).toEqual({ wins: 1, draws: 0, losses: 0 });
+  });
+
+  it('works a summary out again after a release', async () => {
+    const { ann, bob, bobCode, now, sqlite } = await friends();
+    await bob.sync.upload([soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach'])]);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(1);
+    sqlite.prepare("UPDATE profile_summaries SET summary = json_set(summary, '$.version', '0.0.1', '$.games', 99)").run();
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(1);
   });
 
   it('pages their history, newest first, with the filters and search', async () => {
@@ -550,7 +581,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
         difficulty: i < 5 ? 'hard' : 'medium', gaveUp: i === 24,
       }));
     await bob.sync.upload(entries);
-    await loadFriendProfile(ann.friends, bobCode);
+    await load(ann.friends, bobCode);
     const first = await ann.friends.profileGames(bobCode, { filter: {}, offset: 0, limit: 20 });
     expect(first.games.map((g) => g.id)).toEqual(entries.slice(5).reverse().map((e) => e.id));
     expect(first.next).toBe(20);
@@ -576,7 +607,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
       sqlite.prepare('INSERT INTO daily_results (day, player_id, difficulty, name, guesses, ms, finished_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(day, BOB, 'medium', 'Bob', 4, 60_000, now() - 60_000);
     }
-    const { profile, summary } = await loadFriendProfile(ann.friends, bobCode);
+    const { profile, summary } = await load(ann.friends, bobCode);
     // Yesterday's can still be finished by someone who started it before midnight.
     expect(summary.games).toBe(1);
     const { games } = await ann.friends.profileGames(bobCode, everything);
@@ -589,18 +620,18 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
   it('shows the games of a guest ID linked later, and catches up on many games over a few requests', async () => {
     const { ann, bobCode, sqlite, now } = await friends();
     const today = dailyDay(now());
-    for (let i = 2; i < 132; i++) bobsDaily(sqlite, addDays(today, -i), now());
+    for (let i = 2; i < 232; i++) bobsDaily(sqlite, addDays(today, -i), now());
     // The first answers come while the server is still copying them.
     expect((await ann.friends.profile(bobCode)).summary).toBeNull();
-    expect((await loadFriendProfile(ann.friends, bobCode)).summary.games).toBe(130);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(230);
 
     // A guest's game, from before they signed in on that device.
     sqlite.prepare('INSERT INTO guests (id, created_at, last_seen_at) VALUES (?, ?, ?)').run(DAN, NOW, NOW);
     bobsDaily(sqlite, addDays(today, -200), now(), DAN);
-    expect((await loadFriendProfile(ann.friends, bobCode)).summary.games).toBe(130);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(230);
     const bobId = sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string };
     sqlite.prepare('UPDATE guests SET account_id = ? WHERE id = ?').run(bobId.account_id, DAN);
-    expect((await loadFriendProfile(ann.friends, bobCode)).summary.games).toBe(131);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(231);
   });
 
   it('refuses a query or code that is no such thing', async () => {

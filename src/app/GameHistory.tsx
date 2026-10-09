@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  DIFFICULTIES, HISTORY_MODES, isServerMode, matchesFilter, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
+  DIFFICULTIES, HISTORY_MODES, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
   type DailyPlacement, type HistoryMode, type HistoryResult, type RatingChange,
 } from '../game';
 import { API_URL } from './config';
@@ -140,17 +140,6 @@ interface Loaded {
   games: HistoryGame[];
   next: number | null;
   status: 'loading' | 'ready' | 'error';
-}
-
-/** A page of games from a list already loaded (a friend's), as `loadGamesPage` gives this browser's. */
-export function listPage(games: readonly HistoryGame[]) {
-  // Newest first, as this browser's are.
-  const sorted = [...games].sort((a, b) => b.entry.record.startedAt - a.entry.record.startedAt);
-  return (filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage> => {
-    const matching = sorted.filter((g) => matchesFilter(g.summary, filter));
-    const end = offset + limit;
-    return Promise.resolve({ games: matching.slice(offset, end), next: end < matching.length ? end : null });
-  };
 }
 
 /**

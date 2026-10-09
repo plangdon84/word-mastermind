@@ -79,18 +79,32 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
       live = false;
     };
   }, [apiUrl, identity, code, attempt]);
+  // Their stats show first; your record against them follows once the server has copied your own games.
+  const waiting = state.status === 'ready' && state.summary.versus === null;
+  useEffect(() => {
+    if (!waiting) return;
+    let live = true;
+    loadFriendProfile(friendsApi(apiUrl, identity), code, true).then(({ profile, summary }) => {
+      const friend = { profile, summary, featured: toHistoryGames(summary.featured) };
+      loaded.set(key, { at: Date.now(), friend });
+      if (live) setState({ status: 'ready', ...friend });
+    }, () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [waiting, apiUrl, identity, code]);
   return state;
 }
 
 const HEAD_TO_HEAD_LABEL: Record<HeadToHeadMode, string> = { friend: 'Two player', lobby: 'Word Sets with friends' };
 
 /** Your record against a friend: won–drawn–lost in each mode you've played them in. */
-function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
-  const played = HEAD_TO_HEAD_MODES.filter((m) => record[m].wins + record[m].draws + record[m].losses > 0);
+function YouVersus({ name, record }: { name: string; record: HeadToHead | null }) {
+  const played = HEAD_TO_HEAD_MODES.filter((m) => record && record[m].wins + record[m].draws + record[m].losses > 0);
   return (
     <div class="stat-block head-to-head">
       <h4>You vs. {name}</h4>
-      {played.length === 0 ? (
+      {!record ? <p class="field-note">Loading…</p> : played.length === 0 ? (
         <p class="field-note">You haven't played {name} yet. Your games against them appear here.</p>
       ) : (
         <dl class="stat-list">
@@ -98,7 +112,7 @@ function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
             <div class="stat-row" key={m}>
               <dt>{HEAD_TO_HEAD_LABEL[m]}</dt>
               <dd>
-                {record[m].wins}–{record[m].draws}–{record[m].losses}
+                {record![m].wins}–{record![m].draws}–{record![m].losses}
                 <span class="stat-aside"> won–drawn–lost</span>
               </dd>
             </div>

@@ -3,9 +3,10 @@ import {
   summarizeGame, type DailyDay, type HistoryEntry, type StatsGame,
 } from '../../src/game';
 import type { FriendGamesQuery, FriendSummary } from '../../src/app/friendsApi';
+import { RELEASES } from '../../src/app/releases';
 import { playerOfAccount, type Player } from './accounts';
 import { pastPlacements } from './dailyRoutes';
-import type { Env } from './index';
+import type { Env, Later } from './index';
 import { playedPage } from './played';
 
 /*
@@ -21,10 +22,17 @@ import { playedPage } from './played';
 
 /** The most synced games one refresh copies, and server games it looks at: a request never does too much. */
 const COPY_SYNCED = 1000;
-const COPY_PLAYED_PAGES = 5;
+const COPY_PLAYED_PAGES = 10;
+
+/**
+ * Which app version a summary was worked out by: a release can add a mode,
+ * a badge or a stat, so a summary from before it is worked out again.
+ */
+const SUMMARY_VERSION = RELEASES[0].version;
 
 /** What `profile_summaries.summary` holds: `FriendSummary` without your record against them, and the featured games by ID. */
 interface StoredSummary {
+  version: string;
   games: number;
   stats: FriendSummary['stats'];
   badges: FriendSummary['badges'];
@@ -37,6 +45,7 @@ interface SummaryRow {
   players: number;
   day: string;
   summary: string | null;
+  retry: string;
 }
 
 const parse = (text: string): unknown => {
@@ -96,28 +105,30 @@ async function copySynced(db: D1Database, accountId: string, after: number) {
 }
 
 /**
- * Copies the account's server games after `after`. A game already copied
+ * Copies the account's server games after `after`, and asks again about
+ * `retry`, games whose room couldn't answer before. A game already copied
  * (looked through again for a newly linked guest ID) isn't asked about
- * again. A room that can't answer for now ends it before that game, for the
- * next refresh to ask again, as `GET /api/played` does.
+ * again. A game whose room can't answer for now is passed over, to retry
+ * next time, so it doesn't hold up the games after it.
  */
-async function copyPlayed(env: Env, accountId: string, player: Player, after: number) {
-  const { results } = await env.DB.prepare(
-    'SELECT game_seq FROM profile_games WHERE account_id = ?1 AND game_seq > ?2',
-  ).bind(accountId, after).all<{ game_seq: number }>();
-  const known = new Set(results.map((r) => r.game_seq));
+async function copyPlayed(env: Env, accountId: string, player: Player, after: number, retry: readonly number[]) {
   let cursor = after;
+  let copied = 0;
+  const stuck: number[] = [];
   for (let pages = 0; pages < COPY_PLAYED_PAGES; pages++) {
-    const page = await playedPage(env, player, cursor, known);
+    // The games to retry come first, with the first page.
+    const page = await playedPage(env, player, cursor, { accountId, retry: pages === 0 ? retry : [] });
     const inserts = page.games.flatMap((g) => {
       const insert = g.seq === undefined ? null : gameRow(env.DB, accountId, withoutRating(g.entry), g.seq);
       return insert ? [insert] : [];
     });
     if (inserts.length > 0) await env.DB.batch(inserts);
+    copied += inserts.length;
+    stuck.push(...page.stuck);
     cursor = page.cursor;
-    if (page.stopped || page.next === null) return { through: cursor, more: false };
+    if (page.next === null) return { through: cursor, more: false, copied, stuck };
   }
-  return { through: cursor, more: true };
+  return { through: cursor, more: true, copied, stuck };
 }
 
 /** Every game a friend sees on the account's profile today, oldest first. */
@@ -146,7 +157,8 @@ async function workOut(env: Env, player: Player, today: DailyDay, now: number): 
     for (const ref of [best, bestRush, fastest]) if (ref) featured.add(ref.id);
   }
   return {
-    games: games.length, stats, badges: computeAchievements(games, dayNumber, placements), featured: [...featured],
+    version: SUMMARY_VERSION, games: games.length, stats, badges: computeAchievements(games, dayNumber, placements),
+    featured: [...featured],
   };
 }
 
@@ -166,50 +178,64 @@ export async function refreshProfile(env: Env, accountId: string, now: number, s
   const db = env.DB;
   const today = dailyDay(now);
   const row = await db.prepare(
-    'SELECT synced_through, played_through, players, day, summary FROM profile_summaries WHERE account_id = ?1',
+    'SELECT synced_through, played_through, players, day, summary, retry FROM profile_summaries WHERE account_id = ?1',
   ).bind(accountId).first<SummaryRow>();
   const player = await playerOfAccount(db, accountId);
   const synced = await copySynced(db, accountId, row?.synced_through ?? 0);
   // A newly linked guest ID's games can come before where the copying got to: look through them all again.
   const relinked = row !== null && row.players !== player.aliases.length;
-  const played = await copyPlayed(env, accountId, player, relinked ? 0 : row?.played_through ?? 0);
+  const retry = row ? (parse(row.retry) as number[] | null) ?? [] : [];
+  const played = await copyPlayed(env, accountId, player, relinked ? 0 : row?.played_through ?? 0, retry);
   const more = synced.more || played.more;
-  const changed = row === null || relinked || row.day !== today
-    || synced.through !== row.synced_through || played.through !== row.played_through;
-  let summary = row?.summary && !changed ? parse(row.summary) as StoredSummary : null;
+  const changed = row === null || relinked || row.day !== today || played.copied > 0
+    || synced.through !== row.synced_through || played.through !== row.played_through
+    || JSON.stringify(played.stuck) !== JSON.stringify(retry);
+  const kept = row?.summary && !changed ? parse(row.summary) as StoredSummary | null : null;
+  let summary = kept?.version === SUMMARY_VERSION ? kept : null;
   if (summarize && !more && !summary) summary = await workOut(env, player, today, now);
-  if (changed || (summary && !row?.summary)) {
+  if (changed || (summary && summary !== kept)) {
     await db.prepare(
-      `INSERT INTO profile_summaries (account_id, synced_through, played_through, players, day, summary, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+      `INSERT INTO profile_summaries (account_id, synced_through, played_through, players, day, summary, updated_at, retry)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
        ON CONFLICT (account_id) DO UPDATE SET synced_through = excluded.synced_through,
          played_through = excluded.played_through, players = excluded.players, day = excluded.day,
-         summary = excluded.summary, updated_at = excluded.updated_at
+         summary = excluded.summary, updated_at = excluded.updated_at, retry = excluded.retry
        WHERE excluded.players != profile_summaries.players
          OR (excluded.synced_through >= profile_summaries.synced_through
            AND excluded.played_through >= profile_summaries.played_through)`,
-    ).bind(accountId, synced.through, played.through, player.aliases.length, today, summary && JSON.stringify(summary), now).run();
+    ).bind(
+      accountId, synced.through, played.through, player.aliases.length, today, summary && JSON.stringify(summary), now,
+      JSON.stringify(played.stuck),
+    ).run();
   }
   return { summary: more ? null : summary, more };
 }
 
 /** Refreshes an account's profile without holding up the answer; a failure waits for the next refresh. */
-export function refreshLater(env: Env, accountId: string, now: number, later: (work: Promise<unknown>) => void): void {
-  later(refreshProfile(env, accountId, now).catch((e: unknown) => console.error('Refreshing a profile failed', e)));
+export function refreshLater(env: Env, accountId: string, now: number, later: Later): void {
+  later(() => refreshProfile(env, accountId, now).catch((e: unknown) => console.error('Refreshing a profile failed', e)));
 }
 
 /**
  * A friend's summary for you: their stats, badges and featured games, and
  * your record against them (the games in both your histories). Null while
- * either of you has games left to copy: the app asks again.
+ * they have games left to copy, and the record null while you do: the app
+ * asks again.
  */
 export async function friendSummary(env: Env, accountId: string, friendId: string, now: number): Promise<FriendSummary | null> {
-  const theirs = await refreshProfile(env, friendId, now);
-  // Yours only needs its games copied, for the games you share.
-  const yours = await refreshProfile(env, accountId, now, false);
-  if (!theirs.summary || yours.more) return null;
+  // Yours only needs its games copied, for the games you share. The two write different rows.
+  const [theirs, yours] = await Promise.all([refreshProfile(env, friendId, now), refreshProfile(env, accountId, now, false)]);
+  if (!theirs.summary) return null;
   const { games, stats, badges, featured } = theirs.summary;
-  const { results } = await env.DB.prepare(
+  return {
+    games, stats, badges, featured: await gamesById(env.DB, friendId, featured),
+    versus: yours.more ? null : await versus(env.DB, accountId, friendId),
+  };
+}
+
+/** Your record against a friend, from the games in both your histories. */
+async function versus(db: D1Database, accountId: string, friendId: string) {
+  const { results } = await db.prepare(
     `SELECT y.id, y.entry AS yours, t.entry AS theirs FROM profile_games y
      JOIN profile_games t ON t.account_id = ?2 AND t.id = y.id
      WHERE y.account_id = ?1 AND y.mode IN ('friend', 'lobby') AND y.entry IS NOT NULL AND t.entry IS NOT NULL`,
@@ -219,8 +245,7 @@ export async function friendSummary(env: Env, accountId: string, friendId: strin
     const replayed = entry && replayEntry(entry);
     return replayed ? [{ id: r.id, replayed }] : [];
   });
-  const featuredGames = await gamesById(env.DB, friendId, featured);
-  return { games, stats, badges, featured: featuredGames, versus: headToHead(shared('yours'), shared('theirs')) };
+  return headToHead(shared('yours'), shared('theirs'));
 }
 
 /** The account's games with these IDs. */

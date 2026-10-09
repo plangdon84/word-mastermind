@@ -301,13 +301,16 @@ export async function deleteAccount(db: D1Database, accountId: string): Promise<
     .bind(accountId).run();
   await db.prepare('DELETE FROM sessions WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM login_links WHERE email = ?1').bind(account.email).run();
-  await db.prepare('DELETE FROM profile_games WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM profile_summaries WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM history_entries WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM profiles WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM friends WHERE account_id = ?1 OR friend_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM lobby_invites WHERE account_id = ?1').bind(accountId).run();
   await deleteRatings(db, accountId);
   await db.prepare('UPDATE guests SET account_id = NULL WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM accounts WHERE id = ?1').bind(accountId).run();
+  // Its copy for friends' view (Dev Plan item 18cb) last, with the account, so a friend opening the profile meanwhile can't leave rows behind.
+  await db.batch([
+    db.prepare('DELETE FROM profile_games WHERE account_id = ?1').bind(accountId),
+    db.prepare('DELETE FROM profile_summaries WHERE account_id = ?1').bind(accountId),
+    db.prepare('DELETE FROM accounts WHERE id = ?1').bind(accountId),
+  ]);
 }
