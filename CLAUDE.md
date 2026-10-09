@@ -120,13 +120,22 @@ Run `npm test` and `npm run typecheck` before committing.
   in `LobbyScreen.tsx` and on the title screen's Games in progress (`LobbyInviteButton`).
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
-  read from `GET /api/friends/profile` (`friendProfilePage` in
-  `worker/src/friends.ts`, friends only): their synced games, then their
-  server games (`playedPage` in `worker/src/played.ts`, run as them with
-  `playerOfAccount`), only entries (never a `ref`, which is a credential),
-  leaving out a Daily Set until the day after it is over. Your record against them is
-  `headToHead` (`src/game/headToHead.ts`): games whose history ID is in
-  both histories. A friend's name in a game against them, a lobby's
+  read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends
+  only): their synced games and their server games (`playedPage` in
+  `worker/src/played.ts`, run as them with `playerOfAccount`), only entries
+  (never a `ref`, which is a credential), leaving out a Daily Set until the
+  day after it is over. Your record against them is `headToHead`
+  (`src/game/headToHead.ts`): games whose history ID is in both histories.
+  The server keeps each profile ready (item 18cb,
+  `worker/src/friendProfiles.ts`): each account's games as friends see
+  them (D1 `profile_games`, a friend game's room asked once) and its stats
+  and badges (`profile_summaries`), refreshed after a device's last upload
+  or played pull (`later`, the request's `waitUntil`) and on opening if
+  anything is new (or the release changed, `SUMMARY_VERSION`); a stuck
+  room's game is retried later (`retry`). `GET /api/friends/profile`
+  (its own rate limit, `RATE_LIMIT_PROFILE`) gives the summary and your
+  record against them, `/api/friends/profile/games` a page of history
+  (filters in SQL). A friend's name in a game against them, a lobby's
   results or a board's Friends view opens it too (item 18ca): the server
   marks it with their friend code (`friendCodes` / `friendCodeSql` in
   `worker/src/friends.ts`; `opponentCode`, `friendCode`), shown by

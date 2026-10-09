@@ -1,20 +1,20 @@
-import { addDays, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS, type HistoryEntry } from '../../src/game';
+import { dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
-  FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, isProfileCursor, MAX_FRIENDS, type Friend, type FriendProfile,
-  type FriendProfilePage, type FriendsList, type LobbyInvite,
+  FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, parseFriendGamesParams, type Friend,
+  type FriendProfile, type FriendProfileAnswer, type FriendsList, type LobbyInvite,
 } from '../../src/app/friendsApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
 import { identify, playerOfAccount } from './accounts';
 import { pastPlacements } from './dailyRoutes';
+import { friendGamesPage, friendSummary } from './friendProfiles';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
 import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
-import { playedPage } from './played';
 import { vapidKeysOf } from './pushRoutes';
-import { loadEntries, syncedName } from './sync';
+import { syncedName } from './sync';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -252,49 +252,21 @@ async function removeFriend(db: D1Database, accountId: string, code: string): Pr
     .bind(accountId, friendId).run();
 }
 
-/** A friend's game without their rating change: their profile never shows their rating. */
-const withoutRating = (entry: HistoryEntry): HistoryEntry =>
-  entry.mode === 'friend' || entry.mode === 'lobby' ? { ...entry, rating: null } : entry;
-
 /**
- * A page of a friend's profile (Dev Plan item 18c, README "Friends'
- * profiles"): their games from their side, first those their devices synced
- * (`h:`), then the ones the server refereed (`p:`), and with the first page
- * (no cursor) their name, country and Daily Rush places. Only what any
- * player may see of them: never their settings, email, friends list or an
- * ID. A Daily Rush is left out until the day after it is over too (a run
- * started before midnight can be finished the next day), so its words
- * can't be read off a friend before you've played it.
+ * A friend's profile (Dev Plan item 18c, README "Friends' profiles"): their
+ * name, country and Daily Rush places; their games, stats and badges are
+ * `friendProfiles.ts`'s. Only what any player may see of them: never their
+ * settings, email, friends list or an ID.
  */
-export async function friendProfilePage(
-  env: Env, friendId: string, cursor: string | null, now: number,
-): Promise<FriendProfilePage> {
-  const db = env.DB;
-  const today = dailyDay(now);
-  const player = await playerOfAccount(db, friendId);
-  let profile: FriendProfile | null = null;
-  if (cursor === null) {
-    const row = await db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
-      .first<{ country: string | null; member_since: number }>();
-    profile = {
-      name: await nameOrDefault(db, friendId),
-      country: isCountry(row?.country) ? row.country : null,
-      memberSince: row?.member_since ?? null,
-      placements: await pastPlacements(db, player, today),
-    };
-  }
-  const [part, at] = cursor === null ? ['h', 0] : [cursor[0], Number(cursor.slice(2))];
-  if (part === 'h') {
-    // Uploads were checked and parsed when synced (`routeSync`), so they hold only what a history entry has.
-    const page = await loadEntries(db, friendId, at);
-    const games = (page.entries as FriendProfilePage['games']).map(withoutRating);
-    return { profile, games, next: page.next !== null ? `h:${page.next}` : 'p:0' };
-  }
-  const page = await playedPage(env, player, at, true);
-  // Only the entry: its `ref` is a friend game's ID or a lobby's join code, both credentials.
-  const shownBefore = addDays(today, -1);
-  const games = page.games.map((g) => withoutRating(g.entry)).filter((e) => e.mode !== 'daily' || e.day < shownBefore);
-  return { profile, games, next: page.next !== null ? `p:${page.next}` : null };
+async function friendProfile(db: D1Database, friendId: string, now: number): Promise<FriendProfile> {
+  const row = await db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
+    .first<{ country: string | null; member_since: number }>();
+  return {
+    name: await nameOrDefault(db, friendId),
+    country: isCountry(row?.country) ? row.country : null,
+    memberSince: row?.member_since ?? null,
+    placements: await pastPlacements(db, await playerOfAccount(db, friendId), dailyDay(now)),
+  };
 }
 
 /** Routes `/api/friends…`, or returns null for any other path. */
@@ -311,16 +283,21 @@ export async function routeFriends(
   if (pathname === '/api/friends') {
     return method === 'GET' ? json(await listFriends(env, accountId, now)) : errorResponse(405, 'bad-request');
   }
-  if (pathname === '/api/friends/profile') {
+  if (pathname === '/api/friends/profile' || pathname === '/api/friends/profile/games') {
     if (method !== 'GET') return errorResponse(405, 'bad-request');
     const params = new URL(request.url).searchParams;
     const code = params.get('code');
-    const after = params.get('after');
-    if (!isFriendCode(code) || !(after === null || isProfileCursor(after))) return errorResponse(400, 'bad-request');
+    const query = pathname === '/api/friends/profile/games' ? parseFriendGamesParams(params) : null;
+    if (!isFriendCode(code) || (pathname === '/api/friends/profile/games' && !query)) return errorResponse(400, 'bad-request');
     // Only a friend's: anyone else's code, or a request not yet accepted, is no different from no such player.
     const friendId = await friendIdByCode(env.DB, accountId, code);
     if (!friendId) return errorResponse(404, 'not-found');
-    return json(await friendProfilePage(env, friendId, after, now));
+    if (query) return json(await friendGamesPage(env.DB, friendId, query, now));
+    const answer: FriendProfileAnswer = {
+      profile: await friendProfile(env.DB, friendId, now),
+      summary: await friendSummary(env, accountId, friendId, now),
+    };
+    return json(answer);
   }
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   const body = await readJson(request);

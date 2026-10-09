@@ -8,6 +8,7 @@
 /** Tables the wipe empties, children before parents so foreign keys hold. */
 export const WIPE_TABLES = [
   'game_players', 'games', 'friend_game_players', 'daily_results', 'history_entries', 'rated_games', 'ratings',
+  'profile_games', 'profile_summaries',
 ] as const;
 
 /**
