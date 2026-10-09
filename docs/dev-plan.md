@@ -102,11 +102,12 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 - [x] **18p. A shorter title screen footer** (agreed with the owner on 2
   October 2026; app only, no review gate)
-  - The links under Leaderboards become one wrapped row of small print:
-    How to play · Full rules · Strategy · Jotto and Wordle · Privacy ·
-    Terms · Version, with Report an issue and the Tutorial link kept as
-    they are, so the bottom of the screen takes about two rows less on a
-    phone
+  - The links under Leaderboards become one wrapped row of small print,
+    two lines on a phone: Full rules · Strategy · Jotto and Wordle ·
+    (Tutorial) · Privacy · Terms · Report an issue · Version. The How to
+    play popup leaves the title screen in favour of Full rules (agreed
+    with the owner on 9 October 2026); it stays in ☰ and the profile's
+    Help
   - Every static page keeps a link from the title screen (18j's SEO), and
     Privacy stays there, since Google's sign-in approval checks the
     homepage links to the privacy policy
