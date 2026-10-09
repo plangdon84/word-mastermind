@@ -449,6 +449,19 @@ tick its box in the same PR and move it to the top of **Done** (latest first).
 If the plan changes, update `docs/dev-plan.md` first. Item numbers never shift: a new item
 takes a letter (like 13b).
 
+When the owner says "start the next dev item" (or names one), it always
+means this repository's (`plangdon84/word-mastermind`) `docs/dev-plan.md`,
+read after a fresh pull of `main` (`git fetch origin main` and
+`git pull origin main`, or a new branch from `origin/main`), never a stale
+checkout or another repo's plan.
+
+**The owner checks the release note before any commit.** Before the first
+commit of a dev item (and before any later commit that adds or changes a
+release note in `src/app/releases.ts`), show the owner the proposed
+version and its one-line notes, or say the PR adds none and why, and wait
+for their OK. This comes ahead of "open a draft PR after its first
+commit" below.
+
 ## Working rules
 
 Agreed with the product owner in the retrospective of 29 September, and

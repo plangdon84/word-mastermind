@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.13.0',
+    notes: [
+      { text: 'Tap a friend’s name in a game against them, the results screen of a rush or crush with friends, or on a leaderboard’s Friends view to open their profile.' },
+      { text: 'Only names of people on your friends list open a profile. Everyone else’s name stays as it is.' },
+    ],
+  },
+  {
     version: '1.12.0',
     notes: [
       { text: 'Tap a friend’s name on your friends list to see their profile: their country, stats, badges and every game they’ve finished, each one open to review.' },
