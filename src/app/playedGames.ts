@@ -19,7 +19,12 @@ interface PlayedState {
   cursor: number;
 }
 
-const KEY = 'word-mastermind:played:v1';
+/**
+ * v1 could save its place past games it had left out as from before this
+ * device's profile, losing them for good on a device that then signed in;
+ * v2 reads every device's games again once (the ones it has are skipped).
+ */
+const KEY = 'word-mastermind:played:v2';
 
 export function parsePlayedState(raw: string | null): PlayedState | null {
   try {
@@ -76,12 +81,14 @@ export interface PlayedStore {
 /**
  * Saves your finished server games this browser doesn't have yet. `who` is
  * whoever the app plays as (the account's ID, or the guest's), since signing
- * in brings the account's other games. A game started before the profile
- * existed (`memberSince`) isn't saved, as in every mode. Returns the new
- * games' IDs; rejects if the server can't be reached.
+ * in brings the account's other games. Unlike games played here, these
+ * aren't left out for starting before this device's profile (`memberSince`):
+ * every one is yours, and a device that just signed in has its own date
+ * until the account's arrives. Returns the new games' IDs; rejects if the
+ * server can't be reached.
  */
 export async function pullPlayedGames(
-  apiUrl: string, identity: ApiIdentity, who: string, memberSince: number, store: PlayedStore, fetchFn: typeof fetch = fetch,
+  apiUrl: string, identity: ApiIdentity, who: string, store: PlayedStore, fetchFn: typeof fetch = fetch,
 ): Promise<string[]> {
   const saved = loadState();
   let cursor = saved?.who === who ? saved.cursor : 0;
@@ -90,7 +97,7 @@ export async function pullPlayedGames(
   for (;;) {
     const page = await fetchPlayed(apiUrl, identity, cursor, fetchFn);
     const fresh = page.games
-      .filter((g) => !known.has(g.entry.id) && g.entry.record.startedAt >= memberSince)
+      .filter((g) => !known.has(g.entry.id))
       .map(withMarks);
     if (fresh.length > 0) await store.putGames(fresh);
     for (const e of fresh) {
