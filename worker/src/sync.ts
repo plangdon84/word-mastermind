@@ -2,7 +2,8 @@ import { isObject, isServerMode, parseHistoryEntry, validateName, type HistoryEn
 import { DOWNLOAD_PAGE, parseSyncedProfile, UPLOAD_BATCH, type SyncedProfile } from '../../src/app/syncApi';
 import { identify } from './accounts';
 import { errorResponse, json, readJson } from './http';
-import type { Env } from './index';
+import { refreshLater } from './friendProfiles';
+import type { Env, Later } from './index';
 
 /*
  * The synced profile (README "Profile", "Accounts"): a signed-in player's
@@ -110,7 +111,9 @@ export async function loadEntries(db: D1Database, accountId: string, cursor: num
 }
 
 /** Routes `/api/profile` and `/api/history`, or returns null for any other path. */
-export async function routeSync(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
+export async function routeSync(
+  request: Request, env: Env, now: number, pathname: string, later: Later = () => undefined,
+): Promise<Response | null> {
   if (pathname !== '/api/profile' && pathname !== '/api/history') return null;
   const method = request.method;
   const who = await identify(request, env.DB, now);
@@ -146,5 +149,7 @@ export async function routeSync(request: Request, env: Env, now: number, pathnam
     .map(parseHistoryEntry)
     .filter((e): e is HistoryEntry => e !== null && !isServerMode(e.mode));
   const added = await saveEntries(env.DB, accountId, entries, now);
+  // Once the device has sent its last new game, friends' view of the profile is brought up to date (item 18cb).
+  if (added > 0 && body.entries.length < UPLOAD_BATCH) refreshLater(env, accountId, now, later);
   return json({ added, skipped: body.entries.length - entries.length });
 }

@@ -301,6 +301,8 @@ export async function deleteAccount(db: D1Database, accountId: string): Promise<
     .bind(accountId).run();
   await db.prepare('DELETE FROM sessions WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM login_links WHERE email = ?1').bind(account.email).run();
+  await db.prepare('DELETE FROM profile_games WHERE account_id = ?1').bind(accountId).run();
+  await db.prepare('DELETE FROM profile_summaries WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM history_entries WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM profiles WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM friends WHERE account_id = ?1 OR friend_id = ?1').bind(accountId).run();

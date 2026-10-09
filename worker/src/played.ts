@@ -6,7 +6,8 @@ import { opponentName, type FriendGame } from '../../src/app/friendApi';
 import { PLAYED_PAGE, type PlayedGame } from '../../src/app/playedApi';
 import { identify, isPlayers, type Player } from './accounts';
 import { errorResponse, json } from './http';
-import type { Env } from './index';
+import { refreshLater } from './friendProfiles';
+import type { Env, Later } from './index';
 
 /*
  * `GET /api/played`: the games the server refereed that you played (README
@@ -127,11 +128,12 @@ export interface PlayedGamesPage {
 
 /**
  * The player's finished server games after `after`, a page at a time, in the
- * order they finished. With `skipStuck` (a friend's profile, which keeps
- * nothing), a game whose lookup fails for now is left out rather than ending
- * the page, so one stuck room can't hold up the rest.
+ * order they finished. Games whose `seq` is in `known` (ones a friend's
+ * profile already has, `friendProfiles.ts`) are passed over without a lookup.
  */
-export async function playedPage(env: Env, player: Player, after: number, skipStuck = false): Promise<PlayedGamesPage> {
+export async function playedPage(
+  env: Env, player: Player, after: number, known: ReadonlySet<number> = new Set(),
+): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
@@ -143,12 +145,16 @@ export async function playedPage(env: Env, player: Player, after: number, skipSt
   const games: PlayedGame[] = [];
   let cursor = after;
   for (const row of page) {
+    if (known.has(row.seq)) {
+      cursor = row.seq;
+      continue;
+    }
     let played: PlayedGame | null;
     try {
       played = await toPlayed(env, row, player, ids);
     } catch (e) {
       // A lookup failed for now: stop before this game, so the next pull asks for it again.
-      if (e instanceof TryAgain && !skipStuck) return { games, next: null, cursor, stopped: true };
+      if (e instanceof TryAgain) return { games, next: null, cursor, stopped: true };
       // A game that can't be read never holds up the rest.
       played = null;
     }
@@ -159,7 +165,9 @@ export async function playedPage(env: Env, player: Player, after: number, skipSt
 }
 
 /** Routes `/api/played`, or returns null for any other path. */
-export async function routePlayed(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
+export async function routePlayed(
+  request: Request, env: Env, now: number, pathname: string, later: Later = () => undefined,
+): Promise<Response | null> {
   if (pathname !== '/api/played') return null;
   if (request.method !== 'GET') return errorResponse(405, 'bad-request');
   const who = await identify(request, env.DB, now);
@@ -167,5 +175,8 @@ export async function routePlayed(request: Request, env: Env, now: number, pathn
   const after = Number(new URL(request.url).searchParams.get('after') ?? 0);
   if (!Number.isSafeInteger(after) || after < 0) return errorResponse(400, 'bad-request');
   const { games, next, cursor } = await playedPage(env, who.player, after);
+  // An account's device fetches its new server games as they finish: friends' view of its profile follows (item 18cb).
+  const { accountId } = who.player;
+  if (accountId && games.length > 0 && next === null) refreshLater(env, accountId, now, later);
   return json({ games, next, cursor });
 }
