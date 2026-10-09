@@ -19,8 +19,8 @@ plans them here and closes the ones a merged PR fixed.
 ## To build
 
 Open GitHub issues were triaged with the owner on 2 October 2026, in two
-rounds, again on 4 October 2026, on 7 October 2026, and on 8 October 2026
-in the archive (each issue has its severity and the decisions as a comment).
+rounds, again on 4 October 2026, on 7 October 2026, and on 8 and 9 October
+2026 in the archive (each issue has its severity and the decisions as a comment).
 
 **Next, in this order** (reordered with the owner on 3 October 2026:
 18h, 18i, 18b, 18o, 18c and 18d moved ahead of 18m, and 18h built
@@ -32,8 +32,34 @@ later that day, 18ub went first, since the browser tests passed CI's 30-minute
 limit; on 8 October 2026, 18ud went first: small fixes players hit now,
 and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
 from a mock-up, went before 18z; and 18c was split, opening a friend's
-profile from games and boards becoming 18ca)
+profile from games and boards becoming 18ca; on 9 October 2026, the small
+fixes players see, 18zb and 18zc, went first, and the server tidy-ups 18zd
+to 18zf after 18n)
 
+- [ ] **18zb. Small screen fixes** (issues
+  plangdon84/word-mastermind-archive#196,
+  plangdon84/word-mastermind-archive#204,
+  plangdon84/word-mastermind-archive#215 and
+  plangdon84/word-mastermind-archive#216; app only, no review gate)
+  - Issue 196: centre the text of ☰ Highlights' Check for mistakes button
+    (and check its neighbours)
+  - Issue 204: the opponent's name link in the "You vs." row is centred on
+    its text, with the underline under the name only, on both two player
+    screens
+  - Issue 215: a result tile whose value is a link button (a place, "1st ›")
+    lines up with its plain neighbours, label with label and number with
+    number: the Daily Word's Guesses and Place, and the Daily Set's places
+  - Issue 216: the Daily Word's share text puts its square, guesses and
+    place on one line; the Daily Set's text stays as it is
+- [ ] **18zc. A Rush score reads as a time a word** (issues
+  plangdon84/word-mastermind-archive#197 and
+  plangdon84/word-mastermind-archive#207; app only, no review gate)
+  - Decided with the owner on 9 October 2026: wherever a Rush (by time)
+    score shows (the result, the history row, Analytics, the share text and
+    a lobby's results), it says "a word" after the time ("4:25 a word"),
+    so it can't be read as a number of guesses, and it rounds **up** to the
+    whole second, so the shown time always matches the level (120.6 s shows
+    as 2:01, Expert). Scoring and levels don't change
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
     the game), kept out of 18j's sitemap and footers and sent with
@@ -59,6 +85,54 @@ profile from games and boards becoming 18ca)
     as …?" uses the link first, as a new guest, and signs the old account
     out only once that works; if the link fails (expired or offline), you
     stay signed in to the old account and see why
+- [ ] **18zd. Fewer server reads for daily and online games** (issues
+  plangdon84/word-mastermind-archive#209,
+  plangdon84/word-mastermind-archive#213,
+  plangdon84/word-mastermind-archive#214 and
+  plangdon84/word-mastermind-archive#212; worker, review gate)
+  - Issue 209: fetching your finished online games reads each of your IDs'
+    games in order from where the device got to, a page at a time, instead
+    of every game you've played (as indexing for friends already does)
+  - Issue 213: the title screen asks once for both daily games, through a
+    new combined route (the old ones stay for older apps)
+  - Issue 214: the Daily Word's first day moves to the day it went live; a
+    past day with no Daily Word skips the late-finish check; a stray code
+    comment moves to the item it describes
+  - Issue 212: the Daily screen's start panel and result tally are shared by
+    the Daily Set and the Daily Word (re-run the Daily screens' browser
+    tests)
+- [ ] **18ze. Friends' profiles follow-ups** (issues
+  plangdon84/word-mastermind-archive#199,
+  plangdon84/word-mastermind-archive#200,
+  plangdon84/word-mastermind-archive#206,
+  plangdon84/word-mastermind-archive#210 and
+  plangdon84/word-mastermind-archive#211; worker, review gate)
+  - Issue 199: your game history reads your Daily places once, and again
+    only when a new place arrives, not on every redraw
+  - Issue 200: a kept friend's profile is shown only while they're still on
+    your friends list; otherwise it's dropped and you go back to the list
+  - Issue 206: a friend's history pages by "older than the last game shown"
+    (the game's ID breaks ties), so a game they finish while you scroll
+    doesn't show twice
+  - Issue 210: indexing keeps a bookmark per guest ID, so a newly linked
+    device's games start from the beginning on their own
+  - Issue 211: indexing gets its own rate limit, apart from opening a
+    friend's profile, and loads only as many synced games as the size cap
+    keeps
+- [ ] **18zf. Email friend requests after a decline** (issue
+  plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
+  updates README "Friends" and the privacy page)
+  - Decided with the owner on 9 October 2026: once a player declines a
+    request that came by email, the server remembers that sender and
+    player for a week and silently ignores the sender's repeat email
+    requests to them: no request, no notification, and the sender sees the
+    usual answer. The ignored repeat still counts towards the sender's 20
+    email requests a day, so nothing reveals the decline. Adds by friend
+    code or name work as today
+  - The check runs after answering, with the lookup (`deliverEmailRequest`),
+    costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
+    or `KEEP_TABLES`), cleared after 7 days and when either account is
+    deleted
 - [ ] **18e. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
