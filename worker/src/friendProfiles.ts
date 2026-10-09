@@ -115,9 +115,12 @@ async function copyPlayed(env: Env, accountId: string, player: Player, after: nu
   let cursor = after;
   let copied = 0;
   const stuck: number[] = [];
+  // The games to retry come first, a page's worth at a time, until each has been looked at.
+  let pending = [...retry];
   for (let pages = 0; pages < COPY_PLAYED_PAGES; pages++) {
-    // The games to retry come first, with the first page.
-    const page = await playedPage(env, player, cursor, { accountId, retry: pages === 0 ? retry : [] });
+    const page = await playedPage(env, player, cursor, { accountId, retry: pending });
+    const seen = new Set(page.seen);
+    pending = pending.filter((seq) => !seen.has(seq));
     const inserts = page.games.flatMap((g) => {
       const insert = g.seq === undefined ? null : gameRow(env.DB, accountId, withoutRating(g.entry), g.seq);
       return insert ? [insert] : [];
@@ -126,9 +129,11 @@ async function copyPlayed(env: Env, accountId: string, player: Player, after: nu
     copied += inserts.length;
     stuck.push(...page.stuck);
     cursor = page.cursor;
+    // The last page had every game left, so a retry it didn't have is gone (or copied already).
     if (page.next === null) return { through: cursor, more: false, copied, stuck };
   }
-  return { through: cursor, more: true, copied, stuck };
+  // Retries not reached yet stay on the list.
+  return { through: cursor, more: true, copied, stuck: [...stuck, ...pending] };
 }
 
 /** Every game a friend sees on the account's profile today, oldest first. */

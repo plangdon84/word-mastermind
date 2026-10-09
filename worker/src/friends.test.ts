@@ -566,6 +566,24 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     expect(then.summary.versus?.friend).toEqual({ wins: 1, draws: 0, losses: 0 });
   });
 
+  it('retries every game passed over, however many there are', async () => {
+    const { ann, bob, bobCode, stuck } = await friends();
+    const ids: string[] = [];
+    for (let i = 0; i < 25; i++) {
+      const game = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d', friend: bobCode });
+      await bob.games.join(game.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+      await ann.games.guess(game.id, 'beach');
+      await bob.games.guess(game.id, 'crane');
+      ids.push(game.id);
+    }
+    for (const id of ids) stuck.add(id);
+    expect((await load(ann.friends, bobCode)).summary.games).toBe(0);
+    stuck.clear();
+    const then = await load(ann.friends, bobCode);
+    expect(then.summary.games).toBe(25);
+    expect(then.summary.versus?.friend.wins).toBe(25);
+  });
+
   it('works a summary out again after a release', async () => {
     const { ann, bob, bobCode, now, sqlite } = await friends();
     await bob.sync.upload([soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach'])]);

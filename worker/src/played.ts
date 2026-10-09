@@ -128,6 +128,8 @@ export interface PlayedGamesPage {
   cursor: number;
   stopped: boolean;
   stuck: number[];
+  /** Every game the page looked at. */
+  seen: number[];
 }
 
 /**
@@ -162,13 +164,15 @@ export async function playedPage(env: Env, player: Player, after: number, copy?:
   const page = results.slice(0, PLAYED_PAGE);
   const games: PlayedGame[] = [];
   const stuck: number[] = [];
+  const seen: number[] = [];
   let cursor = after;
   for (const row of page) {
+    seen.push(row.seq);
     let played: PlayedGame | null;
     try {
       played = await toPlayed(env, row, player, ids);
     } catch (e) {
-      if (e instanceof TryAgain && !copy) return { games, next: null, cursor, stopped: true, stuck };
+      if (e instanceof TryAgain && !copy) return { games, next: null, cursor, stopped: true, stuck, seen };
       if (e instanceof TryAgain) stuck.push(row.seq);
       // A game that can't be read never holds up the rest.
       played = null;
@@ -176,7 +180,7 @@ export async function playedPage(env: Env, player: Player, after: number, copy?:
     if (played) games.push({ ...played, seq: row.seq });
     cursor = Math.max(cursor, row.seq);
   }
-  return { games, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false, stuck };
+  return { games, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false, stuck, seen };
 }
 
 /** Routes `/api/played`, or returns null for any other path. */
