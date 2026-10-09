@@ -530,3 +530,51 @@ test("a friend's profile: their stats, badges and games, and your record against
   await page.getByRole('button', { name: /'s game, .*: back to .*'s history$/ }).click();
   await expect(page.locator('.history-row').first()).toBeVisible();
 });
+
+test("a friend's name in a game opens their profile over it, and Back comes back to the game (Dev Plan item 18ca)", async ({ page, browser }) => {
+  await unlockAll(page);
+  await signIn(page, 'name-tapper@example.com');
+  await button(page, 'Back to profile').click();
+  await button(page, /^Friends/).click();
+  const link = await page.locator('#friend-link').inputValue();
+  const friend = await newPlayer(browser, page);
+  await unlockAll(friend);
+  await signIn(friend, 'name-tapped@example.com');
+  await friend.goto(link);
+  await button(friend, 'Add').click();
+  await expect(friend.getByText(/are friends\./)).toBeVisible();
+
+  // The friend sends a game by link, and you take it.
+  await friend.goto('/');
+  await modeButton(friend, 'Two player').click();
+  await modeButton(friend, 'A friend').click();
+  await button(friend, /1 day a guess/).click();
+  await button(friend, /^Medium/).click();
+  await button(friend, 'Next: your word').click();
+  await guess(friend, 'storm');
+  await page.goto(await friend.locator('#invite-link').inputValue());
+  await expect(page.getByText(/challenges you/)).toBeVisible();
+  await guess(page, 'beach');
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+
+  // Their name in the header is a friend's, so it opens their profile; a stranger's would be text.
+  const name = page.locator('.matchup .friend-name');
+  await expect(name).toBeVisible();
+  const theirName = await name.innerText();
+  await name.click();
+  const rows = page.getByRole('navigation', { name: `${theirName}'s profile` });
+  await expect(rows.getByRole('button', { name: /^Game history/ })).toBeVisible();
+  // Typing goes nowhere while their profile covers the game.
+  await page.keyboard.type('crane');
+  for (const size of [{ width: 320, height: 568 }, { width: 1280, height: 800 }]) {
+    await page.setViewportSize(size);
+    expect(await layoutProblems(page), `their profile at ${size.width}×${size.height}`).toEqual([]);
+  }
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+
+  await button(page, 'Back').click();
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await expect(name).toBeFocused();
+  await expect(page.locator('.slot.filled')).toHaveCount(0);
+});

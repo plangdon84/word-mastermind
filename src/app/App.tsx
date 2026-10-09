@@ -24,6 +24,7 @@ import { clearFriendGames, gameIdFromUrl, loadFriendGames } from './friendGames'
 import { friendCodeFromUrl, inviteFromUrl, loadPendingInvite, savePendingInvite, type Friend } from './friendsApi';
 import { FriendsSection } from './FriendsSection';
 import { FriendProfileScreen, type FriendPage } from './FriendProfileScreen';
+import { OpenFriend } from './friendLink';
 import { DailyScreen } from './DailyScreen';
 import { dailyInProgress, loadPlacements } from './dailyStorage';
 import { announceBadges, loadBadgeNotices, loadEarnedBadges, localDay, markBadgesSeen } from './badges';
@@ -78,8 +79,12 @@ type Screen =
   | { name: 'leaderboards'; board: BoardId | null }
   /** The profile's hub, or (with `page`) one of its subpages. */
   | { name: 'profile'; from: ProfileFrom; page: ProfilePage | null }
-  /** A friend's profile (Dev Plan item 18c), from your friends list: its hub, or (with `page`) a subpage. */
-  | { name: 'friendProfile'; friend: Friend; page: FriendPage | null; from: ProfileFrom }
+  /**
+   * A friend's profile (Dev Plan item 18c), from your friends list: its hub,
+   * or (with `page`) a subpage. Reached from one of their games opened over
+   * a game, lobby or board (item 18ca), its Back goes to that screen (`back`).
+   */
+  | { name: 'friendProfile'; friend: Friend; page: FriendPage | null; from: ProfileFrom; back?: Screen }
   /**
    * A past game from the history; its Back goes to the history subpage. A
    * friend's game (`friend`) goes back to the page of their profile it was
@@ -87,7 +92,7 @@ type Screen =
    */
   | {
     name: 'review'; game: HistoryGame; from: ProfileFrom;
-    friend?: { friend: Friend; page: FriendPage; placements: readonly DailyPlacement[] };
+    friend?: { friend: Friend; page: FriendPage; placements: readonly DailyPlacement[]; back?: Screen };
   };
 
 /** The title screen's mode for a reviewed game, whose Play again starts one; the server's modes have none. */
@@ -209,6 +214,14 @@ export function App() {
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>({});
   /** The same for a friend's history, while you review one of their games. */
   const [friendFilter, setFriendFilter] = useState<HistoryFilter>({});
+  /**
+   * A friend's profile opened by tapping their name in a game, a lobby's
+   * results or a board (Dev Plan item 18ca): shown over that screen, which
+   * stays as it was underneath for Back. Where the page was scrolled to, and
+   * the name tapped, come back with it.
+   */
+  const [friendOver, setFriendOver] = useState<{ friend: Friend; page: FriendPage | null } | null>(null);
+  const underneath = useRef<{ scroll: number; focus: HTMLElement | null }>({ scroll: 0, focus: null });
   /** Bumped when games are added outside play (a restore), so the profile reloads them. */
   const [historyVersion, setHistoryVersion] = useState(0);
   /** Bumped when games against a friend arrive from your other devices, so the title screen's list reloads. */
@@ -511,26 +524,46 @@ export function App() {
 
   // The profile's rows and stats, and the title screen's unlocked modes, need every finished game; loaded only there.
   const historyGames = useHistoryGames(historyVersion,
-    screen.name === 'profile' || screen.name === 'title' || screen.name === 'friendProfile');
+    screen.name === 'profile' || screen.name === 'title' || screen.name === 'friendProfile' || friendOver !== null);
   const open = useMemo(
     () => historyGames && openModes(computeUnlocks(historyGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })))),
     [historyGames]);
 
   const exit = () => setScreen({ name: 'title' });
   // Leaving a game for the profile keeps it (a Rush pauses), and Back picks it up again.
-  const openProfile: OpenProfile = (page) => setScreen({
-    name: 'profile',
-    // Some callers pass a click event; only a section name opens a subpage.
-    page: isProfilePage(page) ? page : null,
-    from: screen.name === 'title' || screen.name === 'profile' || screen.name === 'leaderboards' ? { name: 'title' }
+  /** Where the profile's Back returns to, opened from this screen. */
+  const profileFrom = (): ProfileFrom =>
+    screen.name === 'title' || screen.name === 'profile' || screen.name === 'leaderboards' ? { name: 'title' }
       : screen.name === 'friendProfile' ? screen.from
       // After Play again from a review, the new game is the one to come back to.
       : screen.name === 'review' ? (SCREEN_MODE[screen.game.replayed.mode]
         ? { name: SCREEN_MODE[screen.game.replayed.mode]!, resume: true } : { name: 'title' })
         : screen.name === 'friend' || screen.name === 'lobby' || screen.name === 'match' ? screen
           : screen.name === 'daily' ? { name: 'daily', start: false }
-            : { name: screen.name, resume: true },
+            : { name: screen.name, resume: true };
+  const openProfile: OpenProfile = (page) => setScreen({
+    name: 'profile',
+    // Some callers pass a click event; only a section name opens a subpage.
+    page: isProfilePage(page) ? page : null,
+    from: profileFrom(),
   });
+  // Only an account has friends, and their profiles come from the server.
+  const openFriend = API_URL && session ? (friend: Friend) => {
+    underneath.current = { scroll: window.scrollY, focus: document.activeElement as HTMLElement | null };
+    setFriendFilter({});
+    setFriendOver({ friend, page: null });
+    window.scrollTo(0, 0);
+  } : null;
+  const closeFriend = () => {
+    setFriendOver(null);
+    const { scroll, focus } = underneath.current;
+    requestAnimationFrame(() => {
+      window.scrollTo(0, scroll);
+      focus?.focus({ preventScroll: true });
+    });
+  };
+  // Going somewhere else (a notification, say) leaves the friend's profile too.
+  useEffect(() => setFriendOver(null), [screen]);
 
   // The screen, with the keyboard's layout (a setting) for every game on it.
   const view = (() => {
@@ -612,14 +645,14 @@ export function App() {
       );
     }
     if (screen.name === 'friendProfile' && API_URL) {
-      const { friend, from } = screen;
+      const { friend, from, back } = screen;
       return (
         <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friend} page={screen.page}
           onPage={(page) => setScreen({ ...screen, page })}
-          onBack={() => setScreen({ name: 'profile', from, page: 'friends' })}
+          onBack={() => setScreen(back ?? { name: 'profile', from, page: 'friends' })} backTo={back ? 'back' : 'friends'}
           yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
           onOpen={(game, name, placements) => setScreen({
-            name: 'review', game, from, friend: { friend: { ...friend, name }, page: screen.page ?? 'history', placements },
+            name: 'review', game, from, friend: { friend: { ...friend, name }, page: screen.page ?? 'history', placements, back },
           })} />
       );
     }
@@ -629,7 +662,7 @@ export function App() {
       const { friend: theirs, from } = screen;
       const review = {
         id: entry.id, date: summary.endedAt, owner: theirs?.friend.name,
-        onBack: () => setScreen(theirs ? { name: 'friendProfile', friend: theirs.friend, page: theirs.page, from }
+        onBack: () => setScreen(theirs ? { name: 'friendProfile', friend: theirs.friend, page: theirs.page, from, back: theirs.back }
           : { name: 'profile', from, page: 'history' }),
       };
       // The name on the player's side: a friend's, reviewing their game.
@@ -748,9 +781,23 @@ export function App() {
             : { name: settings.mode, resume: false })} />
     );
   })();
+  const over = friendOver && API_URL && (
+    <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friendOver.friend} page={friendOver.page}
+      onPage={(page) => setFriendOver({ ...friendOver, page })} onBack={closeFriend} backTo="back"
+      yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
+      // Their game's review is a screen of its own: its Back comes to their profile, and that one's to here.
+      onOpen={(game, name, placements) => setScreen({
+        name: 'review', game, from: profileFrom(),
+        friend: { friend: { ...friendOver.friend, name }, page: friendOver.page ?? 'history', placements, back: screen },
+      })} />
+  );
   return (
     <EnterSide.Provider value={settings.enterRight ? 'right' : 'left'}>
-      {view}
+      <OpenFriend.Provider value={openFriend}>
+        {/* Always this wrapper, so opening a friend's profile over the screen never remounts it. */}
+        <div class="screen" hidden={!!over} data-covered={over ? '' : undefined}>{view}</div>
+        {over}
+      </OpenFriend.Provider>
       {showUpdate && <UpdateBar onUpdate={updateNow} onHide={() => setUpdateHidden(update.latest?.build ?? null)} />}
     </EnterSide.Provider>
   );

@@ -107,12 +107,13 @@ const formatDate = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
 /**
- * A friend's profile, opened from your friends list: a hub with their name
+ * A friend's profile, opened from your friends list (or their name in a game,
+ * a lobby's results or a board, item 18ca): a hub with their name
  * and country and a row per section, each a subpage. `yourGames` are this
  * browser's, for your record against them.
  */
 export function FriendProfileScreen({
-  apiUrl, identity, friend, page, onPage, onBack, yourGames, onOpen, filter, onFilter,
+  apiUrl, identity, friend, page, onPage, onBack, backTo = 'friends', yourGames, onOpen, filter, onFilter,
 }: {
   apiUrl: string;
   identity: ApiIdentity;
@@ -121,6 +122,8 @@ export function FriendProfileScreen({
   onPage: (page: FriendPage | null) => void;
   /** Leaves their profile, from the hub. */
   onBack: () => void;
+  /** Where the hub's Back goes: your friends list, or the game, lobby or board their name was tapped on (item 18ca). */
+  backTo?: 'friends' | 'back';
   /** Every game in your history, or null while they load. */
   yourGames: HistoryGame[] | null;
   /** Opens one of their games to review, with their current name and their Daily Rush places for it. */
@@ -197,7 +200,9 @@ export function FriendProfileScreen({
     <div class="app profile-screen friend-profile">
       <header class="step-head">
         {page === null ? (
-          <button type="button" class="icon-btn" aria-label="Back to friends" onClick={onBack}><BackIcon /></button>
+          <button type="button" class="icon-btn" aria-label={backTo === 'friends' ? 'Back to friends' : 'Back'} onClick={onBack}>
+            <BackIcon />
+          </button>
         ) : (
           <button type="button" class="icon-btn" aria-label={`Back to ${name}'s profile`} onClick={() => onPage(null)}><BackIcon /></button>
         )}
