@@ -7,7 +7,8 @@ import type { Env } from './index';
  * round with a new one; these count per address instead, with Cloudflare's
  * rate limiting bindings (wrangler.toml `ratelimits`). They're generous,
  * since a household or a phone network can share one address, and they
- * only cover what makes something new or sends something out: playing a
+ * only cover what makes something new or sends something out (and opening
+ * a friend's profile, which can mean a lot of work for the server): playing a
  * game never counts, nor does syncing history (accounts only, and capped
  * per account), whose first upload can be many requests. Without the bindings (tests, older configs) nothing is
  * limited.
@@ -18,6 +19,8 @@ export type Limit = 'general' | 'strict';
 
 /** What each limited request counts against; anything else isn't limited. */
 export function limitOf(method: string, pathname: string): Limit | null {
+  // A friend's profile can mean copying and working through all their games (item 18cb). Its history's pages are one query each.
+  if (method === 'GET' && pathname === '/api/friends/profile') return 'general';
   if (method !== 'POST') return null;
   if (pathname === '/api/reports' || pathname === '/api/auth/email') return 'strict';
   if (/^\/api\/(guests|games|lobbies|daily\/start|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {

@@ -48,6 +48,9 @@ describe('rate limits by address', () => {
       expect(limitOf('POST', path)).toBeNull();
     }
     expect(limitOf('GET', '/api/games')).toBeNull();
+    // Opening a friend's profile can be a lot of work for the server (item 18cb); a page of their history isn't.
+    expect(limitOf('GET', '/api/friends/profile')).toBe('general');
+    expect(limitOf('GET', '/api/friends/profile/games')).toBeNull();
   });
 
   it('refuse an address over its limit with 429, whatever guest IDs it uses', async () => {
