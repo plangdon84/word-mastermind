@@ -610,9 +610,10 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     // Each ID's games in order from the bookmark, stopping at the limit: no sort of everything after it.
     const next = plan(NEXT_LINKS_SQL);
     expect(next).toMatch(/game_players_by_guest \(guest_id=\? AND rowid>\?\)/);
-    expect(next).toMatch(/profile_games_by_game \(account_id=\? AND game_seq=\?\)/);
     expect(next).not.toMatch(/SCAN (gp|g|p)\b|TEMP B-TREE FOR ORDER BY/);
-    expect(plan(LINKED_GAMES_SQL)).not.toMatch(/SCAN (gp|g)\b/);
+    const linked = plan(LINKED_GAMES_SQL);
+    expect(linked).toMatch(/profile_games_by_game \(account_id=\? AND game_seq=\?\)/);
+    expect(linked).not.toMatch(/SCAN (gp|g|p)\b/);
     expect(plan(RETRY_PLAYED_SQL)).not.toMatch(/SCAN (g|p)\b/);
   });
 
@@ -675,19 +676,30 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     ]);
   });
 
-  it('indexes the games of a guest ID linked later', async () => {
+  it('indexes the games of a guest ID linked later, from its own bookmark, the others carrying on (round 2 review of PR #16)', async () => {
     const { ann, bob, bobCode, sqlite, now } = await friends();
     const today = dailyDay(now());
     for (let i = 2; i < 30; i++) bobsDaily(sqlite, addDays(today, -i), now());
     await index(bob);
     expect((await ann.friends.profileGames(bobCode, everything)).games).toHaveLength(28);
-    // A guest's game, from before they signed in on that device.
+    const accountId = (sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string }).account_id;
+    const bookmarks = () => JSON.parse((sqlite.prepare('SELECT bookmarks FROM shared_profiles WHERE account_id = ?')
+      .get(accountId) as { bookmarks: string }).bookmarks) as Record<string, number>;
+    const before = bookmarks();
+    expect(Object.keys(before)).toEqual([BOB]);
+    // A device signs in with no games of its own: nobody's bookmark goes back.
+    const NEW_DEVICE = '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f';
+    sqlite.prepare('INSERT INTO guests (id, created_at, last_seen_at, account_id) VALUES (?, ?, ?, ?)').run(NEW_DEVICE, NOW, NOW, accountId);
+    await index(bob);
+    expect(bookmarks()).toEqual(before);
+    // A guest's game, from before they signed in on that device: found from that ID's start.
     sqlite.prepare('INSERT INTO guests (id, created_at, last_seen_at) VALUES (?, ?, ?)').run(DAN, NOW, NOW);
     bobsDaily(sqlite, addDays(today, -200), now(), DAN);
-    const bobId = sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string };
-    sqlite.prepare('UPDATE guests SET account_id = ? WHERE id = ?').run(bobId.account_id, DAN);
+    sqlite.prepare('UPDATE guests SET account_id = ? WHERE id = ?').run(accountId, DAN);
     await index(bob);
     expect((await ann.friends.profileGames(bobCode, everything)).games).toHaveLength(29);
+    expect(bookmarks()[BOB]).toBe(before[BOB]);
+    expect(bookmarks()[DAN]).toBeGreaterThan(0);
   });
 
   it('counts your record against them as headToHead does, Word Sets included', async () => {

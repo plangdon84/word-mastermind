@@ -13,7 +13,7 @@ import { sharedSummary } from './sharedSummary';
  */
 
 const SENT_KEY = 'word-mastermind:shared-profile:v1';
-/** The most index requests one round makes: up to 50 games each, enough for 25,000 games a round. */
+/** The most index requests one round makes (a wait for the rate limit counts as one): thousands of games a round. */
 const MAX_INDEX_STEPS = 500;
 /** How long an unchanged summary goes before it's sent again anyway. */
 const RESEND_MS = 24 * 60 * 60 * 1000;

@@ -79,8 +79,7 @@ async function insertRows(db: D1Database, accountId: string, rows: readonly (Ret
 
 interface IndexRow {
   synced_through: number;
-  played_through: number;
-  players: number;
+  bookmarks: string;
   retry: string;
 }
 
@@ -93,23 +92,25 @@ const SERVER_ENTRY_ID = /^(?:friend|daily|lobby)-[0-9a-f]{40}$/;
 const notIndexed = (param: string) => `NOT EXISTS (SELECT 1 FROM profile_games p WHERE p.account_id = ${param} AND p.game_seq = g.rowid)`;
 
 /**
- * Each of a player's IDs' next server games not yet indexed, past the
- * bookmark (?1, a `game_players` rowid; ?2 the player's ID, ?3 the
- * account), up to a request's worth each, as a JSON array of `game_players`
- * rowids. Each ID's are read in order through `game_players_by_guest` from
- * the bookmark and stop at the limit, so only rows after the bookmark are
- * read, however long the history.
+ * Each of a player's IDs (?1 the player's ID) with its next server games
+ * past its own bookmark (?2, JSON: ID to `game_players` rowid; none is 0),
+ * up to a request's worth, as a JSON array of `game_players` rowids. Each
+ * ID's are read in order through `game_players_by_guest` from its bookmark
+ * and stop at the limit, so only rows after the bookmarks are read, however
+ * long the history; a newly linked guest ID starts from the beginning on
+ * its own.
  */
-export const NEXT_LINKS_SQL = `SELECT (SELECT json_group_array(link) FROM (
+export const NEXT_LINKS_SQL = `SELECT ids.id AS id, (SELECT json_group_array(link) FROM (
     SELECT gp.rowid AS link FROM game_players gp JOIN games g ON g.id = gp.game_id
-    WHERE gp.guest_id = ids.id AND gp.rowid > ?1 AND g.finished_at IS NOT NULL AND ${notIndexed('?3')}
+    WHERE gp.guest_id = ids.id AND gp.rowid > COALESCE(json_extract(?2, '$."' || ids.id || '"'), 0)
+      AND g.finished_at IS NOT NULL
     ORDER BY gp.rowid LIMIT ${INDEX_PLAYED + 1})) AS links
-  FROM (SELECT ?2 AS id UNION SELECT id FROM guests WHERE account_id = ?2) ids`;
+  FROM (SELECT ?1 AS id UNION SELECT id FROM guests WHERE account_id = ?1) ids`;
 
-/** The games these `game_players` rowids (?1, JSON) are for. */
+/** The games these `game_players` rowids (?1, JSON) are for, leaving out those the account (?2) has indexed already. */
 export const LINKED_GAMES_SQL = `SELECT gp.rowid AS link, g.rowid AS seq, g.id, g.mode, g.record, g.finished_at
   FROM game_players gp JOIN games g ON g.id = gp.game_id
-  WHERE gp.rowid IN (SELECT value FROM json_each(?1)) ORDER BY gp.rowid`;
+  WHERE gp.rowid IN (SELECT value FROM json_each(?1)) AND ${notIndexed('?2')} ORDER BY gp.rowid`;
 
 /** The games to retry (?1, JSON games rowids) not yet indexed (?2 the account). */
 export const RETRY_PLAYED_SQL = `SELECT 0 AS link, g.rowid AS seq, g.id, g.mode, g.record, g.finished_at FROM games g
@@ -124,16 +125,17 @@ type LinkedRow = GameRow & { link: number };
  * room lookups a request, and as many again for games to retry). Each
  * request reads only past its bookmarks, so a long history costs no more
  * than a short one. Server games go in the order the players were added to
- * them (as each game finished); a newly linked guest ID's games come
- * earlier, so they're looked through again, a game indexed already being
- * passed over at the cost of one lookup. A game whose room can't answer
+ * them (as each game finished), each of the account's IDs from its own
+ * bookmark, so a newly linked guest ID's are looked through from the start
+ * while the others carry on; a game indexed already is passed over at the
+ * cost of one lookup. A game whose room can't answer
  * for now is passed over and retried later. `done` once nothing is left
  * for now.
  */
 export async function indexStep(env: Env, accountId: string): Promise<{ done: boolean }> {
   const db = env.DB;
   await db.prepare('INSERT OR IGNORE INTO shared_profiles (account_id) VALUES (?1)').bind(accountId).run();
-  const row = await db.prepare('SELECT synced_through, played_through, players, retry FROM shared_profiles WHERE account_id = ?1')
+  const row = await db.prepare('SELECT synced_through, bookmarks, retry FROM shared_profiles WHERE account_id = ?1')
     .bind(accountId).first<IndexRow>();
   if (!row) return { done: true };
 
@@ -157,15 +159,19 @@ export async function indexStep(env: Env, accountId: string): Promise<{ done: bo
 
   const player = await playerOfAccount(db, accountId);
   const ids = [player.id, ...player.aliases];
-  const relinked = row.players !== player.aliases.length;
-  const after = relinked ? 0 : row.played_through;
   // Every ID's next few, the earliest of them all next: none of any ID's comes between.
-  const { results: next } = await db.prepare(NEXT_LINKS_SQL).bind(after, player.id, accountId).all<{ links: string }>();
-  const links = next.flatMap((r) => (parse(r.links) as number[] | null) ?? []).sort((a, b) => a - b);
+  const bookmarks = (parse(row.bookmarks) as Record<string, number> | null) ?? {};
+  const { results: next } = await db.prepare(NEXT_LINKS_SQL).bind(player.id, JSON.stringify(bookmarks))
+    .all<{ id: string; links: string }>();
+  const links = next.flatMap((r) => ((parse(r.links) as number[] | null) ?? []).map((link) => ({ id: r.id, link })))
+    .sort((a, b) => a.link - b.link);
   const taken = links.slice(0, INDEX_PLAYED);
-  const page = taken.length === 0 ? [] : (await db.prepare(LINKED_GAMES_SQL).bind(JSON.stringify(taken)).all<LinkedRow>()).results;
+  const page = taken.length === 0 ? [] : (await db.prepare(LINKED_GAMES_SQL)
+    .bind(JSON.stringify(taken.map((t) => t.link)), accountId).all<LinkedRow>()).results;
   const built = await buildGames(env, page, player, ids);
-  const bookmark = taken.length > 0 ? taken[taken.length - 1] : after;
+  // Each ID taken from moves its bookmark on, over games indexed already too.
+  const moved = new Map<string, number>();
+  for (const { id, link } of taken) moved.set(id, Math.max(moved.get(id) ?? 0, link));
   const more = links.length > INDEX_PLAYED;
 
   // New games all looked at: a request's worth of the games to retry, oldest first.
@@ -177,22 +183,24 @@ export async function indexStep(env: Env, accountId: string): Promise<{ done: bo
     again = await buildGames(env, retried, player, ids);
   }
   await insertRows(db, accountId, [...built.rows, ...again.rows]);
-  // In one statement, so two devices indexing at once can't undo each other: the bookmark (back to the start
-  // for a newly linked guest ID), and the games to retry, those tried dropped and those stuck added at the back.
+  // In one statement, so two devices indexing at once can't undo each other: each bookmark moved on (never
+  // back), and the games to retry, those tried dropped and those stuck added at the back.
+  const marks = [...moved];
+  const setMarks = marks.length === 0 ? 'bookmarks' : `json_set(bookmarks, ${marks.map((_, i) => {
+    const [path, value] = [`'$."' || ?${4 + 2 * i} || '"'`, `?${5 + 2 * i}`];
+    return `${path}, MAX(COALESCE(json_extract(bookmarks, ${path}), 0), ${value})`;
+  }).join(', ')})`;
   await db.prepare(
     `UPDATE shared_profiles SET
-       played_through = CASE WHEN ?2 THEN ?3 ELSE MAX(played_through, ?3) END, players = ?4,
+       bookmarks = ${setMarks},
        retry = (SELECT COALESCE(json_group_array(value), '[]') FROM (
          SELECT value, MIN(k) AS k FROM (
            SELECT value, CAST(key AS INTEGER) AS k FROM json_each(shared_profiles.retry)
-             WHERE value NOT IN (SELECT value FROM json_each(?5))
-           UNION ALL SELECT value, 1000000 + CAST(key AS INTEGER) FROM json_each(?6)
+             WHERE value NOT IN (SELECT value FROM json_each(?2))
+           UNION ALL SELECT value, 1000000 + CAST(key AS INTEGER) FROM json_each(?3)
          ) GROUP BY value ORDER BY k))
      WHERE account_id = ?1`,
-  ).bind(
-    accountId, relinked ? 1 : 0, bookmark, player.aliases.length, JSON.stringify(tried),
-    JSON.stringify([...again.stuck, ...built.stuck]),
-  ).run();
+  ).bind(accountId, JSON.stringify(tried), JSON.stringify([...again.stuck, ...built.stuck]), ...marks.flat()).run();
   // Done once no new game is left and the retries run out or stop getting anywhere: the next round tries again.
   const left = retry.length - tried.length + again.stuck.length;
   return { done: !more && (left === again.stuck.length || again.stuck.length >= tried.length) };
