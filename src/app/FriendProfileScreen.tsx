@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   BADGES, computeAchievements, computeStats, HEAD_TO_HEAD_MODES, headToHead, initials, type HeadToHead, type HeadToHeadMode,
   type DailyPlacement, type HistoryFilter,
@@ -133,6 +133,11 @@ export function FriendProfileScreen({
   onFilter: (filter: HistoryFilter) => void;
 }) {
   const [attempt, setAttempt] = useState(0);
+  const backButton = useRef<HTMLButtonElement>(null);
+  // Opened over a screen, it takes focus from the name tapped, which it hides.
+  useEffect(() => {
+    if (backTo === 'back') backButton.current?.focus({ preventScroll: true });
+  }, []);
   const state = useFriendProfile(apiUrl, identity, friend.code, attempt);
   const ready = state.status === 'ready' ? state : null;
   // Their current name, once loaded: the list's may be older.
@@ -200,7 +205,8 @@ export function FriendProfileScreen({
     <div class="app profile-screen friend-profile">
       <header class="step-head">
         {page === null ? (
-          <button type="button" class="icon-btn" aria-label={backTo === 'friends' ? 'Back to friends' : 'Back'} onClick={onBack}>
+          <button type="button" class="icon-btn" aria-label={backTo === 'friends' ? 'Back to friends' : 'Back'} onClick={onBack}
+            ref={backButton}>
             <BackIcon />
           </button>
         ) : (

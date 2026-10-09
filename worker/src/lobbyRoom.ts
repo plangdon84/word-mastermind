@@ -99,14 +99,13 @@ function seatedAs(lobby: LobbyRecord, asker: Asker): string {
 async function answer(deps: LobbyDeps, room: LobbyRoom, asker: Asker, now: number, status = 200): Promise<LobbyResponse> {
   const change = room.ratings?.[seatedAs(room.lobby, asker)];
   const rating = change ? { ...showRating(change.before), after: showRating(change.after) } : null;
-  let lobby = lobbyView(room.lobby, idsOf(asker), now);
   // The results name your friends, so their names open their profiles: once the game is over, or you've finished.
   const { game } = room.lobby;
-  if (game && asker.signedIn && (lobby.state === 'over' || lobby.run?.status === 'over')) {
-    const codes = await deps.friendCodes(asker.playerId, game.seats.map((s) => s.id)).catch(() => ({}));
-    if (Object.keys(codes).length > 0) lobby = lobbyView(room.lobby, idsOf(asker), now, codes);
-  }
-  return { status, body: { lobby, now, rating } };
+  const seat = game ? game.seats.findIndex((s) => idsOf(asker).includes(s.id)) : -1;
+  const results = game && (lobbyEndedAt(room.lobby, now) !== null || (seat >= 0 && seatRun(game, seat, now).status === 'over'));
+  const codes = results && asker.signedIn
+    ? await deps.friendCodes(asker.playerId, game.seats.map((s) => s.id)).catch(() => ({})) : {};
+  return { status, body: { lobby: lobbyView(room.lobby, idsOf(asker), now, codes), now, rating } };
 }
 
 /**

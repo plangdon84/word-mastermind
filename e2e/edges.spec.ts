@@ -564,6 +564,7 @@ test("a friend's name in a game opens their profile over it, and Back comes back
   await name.click();
   const rows = page.getByRole('navigation', { name: `${theirName}'s profile` });
   await expect(rows.getByRole('button', { name: /^Game history/ })).toBeVisible();
+  await expect(button(page, 'Back')).toBeFocused();
   // Typing goes nowhere while their profile covers the game.
   await page.keyboard.type('crane');
   for (const size of [{ width: 320, height: 568 }, { width: 1280, height: 800 }]) {

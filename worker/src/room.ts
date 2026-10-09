@@ -292,13 +292,15 @@ async function withCurrentNames(
   const room = await storage.get<Room>(ROOM_KEY);
   if (!room || room.id !== body.id) return body;
   const players = [room.host, room.guest, room.invitee].filter((p): p is Player => !!p);
-  const names = await deps.namesOf(players.map((p) => p.guestId)).catch(() => ({} as Record<string, string>));
-  const nameOf = (player: Player | null | undefined, fallback: string | null) => (player && names[player.guestId]) ?? fallback;
   // Your opponent's name opens their profile when they're your friend (Dev Plan item 18ca): your ID is your
-  // account's once signed in, and a guest has no friends.
+  // account's once signed in, and a guest has no friends. Looked up alongside the names.
   const opponent = body.seat === 'host' ? room.guest : body.seat === 'guest' ? room.host : null;
-  const codes = opponent
-    ? await deps.friendCodes(askerId, [opponent.guestId]).catch(() => ({} as Record<string, string>)) : {};
+  const none = {} as Record<string, string>;
+  const [names, codes] = await Promise.all([
+    deps.namesOf(players.map((p) => p.guestId)).catch(() => none),
+    opponent ? deps.friendCodes(askerId, [opponent.guestId]).catch(() => none) : none,
+  ]);
+  const nameOf = (player: Player | null | undefined, fallback: string | null) => (player && names[player.guestId]) ?? fallback;
   return {
     ...body,
     hostName: nameOf(room.host, body.hostName)!,

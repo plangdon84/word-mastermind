@@ -788,7 +788,9 @@ export function App() {
       // Their game's review is a screen of its own: its Back comes to their profile, and that one's to here.
       onOpen={(game, name, placements) => setScreen({
         name: 'review', game, from: profileFrom(),
-        friend: { friend: { ...friendOver.friend, name }, page: friendOver.page ?? 'history', placements, back: screen },
+        friend: { friend: { ...friendOver.friend, name }, page: friendOver.page ?? 'history', placements,
+          // A Daily Set screen comes back as itself, never starting a run.
+          back: screen.name === 'daily' ? { name: 'daily', start: false } : screen },
       })} />
   );
   return (
