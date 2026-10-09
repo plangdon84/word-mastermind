@@ -17,7 +17,7 @@ export const PAGE_SIZE = 20;
 
 export const MODE_LABEL: Record<HistoryMode, string> = {
   single: 'Practice', computer: 'vs. Computer', rush: 'Solo Rush & Crush', friend: 'vs. a friend', daily: 'Daily Set',
-  lobby: 'Rush & Crush with Friends',
+  dailyWord: 'Daily Word', lobby: 'Rush & Crush with Friends',
 };
 
 const RESULT_LABEL: Record<HistoryResult, string> = { won: 'Won', lost: 'Lost', drawn: 'Drawn' };
@@ -55,14 +55,17 @@ function rowParts(game: HistoryGame, placements: readonly DailyPlacement[]): { t
         detail: `${summary.rush ? STRENGTH_LABEL[summary.rush.level] : 'No score'} · ${played}`,
       };
     }
-    case 'daily': {
+    case 'daily':
+    case 'dailyWord': {
       // The day's final place on its Crush board, by guesses like the row's total, once the server has sent it.
-      const place = replayed.mode === 'daily' ? placements.find((p) => p.day === replayed.day && !p.rankBy) : undefined;
+      const wordPlace = summary.mode === 'dailyWord';
+      const place = replayed.mode === summary.mode
+        ? placements.find((p) => p.day === replayed.day && !p.rankBy && (p.mode === 'dailyWord') === wordPlace) : undefined;
       return {
         tone: 'no-score',
         tag: String(summary.yourGuesses),
         tagLabel: `${played} in all`,
-        who: MODE_LABEL.daily,
+        who: MODE_LABEL[summary.mode],
         detail: place ? `${ordinal(place.rank)} of ${place.total} · ${played}` : played,
       };
     }

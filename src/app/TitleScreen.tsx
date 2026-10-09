@@ -13,12 +13,13 @@ import { listOpen, loadListChoice, saveListChoice } from './gamesInProgress';
 import { useNow } from './hooks';
 import { countdownText } from './messages';
 import { openReport } from './reportIssue';
+import { DAILY_NAME } from './messages';
 import type { ApiIdentity } from './apiIdentity';
 import type { Profile } from './profileStorage';
 import type { Difficulty, Mode, Opponent, RushKind, Settings, Strength } from './settings';
 import {
-  FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, runRankBy, wordSetName, type LobbyKind, type OpenModes,
-  type TimeControl,
+  DAILY_MODES, FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, runRankBy, wordSetName, type DailyMode,
+  type LobbyKind, type OpenModes, type TimeControl,
 } from '../game';
 import { loadRush } from './rushStorage';
 import type { BoardId } from './LeaderboardsScreen';
@@ -214,67 +215,94 @@ function Choices<T>({ label, choices, selected, onPick, details, done }: {
   );
 }
 
-/**
- * The Daily card (Dev Plan item 18za, README "Title screen"): a row per daily
- * game, each with its marker (the number of words) and Play. A played row is
- * greyed but still opens that game's result, through a line that isn't.
- */
-function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
-  /** Today's Daily Set from the server, or null while it loads (or without one). */
+/** One daily game's row on the Daily card. */
+function DailyRow({ mode, today, inProgress, onPlay, onResult }: {
+  mode: DailyMode;
+  /** Today's game from the server, or null while it loads. */
   today: DailyToday | null;
-  now: number;
   /** Today's run was started on this device and isn't over. */
   inProgress: boolean;
-  /** How to unlock it, while it's locked. */
-  lock: string | null;
   onPlay: () => void;
   /** Opens the run you've started or played: its board, or its result. */
   onResult: () => void;
 }) {
-  const head = (
-    <div class="daily-head">
-      <h2>Daily</h2>
-      {today && <span class="daily-next">New set in {countdownText(today.nextAt - now)}</span>}
-    </div>
-  );
-  const marker = <span class="daily-marker" aria-hidden="true">4</span>;
-  if (!API_URL || lock) {
-    return (
-      <section class="daily-card" aria-label="Daily">
-        {head}
-        <div class="daily-game locked">
-          {marker}
-          <span class="daily-name">Daily Set{!API_URL && <span class="tag">Coming later</span>}</span>
-          <span class="daily-detail">{lock ?? 'The same 4 themed words for everyone, once a day.'}</span>
-          {lock && <LockIcon />}
-        </div>
-      </section>
-    );
-  }
+  const set = mode === 'daily';
   const run = today?.run ?? null;
   // Yesterday's run, still going when the day changed: it can be finished, off the board.
   const late = run?.status === 'playing' && run.day !== today?.day;
   const playing = run ? run.status === 'playing' : inProgress;
   const over = run !== null && run.status !== 'playing';
-  const detail = late ? `Yesterday's ${today?.runTheme ?? 'set'} · in progress`
-    : !today ? '4 themed words'
-    : !today.theme ? 'No set today'
-    : `4 themed words · Today: ${today.theme}${playing ? ' · in progress' : ''}`;
+  const detail = !set
+    ? (late ? "Yesterday's word · in progress" : `One word for everyone${playing ? ' · in progress' : ''}`)
+    : late ? `Yesterday's ${today?.runTheme ?? 'set'} · in progress`
+      : !today ? '4 themed words'
+        : !today.theme ? 'No set today'
+          : `4 themed words · Today: ${today.theme}${playing ? ' · in progress' : ''}`;
+  return (
+    <button type="button" class={over ? 'daily-game done' : 'daily-game'}
+      // The Daily Set needs a theme; the Daily Word is there every day.
+      disabled={set && !!today && !today.theme && !run && !inProgress}
+      onClick={run || inProgress ? onResult : onPlay}>
+      <span class="daily-marker" aria-hidden="true">{set ? 4 : 1}</span>
+      <span class="daily-name">
+        {DAILY_NAME[mode]}
+        {over && <span class="tag">{run.status === 'finished' ? 'Played' : 'Given up'}</span>}
+      </span>
+      <span class="daily-detail">{detail}</span>
+      {!over && <span class="daily-play">{playing ? 'Continue' : 'Play'}</span>}
+      {over && <span class="daily-result">{run.status === 'finished' ? 'Your place ›' : 'Your result ›'}</span>}
+    </button>
+  );
+}
+
+/**
+ * The Daily card (Dev Plan item 18za, README "Title screen"): a row per daily
+ * game, the Daily Set and the Daily Word (item 7b), each with its marker (the
+ * number of words) and Play. A played row is greyed but still opens that
+ * game's result, through a line that isn't.
+ */
+function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
+  /** Today's Daily Set and Daily Word from the server, each null while it loads. */
+  today: Record<DailyMode, DailyToday | null>;
+  now: number;
+  /** Today's run of each was started on this device and isn't over. */
+  inProgress: Record<DailyMode, boolean>;
+  /** How to unlock them, while they're locked. */
+  lock: string | null;
+  onPlay: (mode: DailyMode) => void;
+  onResult: (mode: DailyMode) => void;
+}) {
+  const nextAt = today.daily?.nextAt ?? today.dailyWord?.nextAt;
+  const head = (
+    <div class="daily-head">
+      <h2>Daily</h2>
+      {nextAt !== undefined && <span class="daily-next">New games in {countdownText(nextAt - now)}</span>}
+    </div>
+  );
+  if (!API_URL || lock) {
+    return (
+      <section class="daily-card" aria-label="Daily">
+        {head}
+        {DAILY_MODES.map((mode) => (
+          <div class="daily-game locked" key={mode}>
+            <span class="daily-marker" aria-hidden="true">{mode === 'daily' ? 4 : 1}</span>
+            <span class="daily-name">{DAILY_NAME[mode]}{!API_URL && <span class="tag">Coming later</span>}</span>
+            <span class="daily-detail">
+              {lock ?? (mode === 'daily' ? 'The same 4 themed words for everyone, once a day.' : 'The same word for everyone, once a day.')}
+            </span>
+            {lock && <LockIcon />}
+          </div>
+        ))}
+      </section>
+    );
+  }
   return (
     <section class="daily-card" aria-label="Daily">
       {head}
-      <button type="button" class={over ? 'daily-game done' : 'daily-game'}
-        disabled={!!today && !today.theme && !run && !inProgress}
-        onClick={run || inProgress ? onResult : onPlay}>
-        {marker}
-        <span class="daily-name">
-          Daily Set
-          {over && <span class="tag">{run.status === 'finished' ? 'Played' : 'Given up'}</span>}
-        </span>
-        <span class="daily-detail">{detail}</span>
-        {!over && <span class="daily-play">{playing ? 'Continue' : 'Play'}</span>}
-        {over && <span class="daily-result">{run.status === 'finished' ? 'Your place ›' : 'Your result ›'}</span>}
-      </button>
+      {DAILY_MODES.map((mode) => (
+        <DailyRow key={mode} mode={mode} today={today[mode]} inProgress={inProgress[mode]}
+          onPlay={() => onPlay(mode)} onResult={() => onResult(mode)} />
+      ))}
     </section>
   );
 }
@@ -357,11 +385,11 @@ export function TitleScreen({
   onProfile: OpenProfile;
   /** Which modes have a game in progress that can be resumed. */
   inProgress: Record<Mode, boolean>;
-  /** Today's Daily Rush was started on this device and isn't over. */
-  dailyInProgress: boolean;
+  /** Today's Daily Set and Daily Word were started on this device and aren't over. */
+  dailyInProgress: Record<DailyMode, boolean>;
   onContinue: (mode: Mode) => void;
-  /** Opens today's Daily Rush, one already played or in progress, without starting one. */
-  onDaily: () => void;
+  /** Opens today's Daily Set or Daily Word, one already played or in progress, without starting one. */
+  onDaily: (mode: DailyMode) => void;
   /** Opens the Leaderboards page, or one board on it (Back then returns here). */
   onLeaderboards: (board?: BoardId) => void;
   onStart: () => void;
@@ -382,25 +410,29 @@ export function TitleScreen({
     ...(lobbyInProgress ? [lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const]
       .map((key) => ({ key, label: CONTINUE_LABEL[key], onOpen: () => onLobby() })) : []),
   ];
-  // Today's Daily Rush, for its theme and countdown, and whether you've played it.
-  const [daily, setDaily] = useState<DailyToday | null>(null);
+  // Today's Daily Set and Daily Word, for the theme and countdown, and whether you've played them.
+  const [daily, setDaily] = useState<Record<DailyMode, DailyToday | null>>({ daily: null, dailyWord: null });
   /** The server's clock minus this device's, for the countdown. */
   const [offset, setOffset] = useState(0);
-  const api = useMemo(() => (API_URL ? dailyApi(API_URL, identity) : null), [identity]);
   useEffect(() => {
+    if (!API_URL) return;
     let live = true;
-    api?.today().then((t) => {
-      if (!live) return;
-      setDaily(t);
-      setOffset(t.now - Date.now());
-      receivePlacements(t.placements);
-    }, () => {});
+    for (const mode of DAILY_MODES) {
+      dailyApi(API_URL, identity, fetch, mode).today().then((t) => {
+        if (!live) return;
+        setDaily((d) => ({ ...d, [mode]: t }));
+        setOffset(t.now - Date.now());
+        receivePlacements(t.placements, mode);
+      }, () => {});
+    }
     return () => {
       live = false;
     };
-  }, [api]);
+  }, [identity]);
   const now = useNow(30_000) + offset;
-  const dailyChosen = settings.mode === 'rush' && settings.rushKind === 'daily';
+  /** Today's Daily Set or Daily Word, its difficulty being picked. */
+  const dailyChosen = settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord');
+  const dailyName = DAILY_NAME[settings.rushKind === 'dailyWord' ? 'dailyWord' : 'daily'];
   const lobbyChosen = settings.mode === 'rush' && (settings.rushKind === 'friends' || settings.rushKind === 'competitive');
   const competitiveChosen = lobbyChosen && settings.rushKind === 'competitive';
   const [joinCode, setJoinCode] = useState('');
@@ -471,8 +503,8 @@ export function TitleScreen({
       {step === 'home' && (
         <>
           <DailyCard today={daily} now={now} inProgress={dailyInProgress} lock={rushLock?.detail ?? null}
-            onResult={onDaily} onPlay={() => {
-              onSettings({ ...settings, mode: 'rush', rushKind: 'daily' });
+            onResult={onDaily} onPlay={(mode) => {
+              onSettings({ ...settings, mode: 'rush', rushKind: mode });
               setStep('difficulty');
             }} />
           {/* Games and invites waiting on you come before starting something new. */}
@@ -610,7 +642,7 @@ export function TitleScreen({
       {step === 'difficulty' && (
         <>
           <p class="step-note">{dailyChosen
-            ? "How much the app helps you track your own guesses. It's chosen once: it can't change during today's Daily Set, and each difficulty has its own leaderboard."
+            ? `How much the app helps you track your own guesses. It's chosen once: it can't change during today's ${dailyName}, and each difficulty has its own leaderboard.`
             : lobbyChosen
               ? 'How much the app helps everyone track their own guesses. One difficulty for the whole lobby; you can change it until you start.'
                 + (competitiveChosen ? " It's the same for everyone, so it doesn't change the rating." : '')
@@ -626,7 +658,7 @@ export function TitleScreen({
             choices={rated ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}
             onPick={(difficulty) => onSettings({ ...settings, difficulty })} />
           <button type="button" class="btn primary big" onClick={onStart}>
-            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? 'Start Daily Set' : lobbyChosen ? 'Open lobby' : 'Start game'}
+            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? `Start ${dailyName}` : lobbyChosen ? 'Open lobby' : 'Start game'}
           </button>
         </>
       )}

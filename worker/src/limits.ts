@@ -25,7 +25,7 @@ export function limitOf(method: string, pathname: string): Limit | null {
   if (method === 'POST' && pathname === '/api/profile/index') return 'profile';
   if (method !== 'POST') return null;
   if (pathname === '/api/reports' || pathname === '/api/auth/email') return 'strict';
-  if (/^\/api\/(guests|games|lobbies|daily\/start|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
+  if (/^\/api\/(guests|games|lobbies|daily\/start|daily\/word\/start|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
     return 'general';
   }
   // A rematch makes a game and a decline sends a notification, like a new invite.

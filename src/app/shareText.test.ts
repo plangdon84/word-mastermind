@@ -35,6 +35,11 @@ describe('dailyShareText', () => {
     expect(dailyShareText({ day: '2026-10-02', difficulty: 'medium', words, place: null }).split('\n')[2])
       .toBe('41 guesses');
   });
+
+  it("names the Daily Word, numbered as the day's Daily Set is, with one emoji", () => {
+    expect(dailyShareText({ mode: 'dailyWord', day: '2026-10-12', difficulty: 'easy', words: [{ guesses: 6, found: true }], place: '3rd of 40 · better than 94%' }))
+      .toBe('Word Mastermind Daily Word #12 · Easy\n🟩\n6 guesses · 3rd of 40 · better than 94%\nwordmastermind.app');
+  });
 });
 
 describe('soloRushShareText', () => {

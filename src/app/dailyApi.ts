@@ -1,20 +1,21 @@
 import {
   isCount, isDailyDay, isDifficulty, isObject, isRankBy, isTime, type DailyDay, type DailyPlacement, type DailyView,
-  type DailyWordView, type Difficulty, type GuessResult, type RankBy,
+  type DailyMode, type DailyWordView, type Difficulty, type GuessResult, type RankBy,
 } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import type { Circle } from './leaderboardsApi';
 
 /*
- * Daily Rush (README "Rush modes"), refereed by the server (`worker/`): one
- * run a day per player, the words kept on the server until found, and a
- * leaderboard per day and difficulty.
+ * The daily games, refereed by the server (`worker/`): the Daily Set (Daily
+ * Rush, README "Rush modes") and the Daily Word (README "Daily Word"). One
+ * run a day of each per player, the words kept on the server until found,
+ * and a leaderboard per day and difficulty.
  */
 
-/** Today's Daily Rush, from your side. */
+/** Today's Daily Set or Daily Word, from your side. */
 export interface DailyToday {
   day: DailyDay;
-  /** The theme's name, or null on a day without one (the calendar has run out). */
+  /** The Daily Set's theme, or null on a day without one (the calendar has run out); always null for the Daily Word. */
   theme: string | null;
   /**
    * The theme of your run's day: today's, or yesterday's while you finish a
@@ -46,7 +47,8 @@ export interface DailyBoardRow {
 /** A day's leaderboard for one difficulty, ranked one of two ways. */
 export interface DailyBoard {
   day: DailyDay;
-  theme: string;
+  /** The Daily Set's theme; null on the Daily Word's board. */
+  theme: string | null;
   difficulty: Difficulty;
   /** Rush: by fastest time, fewer guesses breaking ties. Crush: by fewest guesses, time breaking ties. */
   rankBy: RankBy;
@@ -103,7 +105,12 @@ export function parsePlacement(value: unknown): DailyPlacement | null {
   const { day, difficulty, rank, total, behind, finishedAt } = value;
   if (!isDailyDay(day) || !isDifficulty(difficulty) || !isCount(rank) || !isCount(total) || !isCount(behind)) return null;
   if (!isTime(finishedAt) || (value.rankBy !== undefined && !isRankBy(value.rankBy))) return null;
-  return { day, difficulty, rank, total, behind, finishedAt, ...(value.rankBy === 'rush' ? { rankBy: 'rush' as const } : {}) };
+  if (value.mode !== undefined && value.mode !== 'dailyWord') return null;
+  return {
+    day, difficulty, rank, total, behind, finishedAt,
+    ...(value.rankBy === 'rush' ? { rankBy: 'rush' as const } : {}),
+    ...(value.mode === 'dailyWord' ? { mode: 'dailyWord' as const } : {}),
+  };
 }
 
 export function parseDailyToday(value: unknown): DailyToday | null {
@@ -122,7 +129,7 @@ export function parseDailyToday(value: unknown): DailyToday | null {
 export function parseDailyBoard(value: unknown): DailyBoard | null {
   if (!isObject(value)) return null;
   const { day, theme, difficulty, words, total } = value;
-  if (!isDailyDay(day) || typeof theme !== 'string' || !isDifficulty(difficulty) || !isCount(total)) return null;
+  if (!isDailyDay(day) || !(theme === null || typeof theme === 'string') || !isDifficulty(difficulty) || !isCount(total)) return null;
   if (!(words === null || (Array.isArray(words) && words.every((w) => typeof w === 'string')))) return null;
   if (!Array.isArray(value.top)) return null;
   const top: DailyBoardRow[] = [];
@@ -173,26 +180,28 @@ export interface DailyApi {
 
 /**
  * Talks to the worker at `apiUrl`, as this device's guest or, signed in, its
- * account (`identity`). Every call rejects with a `DailyApiError`.
+ * account (`identity`), about the Daily Set or (`mode`) the Daily Word. Every
+ * call rejects with a `DailyApiError`.
  */
-export function dailyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch): DailyApi {
+export function dailyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch, mode: DailyMode = 'daily'): DailyApi {
   const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new DailyApiError(code as DailyError, status));
+  const base = mode === 'daily' ? '/api/daily' : '/api/daily/word';
   const today = async (method: 'GET' | 'POST', path: string, body?: unknown): Promise<DailyToday> => {
-    const parsed = parseDailyToday(await request(method, path, body));
+    const parsed = parseDailyToday(await request(method, `${base}${path}`, body));
     if (!parsed) throw new DailyApiError('bad-request', 200);
     return parsed;
   };
   return {
-    today: () => today('GET', '/api/daily'),
-    start: (day, difficulty, name) => today('POST', '/api/daily/start', { day, difficulty, name }),
-    guess: (day, word) => today('POST', '/api/daily/guess', { day, word }),
-    giveUp: (day) => today('POST', '/api/daily/give-up', { day }),
-    pause: (day) => today('POST', '/api/daily/pause', { day }),
-    resume: (day) => today('POST', '/api/daily/resume', { day }),
-    suggest: (day, word) => today('POST', '/api/daily/suggest', { day, word }),
+    today: () => today('GET', ''),
+    start: (day, difficulty, name) => today('POST', '/start', { day, difficulty, name }),
+    guess: (day, word) => today('POST', '/guess', { day, word }),
+    giveUp: (day) => today('POST', '/give-up', { day }),
+    pause: (day) => today('POST', '/pause', { day }),
+    resume: (day) => today('POST', '/resume', { day }),
+    suggest: (day, word) => today('POST', '/suggest', { day, word }),
     board: async (day, difficulty, circle = 'everyone', rankBy = 'crush') => {
       const query = `day=${day}&difficulty=${difficulty}${circle === 'friends' ? '&circle=friends' : ''}${rankBy === 'rush' ? '&by=rush' : ''}`;
-      const board = parseDailyBoard(await request('GET', `/api/daily/board?${query}`));
+      const board = parseDailyBoard(await request('GET', `${base}/board?${query}`));
       if (!board) throw new DailyApiError('bad-request', 200);
       return board;
     },

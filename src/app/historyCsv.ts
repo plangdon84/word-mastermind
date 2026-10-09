@@ -18,10 +18,11 @@ export const CSV_COLUMNS = [
 /**
  * A Word Set's `ranked_by` cell: `rush` (by time, its `rush_score` in seconds)
  * or `crush` (by guesses); `both` for the Daily Set, which is on both
- * boards. Empty for the other modes.
+ * boards, and `crush` for the Daily Word. Empty for the other modes.
  */
 function rankedBy(entry: HistoryEntry): Cell {
   if (entry.mode === 'daily') return 'both';
+  if (entry.mode === 'dailyWord') return 'crush';
   return entry.mode === 'rush' || entry.mode === 'lobby' ? runRankBy(entry.record) : null;
 }
 
@@ -107,6 +108,7 @@ function moveRows(entry: HistoryEntry): MoveRow[] {
     }
     case 'rush':
     case 'daily':
+    case 'dailyWord':
     case 'lobby':
       return runRows(entry.record);
   }
@@ -117,7 +119,7 @@ function gameCells({ entry, replayed, summary }: HistoryGame): Cell[] {
   const { record } = entry;
   const result = summary.mode === 'rush' ? summary.rush?.level ?? 'no score'
     : summary.place ? (summary.place.rank ? `${ordinal(summary.place.rank)} of ${summary.place.of}` : 'unplaced')
-      : summary.mode === 'daily' ? (summary.gaveUp ? 'no score' : 'finished')
+      : summary.mode === 'daily' || summary.mode === 'dailyWord' ? (summary.gaveUp ? 'no score' : 'finished')
         : summary.gaveUp ? 'gave up' : summary.result;
   return [
     entry.id,

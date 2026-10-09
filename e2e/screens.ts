@@ -202,6 +202,16 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    name: 'daily-word',
+    open: async (page) => {
+      await unlockAll(page);
+      await modeButton(page, 'Daily Word').click();
+      await button(page, /^Medium/).click();
+      await button(page, 'Start Daily Word').click();
+      await guess(page, 'storm');
+    },
+  },
+  {
     name: 'lobby-setup',
     open: async (page) => {
       await unlockAll(page);

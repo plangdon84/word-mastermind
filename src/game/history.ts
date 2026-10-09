@@ -1,5 +1,5 @@
 import type { Strength } from './computer';
-import { isDailyDay, type DailyDay } from './daily';
+import { isDailyDay, type DailyDay, type DailyMode } from './daily';
 import type { Difficulty } from './difficulty';
 import type { LobbyKind } from './lobby';
 import { parseMarks, type Marks } from './marks';
@@ -19,16 +19,20 @@ import { normalizeWord } from './words';
  * is worked out by replaying it, never stored.
  */
 
-export type HistoryMode = 'single' | 'computer' | 'rush' | 'friend' | 'daily' | 'lobby';
+export type HistoryMode = 'single' | 'computer' | 'rush' | 'friend' | 'daily' | 'dailyWord' | 'lobby';
 
-export const HISTORY_MODES: readonly HistoryMode[] = ['single', 'computer', 'rush', 'friend', 'daily', 'lobby'];
+export const HISTORY_MODES: readonly HistoryMode[] = ['single', 'computer', 'rush', 'friend', 'daily', 'dailyWord', 'lobby'];
 
 /**
- * Games the server refereed: against a friend, Daily Rush and Rush with
- * Friends (or Competitive Rush). The server keeps them and hands each player
- * their own side (`worker/src/played.ts`), so they're never uploaded by sync.
+ * Games the server refereed: against a friend, the Daily Set (Daily Rush),
+ * the Daily Word and Rush with Friends (or Competitive Rush). The server
+ * keeps them and hands each player their own side (`worker/src/played.ts`),
+ * so they're never uploaded by sync.
  */
-export const SERVER_MODES: readonly HistoryMode[] = ['friend', 'daily', 'lobby'];
+export const SERVER_MODES: readonly HistoryMode[] = ['friend', 'daily', 'dailyWord', 'lobby'];
+
+/** The daily games (README "Daily Rush" and "Daily Word"): each a run on its day, refereed by the server. */
+export const DAILY_MODES: readonly DailyMode[] = ['daily', 'dailyWord'];
 
 export const isServerMode = (mode: HistoryMode) => SERVER_MODES.includes(mode);
 
@@ -72,6 +76,8 @@ export type HistoryEntry =
   | EntryBase & { mode: 'friend'; record: PvpRecord; seat: Seat; opponent: string; rating: RatingChange | null; marks: Marks }
   /** A Daily Rush: your run on that day's set. */
   | EntryBase & { mode: 'daily'; day: DailyDay; record: RunRecord; marks: readonly Marks[] }
+  /** A Daily Word: your one-word run on that day's word. */
+  | EntryBase & { mode: 'dailyWord'; day: DailyDay; record: RunRecord; marks: readonly Marks[] }
   /** Rush with Friends or Competitive Rush: your run, and everyone's final places. */
   | EntryBase & {
     mode: 'lobby'; kind: LobbyKind; record: RunRecord; places: readonly LobbyPlace[]; rating: RatingChange | null;
@@ -83,7 +89,7 @@ export type ReplayedGame =
   | { mode: 'computer'; game: TwoPlayerGame }
   | { mode: 'rush'; game: RunGame }
   | { mode: 'friend'; game: PvpGame; seat: Seat; opponent: string; rating: RatingChange | null }
-  | { mode: 'daily'; game: RunGame; day: DailyDay }
+  | { mode: DailyMode; game: RunGame; day: DailyDay }
   | { mode: 'lobby'; game: RunGame; kind: LobbyKind; places: readonly LobbyPlace[]; rating: RatingChange | null };
 
 /** A finished game rebuilt from its entry, or null if it doesn't replay or isn't over. */
@@ -106,9 +112,10 @@ export function replayEntry(entry: HistoryEntry): ReplayedGame | null {
       if (!result.ok || result.game.status !== 'over') return null;
       return { mode: 'friend', game: result.game, seat: entry.seat, opponent: entry.opponent, rating: entry.rating };
     }
-    case 'daily': {
+    case 'daily':
+    case 'dailyWord': {
       const result = replayRun(entry.record);
-      return result.ok && result.game.status === 'over' ? { mode: 'daily', game: result.game, day: entry.day } : null;
+      return result.ok && result.game.status === 'over' ? { mode: entry.mode, game: result.game, day: entry.day } : null;
     }
     case 'lobby': {
       const result = replayRun(entry.record);
@@ -175,9 +182,10 @@ export function parseHistoryEntry(value: unknown): HistoryEntry | null {
     if (record && isSeat(value.seat) && isName(value.opponent) && rating !== undefined) {
       entry = { ...base, mode, record, seat: value.seat, opponent: value.opponent, rating, marks: parseMarks(value.marks) };
     }
-  } else if (mode === 'daily') {
+  } else if (mode === 'daily' || mode === 'dailyWord') {
     const record = parseRunRecord(value.record);
-    if (record && isDailyDay(value.day)) entry = { ...base, mode, day: value.day, record, marks: runMarks(record, value.marks) };
+    // A Daily Word is one word.
+    if (record && isDailyDay(value.day) && (mode === 'daily' || record.words.length === 1)) entry = { ...base, mode, day: value.day, record, marks: runMarks(record, value.marks) };
   } else if (mode === 'lobby') {
     const record = parseRunRecord(value.record);
     const places = parsePlaces(value.places);
@@ -310,6 +318,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
       };
     }
     case 'daily':
+    case 'dailyWord':
     case 'lobby': {
       const { game } = replayed;
       const guesses = game.results.flatMap((r) => r.guesses);

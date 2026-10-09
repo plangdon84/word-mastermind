@@ -7,7 +7,7 @@
 
 /** Tables the wipe empties, children before parents so foreign keys hold. */
 export const WIPE_TABLES = [
-  'game_players', 'games', 'friend_game_players', 'daily_results', 'history_entries', 'rated_games', 'ratings',
+  'game_players', 'games', 'friend_game_players', 'daily_results', 'daily_word_results', 'history_entries', 'rated_games', 'ratings',
   'profile_games', 'shared_profiles',
 ] as const;
 
@@ -15,11 +15,11 @@ export const WIPE_TABLES = [
  * Tables the wipe leaves alone: who the players are, their accounts,
  * sign-ins, synced profiles and friends, and which devices get their turn alerts,
  * not what they did; the issue reports, whose screenshots GitHub issues
- * link to; and the Daily Rush's themes.
+ * link to; and the Daily Rush's themes and the Daily Word's words.
  */
 export const KEEP_TABLES = [
   'guests', 'push_subscriptions', 'accounts', 'sessions', 'login_links', 'oauth_states', 'reports', 'profiles',
-  'friends', 'lobby_invites', 'daily_themes',
+  'friends', 'lobby_invites', 'daily_themes', 'daily_words',
 ] as const;
 
 /** The environments in wrangler.toml; `local` is the top-level one (worker/.wrangler/). */

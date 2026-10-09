@@ -14,7 +14,7 @@ export const withoutRating = (entry: HistoryEntry): HistoryEntry =>
 
 /**
  * What you share with friends: your stats and badges from every game they
- * can see, so not a Daily Set until the day after it is over (a run started
+ * can see, so not a Daily Set or Daily Word until the day after it is over (a run started
  * before midnight can be finished the next day), and the games your stats
  * point at, to open from them. `dayOf` is the day streaks count by: the
  * player's own local days (`localDay`).
@@ -24,7 +24,7 @@ export function sharedSummary(
   dayOf: (ms: number) => number,
 ): SharedSummary {
   const hiddenFrom = addDays(dailyDay(now), -1);
-  const shown = games.filter((g) => g.entry.mode !== 'daily' || g.entry.day < hiddenFrom);
+  const shown = games.filter((g) => (g.entry.mode !== 'daily' && g.entry.mode !== 'dailyWord') || g.entry.day < hiddenFrom);
   const statsGames = shown.map((g) => ({ id: g.entry.id, replayed: g.replayed }));
   const stats = computeStats(statsGames, now);
   const featuredIds = new Set<string>();

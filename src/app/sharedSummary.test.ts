@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays, dailyDay, replayEntry, summarizeGame, type HistoryEntry } from '../game';
-import { dailyEntry, lobbyEntry, soloEntry } from '../game/testGames';
+import { dailyEntry, dailyWordEntry, lobbyEntry, soloEntry } from '../game/testGames';
 import { FriendsApiError, parseSharedSummary, SHARED_FORMAT, type FriendsApi } from './friendsApi';
 import { shareProfile } from './profileShare';
 import { sharedSummary } from './sharedSummary';
@@ -46,6 +46,15 @@ describe('a shared summary', () => {
     const badge = summary.badges[0];
     const read = parseSharedSummary({ ...sent, badges: [badge, badge, { ...badge, id: 'from-a-newer-app' }] });
     expect(read!.badges).toEqual([badge]);
+  });
+
+  it("reads one shared before the Daily Word as having played none, and leaves a Daily Word out until the day after", () => {
+    const summary = sharedSummary(games([soloEntry('solo', NOW - 60_000, ['crane', 'beach'])]), [], NOW, dayOf);
+    const sent = JSON.parse(JSON.stringify(summary));
+    delete sent.stats.modes.dailyWord;
+    expect(parseSharedSummary(sent)).toEqual(summary);
+    const today = dailyWordEntry('word-today', dailyDay(NOW), NOW - 60_000, ['beach']);
+    expect(sharedSummary(games([today]), [], NOW, dayOf).stats.modes.dailyWord.played).toBe(0);
   });
 });
 

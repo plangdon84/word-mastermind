@@ -43,6 +43,7 @@ Build and deploy a **web app** for **Word Mastermind**, a 2-player word-guessing
   - [Two player vs. a friend](#two-player-vs-a-friend)
   - [Random opponent](#random-opponent)
   - [Daily Rush](#daily-rush)
+  - [Daily Word](#daily-word)
   - [Leaderboards](#leaderboards)
   - [Rush with Friends](#rush-with-friends)
   - [Competitive Rush](#competitive-rush)
@@ -314,6 +315,9 @@ Notes that follow from the rules:
    - **Competitive Rush** (built, on the backend, signed in): each player
      sets a word and solves the others'; rated, with a
      [leaderboard](#leaderboards).
+5. **Daily Word** (built, on the backend; Dev Plan item 7b): one word a
+   day, the same for everyone, once a day, with a leaderboard per
+   difficulty. See [Daily Word](#daily-word).
 
 Each mode can be played at any [difficulty level](#difficulty-levels). Your
 difficulty only affects your own guesses; the computer's strength is separate.
@@ -773,18 +777,19 @@ issue**. To players, Single player is **Practice** and Rush is **Word
 Sets**, and Daily Rush is **Daily Set**; saved games, backups, badges and
 the code keep the old names, so nothing already saved changes.
 
-- **Daily card:** one row per daily game, with the time until the next set
-  in its header. Each row has its marker (a circle with its number of
-  words: 4) and **Play**. **Daily Set** shows today's theme ("4 themed
+- **Daily card:** one row per daily game, **Daily Set** and **Daily
+  Word**, with the time until the next ones in its header ("New games in
+  …"). Each row has its marker (a circle with its number of words: 4, or
+  1) and **Play**. **Daily Set** shows today's theme ("4 themed
   words · Today: …"); Play asks for your difficulty, then **Start Daily
-  Set**. A run in progress shows **Continue**, and yesterday's run still
+  Set**. **Daily Word** reads "One word for everyone"; Play asks for your
+  difficulty, then **Start Daily Word**. A run in progress shows **Continue**, and yesterday's run still
   going when the day changed says so. Once played or given up, the row is
   greyed, tagged **Played** (or **Given up**), but is still a button, with
   a line that isn't greyed, **Your place ›** (**Your result ›**), opening
-  that run's result, which links to its board. A new player sees the row
-  locked, saying how to unlock it. Without the game server it's tagged
-  coming later. Daily Word joins the card as a second row once item 7b
-  ships. Daily isn't in the Word Sets menu.
+  that run's result, which links to its board. A new player sees both rows
+  locked, saying how to unlock them. Without the game server they're tagged
+  coming later. Daily isn't in the Word Sets menu.
 - **Games in progress:** one collapsible list of **Continue** (each mode
   with a game in progress on this device, naming it: **Continue
   Practice**), games against a friend or a random opponent that you
@@ -794,8 +799,8 @@ the code keep the old names, so nothing already saved changes.
   an invite, even when it's closed. It opens when something waits on you
   (your turn, an invite, or your own game to continue), and is closed
   otherwise; opening or closing it yourself holds until something new
-  waits on you. It's hidden when there's nothing in it. A Daily Set in
-  progress stays on the Daily card. Reloading the page mid-game goes
+  waits on you. It's hidden when there's nothing in it. A Daily Set or
+  Daily Word in progress stays on the Daily card. Reloading the page mid-game goes
   straight back into the game of the mode last played.
 - **Practice** (one word, no opponent) asks for your difficulty, then
   **Start game**. **Two player** asks for the opponent (Computer, A friend
@@ -847,12 +852,12 @@ three steps:
 2. **Win a two player game** (vs. the computer or a friend; a draw isn't a
    win) → **Word Sets**, with Solo Rush and Solo Crush.
 3. **Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word** → the Daily card's
-   Daily Set and the rest of Word Sets (Rush or Crush with Friends, Competitive
+   Daily Set and Daily Word, and the rest of Word Sets (Rush or Crush with Friends, Competitive
    Rush or Crush).
 
 Practice is single player renamed (Dev Plan item 18za): it counts toward
-stats, badges and this first unlock as before. A locked Daily Set or With
-friends says "Finish a Solo Rush or Solo Crush in Word Sets without giving
+stats, badges and this first unlock as before. A locked Daily Set, Daily
+Word or With friends says "Finish a Solo Rush or Solo Crush in Word Sets without giving
 up a word to unlock", naming where they are.
 
 Each step needs the one before it: a win against a friend by invite link
@@ -1194,6 +1199,49 @@ clocks only.
   would stop a household sharing Wi-Fi from each playing, so it stays as it
   is; revisit if impossible scores show up on the boards.
 
+### Daily Word
+
+Built in [Dev Plan](#dev-plan) item 7b (issue 159, agreed with the owner
+on 7 and 9 October 2026): a short daily game beside the Daily Set, which
+takes 20 to 25 minutes.
+
+- **One word a day, the same for everyone,** picked from the secret list
+  (not themed). The server picks it at random the first time someone
+  starts that day's, never a word that was the Daily Word in the past year
+  or one of that day's Daily Set words, and keeps it in D1 (`daily_words`,
+  `worker/src/dailyWords.ts`), so nothing in this repo can tell what it
+  will be. It changes when the Daily Set does, at midnight New York time.
+- **Daily card → Daily Word → Play** asks for your difficulty, once, then
+  **Start Daily Word**. It plays like one word of a Daily Set: one dot and
+  the clock, which follows the server's, and the ☰ menu's difficulty can't
+  change. **No Pause** (owner, 9 October 2026: one word is short, and time
+  only breaks ties). Each guess is refereed by the day's Durable Object,
+  the same one as the Daily Set's (`worker/src/dailyRoom.ts`, `mode:
+  'dailyWord'`), through `/api/daily/word…`.
+- **Once a day:** giving up (☰ menu, asked first) leaves no board entry,
+  and the word stays hidden until the day is over. A word still going when
+  the day changes can be finished during the next day, off the board and
+  the streak, as the Daily Set's can; the same last-5-minutes warnings
+  apply.
+- **Result:** "Found in 7 guesses, 2:31.", the word with its guesses and
+  time, and your **Place** so far ("3rd of 40 · better than 94%"), a tap
+  from the board; places are final at midnight New York time. **Share**
+  gives "Word Mastermind Daily Word #12 · Medium", one coloured square (as
+  a Daily Set's words are coloured), and your guesses and place; the
+  number is the day's, the same as that day's Daily Set.
+- **Leaderboard:** one board per day and difficulty, by fewest guesses,
+  time breaking ties (owner's decision), with no Rush / Crush switch: the
+  top 10 (ties share a rank), your place below them, earlier days (‹ ›)
+  with their word, and Everyone / Friends signed in (D1
+  `daily_word_results`).
+- **History and stats:** a Daily Word is its own mode (`dailyWord`) in the
+  history, filters, stats (fewest guesses), CSV and friends' profiles (from
+  the day after, like a Daily Set). It counts as a found word for the
+  solve, few-guesses and Clairvoyant badges, and has its own streak; see
+  [Achievements](#achievements). It unlocks with the Daily Set.
+- **The same known limit** as the Daily Set's: someone could play once as a
+  throwaway guest, then again knowing the word.
+
 ### Leaderboards
 
 Built in [Dev Plan](#dev-plan) item 9b: the page, the Daily Rush board and
@@ -1206,12 +1254,13 @@ until there are enough rated players (see [Launch switches](#launch-switches)).
 - **Leaderboards** on the [title screen](#title-screen), always shown, opens
   the **Leaderboards** page: a header with **← Back** (to the title screen)
   and one tile per board. Without the game server, the tiles are greyed
-  out and tagged coming later, like the Rush kinds. While Daily Rush is the
-  only board (the rating boards switched off), **Leaderboards** opens it
-  directly, and its **← Back** returns to the title screen (Dev Plan item
-  14).
-  - **Daily Rush:** the day's board by difficulty, Rush or Crush (see
+  out and tagged coming later, like the Rush kinds. With only one board,
+  **Leaderboards** would open it directly (Dev Plan item 14); since the
+  Daily Word (item 7b) there are always two, so the page lists them.
+  - **Daily Set:** the day's board by difficulty, Rush or Crush (see
     [Daily Rush](#daily-rush)), today first, earlier days with ‹ ›.
+  - **Daily Word:** the day's board by difficulty, fewest guesses (see
+    [Daily Word](#daily-word)), today first, earlier days with ‹ ›.
   - **Live PvP · 15 min**, **Live PvP · 10 min** and **Live PvP · 5 min**:
     rating, one per clock, as the [ratings](#rating) are.
   - **Correspondence PvP**: rating (1 and 3 days per guess together).
@@ -1721,6 +1770,12 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   award the easier ones, since each is its own day's run), and a **Daily
   Set streak** (finishing the day's set, before the day ends, on consecutive Daily Rush days, which change at midnight in New York) of 7, 30
   and 100, tagged DAILY SET.
+- **Daily Word** (Dev Plan item 7b)**:** a **Daily Word streak**: finding
+  the day's word, before the day ends, on consecutive days (as the Daily
+  Set's streak counts them) of 7, 30 and 100, tagged DAILY WORD. They came
+  after Achievement Hunter's levels could be reached, so they count only
+  toward a level not yet reached. A Daily Word has no difficulty, top 10
+  or Word Set level badges; its word counts as a solve like any other.
 - **Friends:** a **win against a friend** (a seal tagged FRIENDS, with two
   bubbles and VS), a **win against a friend at a harder level** than
   theirs and one at **two or more levels harder** (Dev Plan item 18o;
@@ -1738,8 +1793,8 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   offered while Competitive Rush is switched off).
 - **Unlocks (item 13):** one badge for each step in [Unlocking
   modes](#unlocking-modes): **Two player unlocked** (win a Practice
-  game), **Word Sets unlocked** (win a two player game) and **Daily Set and
-  With friends unlocked** (finish a Solo Rush with every word solved, none
+  game), **Word Sets unlocked** (win a two player game) and **Daily Set,
+  Daily Word and With friends unlocked** (finish a Solo Rush with every word solved, none
   given up); item 18za renamed the last two, tagged WORD SETS and ALL SETS.
 - **Achievement Hunter (item 13):** earn 25%, 50%, 75% and 100% of the
   other badges: a seal in bronze, silver, gold and ruby with the share,

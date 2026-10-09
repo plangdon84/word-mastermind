@@ -1,4 +1,4 @@
-import { dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { DAILY_MODES, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
   FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, parseFriendGamesParams, type Friend,
@@ -254,18 +254,20 @@ async function removeFriend(db: D1Database, accountId: string, code: string): Pr
 
 /**
  * A friend's profile (Dev Plan item 18c, README "Friends' profiles"): their
- * name, country and Daily Rush places; their games, stats and badges are
+ * name, country and Daily Set and Daily Word places; their games, stats and badges are
  * `friendProfiles.ts`'s. Only what any player may see of them: never their
  * settings, email, friends list or an ID.
  */
 async function friendProfile(db: D1Database, friendId: string, now: number): Promise<FriendProfile> {
   const row = await db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
     .first<{ country: string | null; member_since: number }>();
+  const player = await playerOfAccount(db, friendId);
   return {
     name: await nameOrDefault(db, friendId),
     country: isCountry(row?.country) ? row.country : null,
     memberSince: row?.member_since ?? null,
-    placements: await pastPlacements(db, await playerOfAccount(db, friendId), dailyDay(now)),
+    // The Daily Word's places come last, so an older app, which takes a day's first, shows the Daily Set's.
+    placements: (await Promise.all(DAILY_MODES.map((mode) => pastPlacements(db, player, dailyDay(now), mode)))).flat(),
   };
 }
 

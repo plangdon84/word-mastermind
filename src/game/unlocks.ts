@@ -55,7 +55,7 @@ export function computeUnlocks(games: readonly StatsGame[]): Unlock[] {
 export interface OpenModes {
   twoPlayer: boolean;
   soloRush: boolean;
-  /** Daily Rush, Rush with Friends and Competitive Rush. */
+  /** The Daily Set (Daily Rush), the Daily Word, Rush with Friends and Competitive Rush. */
   otherRush: boolean;
 }
 

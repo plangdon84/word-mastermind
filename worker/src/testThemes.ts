@@ -28,3 +28,14 @@ export function testThemeDays(from: string, count: number) {
     return { day, id, theme, words: [...words] };
   });
 }
+
+/**
+ * The browser tests' Daily Word, set for each day they load (the server
+ * otherwise picks one at random): a secret word in none of the test sets.
+ */
+export const TEST_DAILY_WORD = 'crane';
+
+/** SQL setting `count` days' Daily Word from `from` to `TEST_DAILY_WORD`. */
+export const testDailyWordsSql = (from: string, count: number) =>
+  `INSERT OR REPLACE INTO daily_words (day, word) VALUES ${testThemeDays(from, count)
+    .map(({ day }) => `('${day}', '${TEST_DAILY_WORD}')`).join(', ')};`;

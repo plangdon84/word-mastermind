@@ -46,18 +46,6 @@ profile from games and boards becoming 18ca)
     can't read an iPhone's contacts)
   - Once Random opponent is switched on: add your opponent as a friend
     during or after the game (#78)
-- [ ] **7b. Daily Word** (issue #159; worker, review gate; changes README
-  "Daily Rush" and "Leaderboards", and adds a "Daily Word" section)
-  - One word a day, the same for everyone, picked from the secret list
-    (not themed), played once, at a difficulty you choose once, changing
-    at the same time as Daily Rush (18y)
-  - Its own board per difficulty, by fewest guesses, time breaking ties,
-    on the Leaderboards page beside Daily Set, with place and "better
-    than X%" (as 18x); Leaderboards then lists the two boards
-  - Its row on 18za's Daily card (greyed once played, "Your place ›"
-    opening its result), a streak badge and a Share button like Daily
-    Set's; unlocked with Daily Set
-  - A minor release with its notes
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
     the game), kept out of 18j's sitemap and footers and sent with
@@ -133,6 +121,24 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 ## Done, latest first
 
 **Phase D: after the launch**
+
+- [x] **7b. Daily Word** (issue #159; worker, review gate; changes README
+  "Daily Rush" and "Leaderboards", and adds a "Daily Word" section)
+  - One word a day, the same for everyone, picked from the secret list
+    (not themed), played once, at a difficulty you choose once, changing
+    at the same time as Daily Rush (18y)
+  - Its own board per difficulty, by fewest guesses, time breaking ties,
+    on the Leaderboards page beside Daily Set, with place and "better
+    than X%" (as 18x); Leaderboards then lists the two boards
+  - Its row on 18za's Daily card (greyed once played, "Your place ›"
+    opening its result), a streak badge and a Share button like Daily
+    Set's; unlocked with Daily Set
+  - A minor release with its notes
+  - Agreed with the owner on 9 October 2026: no Pause (one word is short,
+    and time only breaks ties); streak badges of 7, 30 and 100 days, and
+    the word counts as a solve for the other badges (no difficulty, top 10
+    or level badges); the server picks the word at random the first time
+    it's started, never one from the past year or that day's Daily Set
 
 - [x] **18cb. Faster friends' profiles** (round 1 review of 18c, finding 4;
   server and privacy, review gate). Built in PR #14 and reverted (PR #15):

@@ -1,5 +1,5 @@
 import {
-  BADGE_BY_ID, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, normalizeWord,
+  BADGE_BY_ID, computeStats, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, normalizeWord,
   parseHistoryEntry, type DailyPlacement, type Difficulty, type EarnedBadge, type HeadToHead, type HistoryEntry,
   type HistoryFilter, type HistoryMode, type HistoryResult, type Stats,
 } from '../game';
@@ -225,6 +225,9 @@ const parseEntries = (value: unknown[]) =>
 const isTally = (value: unknown) =>
   isObject(value) && [value.wins, value.draws, value.losses].every((n) => Number.isSafeInteger(n));
 
+/** Modes added since summaries were first shared, which an older app's summary leaves out. */
+const LATER_MODES: readonly HistoryMode[] = ['dailyWord'];
+
 /**
  * A shared summary, checked as far as the app relies on it (the server
  * checks what a device sends with it too), or null if it isn't one.
@@ -236,8 +239,12 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     return null;
   }
   const { stats } = value;
-  if (!isObject(stats) || typeof stats.played !== 'number' || !isObject(stats.modes) || !isObject(stats.byDifficulty)
-    || !Array.isArray(stats.topGuesses) || !HISTORY_MODES.every((m) => isObject((stats.modes as Record<string, unknown>)[m]))) {
+  if (!isObject(stats) || !isObject(stats.modes)) return null;
+  // A summary shared before the Daily Word (Dev Plan item 7b) has no stats for it: none played.
+  const modes: Record<string, unknown> = { ...stats.modes };
+  for (const m of LATER_MODES) modes[m] ??= computeStats([], 0).modes[m];
+  if (typeof stats.played !== 'number' || !isObject(stats.byDifficulty) || !Array.isArray(stats.topGuesses)
+    || !HISTORY_MODES.every((m) => isObject(modes[m]))) {
     return null;
   }
   // Only badges this version knows, each once.
@@ -249,7 +256,7 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     }
   }
   return {
-    format: SHARED_FORMAT, games: value.games as number, stats: stats as unknown as Stats, badges: [...badges.values()],
+    format: SHARED_FORMAT, games: value.games as number, stats: { ...stats, modes } as unknown as Stats, badges: [...badges.values()],
     featured: parseEntries(value.featured),
   };
 }

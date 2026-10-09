@@ -59,8 +59,9 @@ function withMarks({ entry, ref }: PlayedGame): HistoryEntry {
       const marks: Marks | undefined = findFriendGame(ref)?.marks;
       return marks ? { ...entry, marks } : entry;
     }
-    case 'daily': {
-      const saved = loadDaily();
+    case 'daily':
+    case 'dailyWord': {
+      const saved = loadDaily(entry.mode);
       return saved?.day === ref && saved.marks.length === entry.record.words.length ? { ...entry, marks: saved.marks } : entry;
     }
     case 'lobby': {

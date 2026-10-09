@@ -3,13 +3,14 @@
 // empty. The rate limits (worker/src/limits.ts) are raised in a copy of the
 // config, since one test run makes far more guests and games from one
 // address than a player would; their own tests are in limits.test.ts. The
-// Daily Rush gets the made-up test sets (worker/src/testThemes.ts).
+// Daily Rush gets the made-up test sets, and the Daily Word a known word
+// (worker/src/testThemes.ts).
 // Runs with Node's built-in TypeScript support (Node 22.18 or later).
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { themeDaysSql } from '../worker/src/themeDays.ts';
-import { testThemeDays } from '../worker/src/testThemes.ts';
+import { testDailyWordsSql, testThemeDays } from '../worker/src/testThemes.ts';
 
 const root = join(import.meta.dirname, '..');
 const state = join(root, 'e2e', '.state');
@@ -26,7 +27,7 @@ const migrate = spawnSync('npx', wrangler('d1', 'migrations', 'apply', 'DB', '--
 if (migrate.status !== 0) process.exit(migrate.status ?? 1);
 const themes = join(state, 'daily-themes.sql');
 const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-writeFileSync(themes, themeDaysSql(testThemeDays(yesterday, 3), '0000-00-00'));
+writeFileSync(themes, `${themeDaysSql(testThemeDays(yesterday, 3), '0000-00-00')}\n${testDailyWordsSql(yesterday, 3)}`);
 const load = spawnSync('npx', wrangler('d1', 'execute', 'DB', '--local', '--file', themes), { cwd: root, stdio: 'inherit' });
 if (load.status !== 0) process.exit(load.status ?? 1);
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   matchesFilter, parseHistoryEntry, replayEntry, summarizeGame, type HistoryEntry,
 } from './history';
-import { dailyEntry, friendEntry, lobbyEntry } from './testGames';
+import { dailyEntry, dailyWordEntry, friendEntry, lobbyEntry } from './testGames';
 import { GUESS_WORDS } from './wordLists';
 
 const T = 1_000_000;
@@ -156,6 +156,14 @@ describe("the server's games", () => {
     if (l.mode !== 'lobby') throw new Error('not a lobby');
     expect(parseHistoryEntry({ ...l, places: l.places.map((p) => ({ ...p, you: false })) })).toBeNull();
     expect(parseHistoryEntry({ ...l, kind: 'solo' })).toBeNull();
+  });
+
+  it('read back a Daily Word with its day, and refuse one of more than one word', () => {
+    const w = dailyWordEntry('w1', '2026-10-31', T, ['crane', 'beach']);
+    expect(parseHistoryEntry(JSON.parse(JSON.stringify(w)))).toEqual(w);
+    expect(summarizeGame(replayEntry(w)!)).toMatchObject({ mode: 'dailyWord', yourGuesses: 2, gaveUp: false, result: null });
+    const d = dailyEntry('d1', '2026-10-31', T, [['beach'], ['crane'], ['storm'], ['house']]);
+    expect(parseHistoryEntry({ ...d, mode: 'dailyWord' })).toBeNull();
   });
 });
 
