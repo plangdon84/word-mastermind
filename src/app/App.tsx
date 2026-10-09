@@ -650,7 +650,7 @@ export function App() {
         <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friend} page={screen.page}
           onPage={(page) => setScreen({ ...screen, page })}
           onBack={() => setScreen(back ?? { name: 'profile', from, page: 'friends' })} backTo={back ? 'back' : 'friends'}
-          filter={friendFilter} onFilter={setFriendFilter}
+          yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
           onOpen={(game, name, placements) => setScreen({
             name: 'review', game, from, friend: { friend: { ...friend, name }, page: screen.page ?? 'history', placements, back },
           })} />
@@ -784,7 +784,7 @@ export function App() {
   const over = friendOver && API_URL && (
     <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friendOver.friend} page={friendOver.page}
       onPage={(page) => setFriendOver({ ...friendOver, page })} onBack={closeFriend} backTo="back"
-      filter={friendFilter} onFilter={setFriendFilter}
+      yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
       // Their game's review is a screen of its own: its Back comes to their profile, and that one's to here.
       onOpen={(game, name, placements) => setScreen({
         name: 'review', game, from: profileFrom(),
