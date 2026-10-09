@@ -4,7 +4,7 @@ import {
 } from '../../src/app/leaderboardsApi';
 import { showRating } from '../../src/app/ratingsApi';
 import { identify } from './accounts';
-import { NO_NAME } from './friends';
+import { friendCodeSql, NO_NAME } from './friends';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
 import { currentRating } from './ratings';
@@ -35,6 +35,7 @@ interface BoardRow {
   games: number;
   rated_at: number;
   name: string | null;
+  friend_code: string | null;
 }
 
 /**
@@ -47,7 +48,8 @@ export async function ratingBoard(
 ): Promise<RatingBoard> {
   // RD only widens with time, so a rating provisional when stored still is.
   const { results } = await db.prepare(
-    `SELECT r.account_id, r.rating, r.rd, r.volatility, r.games, r.rated_at, COALESCE(p.name, p.guest_name) AS name
+    `SELECT r.account_id, r.rating, r.rd, r.volatility, r.games, r.rated_at, COALESCE(p.name, p.guest_name) AS name,
+       ${circle === 'friends' ? friendCodeSql('r.account_id', '?2') : 'NULL'} AS friend_code
      FROM ratings r LEFT JOIN profiles p ON p.account_id = r.account_id
      WHERE r.pool = ?1 AND r.rd <= ${PROVISIONAL_RD} ${circle === 'friends' ? `AND ${inCircle('r.account_id', '?2')}` : ''}
      ORDER BY r.rating DESC`,
@@ -57,7 +59,9 @@ export async function ratingBoard(
   listed.forEach((r, i) => {
     const rating = Math.round(r.rating);
     const rank = i > 0 && ranked[i - 1].rating === rating ? ranked[i - 1].rank : i + 1;
-    ranked.push({ rank, name: r.name ?? NO_NAME, rating, games: r.games, you: r.account_id === accountId });
+    ranked.push({
+      rank, name: r.name ?? NO_NAME, rating, games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
+    });
   });
   let you: YourRatingPlace | null = null;
   if (accountId) {

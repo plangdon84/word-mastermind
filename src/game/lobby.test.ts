@@ -153,10 +153,10 @@ describe('lobbyView', () => {
     expect(view.run?.words[0]).toMatchObject({ word: null, guesses: [{ guess: 'storm' }] });
     const empty = { outcome: null, guesses: 0, counted: null };
     expect(view.standings).toEqual([
-      { name: 'Ann', strength: null, you: false, rank: null, finished: false, score: null, seconds: null, words: [
+      { name: 'Ann', strength: null, you: false, friendCode: null, rank: null, finished: false, score: null, seconds: null, words: [
         { outcome: 'solved', guesses: 2, counted: null }, empty, empty, empty,
       ] },
-      { name: 'Bob', strength: null, you: true, rank: null, finished: false, score: null, seconds: null, words: [
+      { name: 'Bob', strength: null, you: true, friendCode: null, rank: null, finished: false, score: null, seconds: null, words: [
         { outcome: null, guesses: 1, counted: null }, empty, empty, empty,
       ] },
     ]);

@@ -91,9 +91,9 @@ describe('a rating board', () => {
     expect(board).toEqual({
       pool: '10m', circle: 'everyone', total: 3, you: null,
       top: [
-        { rank: 1, name: 'Bob', rating: 1712, games: 31, you: false },
-        { rank: 2, name: 'Ann', rating: 1600, games: 20, you: false },
-        { rank: 2, name: 'Cat', rating: 1600, games: 12, you: false },
+        { rank: 1, name: 'Bob', rating: 1712, games: 31, you: false, friendCode: null },
+        { rank: 2, name: 'Ann', rating: 1600, games: 20, you: false, friendCode: null },
+        { rank: 2, name: 'Cat', rating: 1600, games: 12, you: false, friendCode: null },
       ],
     });
     // Other pools are apart; rows never carry an account's ID.
@@ -108,7 +108,7 @@ describe('a rating board', () => {
     rate(ann.id, 'rush', 1650, 90, 14);
     rate(bob.id, '10m', 1712, 90, 31);
     expect(await ann.board('rush')).toMatchObject({
-      pool: 'rush', total: 1, top: [{ rank: 1, name: 'Ann', rating: 1650, games: 14, you: true }],
+      pool: 'rush', total: 1, top: [{ rank: 1, name: 'Ann', rating: 1650, games: 14, you: true, friendCode: null }],
     });
   });
 
@@ -152,10 +152,12 @@ describe('a rating board', () => {
     await bob.friends.add((await ann.friends.list()).code);
     const board = await ann.board('5m', 'friends');
     expect(board.top).toEqual([
-      { rank: 1, name: 'Bob', rating: 1700, games: 30, you: false },
-      { rank: 2, name: 'Ann', rating: 1500, games: 30, you: true },
+      { rank: 1, name: 'Bob', rating: 1700, games: 30, you: false, friendCode: (await bob.friends.list()).code },
+      { rank: 2, name: 'Ann', rating: 1500, games: 30, you: true, friendCode: null },
     ]);
     expect(board).toMatchObject({ circle: 'friends', total: 2, you: { rank: 2 } });
+    // Only the Friends view says who's a friend.
+    expect((await ann.board('5m')).top.map((r) => r.friendCode)).toEqual([null, null, null]);
     expect((await ann.board('5m')).you).toMatchObject({ rank: 3 });
     expect(await refusal(fetchRatingBoard(API, guest(1), '5m', 'friends', fetchFn))).toBe('signed-out');
   });

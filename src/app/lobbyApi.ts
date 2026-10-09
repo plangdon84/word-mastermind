@@ -65,8 +65,10 @@ function parseStanding(value: unknown): LobbyStanding | null {
       counted: counted && { guesses: counted.guesses, seconds: counted.seconds },
     });
   }
+  // An older server sends none.
+  const friendCode = typeof value.friendCode === 'string' ? value.friendCode : null;
   return {
-    name: value.name, strength: value.strength, you: value.you, rank: value.rank as number | null,
+    name: value.name, strength: value.strength, you: value.you, friendCode, rank: value.rank as number | null,
     finished: value.finished, words, score: value.score, seconds: value.seconds,
   };
 }

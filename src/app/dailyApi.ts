@@ -39,6 +39,8 @@ export interface DailyBoardRow {
   ms: number;
   /** This row is yours. */
   you: boolean;
+  /** On the Friends view, a friend's row: their friend code, which opens their profile. Null otherwise. */
+  friendCode: string | null;
 }
 
 /** A day's leaderboard for one difficulty, ranked one of two ways. */
@@ -127,7 +129,9 @@ export function parseDailyBoard(value: unknown): DailyBoard | null {
   for (const row of value.top) {
     if (!isObject(row) || !isCount(row.rank) || typeof row.name !== 'string' || !isCount(row.guesses)) return null;
     if (!isCount(row.ms) || typeof row.you !== 'boolean') return null;
-    top.push({ rank: row.rank, name: row.name, guesses: row.guesses, ms: row.ms, you: row.you });
+    // An older server sends none.
+    const friendCode = typeof row.friendCode === 'string' ? row.friendCode : null;
+    top.push({ rank: row.rank, name: row.name, guesses: row.guesses, ms: row.ms, you: row.you, friendCode });
   }
   let you: DailyBoard['you'] = null;
   if (value.you !== null) {

@@ -1,6 +1,7 @@
 // A stand-in for the LOBBIES Durable Object namespace in tests: each join
 // code gets in-memory storage, refereed by the same code as a real RushLobby.
 import { memoryStorage } from './fakeRooms';
+import { friendCodes } from './friends';
 import { json } from './http';
 import { handleLobby, handleLobbyAlarm, saveFinishedLobby, type LobbyDeps, type LobbyRequest } from './lobbyRoom';
 import type { Notice } from './notices';
@@ -20,6 +21,7 @@ export function fakeLobbies({ db, now, random = () => 0 }: FakeLobbiesOptions) {
   const deps: LobbyDeps = {
     random: () => random(),
     saveFinished: (lobby, endedAt) => saveFinishedLobby(db, lobby, endedAt),
+    friendCodes: (accountId, ids) => friendCodes(db, accountId, ids),
     notify: (sent) => notices.push(...sent),
   };
   const namespace = {

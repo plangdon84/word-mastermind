@@ -7,6 +7,7 @@ import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
 import { identify, isPlayers, type Player } from './accounts';
 import type { DailyRequest, DailyResponse } from './dailyRoom';
 import { themeFor } from './dailyThemes';
+import { friendCodeSql } from './friends';
 import { registerGuest } from './guests';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
@@ -125,11 +126,12 @@ async function board(
   const circleArgs = circle === 'friends' ? [player.accountId] : [];
   const order = RANKED[rankBy].join(', ');
   const { results: top } = await env.DB.prepare(
-    `SELECT name, guesses, ms, player_id, RANK() OVER (ORDER BY ${order}) AS rank
+    `SELECT name, guesses, ms, player_id, RANK() OVER (ORDER BY ${order}) AS rank,
+       ${circle === 'friends' ? friendCodeSql('player_id', '?3') : 'NULL'} AS friend_code
      FROM daily_results WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}
      ORDER BY ${order}, finished_at LIMIT ${BOARD_SIZE}`,
   ).bind(day, difficulty, ...circleArgs)
-    .all<{ name: string; guesses: number; ms: number; player_id: string; rank: number }>();
+    .all<{ name: string; guesses: number; ms: number; player_id: string; rank: number; friend_code: string | null }>();
   const total = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM daily_results WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}`,
   ).bind(day, difficulty, ...circleArgs).first<number>('n');
@@ -150,8 +152,10 @@ async function board(
     rankBy,
     words: shown ? [...theme.words] : null,
     total: total ?? 0,
-    // Player IDs are credentials, so rows only say which one is yours.
-    top: top.map((r): DailyBoardRow => ({ rank: r.rank, name: r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id) })),
+    // Player IDs are credentials, so rows only say which one is yours, and (Friends) a friend's friend code.
+    top: top.map((r): DailyBoardRow => ({
+      rank: r.rank, name: r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id), friendCode: r.friend_code,
+    })),
     you: mine ? { ...toPlacement(mine, rankBy), guesses: mine.guesses, ms: mine.ms } : null,
   };
   return json(body);
