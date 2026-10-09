@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.15.2',
+    notes: [
+      { text: 'Small layout fixes: the Check for mistakes button, a friend’s name beside “You vs.” and the place on a Daily result now line up properly.' },
+      { text: 'Sharing a Daily Word result now puts its square, guesses and place on one line.' },
+    ],
+  },
+  {
     version: '1.15.1',
     notes: [
       { text: 'The links at the bottom of the home page are now one row of small print, so the screen is shorter.' },

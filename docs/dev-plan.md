@@ -36,21 +36,6 @@ profile from games and boards becoming 18ca; on 9 October 2026, the small
 fixes players see, 18zb and 18zc, went first, and the server tidy-ups 18zd
 to 18zf after 18n)
 
-- [ ] **18zb. Small screen fixes** (issues
-  plangdon84/word-mastermind-archive#196,
-  plangdon84/word-mastermind-archive#204,
-  plangdon84/word-mastermind-archive#215 and
-  plangdon84/word-mastermind-archive#216; app only, no review gate)
-  - Issue 196: centre the text of ☰ Highlights' Check for mistakes button
-    (and check its neighbours)
-  - Issue 204: the opponent's name link in the "You vs." row is centred on
-    its text, with the underline under the name only, on both two player
-    screens
-  - Issue 215: a result tile whose value is a link button (a place, "1st ›")
-    lines up with its plain neighbours, label with label and number with
-    number: the Daily Word's Guesses and Place, and the Daily Set's places
-  - Issue 216: the Daily Word's share text puts its square, guesses and
-    place on one line; the Daily Set's text stays as it is
 - [ ] **18zc. A Rush score reads as a time a word** (issues
   plangdon84/word-mastermind-archive#197 and
   plangdon84/word-mastermind-archive#207; app only, no review gate)
@@ -174,6 +159,21 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18zb. Small screen fixes** (issues
+  plangdon84/word-mastermind-archive#196,
+  plangdon84/word-mastermind-archive#204,
+  plangdon84/word-mastermind-archive#215 and
+  plangdon84/word-mastermind-archive#216; app only, no review gate)
+  - Issue 196: centre the text of ☰ Highlights' Check for mistakes button
+    (and check its neighbours)
+  - Issue 204: the opponent's name link in the "You vs." row is centred on
+    its text, with the underline under the name only, on both two player
+    screens
+  - Issue 215: a result tile whose value is a link button (a place, "1st ›")
+    lines up with its plain neighbours, label with label and number with
+    number: the Daily Word's Guesses and Place, and the Daily Set's places
+  - Issue 216: the Daily Word's share text puts its square, guesses and
+    place on one line; the Daily Set's text stays as it is
 - [x] **18p. A shorter title screen footer** (agreed with the owner on 2
   October 2026; app only, no review gate)
   - The links under Leaderboards become one wrapped row of small print,
