@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.13.1',
+    notes: [
+      { text: 'Fixed a bug blocking download of historical games when reinstalling the app.' },
+    ],
+  },
+  {
     version: '1.13.0',
     notes: [
       { text: 'Tap a friend’s name in a game against them, the results screen of a rush or crush with friends, or on a leaderboard’s Friends view to open their profile.' },
