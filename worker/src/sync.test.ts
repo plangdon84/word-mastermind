@@ -22,7 +22,7 @@ const LAPTOP = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
 
 const profile = (changes: Partial<SyncedProfile> = {}): SyncedProfile => ({
   guestName: 'Guest-4821', name: null, country: null, memberSince: NOW - 1000,
-  settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: true, extreme: true }, showTutorial: true, shareMarks: true },
+  settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: true, extreme: true }, showTutorial: true, shareMarks: true, findByName: true },
   ...changes,
 });
 

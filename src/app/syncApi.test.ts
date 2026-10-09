@@ -24,4 +24,12 @@ describe('parseSyncedProfile', () => {
     expect(parseSyncedProfile(withShare(false))?.settings.shareMarks).toBe(false);
     expect(parseSyncedProfile(withShare('no'))).toBeNull();
   });
+
+  it('reads settings saved before Let players find me by name as findable', () => {
+    const order = { easy: false, medium: true, hard: false, extreme: true };
+    expect(parseSyncedProfile(profile(order))?.settings.findByName).toBe(true);
+    const withFind = (findByName: unknown) => ({ ...profile(order), settings: { ...profile(order).settings, findByName } });
+    expect(parseSyncedProfile(withFind(false))?.settings.findByName).toBe(false);
+    expect(parseSyncedProfile(withFind('no'))).toBeNull();
+  });
 });

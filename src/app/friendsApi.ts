@@ -1,5 +1,5 @@
 import {
-  BADGE_BY_ID, computeStats, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, normalizeWord,
+  BADGE_BY_ID, computeStats, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, NAME_MAX, normalizeWord,
   parseHistoryEntry, type DailyPlacement, type Difficulty, type EarnedBadge, type HeadToHead, type HistoryEntry,
   type HistoryFilter, type HistoryMode, type HistoryResult, type Stats,
 } from '../game';
@@ -86,6 +86,44 @@ export interface FriendsList {
 
 /** Most friends and requests an account can have, together. */
 export const MAX_FRIENDS = 200;
+
+/** Most friend requests by email an account may send in a day, whether or not each email has an account. */
+export const EMAIL_REQUESTS_PER_DAY = 20;
+
+/** The fewest characters a search by name takes (a name's least), and the most players it finds. */
+export const SEARCH_MIN = 3;
+export const SEARCH_MAX = 20;
+
+/** A search for a name as typed, trimmed with its spaces collapsed, or null if it's too short or too long to be part of a name. */
+export function normalizeSearch(typed: string): string | null {
+  const search = typed.trim().replace(/\s+/g, ' ');
+  const length = [...search].length;
+  return length >= SEARCH_MIN && length <= NAME_MAX ? search : null;
+}
+
+/** Where you stand with a player a search found: friends, a request either way, or null for neither. */
+export type FoundState = 'friends' | 'sent' | 'received' | null;
+
+/**
+ * A player found by name (Dev Plan item 18d, `GET /api/friends/search`):
+ * only what anyone may see of them, their name and country, and their
+ * friend code (public too) to send a request with. Never an ID or email.
+ */
+export interface FoundPlayer {
+  code: string;
+  name: string;
+  country: string | null;
+  state: FoundState;
+}
+
+const FOUND_STATES: readonly FoundState[] = ['friends', 'sent', 'received', null];
+
+export function parseFoundPlayers(value: unknown): FoundPlayer[] | null {
+  if (!isObject(value) || !Array.isArray(value.players)) return null;
+  return value.players.filter((p): p is FoundPlayer =>
+    isObject(p) && isFriendCode(p.code) && typeof p.name === 'string' && FOUND_STATES.includes(p.state as FoundState))
+    .map(({ code, name, country, state }) => ({ code, name, country: isCountry(country) ? country : null, state }));
+}
 
 const parseFriends = (value: unknown): Friend[] | null => {
   if (!Array.isArray(value)) return null;
@@ -279,7 +317,7 @@ export function parseFriendGamesPage(value: unknown): FriendGamesPage | null {
 /** The server's reasons for refusing. */
 export type FriendsErrorCode =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'own-code' | 'too-many-friends'
-  | 'too-many-requests' | 'unreachable'
+  | 'too-many-requests' | 'unreachable' | 'bad-email' | 'own-email' | 'too-many-emails'
   // Opening an invite link: not codes the server sends, but how the app words its not-found and own-code.
   | 'invite-gone' | 'own-invite';
 
@@ -296,6 +334,14 @@ export interface FriendsApi {
   add(code: string): Promise<FriendsList>;
   /** Removes a friend, declines their request, or withdraws yours. Answers with the list. */
   remove(code: string): Promise<FriendsList>;
+  /**
+   * Sends a friend request to whoever has an account with this email, if
+   * anyone. The answer is the same either way, and the request stays off
+   * your list until they accept.
+   */
+  requestByEmail(email: string): Promise<void>;
+  /** Players whose name has this in it (`normalizeSearch`), best matches first, leaving out those who'd rather not be found. */
+  search(name: string): Promise<FoundPlayer[]>;
   /** Whose invite link this is (their name), to ask before accepting it. */
   peekInvite(key: string): Promise<{ name: string }>;
   /** Opens a friend's invite link: you're friends at once. Answers with the list and who the link was from. */
@@ -324,6 +370,14 @@ export function friendsApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeo
     list: () => request('GET', '/api/friends'),
     add: (code) => request('POST', '/api/friends/add', { code }),
     remove: (code) => request('POST', '/api/friends/remove', { code }),
+    requestByEmail: async (email) => {
+      await send('POST', '/api/friends/email', { email });
+    },
+    search: async (name) => {
+      const players = parseFoundPlayers(await send('GET', `/api/friends/search?${new URLSearchParams({ name })}`));
+      if (!players) throw new FriendsApiError('bad-request', 200);
+      return players;
+    },
     peekInvite: async (key) => {
       const answer = await send('POST', '/api/friends/invite/peek', { invite: key });
       if (!isObject(answer) || typeof answer.name !== 'string') throw new FriendsApiError('bad-request', 200);
@@ -371,6 +425,12 @@ export function friendsErrorMessage(code: FriendsErrorCode): string {
       return "That's your own friend code: send it to a friend so they can add you.";
     case 'too-many-friends':
       return `You have ${MAX_FRIENDS} friends and requests already. Remove some to add more.`;
+    case 'bad-email':
+      return "That doesn't look like an email address. Check it and try again.";
+    case 'own-email':
+      return "That's your own email: type a friend's.";
+    case 'too-many-emails':
+      return `You've sent ${EMAIL_REQUESTS_PER_DAY} requests by email today. Try again tomorrow, or add friends by name or code.`;
     case 'signed-out':
     case 'sign-in-needed':
       return 'You were signed out. Sign in again to see your friends.';

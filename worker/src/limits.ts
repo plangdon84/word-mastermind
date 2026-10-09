@@ -23,8 +23,11 @@ export function limitOf(method: string, pathname: string): Limit | null {
   // and indexing your games for friends, which looks up game rooms. A page of their history is one query.
   if (method === 'GET' && pathname === '/api/friends/profile') return 'profile';
   if (method === 'POST' && pathname === '/api/profile/index') return 'profile';
+  // Searching players by name (item 18d) is a query, but limited so nobody can list every name quickly.
+  if (method === 'GET' && pathname === '/api/friends/search') return 'general';
   if (method !== 'POST') return null;
-  if (pathname === '/api/reports' || pathname === '/api/auth/email') return 'strict';
+  // A friend request by email (item 18d) sends a notification, and each try could test whether an email plays.
+  if (pathname === '/api/reports' || pathname === '/api/auth/email' || pathname === '/api/friends/email') return 'strict';
   if (/^\/api\/(guests|games|lobbies|daily\/start|daily\/word\/start|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
     return 'general';
   }

@@ -63,18 +63,24 @@ export interface Env {
  * logic expects) so tests can fix it, as they can `fetchFn`, for calls the
  * worker makes to other services (email, Google, GitHub).
  */
-export async function handle(request: Request, env: Env, now: number, fetchFn: typeof fetch = fetch): Promise<Response> {
+export async function handle(
+  request: Request, env: Env, now: number, fetchFn: typeof fetch = fetch,
+  /** Runs work after the answer is sent (the worker's `waitUntil`); tests leave it out, and the work is awaited. */
+  defer?: (work: Promise<unknown>) => void,
+): Promise<Response> {
   const cors = corsHeaders(request.headers.get('origin'), env.ALLOWED_ORIGINS);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   const { pathname } = new URL(request.url);
   const socket = await routeLiveSocket(request, env, pathname);
   if (socket) return socket;
-  const response = await overLimit(request, env, pathname) ?? await route(request, env, now, fetchFn);
+  const response = await overLimit(request, env, pathname) ?? await route(request, env, now, fetchFn, defer);
   for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
   return response;
 }
 
-async function route(request: Request, env: Env, now: number, fetchFn: typeof fetch): Promise<Response> {
+async function route(
+  request: Request, env: Env, now: number, fetchFn: typeof fetch, defer: ((work: Promise<unknown>) => void) | undefined,
+): Promise<Response> {
   const { pathname } = new URL(request.url);
   const method = request.method;
   if (pathname === '/api/health' && method === 'GET') {
@@ -104,7 +110,7 @@ async function route(request: Request, env: Env, now: number, fetchFn: typeof fe
   if (queue) return queue;
   const lobbies = await routeLobbies(request, env, now, pathname, fetchFn);
   if (lobbies) return lobbies;
-  const friends = await routeFriends(request, env, now, pathname, fetchFn);
+  const friends = await routeFriends(request, env, now, pathname, fetchFn, defer);
   if (friends) return friends;
   const shared = await routeProfileShare(request, env, now, pathname);
   if (shared) return shared;
@@ -129,5 +135,5 @@ export { Matchmaker } from './matchmaker';
 export { RushLobby } from './rushLobby';
 
 export default {
-  fetch: (request, env) => handle(request, env, Date.now()),
+  fetch: (request, env, ctx) => handle(request, env, Date.now(), fetch, (work) => ctx.waitUntil(work)),
 } satisfies ExportedHandler<Env>;
