@@ -197,6 +197,15 @@ const forgetEmailRequest = (db: D1Database, accountId: string, friendId: string)
   `DELETE FROM friends WHERE ((account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1))
      AND EXISTS (SELECT 1 FROM friends WHERE account_id = ?1 AND friend_id = ?2 AND state = 'sent' AND by_email = 1)`,
 ).bind(accountId, friendId).run();
+
+/**
+ * Where `accountId` stands with `friendId` as their list shows it: a
+ * request they sent by email, even one made a moment ago by a request
+ * still under way, is none, so adding them goes as if it weren't there.
+ */
+const visibleState = (db: D1Database, accountId: string, friendId: string) => db.prepare(
+  `SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2 AND NOT (state = 'sent' AND by_email = 1)`,
+).bind(accountId, friendId).first<{ state: string }>();
 type Accepted = { ok: true; notices: Notice[]; code: string } | { ok: false; status: number; error: string };
 
 /**
@@ -208,8 +217,7 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
   if (!friendId) return { ok: false, status: 404, error: 'not-found' };
   if (friendId === accountId) return { ok: false, status: 400, error: 'own-code' };
   await forgetEmailRequest(db, accountId, friendId);
-  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first<{ state: string }>();
+  const existing = await visibleState(db, accountId, friendId);
   if (existing?.state === 'friends' || existing?.state === 'sent') return { ok: true, notices: [] };
   const name = await nameOrDefault(db, accountId);
   if (existing?.state === 'received') {
@@ -220,10 +228,12 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
   for (const id of [accountId, friendId]) {
     if (await listSize(db, id) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
   }
-  await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?1, ?2, 'sent', ?3)`)
-    .bind(accountId, friendId, now).run();
-  await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?2, ?1, 'received', ?3)`)
-    .bind(accountId, friendId, now).run();
+  // One statement that also takes the place of a request by email made meanwhile, so that overlap ends as this request alone.
+  await db.prepare(
+    `INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 0), (?2, ?1, 'received', ?3, 0)
+     ON CONFLICT (account_id, friend_id) DO UPDATE SET state = excluded.state, since = excluded.since, by_email = 0
+     WHERE friends.by_email = 1`,
+  ).bind(accountId, friendId, now).run();
   return { ok: true, notices: [friendRequestNotice(friendId, name)] };
 }
 
@@ -329,10 +339,9 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
   const code = row.friend_code ?? await friendCodeOf(db, friendId);
   if (friendId === accountId) return { ok: false, status: 400, error: 'own-code' };
   await forgetEmailRequest(db, accountId, friendId);
-  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first<{ state: string }>();
+  const existing = await visibleState(db, accountId, friendId);
   if (existing?.state === 'friends') return { ok: true, notices: [], code };
-  // A pending request already counts against both lists.
+  // A pending request already counts against both lists (one you sent by email, which doesn't, was forgotten above).
   if (!existing) {
     for (const id of [accountId, friendId]) {
       if (await listSize(db, id) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };

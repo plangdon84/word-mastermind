@@ -16,7 +16,7 @@ import { fakeD1 } from './fakeD1';
 import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
 import { LINKED_GAMES_SQL, NEXT_LINKS_SQL, RETRY_PLAYED_SQL } from './friendProfiles';
-import { newFriendCode } from './friends';
+import { addFriend, newFriendCode } from './friends';
 import { handle, type Env } from './index';
 import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
 
@@ -111,7 +111,7 @@ async function setup() {
   /** Pushes sent since the last call, as [who, topic]. */
   const pushed = () => pushes.splice(0).map(([url, topic]) => [url.split('/').pop(), topic]);
   return {
-    sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock,
+    db, sqlite, fetchFn, player, pushed, guest: (guestId: string) => identity(guestId, null), now: () => clock,
     advance: (ms: number) => {
       clock += ms;
     }, roomAsks: () => roomAsks, stuck,
@@ -247,6 +247,28 @@ describe('friend requests by email', () => {
     await ann.friends.add(catCode);
     expect(pushed()).toEqual([['Cat', await topicOf('friends')]]);
     expect((await bob.friends.list()).received).toMatchObject([{ name: 'Ann' }]);
+  });
+
+  it('end as a plain request by code when one lands while adding that player by code', async () => {
+    const { db, sqlite, player, now } = await setup();
+    await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    // A request by email to Bob, still under way after answering, lands just as Ann's add looks at where they stand.
+    let landed = false;
+    const racing = { ...db, prepare: (sql: string) => {
+      if (!landed && sql.includes("AND NOT (state = 'sent' AND by_email = 1)") && sql.startsWith('SELECT state')) {
+        landed = true;
+        sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?, ?, 'sent', ?, 1), (?, ?, 'received', ?, 1)`)
+          .run(ANN, BOB, now(), BOB, ANN, now());
+      }
+      return db.prepare(sql);
+    } } as D1Database;
+    const added = await addFriend(racing, ANN, bobCode, now());
+    expect(landed).toBe(true);
+    expect(added).toMatchObject({ ok: true, notices: [{ guestId: BOB }] });
+    expect(sqlite.prepare('SELECT state, by_email FROM friends ORDER BY state').all())
+      .toEqual([{ state: 'received', by_email: 0 }, { state: 'sent', by_email: 0 }]);
   });
 
   it("never count against the sender's limit, so a full list can't tell whose email it was", async () => {
