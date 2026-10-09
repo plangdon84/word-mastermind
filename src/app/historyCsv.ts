@@ -107,6 +107,7 @@ function moveRows(entry: HistoryEntry): MoveRow[] {
     }
     case 'rush':
     case 'daily':
+    case 'dailyWord':
     case 'lobby':
       return runRows(entry.record);
   }
@@ -117,7 +118,7 @@ function gameCells({ entry, replayed, summary }: HistoryGame): Cell[] {
   const { record } = entry;
   const result = summary.mode === 'rush' ? summary.rush?.level ?? 'no score'
     : summary.place ? (summary.place.rank ? `${ordinal(summary.place.rank)} of ${summary.place.of}` : 'unplaced')
-      : summary.mode === 'daily' ? (summary.gaveUp ? 'no score' : 'finished')
+      : summary.mode === 'daily' || summary.mode === 'dailyWord' ? (summary.gaveUp ? 'no score' : 'finished')
         : summary.gaveUp ? 'gave up' : summary.result;
   return [
     entry.id,

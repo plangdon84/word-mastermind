@@ -27,11 +27,11 @@ export interface Badge {
   metal: Metal;
   /**
    * SOLO or VS CPU, for badges earned separately in each; DAILY for the
-   * Daily Rush's places, DAILY RUSH for finishing it; FRIENDS and
+   * Daily Rush's places, DAILY SET and DAILY WORD for finishing them; FRIENDS and
    * COMPETITIVE for the lobbies' and friend games'; RUSH and CRUSH for a
    * Word Set's level, by time or by guesses.
    */
-  tag: 'SOLO' | 'VS CPU' | 'DAILY' | 'DAILY SET' | 'FRIENDS' | 'COMPETITIVE' | 'UNLOCKED' | 'RUSH' | 'CRUSH' | null;
+  tag: 'SOLO' | 'VS CPU' | 'DAILY' | 'DAILY SET' | 'DAILY WORD' | 'FRIENDS' | 'COMPETITIVE' | 'UNLOCKED' | 'RUSH' | 'CRUSH' | null;
   /** The word across the bottom, e.g. HARD, GUESSES, WINS. */
   label: string;
   /** What earns it, e.g. "Beat the Expert computer at Hard or harder". */
@@ -92,7 +92,7 @@ export const cpuBadgeId = (strength: Strength, difficulty: Difficulty) => `${str
 export const UNLOCKS: readonly { step: UnlockStep; label: string; title: string; how: string }[] = [
   { step: 'two-player', label: 'TWO PLAYER', title: 'Two player', how: 'win a Practice game' },
   { step: 'solo-rush', label: 'WORD SETS', title: 'Word Sets', how: 'win a two player game' },
-  { step: 'all-rush', label: 'ALL SETS', title: 'Daily Set and With friends', how: 'finish a Solo Rush or Solo Crush with every word solved, none given up' },
+  { step: 'all-rush', label: 'ALL SETS', title: 'Daily Set, Daily Word and With friends', how: 'finish a Solo Rush or Solo Crush with every word solved, none given up' },
 ];
 
 /** Every badge, including those of modes switched off, in the order the profile shows them. */
@@ -147,6 +147,11 @@ const ALL_BADGES: readonly Badge[] = [
   ...DAILY_STREAKS.map((n, i): Badge => ({
     id: `daily-rush-streak-${n}`, family: 'streak', metal: COUNT_METALS[i], tag: 'DAILY SET', label: 'DAYS',
     title: `Finish the Daily Set ${n} days in a row`, count: n,
+  })),
+  // The Daily Word (Dev Plan item 7b): its own streak, on its own days.
+  ...DAILY_STREAKS.map((n, i): Badge => ({
+    id: `daily-word-streak-${n}`, family: 'streak', metal: COUNT_METALS[i], tag: 'DAILY WORD', label: 'DAYS',
+    title: `Find the Daily Word ${n} days in a row`, count: n, addedLater: true,
   })),
   {
     id: 'friend-win', family: 'feat', metal: 'silver', tag: 'FRIENDS', label: 'VS WIN',
@@ -241,6 +246,7 @@ function solves(game: StatsGame, summary: GameSummary): Solve[] {
     }
     case 'rush':
     case 'daily':
+    case 'dailyWord':
     case 'lobby':
       return replayed.game.results
         .filter((r) => r.outcome === 'solved')
@@ -333,8 +339,11 @@ export function computeAchievements(
   let winStreak = 0;
   let lastDay: number | null = null;
   let dayStreak = 0;
-  let lastRushDay: string | null = null;
-  let rushStreak = 0;
+  /** Each daily game's streak, on its own days, which change at midnight in New York. */
+  const dailyStreaks = {
+    daily: { last: null as string | null, run: 0, badge: 'daily-rush-streak' },
+    dailyWord: { last: null as string | null, run: 0, badge: 'daily-word-streak' },
+  };
   for (const row of rows) {
     for (const id of gameBadges(row.game, row.summary)) earn(id, row);
     if (row.summary.result !== null && (row.summary.mode === 'computer' || row.summary.mode === 'friend')) {
@@ -347,16 +356,20 @@ export function computeAchievements(
       lastDay = day;
     }
     for (const n of DAILY_STREAKS) if (dayStreak >= n) earn(`daily-${n}`, row);
-    // The Daily Rush streak counts its own days, which change at midnight in New York.
+    // The Daily Set and Daily Word streaks count their own days, which change at midnight in New York.
     const { replayed } = row.game;
     // A run finished after its day ended isn't on the streak (README "Daily Rush").
-    if (replayed.mode === 'daily' && replayed.day !== lastRushDay && !finishedLate(replayed.day, replayed.game)) {
-      rushStreak = lastRushDay !== null && replayed.day === addDays(lastRushDay, 1) ? rushStreak + 1 : 1;
-      lastRushDay = replayed.day;
-      for (const n of DAILY_STREAKS) if (rushStreak >= n) earn(`daily-rush-streak-${n}`, row);
+    if (replayed.mode === 'daily' || replayed.mode === 'dailyWord') {
+      const streak = dailyStreaks[replayed.mode];
+      if (replayed.day !== streak.last && !finishedLate(replayed.day, replayed.game)) {
+        streak.run = streak.last !== null && replayed.day === addDays(streak.last, 1) ? streak.run + 1 : 1;
+        streak.last = replayed.day;
+        for (const n of DAILY_STREAKS) if (streak.run >= n) earn(`${streak.badge}-${n}`, row);
+      }
     }
   }
-  const places = [...daily].sort((a, b) => a.finishedAt - b.finishedAt);
+  // The top 10 badges are the Daily Set's: a place on the Daily Word's board doesn't count.
+  const places = daily.filter((p) => p.mode !== 'dailyWord').sort((a, b) => a.finishedAt - b.finishedAt);
   for (const [id, rule] of [['daily-top-10', isTopTen], ['daily-top-10-percent', isTopTenPercent]] as const) {
     const first = places.find(rule);
     if (first && !earned.has(id) && BADGE_BY_ID.has(id)) earned.set(id, { id, at: first.finishedAt, gameId: dailyGameId(first.day) });

@@ -138,6 +138,7 @@ function wordsFound(replayed: ReplayedGame, summary: GameSummary): number[] {
     case 'rush':
       return summary.rush ? summary.rush.words.map((w) => w.guesses) : [];
     case 'daily':
+    case 'dailyWord':
     case 'lobby':
       // Scored with the group's penalties on the server; here, the words you found.
       return replayed.game.results.filter((r) => r.outcome === 'solved').map((r) => r.guesses.length);
@@ -207,6 +208,7 @@ function solveTimes(replayed: ReplayedGame): number[] {
     }
     case 'rush':
     case 'daily':
+    case 'dailyWord':
     case 'lobby':
       return replayed.game.results
         .filter((r) => r.outcome === 'solved')
@@ -278,8 +280,8 @@ function modeStats(mode: HistoryMode, rows: readonly Row[], now: number): ModeSt
     : mode === 'computer' || mode === 'friend'
       ? lowest(rows, (r) => (r.summary.result === 'won' && foundTheirWord(r.replayed) ? r.summary.yourGuesses : null))
       : mode === 'rush' ? lowest(crush, (r) => r.summary.rush?.score ?? null)
-        // Daily Rush's leaderboard counts total guesses; a lobby's standings, your score.
-        : mode === 'daily' ? lowest(rows, (r) => (r.summary.gaveUp ? null : r.summary.yourGuesses))
+        // The daily boards count total guesses; a lobby's standings, your score.
+        : mode === 'daily' || mode === 'dailyWord' ? lowest(rows, (r) => (r.summary.gaveUp ? null : r.summary.yourGuesses))
           : lowest(crush, (r) => lobbyYou(r.replayed)?.score ?? null);
   const bestRush = mode === 'rush' ? lowest(rush, (r) => r.summary.rush?.score ?? null)
     : mode === 'lobby' ? lowest(rush, (r) => lobbyYou(r.replayed)?.seconds ?? null) : null;
@@ -345,6 +347,7 @@ export function computeStats(games: readonly StatsGame[], now: number): Stats {
       rush: modeStats('rush', ofMode('rush'), now),
       friend: modeStats('friend', ofMode('friend'), now),
       daily: modeStats('daily', ofMode('daily'), now),
+      dailyWord: modeStats('dailyWord', ofMode('dailyWord'), now),
       lobby: modeStats('lobby', ofMode('lobby'), now),
     },
     byDifficulty: Object.fromEntries(

@@ -2,8 +2,9 @@ import type { ComponentChildren } from 'preact';
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, RANK_BYS, rankByHow,
-  rankByName, validateGuess, type DailyDay, type DailyView, type DailyWordView, type Difficulty, type Marks, type RankBy,
+  addDays, betterThan, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow,
+  rankByName, validateGuess, type DailyDay, type DailyMode, type DailyView, type DailyWordView, type Difficulty, type Marks,
+  type RankBy,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
 import type { ApiIdentity } from './apiIdentity';
@@ -27,7 +28,7 @@ import { formatClock, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, R
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
-import { dailyShareText } from './shareText';
+import { DAILY_NAME, dailyShareText } from './shareText';
 
 
 /** The server's refusal code, or `unreachable`. */
@@ -49,14 +50,18 @@ export function placeText(p: { rank: number; total: number; behind: number }): s
   return `${ordinal(p.rank)} of ${p.total}${better === null ? '' : ` · better than ${better}%`}`;
 }
 
+/** The boards each daily game has: the Daily Set's Crush and Rush, the Daily Word's Crush (fewest guesses) alone. */
+export const DAILY_BOARDS: Record<DailyMode, readonly RankBy[]> = { daily: ['crush', 'rush'], dailyWord: ['crush'] };
+
 /**
  * A day's leaderboard for one difficulty, with the days before it a tap
- * away: everyone's, or (signed in) you and your friends'; ranked as a Rush
- * (fastest) or a Crush (fewest guesses), flipped with the switch, which keeps
- * the day, difficulty and circle. Today's is provisional until midnight New
- * York time.
+ * away: everyone's, or (signed in) you and your friends'. The Daily Set's is
+ * ranked as a Rush (fastest) or a Crush (fewest guesses), flipped with the
+ * switch, which keeps the day, difficulty and circle; the Daily Word's by
+ * fewest guesses alone. Today's is provisional until midnight New York time.
  */
-export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDifficulty, circle, rankBy, onRankBy }: {
+export function DailyBoardPanel({ mode = 'daily', api, today, day: firstDay, difficulty: firstDifficulty, circle, rankBy: picked, onRankBy }: {
+  mode?: DailyMode;
   api: DailyApi;
   today: DailyDay;
   day: DailyDay;
@@ -65,11 +70,12 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
   rankBy: RankBy;
   onRankBy: (rankBy: RankBy) => void;
 }) {
+  const rankBy = mode === 'daily' ? picked : 'crush';
   const [day, setDay] = useState(firstDay);
   const [difficulty, setDifficulty] = useState(firstDifficulty);
   const [board, setBoard] = useState<DailyBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** The earliest day with a Daily Rush, once a day before it turns out to have none. */
+  /** The earliest day with this game, once a day before it turns out to have none. */
   const [first, setFirst] = useState<DailyDay | null>(null);
   useEffect(() => {
     let live = true;
@@ -90,7 +96,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
   });
   const youShown = board?.top.some((r) => r.you);
   return (
-    <section class="panel daily-board" aria-label="Daily Set leaderboard">
+    <section class="panel daily-board" aria-label={`${DAILY_NAME[mode]} leaderboard`}>
       <div class="board-day">
         <button type="button" class="btn small" aria-label="The day before" disabled={first !== null && day <= first}
           onClick={() => setDay(addDays(day, -1))}>‹</button>
@@ -98,7 +104,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
         <button type="button" class="btn small" aria-label="The day after" disabled={day >= today}
           onClick={() => setDay(addDays(day, 1))}>›</button>
       </div>
-      <RankBySwitch rankBy={rankBy} onPick={onRankBy} />
+      {mode === 'daily' && <RankBySwitch rankBy={rankBy} onPick={onRankBy} />}
       <div class="seg" role="group" aria-label="Leaderboard difficulty">
         {DIFFICULTIES.map((d) => (
           <button type="button" key={d} aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>
@@ -110,9 +116,9 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
       {!error && !board && <p class="board-note">Loading…</p>}
       {board && (
         <>
-          <p class="board-theme"><b>{board.theme}</b></p>
+          {board.theme && <p class="board-theme"><b>{board.theme}</b></p>}
           {board.words && (
-            <p class="board-words" aria-label={`The words: ${board.words.join(', ')}`}>
+            <p class="board-words" aria-label={`${board.words.length === 1 ? 'The word' : 'The words'}: ${board.words.join(', ')}`}>
               {board.words.map((w) => (
                 <span class="letters" key={w}>{[...w].map((c, i) => <Bubble key={i} letter={c} class="mini" />)}</span>
               ))}
@@ -164,11 +170,13 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
 }
 
 /**
- * Daily Rush: the day's themed set of 4 words, refereed by the server, once
- * a day. With `start`, it starts today's run at your difficulty if you
- * haven't played yet. Pause stops the clock, on the server too.
+ * A daily game, refereed by the server, once a day: the Daily Set (Daily
+ * Rush), the day's themed set of 4 words, or (`mode`) the Daily Word, one
+ * word. With `start`, it starts today's run at your difficulty if you haven't
+ * played yet. The Daily Set's Pause stops the clock, on the server too.
  */
-export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProfile, onExit, start }: {
+export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onExit, start }: {
+  mode?: DailyMode;
   settings: Settings;
   /** The board's Rush · fastest / Crush · fewest switch was flipped: it opens there next time. */
   onBoardRankBy: (rankBy: RankBy) => void;
@@ -178,7 +186,11 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
   onExit: () => void;
   start: boolean;
 }) {
-  const api = useMemo(() => dailyApi(API_URL ?? '', identity), [identity]);
+  const api = useMemo(() => dailyApi(API_URL ?? '', identity, fetch, mode), [identity, mode]);
+  const name = DAILY_NAME[mode];
+  const set = mode === 'daily';
+  /** What comes out each day: "set" or "word". */
+  const next = set ? 'set' : 'word';
   const [today, setTodayState] = useState<DailyToday | null>(null);
   const todayRef = useRef<DailyToday | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -193,7 +205,7 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
   const [confirming, setConfirming] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
   const [circle, setCircle] = useState<Circle>('everyone');
-  /** Your place so far on each of today's boards: Crush and Rush. */
+  /** Your place so far on each of today's boards: Crush and (the Daily Set) Rush. */
   const [placements, setPlacements] = useState<Partial<Record<RankBy, NonNullable<DailyBoard['you']>>>>({});
   const [openDef, setOpenDef] = useState(-1);
   const [howTo, setHowTo] = useState(false);
@@ -224,7 +236,7 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
     : undefined;
   const word = run && playing ? run.words[run.current] : null;
   const wordMarks = (run && marks[run.current]) ?? {};
-  const checks = useCheckLimit(`daily:${run?.day}:${run?.current}`);
+  const checks = useCheckLimit(`${mode}:${run?.day}:${run?.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
   const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing));
 
@@ -232,20 +244,21 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
     todayRef.current = t;
     setTodayState(t);
     setOffset(t.now - Date.now());
-    receivePlacements(t.placements);
+    receivePlacements(t.placements, mode);
   };
   const setDraft = (d: string) => {
     draftRef.current = d;
     setDraftState(d);
   };
 
-  /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Rush). */
+  /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Set or Daily Word). */
   const load = (autoStart = start) => {
     setLoadError(null);
     api.today().then(async (t) => {
-      const saved = loadDaily();
+      const saved = loadDaily(mode);
       setMarks(saved?.day === (t.run?.day ?? t.day) ? saved.marks : []);
-      if (t.run || !autoStart || !t.theme) {
+      // The Daily Set needs the day's theme; the Daily Word's word is picked when it's started.
+      if (t.run || !autoStart || (set && !t.theme)) {
         setToday(t);
         return;
       }
@@ -256,14 +269,14 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
 
   // Medium's marks stay on this device, as does whether a reload should come back here.
   useEffect(() => {
-    if (today?.run) saveDaily({ day: today.run.day, playing: today.run.status === 'playing', marks });
+    if (today?.run) saveDaily({ day: today.run.day, playing: today.run.status === 'playing', marks }, mode);
   }, [today, marks]);
 
   // Once you've finished, your place so far on both boards (none for a run finished after its day).
   useEffect(() => {
     if (!today || run?.status !== 'finished' || late) return;
     let live = true;
-    for (const rankBy of RANK_BYS) {
+    for (const rankBy of DAILY_BOARDS[mode]) {
       api.board(run.day, run.difficulty, 'everyone', rankBy).then((b) => {
         const you = b.you;
         if (live && you) setPlacements((p) => ({ ...p, [rankBy]: you }));
@@ -406,17 +419,17 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
       matchup={
         <span>
-          <b>Daily Set</b>
+          <b>{name}</b>
           {today?.runTheme && <> · {today.runTheme}</>}
         </span>
       }
       menu={(close) => (
         <GameMenuItems close={close} difficulty={difficulty}
-          difficultyNote="Chosen for today's Daily Set: it can't change."
-          giveUpLabel={late ? 'Give up this Daily Set' : "Give up today's Daily Set"} canGiveUp={playing}
+          difficultyNote={`Chosen for today's ${name}: it can't change.`}
+          giveUpLabel={late ? `Give up this ${name}` : `Give up today's ${name}`} canGiveUp={playing}
           onGiveUp={() => setConfirming(true)} onExit={onExit} onHowToPlay={() => setHowTo(true)}
           onReport={() => openReport({
-            screen: `Daily Set · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
+            screen: `${name} · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
           })}
           onCheckMarks={medium && word && !paused
             ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
@@ -445,14 +458,14 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
         <section class="panel">
           {loadError ? (
             <>
-              <h2>Daily Set</h2>
+              <h2>{name}</h2>
               <p>{loadError}</p>
               <div class="row-btns">
                 <button class="btn primary" type="button" onClick={() => load()}>Try again</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>
             </>
-          ) : <p>Loading today's Daily Set…</p>}
+          ) : <p>Loading today's {name}…</p>}
         </section>
       </div>
     );
@@ -460,9 +473,9 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
 
   if (showBoard) {
     return (
-      <BoardPage title="Daily Set" onBack={() => setShowBoard(false)} circle={identity.token ? circle : null}
+      <BoardPage title={name} onBack={() => setShowBoard(false)} circle={identity.token ? circle : null}
         onCircle={setCircle}>
-        <DailyBoardPanel api={api} today={today.day} day={run?.day ?? today.day} difficulty={difficulty}
+        <DailyBoardPanel mode={mode} api={api} today={today.day} day={run?.day ?? today.day} difficulty={difficulty}
           circle={identity.token ? circle : 'everyone'} rankBy={settings.boardRankBy} onRankBy={onBoardRankBy} />
       </BoardPage>
     );
@@ -474,7 +487,24 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
 
       {!run && (
         <section class="panel">
-          {today.theme ? (
+          {!set ? (
+            <>
+              <h2>Today's word</h2>
+              <p>
+                One secret word, the same for everyone, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>,
+                which can't change once you start. Fewest guesses wins, and time breaks ties. Next word in {nextSet}.
+              </p>
+              {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
+              <div class="row-btns">
+                <button class="btn primary" type="button" onClick={() => {
+                  api.start(today.day, settings.difficulty, displayName(profile))
+                    .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e)), error: true }));
+                }}>Start Daily Word</button>
+                <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
+                <button class="btn" type="button" onClick={onExit}>Main menu</button>
+              </div>
+            </>
+          ) : today.theme ? (
             <>
               <h2>Today: {today.theme}</h2>
               <p>
@@ -504,7 +534,7 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
 
       {run && word && late && (
         <p class="daily-note" role="status">
-          The day has changed. You can finish this Daily Set, but it won't go on the leaderboard.
+          The day has changed. You can finish this {name}, but it won't go on the leaderboard.
         </p>
       )}
       {word && dayEnding && <p class="daily-note warn" role="status">{dayEnding}</p>}
@@ -526,10 +556,12 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
 
       {run && word && !paused && (
         <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
-          label={`Your guesses at word ${run.current + 1}`}
-          emptyText={run.current === 0
-            ? `${run.day === today.day ? "Today's" : "Yesterday's"} theme: ${today.runTheme}. Type a 5-letter word and press Enter.`
-            : `Word ${run.current + 1}: no guesses yet.`}
+          label={set ? `Your guesses at word ${run.current + 1}` : 'Your guesses'}
+          emptyText={!set
+            ? `${run.day === today.day ? "Today's" : "Yesterday's"} word: type a 5-letter word and press Enter.`
+            : run.current === 0
+              ? `${run.day === today.day ? "Today's" : "Yesterday's"} theme: ${today.runTheme}. Type a 5-letter word and press Enter.`
+              : `Word ${run.current + 1}: no guesses yet.`}
           marks={shownMarks} onMark={medium ? markLetter : undefined}
           openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
           entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
@@ -541,15 +573,15 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
         <section class="panel warning">
           {late ? (
             <>
-              <h2>Give up this Daily Set?</h2>
+              <h2>Give up this {name}?</h2>
               <p>The day it was for is over, so it's not on the leaderboard either way.</p>
             </>
           ) : (
             <>
-              <h2>Give up today's Daily Set?</h2>
+              <h2>Give up today's {name}?</h2>
               <p>
-                <b>You won't be on today's leaderboard</b>, and you can't play again until the next set, in {nextSet}.
-                Giving up one word gives up the whole Daily Set.
+                <b>You won't be on today's leaderboard</b>, and you can't play again until the next {next}, in {nextSet}.
+                {set && ' Giving up one word gives up the whole Daily Set.'}
               </p>
             </>
           )}
@@ -563,8 +595,8 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
       {run && !playing && (
         <section class="panel rush-result">
           <h2>
-            {run.status === 'finished' ? `All 4 words in ${clock}.`
-              : late ? 'You gave up this Daily Set.' : "You gave up today's Daily Set."}
+            {run.status === 'finished' ? (set ? `All 4 words in ${clock}.` : `Found in ${guessCount(totalGuesses)}, ${clock}.`)
+              : late ? `You gave up this ${name}.` : `You gave up today's ${name}.`}
           </h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
             hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
@@ -582,8 +614,8 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
               <p class="tally">
                 {run.status === 'finished'
                   ? <>{guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}. You finished after the day changed, so this one isn't on the board.</>
-                  : "That day's leaderboard shows its words."}
-                {' '}Today's set is out now.
+                  : `That day's leaderboard shows its ${set ? 'words' : 'word'}.`}
+                {' '}Today's {next} is out now.
               </p>
             </>
           ) : run.status === 'finished' ? (
@@ -591,34 +623,43 @@ export function DailyScreen({ settings, onBoardRankBy, profile, identity, onProf
               {/* Your place on each board, a tap from that board (README "Daily Rush"). */}
               <RushSummary tiers={[
                 ['Guesses', totalGuesses],
-                // Crush first, as the line below and the README put it.
-                ...(['crush', 'rush'] as const).map((rankBy): [string, ComponentChildren] => [`${rankByName(rankBy)} · ${rankByHow(rankBy)}`, (
-                  <button type="button" class="link-btn" aria-label={`Your ${rankByName(rankBy)} place: open that board`}
+                // Crush first, as the line below and the README put it. The Daily Word's one board is just "Place".
+                ...DAILY_BOARDS[mode].map((rankBy): [string, ComponentChildren] => [set ? `${rankByName(rankBy)} · ${rankByHow(rankBy)}` : 'Place', (
+                  <button type="button" class="link-btn" aria-label={set ? `Your ${rankByName(rankBy)} place: open that board` : 'Your place: open the board'}
                     onClick={() => openBoard(rankBy)}>
                     {placements[rankBy] ? ordinal(placements[rankBy]!.rank) : '…'} ›
                   </button>
                 )]),
               ]} />
-              <p class="tally">
-                {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
-                {placements.crush && <>{placeText(placements.crush)} by fewest guesses (Crush)</>}
-                {placements.crush && placements.rush && ', and '}
-                {placements.rush && <>{placeText(placements.rush)} by fastest time (Rush)</>}
-                {(placements.crush || placements.rush) && <> on today's {DIFFICULTY_LABEL[run.difficulty]} boards. </>}
-                Places are final at midnight New York time. Next set in {nextSet}.
-              </p>
+              {set ? (
+                <p class="tally">
+                  {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
+                  {placements.crush && <>{placeText(placements.crush)} by fewest guesses (Crush)</>}
+                  {placements.crush && placements.rush && ', and '}
+                  {placements.rush && <>{placeText(placements.rush)} by fastest time (Rush)</>}
+                  {(placements.crush || placements.rush) && <> on today's {DIFFICULTY_LABEL[run.difficulty]} boards. </>}
+                  Places are final at midnight New York time. Next set in {nextSet}.
+                </p>
+              ) : (
+                <p class="tally">
+                  {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
+                  {placements.crush && <>{placeText(placements.crush)} on today's {DIFFICULTY_LABEL[run.difficulty]} board. </>}
+                  Places are final at midnight New York time. Next word in {nextSet}.
+                </p>
+              )}
             </>
           ) : (
             <p class="tally">
-              No place on today's leaderboard. The words you didn't find stay hidden until the day is over.
-              Next set in {nextSet}.
+              No place on today's leaderboard. {set ? "The words you didn't find stay" : 'The word stays'} hidden until the day is over.
+              Next {next} in {nextSet}.
             </p>
           )}
           <div class="row-btns">
-            {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's Daily Set</button>}
+            {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's {name}</button>}
             <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
             {run.status === 'finished' && !late && (
               <ShareResult text={dailyShareText({
+                mode,
                 day: run.day,
                 difficulty: run.difficulty,
                 words: run.words.map((w) => ({ guesses: w.guesses.length, found: w.outcome === 'solved' })),

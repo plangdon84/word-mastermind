@@ -3,6 +3,7 @@
 import { HISTORY_VERSION } from '../../src/game';
 import { handleDaily, saveFinishedDaily, type DailyDeps, type DailyRequest } from './dailyRoom';
 import { themeFor } from './dailyThemes';
+import { pickWordFor } from './dailyWords';
 import { memoryStorage } from './fakeRooms';
 import { json } from './http';
 
@@ -10,9 +11,10 @@ import { json } from './http';
 export function fakeDaily({ db, now, random = () => 0 }: { db: D1Database; now: () => number; random?: () => number }) {
   const days = new Map<string, ReturnType<typeof memoryStorage>>();
   const deps: DailyDeps = {
-    saveFinished: (day, entry, totals, late, at) => saveFinishedDaily(db, day, entry, totals, late, HISTORY_VERSION, at),
+    saveFinished: (mode, day, entry, totals, late, at) => saveFinishedDaily(db, mode, day, entry, totals, late, HISTORY_VERSION, at),
     random,
     themeFor: (day) => themeFor(db, day),
+    wordFor: (day) => pickWordFor(db, day, random),
   };
   const namespace = {
     idFromName: (name: string) => ({ toString: () => name }),

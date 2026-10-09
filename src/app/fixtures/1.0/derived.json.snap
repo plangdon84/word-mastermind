@@ -137,6 +137,18 @@
         "record": null,
         "firsts": null
       },
+      "dailyWord": {
+        "mode": "dailyWord",
+        "played": 0,
+        "gaveUp": 0,
+        "averageGuesses": null,
+        "averageTrend": null,
+        "best": null,
+        "bestRush": null,
+        "fastest": null,
+        "record": null,
+        "firsts": null
+      },
       "lobby": {
         "mode": "lobby",
         "played": 2,

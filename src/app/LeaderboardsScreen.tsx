@@ -15,11 +15,12 @@ import { fetchRatings, ratingText, type PoolRating } from './ratingsApi';
  * opened from.
  */
 
-/** A board: Daily Rush's, or a rating pool's. */
-export type BoardId = 'daily' | RatingPool;
+/** A board: the Daily Set's (Daily Rush's), the Daily Word's, or a rating pool's. */
+export type BoardId = 'daily' | 'dailyWord' | RatingPool;
 
 export const BOARD_TITLE: Record<BoardId, string> = {
   daily: 'Daily Set',
+  dailyWord: 'Daily Word',
   '15m': 'Live PvP · 15 min',
   '10m': 'Live PvP · 10 min',
   '5m': 'Live PvP · 5 min',
@@ -29,6 +30,7 @@ export const BOARD_TITLE: Record<BoardId, string> = {
 
 const BOARD_DETAIL: Record<BoardId, string> = {
   daily: "Each day's set, by difficulty: fastest (Rush) or fewest guesses (Crush).",
+  dailyWord: "Each day's word, by difficulty: fewest guesses, time breaking ties.",
   '15m': 'Ratings from rated games on a 15-minute clock.',
   '10m': 'Ratings from rated games on a 10-minute clock.',
   '5m': 'Ratings from rated games on a 5-minute clock.',
@@ -111,7 +113,7 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
  */
 export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, board: opened = null, onExit }: {
   identity: ApiIdentity;
-  /** Which of the Daily Rush board's difficulties to show first. */
+  /** Which of the daily boards' difficulties to show first. */
   difficulty: Difficulty;
   /** Which Daily Set board to show: Rush or Crush, the last one picked. */
   rankBy: RankBy;
@@ -119,8 +121,8 @@ export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, boa
   board?: BoardId | null;
   onExit: () => void;
 }) {
-  // The rating boards are switched off for the launch (`src/game/features.ts`); Daily Rush's always shows.
-  const tiles: BoardId[] = ['daily', ...(FEATURES.ratingBoards ? RATING_POOLS : [])];
+  // The rating boards are switched off for the launch (`src/game/features.ts`); the daily ones always show.
+  const tiles: BoardId[] = ['daily', 'dailyWord', ...(FEATURES.ratingBoards ? RATING_POOLS : [])];
   // With one board, a page of one tile is a tap for nothing: open the board, and Back leaves.
   const only = API_URL && tiles.length === 1 ? tiles[0]! : null;
   const [board, setBoard] = useState<BoardId | null>(opened ?? only);
@@ -128,6 +130,7 @@ export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, boa
   const signedIn = identity.token !== null;
   const shownCircle = signedIn ? circle : 'everyone';
   const daily = useMemo(() => dailyApi(API_URL ?? '', identity), [identity]);
+  const dailyWord = useMemo(() => dailyApi(API_URL ?? '', identity, fetch, 'dailyWord'), [identity]);
   const [ratings, setRatings] = useState<PoolRating[] | null>(null);
   useEffect(() => {
     let live = true;
@@ -142,9 +145,9 @@ export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, boa
     return (
       <BoardPage title={BOARD_TITLE[board]} onBack={() => (opened || only ? onExit() : setBoard(null))}
         circle={signedIn ? circle : null} onCircle={setCircle}>
-        {board === 'daily' ? (
-          <DailyBoardPanel api={daily} today={dailyDay(Date.now())} day={dailyDay(Date.now())} difficulty={difficulty}
-            circle={shownCircle} rankBy={rankBy} onRankBy={onRankBy} />
+        {board === 'daily' || board === 'dailyWord' ? (
+          <DailyBoardPanel key={board} mode={board} api={board === 'daily' ? daily : dailyWord} today={dailyDay(Date.now())}
+            day={dailyDay(Date.now())} difficulty={difficulty} circle={shownCircle} rankBy={rankBy} onRankBy={onRankBy} />
         ) : <RatingBoardPanel pool={board} identity={identity} circle={shownCircle} />}
       </BoardPage>
     );
@@ -159,7 +162,7 @@ export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, boa
       {!API_URL && <p class="step-note">Leaderboards need the game server, which this version doesn't have.</p>}
       <div class="choices" role="group" aria-label="Leaderboards">
         {tiles.map((id) => {
-          const yours = id === 'daily' ? undefined : ratings?.find((r) => r.pool === id);
+          const yours = id === 'daily' || id === 'dailyWord' ? undefined : ratings?.find((r) => r.pool === id);
           return (
             <button type="button" class="choice" key={id} disabled={!API_URL} onClick={() => setBoard(id)}>
               <span class="choice-label">

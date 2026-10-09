@@ -45,7 +45,10 @@ const entriesOf = (rows: readonly { entry: string | null }[]): HistoryEntry[] =>
   return entry ? [withoutRating(entry)] : [];
 });
 
-/** A friend sees a Daily Set from the day after it is over (a run started before midnight can be finished the next day). */
+/**
+ * A friend sees a Daily Set or Daily Word from the day after it is over (a
+ * run started before midnight can be finished the next day).
+ */
 const shownBefore = (now: number) => addDays(dailyDay(now), -1);
 
 /** One game as a `profile_games` row, or null if it doesn't replay (the app wouldn't show it). */
@@ -56,7 +59,7 @@ function indexRow(entry: HistoryEntry, gameSeq: number | null) {
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
   return {
     id: entry.id, startedAt: entry.record.startedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
-    words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' ? entry.day : null,
+    words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
     rank: you ? you.rank ?? NOT_PLACED : null,
     gameSeq,
     // A synced game's entry stays in history_entries alone.
@@ -86,7 +89,7 @@ interface IndexRow {
 /** The longest stretch of synced games one request indexes, as JSON: parsing and replaying them takes time. */
 const INDEX_SYNCED_CHARS = 200_000;
 /** A server game's history ID: never a synced game's (sync refuses server modes), so one that looks like it is left out. */
-const SERVER_ENTRY_ID = /^(?:friend|daily|lobby)-[0-9a-f]{40}$/;
+const SERVER_ENTRY_ID = /^(?:friend|daily|dailyWord|lobby)-[0-9a-f]{40}$/;
 
 /** Whether the account (`param`) has indexed game `g` already: one lookup in `profile_games_by_game`. */
 const notIndexed = (param: string) => `NOT EXISTS (SELECT 1 FROM profile_games p WHERE p.account_id = ${param} AND p.game_seq = g.rowid)`;
@@ -288,8 +291,8 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 
 /**
  * A page of a friend's game history, newest first, matching the history's
- * filters (as `matchesFilter` does). A Daily Set is left out until the day
- * after it is over.
+ * filters (as `matchesFilter` does). A Daily Set or Daily Word is left out
+ * until the day after it is over.
  */
 export async function friendGamesPage(
   db: D1Database, friendId: string, query: FriendGamesQuery, now: number,

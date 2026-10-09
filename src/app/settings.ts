@@ -8,7 +8,8 @@ export type { Difficulty };
 export type Mode = 'single' | 'two' | 'rush';
 export type Opponent = 'computer' | 'friend' | 'random';
 /** Which kind of Rush (README "Rush modes"). */
-export type RushKind = 'solo' | 'daily' | 'friends' | 'competitive';
+/** `daily` is the Daily Set and `dailyWord` the Daily Word, on the Daily card; the others are Word Sets. */
+export type RushKind = 'solo' | 'daily' | 'dailyWord' | 'friends' | 'competitive';
 export type { Strength };
 
 /**
@@ -98,7 +99,7 @@ export function parseSettings(raw: string | null, legacySoloRaw: string | null =
   return {
     mode: pick(s.mode, ['single', 'two', 'rush'] as const, d.mode),
     opponent: pick<Opponent>(s.opponent, ['computer', 'friend', ...(features.randomOpponent ? ['random' as const] : [])], d.opponent),
-    rushKind: pick<RushKind>(s.rushKind, ['solo', 'daily', 'friends', ...(features.competitiveRush ? ['competitive' as const] : [])], d.rushKind),
+    rushKind: pick<RushKind>(s.rushKind, ['solo', 'daily', 'dailyWord', 'friends', ...(features.competitiveRush ? ['competitive' as const] : [])], d.rushKind),
     strength: pick(s.strength, ['casual', 'skilled', 'expert', 'mastermind'] as const, d.strength),
     // Before live games, only the days per guess were kept.
     timeControl: isTimeControl(s.timeControl) ? s.timeControl : isTurnDays(s.turnDays) ? `${s.turnDays}d` : d.timeControl,

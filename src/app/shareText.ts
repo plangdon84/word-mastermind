@@ -1,5 +1,5 @@
 import {
-  dayStart, ordinal, strengthForAverage, wordSetName, type DailyDay, type Difficulty, type RankBy, type Strength,
+  dayStart, ordinal, strengthForAverage, wordSetName, type DailyDay, type DailyMode, type Difficulty, type RankBy, type Strength,
 } from '../game';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { guessCount } from './messages';
@@ -15,7 +15,7 @@ export const SHARE_ADDRESS = 'wordmastermind.app';
 /** Daily Rush #1: the first day in the calendar (kept in a private repo; README "Daily Rush"). */
 const FIRST_DAILY: DailyDay = '2026-10-01';
 
-/** A day's number, counting the calendar's first day as #1. */
+/** A day's number, counting the calendar's first day as #1: the Daily Set's and the Daily Word's alike. */
 export const dailyNumber = (day: DailyDay): number =>
   Math.round((dayStart(day) - dayStart(FIRST_DAILY)) / 86_400_000) + 1;
 
@@ -35,8 +35,15 @@ export interface SharedWord {
 export const wordEmoji = (words: readonly SharedWord[]) =>
   words.map((w) => (w.found ? WORD_EMOJI[strengthForAverage(w.guesses)] : NOT_FOUND)).join('');
 
-/** "Daily Rush #2 · Hard", the emoji, "23 guesses · 12th of 340 · better than 96%". */
-export function dailyShareText({ day, difficulty, words, place }: {
+/** The daily games' names, as shared and shown. */
+export const DAILY_NAME: Record<DailyMode, string> = { daily: 'Daily Set', dailyWord: 'Daily Word' };
+
+/**
+ * "Daily Set #2 · Hard" (or "Daily Word #2 · Hard"), the emoji (one per
+ * word), "23 guesses · 12th of 340 · better than 96%".
+ */
+export function dailyShareText({ mode = 'daily', day, difficulty, words, place }: {
+  mode?: DailyMode;
   day: DailyDay;
   difficulty: Difficulty;
   words: readonly SharedWord[];
@@ -45,7 +52,7 @@ export function dailyShareText({ day, difficulty, words, place }: {
 }): string {
   const total = words.reduce((sum, w) => sum + w.guesses, 0);
   return [
-    `Word Mastermind Daily Set #${dailyNumber(day)} · ${DIFFICULTY_LABEL[difficulty]}`,
+    `Word Mastermind ${DAILY_NAME[mode]} #${dailyNumber(day)} · ${DIFFICULTY_LABEL[difficulty]}`,
     wordEmoji(words),
     guessCount(total) + (place ? ` · ${place}` : ''),
     SHARE_ADDRESS,

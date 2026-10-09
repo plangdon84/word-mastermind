@@ -158,6 +158,20 @@ export function dailyEntry(id: string, day: DailyDay, start: number, words: read
 export const daily = (id: string, day: DailyDay, start: number, words: readonly (readonly string[])[], options = {}) =>
   replayed(dailyEntry(id, day, start, words, options));
 
+/** A Daily Word: one word, `guesses` the last of which finds it (unless given up). */
+export function dailyWordEntry(id: string, day: DailyDay, start: number, guesses: readonly string[], options: {
+  secret?: string; difficulty?: Difficulty;
+} = {}): HistoryEntry {
+  const { secret = 'beach', difficulty = 'medium' } = options;
+  return {
+    id, version: 1, mode: 'dailyWord', day, marks: [{}],
+    record: { words: [secret], startedAt: start, timeLimitMs: null, pausable: false, difficulty, moves: runMoves(start, [guesses], STEP, false) },
+  };
+}
+
+export const dailyWord = (id: string, day: DailyDay, start: number, guesses: readonly string[], options = {}) =>
+  replayed(dailyWordEntry(id, day, start, guesses, options));
+
 /**
  * A lobby's game from your seat: your run, and your place (`rank`) among `of`
  * players. `end` gives the run up after the words; 'time-up' ends it when the

@@ -3,7 +3,7 @@ import { BADGES, computeAchievements, cpuBadgeId, FEW_GUESSES, HUNTED_BADGES, su
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { STRENGTHS } from './records';
 import type { StatsGame } from './stats';
-import { daily, DAY, friend, lobby, rush, solo, versus } from './testGames';
+import { daily, DAY, dailyWord, friend, lobby, rush, solo, versus } from './testGames';
 
 // Every mode on, so every badge is offered; features.test.ts checks the launch's switches.
 vi.mock('./features', () => ({
@@ -149,6 +149,8 @@ describe('Daily Rush badges', () => {
   it('are earned by a final place in the top 10, or the top 10%', () => {
     expect(computeAchievements([], utcDay, [place('2026-10-01', 11, 50, T)])).toEqual([]);
     expect(computeAchievements([], utcDay, [place('2026-10-01', 10, 50, T)]).map((b) => b.id)).toEqual(['daily-top-10']);
+    // A place on the Daily Word's board isn't the Daily Set's.
+    expect(computeAchievements([], utcDay, [{ ...place('2026-10-01', 1, 50, T), mode: 'dailyWord' }])).toEqual([]);
     expect(computeAchievements([], utcDay, [place('2026-10-02', 30, 400, T + DAY)])).toEqual([
       { id: 'daily-top-10-percent', at: T + DAY, gameId: 'daily:2026-10-02' },
     ]);
@@ -224,6 +226,20 @@ describe("the server's games' badges", () => {
     expect(ids([...week.slice(0, 3), late, ...week.slice(4)])).not.toContain('daily-rush-streak-7');
   });
 
+  it('count the Daily Word as a solve, with its own days in a row, and no Word Set level', () => {
+    expect(ids([dailyWord('w', '2026-10-01', T, ['beach'])])).toEqual(expect.arrayContaining(['solo-medium', 'clairvoyant']));
+    expect(ids([dailyWord('w', '2026-10-01', T, ['beach'])]).filter((id) => id.startsWith('rush-') || id.startsWith('daily-rush-'))).toEqual([]);
+    const week = [...Array(7)].map((_, i) => dailyWord(`w${i}`, `2026-10-0${i + 1}`, T + i * DAY, ['crane', 'beach']));
+    expect(computeAchievements(week, utcDay).find((b) => b.id === 'daily-word-streak-7')).toMatchObject({ gameId: 'w6' });
+    expect(ids(week)).not.toContain('daily-rush-streak-7');
+    expect(ids([...week.slice(0, 3), ...week.slice(4)])).not.toContain('daily-word-streak-7');
+    // The Daily Set's days don't count toward the Daily Word's streak.
+    const sets = [...Array(4)].map((_, i) => daily(`d${i}`, `2026-10-0${i + 4}`, T + (i + 3) * DAY, words));
+    expect(ids([...week.slice(0, 3), ...sets])).not.toContain('daily-word-streak-7');
+    const late = dailyWord('w3', '2026-10-04', Date.UTC(2026, 9, 5, 1), ['beach']);
+    expect(ids([...week.slice(0, 3), late, ...week.slice(4)])).not.toContain('daily-word-streak-7');
+  });
+
   it('award finishing first in a lobby, and in a Competitive Rush against a person', () => {
     expect(ids([lobby('l', T, words, { rank: 1 })])).toContain('lobby-win');
     expect(ids([lobby('l', T, words, { rank: 2 })])).not.toContain('lobby-win');
@@ -274,7 +290,8 @@ describe('Achievement Hunter', () => {
     const more = [...games, rush('r', T + DAY, [['beach'], ['crane'], ['storm'], ['house']], { difficulty: 'extreme' })];
     const all = computeAchievements(more, utcDay);
     const count = all.filter((b) => !b.id.startsWith('hunter-')).length;
-    expect(count).toBeGreaterThanOrEqual(Math.ceil(HUNTED_BADGES / 4));
+    // Enough of the badges from before those added later, which is all a level needs (the next test).
+    expect(count).toBeGreaterThanOrEqual(Math.ceil(BADGES.filter((b) => !b.id.startsWith('hunter-') && !b.addedLater).length / 4));
     expect(all.find((b) => b.id === 'hunter-25')).toMatchObject({ gameId: 'r' });
     expect(all.find((b) => b.id === 'hunter-50')).toBeUndefined();
   });
@@ -282,7 +299,8 @@ describe('Achievement Hunter', () => {
   it('keeps a level reached before the badges added later, which count only toward levels not yet reached', () => {
     const added = BADGES.filter((b) => b.addedLater).map((b) => b.id);
     expect(added).toEqual([
-      'rush-time-casual', 'rush-time-skilled', 'rush-time-expert', 'rush-time-mastermind', 'friend-harder', 'friend-harder-2', 'clairvoyant']);
+      'rush-time-casual', 'rush-time-skilled', 'rush-time-expert', 'rush-time-mastermind', 'daily-word-streak-7', 'daily-word-streak-30',
+      'daily-word-streak-100', 'friend-harder', 'friend-harder-2', 'clairvoyant']);
     const before = HUNTED_BADGES - added.length;
     // Just enough badges for 25% of those from before: a slow vs. computer win and a slow friend win,
     // then a Rush at Mastermind level at Hard, which the larger count needs one more than.

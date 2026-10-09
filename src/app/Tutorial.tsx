@@ -187,8 +187,8 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
       title: 'Ways to play',
       body: (
         <ul class="tut-modes">
-          <li><b>Daily Set</b> (the Daily card at the top): the day's 4 themed words, once a day, on a
-            leaderboard. <b>Games in progress</b> below it lists the games waiting for you.</li>
+          <li><b>Daily Set</b> and <b>Daily Word</b> (the Daily card at the top): the day's 4 themed words, and
+            one word, each once a day, on a leaderboard. <b>Games in progress</b> below it lists the games waiting for you.</li>
           <li><b>Practice:</b> find the computer's word on your own.</li>
           <li><b>Two player:</b> you and an opponent each pick a word and take turns. If the first player finds it,
             the other gets one final guess to tie. Play the computer (Casual to Mastermind), or a friend: send an
@@ -221,7 +221,7 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
           <ol class="tut-modes">
             <li><b>Win a Practice game</b> to open <b>Two player</b>.</li>
             <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Word Sets</b> and its <b>Solo</b> games.</li>
-            <li><b>Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>
+            <li><b>Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>, <b>Daily Word</b>
               {FEATURES.competitiveRush ? <>, Word Sets <b>With friends</b> and <b>Competitive</b></>
                 : <> and Word Sets <b>With friends</b></>}.</li>
           </ol>

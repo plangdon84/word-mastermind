@@ -95,11 +95,11 @@ export async function toPlayed(
     const entry: HistoryEntry = { ...base, mode: 'friend', record, seat: room.seat, opponent, rating, marks: {} };
     return { entry, ref: row.id };
   }
-  if (row.mode === 'daily') {
+  if (row.mode === 'daily' || row.mode === 'dailyWord') {
     const day = row.id.split(':')[1];
     const record = parseRunRecord(data);
-    if (!record || !isDailyDay(day)) return null;
-    return { entry: { ...base, mode: 'daily', day, record, marks: record.words.map(() => ({})) }, ref: day };
+    if (!record || !isDailyDay(day) || (row.mode === 'dailyWord' && record.words.length !== 1)) return null;
+    return { entry: { ...base, mode: row.mode, day, record, marks: record.words.map(() => ({})) }, ref: day };
   }
   if (row.mode === 'lobby') {
     if (!isObject(data) || !isObject(data.game)) return null;

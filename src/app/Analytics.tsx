@@ -54,9 +54,9 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
   const title = MODE_LABEL[mode];
   const bestLabel: Record<HistoryMode, string> = {
     single: 'Best game', computer: 'Best win', friend: 'Best win', rush: 'Best Crush score', daily: 'Fewest guesses',
-    lobby: 'Best Crush score',
+    dailyWord: 'Fewest guesses', lobby: 'Best Crush score',
   };
-  const counted = mode === 'computer' || mode === 'friend' || mode === 'daily';
+  const counted = mode === 'computer' || mode === 'friend' || mode === 'daily' || mode === 'dailyWord';
   const bestValue = (value: number) => (counted ? guessCount(value) : decimal(value));
   const perWord = mode === 'rush' || mode === 'daily' || mode === 'lobby';
   return (

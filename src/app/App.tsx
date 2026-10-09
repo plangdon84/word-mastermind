@@ -10,8 +10,9 @@ import { NoServerSection, UpdateBar } from './panels';
 import { forgetTappedLink, TAP_LOOKS_MS, takeTappedLink } from './notificationTaps';
 import {
   BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
-  type DailyPlacement, type HistoryFilter, type HistoryMode, type LobbyKind,
+  type DailyMode, type DailyPlacement, type HistoryFilter, type HistoryMode, type LobbyKind,
 } from '../game';
+import { DAILY_NAME } from './shareText';
 import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';
@@ -61,8 +62,8 @@ import { plural } from './messages';
 type GameScreen = { name: Mode; resume: boolean };
 /** A game against a friend, or (with no ID) a new invite: a link, or a challenge to one friend. */
 type FriendGameScreen = { name: 'friend'; id: string | null; challenge?: Friend };
-/** Today's Daily Rush; with `start`, starting it if you haven't played. */
-type DailyGameScreen = { name: 'daily'; start: boolean };
+/** Today's Daily Set (`daily`) or Daily Word (`dailyWord`); with `start`, starting it if you haven't played. */
+type DailyGameScreen = { name: 'daily'; mode: DailyMode; start: boolean };
 /** A Rush with Friends or Competitive Rush lobby, or (with no code) a new one of `kind` with you as host. */
 type LobbyGameScreen = { name: 'lobby'; code: string | null; kind?: LobbyKind };
 /** Finding a random opponent in the matchmaking queue. */
@@ -239,8 +240,9 @@ export function App() {
     if (inLobby && settings.mode === 'rush' && (settings.rushKind === 'friends' || settings.rushKind === 'competitive')) {
       return { name: 'lobby', code: inLobby };
     }
-    if (API_URL && settings.mode === 'rush' && settings.rushKind === 'daily' && dailyInProgress(dailyDay(Date.now()))) {
-      return { name: 'daily', start: false };
+    if (API_URL && settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord')
+      && dailyInProgress(dailyDay(Date.now()), settings.rushKind)) {
+      return { name: 'daily', mode: settings.rushKind, start: false };
     }
     return inProgress()[settings.mode] ? { name: settings.mode, resume: true } : { name: 'title' };
   });
@@ -578,7 +580,7 @@ export function App() {
       : screen.name === 'review' ? (SCREEN_MODE[screen.game.replayed.mode]
         ? { name: SCREEN_MODE[screen.game.replayed.mode]!, resume: true } : { name: 'title' })
         : screen.name === 'friend' || screen.name === 'lobby' || screen.name === 'match' ? screen
-          : screen.name === 'daily' ? { name: 'daily', start: false }
+          : screen.name === 'daily' ? { ...screen, start: false }
             : { name: screen.name, resume: true };
   const openProfile: OpenProfile = (page) => setScreen({
     name: 'profile',
@@ -731,13 +733,15 @@ export function App() {
             }} />
         );
       }
-      if (replayed.mode === 'daily' && entry.mode === 'daily') {
-        const places = (theirs?.placements ?? loadPlacements()).filter((p) => p.day === replayed.day);
+      if ((replayed.mode === 'daily' || replayed.mode === 'dailyWord') && replayed.mode === entry.mode) {
+        // That day's places on this game's boards: the Daily Word has its Crush board alone.
+        const places = (theirs?.placements ?? loadPlacements())
+          .filter((p) => p.day === replayed.day && (p.mode === 'dailyWord') === (replayed.mode === 'dailyWord'));
         const crush = places.find((p) => !p.rankBy) ?? null;
         const rush = places.find((p) => p.rankBy === 'rush') ?? null;
         return (
           <RushScreen key={entry.id} {...game} resume={false} review={{
-            ...review, run: replayed.game, marks: entry.marks, heading: 'Daily Set',
+            ...review, run: replayed.game, marks: entry.marks, heading: DAILY_NAME[replayed.mode],
             result: <DailyResult total={summary.yourGuesses} crush={crush} rush={rush} />,
           }} />
         );
@@ -772,7 +776,7 @@ export function App() {
       );
     }
     if (screen.name === 'daily') {
-      return <DailyScreen {...game} identity={identity} start={screen.start}
+      return <DailyScreen key={screen.mode} {...game} mode={screen.mode} identity={identity} start={screen.start}
         onBoardRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} />;
     }
     if (screen.name === 'leaderboards') {
@@ -792,7 +796,10 @@ export function App() {
     if (screen.name === 'two') return <TwoPlayerScreen {...game} resume={resume} />;
     return (
       <TitleScreen open={open} friendGamesVersion={friendGamesVersion} settings={settings} onSettings={setSettings} inProgress={inProgress()}
-        dailyInProgress={!!API_URL && dailyInProgress(dailyDay(Date.now()))}
+        dailyInProgress={{
+          daily: !!API_URL && dailyInProgress(dailyDay(Date.now())),
+          dailyWord: !!API_URL && dailyInProgress(dailyDay(Date.now()), 'dailyWord'),
+        }}
         lobbyInProgress={API_URL ? activeLobbyKind() : null}
         onLobby={(code) => {
           const open = code ?? activeLobby();
@@ -801,9 +808,9 @@ export function App() {
           setSettings({ ...settings, mode: 'rush', rushKind: kind ?? (settings.rushKind === 'competitive' ? 'competitive' : 'friends') });
           setScreen({ name: 'lobby', code: open });
         }}
-        onDaily={() => {
-          setSettings({ ...settings, mode: 'rush', rushKind: 'daily' });
-          setScreen({ name: 'daily', start: false });
+        onDaily={(mode) => {
+          setSettings({ ...settings, mode: 'rush', rushKind: mode });
+          setScreen({ name: 'daily', mode, start: false });
         }}
         onLeaderboards={(board) => setScreen({ name: 'leaderboards', board: board ?? null })}
         profile={profile} identity={identity} onProfile={openProfile}
@@ -814,7 +821,8 @@ export function App() {
         onOpenFriendGame={(id) => setScreen({ name: 'friend', id })}
         onStart={() => setScreen(settings.mode === 'two' && settings.opponent === 'friend' ? { name: 'friend', id: null }
           : settings.mode === 'two' && settings.opponent === 'random' ? { name: 'match' }
-          : settings.mode === 'rush' && settings.rushKind === 'daily' ? { name: 'daily', start: true }
+          : settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord')
+            ? { name: 'daily', mode: settings.rushKind, start: true }
             : settings.mode === 'rush' && (settings.rushKind === 'friends' || settings.rushKind === 'competitive')
               ? { name: 'lobby', code: null, kind: settings.rushKind }
             : { name: settings.mode, resume: false })} />
@@ -828,8 +836,8 @@ export function App() {
       onOpen={(game, name, placements) => setScreen({
         name: 'review', game, from: profileFrom(),
         friend: { friend: { ...friendOver.friend, name }, page: friendOver.page ?? 'history', placements,
-          // A Daily Set screen comes back as itself, never starting a run.
-          back: screen.name === 'daily' ? { name: 'daily', start: false } : screen },
+          // A Daily Set or Daily Word screen comes back as itself, never starting a run.
+          back: screen.name === 'daily' ? { ...screen, start: false } : screen },
       })} />
   );
   return (

@@ -138,6 +138,8 @@ export interface DailyPlacement {
   finishedAt: number;
   /** The Daily Set's Rush board, by time; left out for its Crush board, by guesses, as every place was before. */
   rankBy?: 'rush';
+  /** A place on the Daily Word's board (Dev Plan item 7b); left out for the Daily Set's, as every place was before. */
+  mode?: 'dailyWord';
 }
 
 /**

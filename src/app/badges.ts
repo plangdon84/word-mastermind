@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { BADGE_BY_ID, computeAchievements, type Badge, type DailyPlacement, type EarnedBadge } from '../game';
+import { BADGE_BY_ID, computeAchievements, type Badge, type DailyMode, type DailyPlacement, type EarnedBadge } from '../game';
 import { loadPlacements, savePlacements } from './dailyStorage';
 import { loadAllMatching, whenSaved } from './historyDb';
 
@@ -97,12 +97,12 @@ export async function loadEarnedBadges(): Promise<EarnedBadge[]> {
 }
 
 /**
- * Keeps your final Daily Rush places as the server sent them, and announces
- * a badge they earn (with the profile dot: there's no result screen when a
- * day's places become final at midnight).
+ * Keeps your final Daily Set or (`mode`) Daily Word places as the server sent
+ * them, and announces a badge they earn (with the profile dot: there's no
+ * result screen when a day's places become final at midnight).
  */
-export function receivePlacements(placements: readonly DailyPlacement[]): void {
-  savePlacements(placements);
+export function receivePlacements(placements: readonly DailyPlacement[], mode: DailyMode = 'daily'): void {
+  savePlacements(placements, mode);
   announceBadges(computeAchievements([], localDay, placements).map((b) => b.id));
 }
 
