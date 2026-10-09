@@ -666,6 +666,7 @@ export function App() {
             friends: API_URL ? (
               <FriendsSection apiUrl={API_URL} identity={identity} name={displayName(profile)} addCode={friendCode}
               onSignIn={() => setScreen({ name: 'profile', from: screen.from, page: 'account' })}
+              findByName={settings.findByName} onFindByName={(findable) => setSettings({ ...settings, findByName: findable })}
               invite={pendingInvite} onInviteDone={() => {
                 savePendingInvite(null);
                 setPendingInvite(null);

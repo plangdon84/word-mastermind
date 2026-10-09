@@ -1265,6 +1265,8 @@ button.bubble:active { transform: scale(0.94); }
 .friend-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .friend-list .lobby-name { flex: 1; }
 .friend-btns { display: flex; gap: 6px; flex-shrink: 0; }
+/* A player found by name (Dev Plan item 18d): their country under it, to tell two of one name apart. */
+.found-country { display: block; }
 /* A friend's name opens their profile (Dev Plan item 18c): a link, still cut short (…) when long. */
 .friend-list .friend-name { display: block; font: inherit; text-align: left; padding: 0; line-height: var(--tap); }
 .friend-profile .step-head h2 { min-width: 0; overflow-wrap: anywhere; }

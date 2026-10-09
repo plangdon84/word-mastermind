@@ -585,3 +585,41 @@ test("a friend's name in a game opens their profile over it, and Back comes back
   await expect(name).toBeFocused();
   await expect(page.locator('.slot.filled')).toHaveCount(0);
 });
+
+test('finding a friend by name sends them a request, and by email says the same whoever it is', async ({ page, browser }) => {
+  const stamp = Date.now().toString(36).slice(-6);
+  const name = `Finder ${test.info().project.name.slice(0, 3)} ${stamp}`;
+  /** Signs `p` in, then names them on the profile hub (synced, so others can find it), then opens Friends. */
+  const named = async (p: Page, email: string, theirName: string) => {
+    await unlockAll(p);
+    await signIn(p, email);
+    await button(p, 'Back to profile').click();
+    await button(p, 'Set your name').click();
+    await p.getByLabel('Your name').fill(theirName);
+    await button(p, 'Save').click();
+    await button(p, /^Friends/).click();
+  };
+  await named(page, `seeker-${stamp}@example.com`, `Seeker ${stamp}`);
+  const friend = await newPlayer(browser, page);
+  await named(friend, `found-${stamp}@example.com`, name);
+
+  // Their name reaches the server with their next sync: search until it's there.
+  await expect(async () => {
+    await page.getByLabel('Find a friend').fill(stamp.toUpperCase());
+    await button(page, 'Find').click();
+    await expect(page.getByRole('list', { name: 'Players found' })).toContainText(name, { timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+  expect(await layoutProblems(page)).toEqual([]);
+  await button(page, `Add ${name}`).click();
+  await expect(page.getByText(`Friend request sent to ${name}.`)).toBeVisible();
+  await friend.reload();
+  await friend.getByRole('button', { name: /^Profile/ }).click();
+  await button(friend, /^Friends/).click();
+  await expect(friend.getByRole('button', { name: 'Accept' })).toBeVisible();
+
+  await page.getByLabel('Find a friend').fill(`nobody-${stamp}@example.com`);
+  await button(page, 'Find').click();
+  await expect(page.getByText("If they have a wordmastermind.app account, they'll get your request.", { exact: false })).toBeVisible();
+});
