@@ -2003,13 +2003,22 @@ history**.
   of your profile: never your settings, email, friends list or an ID.
   Only your friends see it, and only while signed in; a request not yet
   accepted shows nothing either way.
-- **Where it comes from:** the server builds it each time from what your
-  devices synced (README [Synced profile](#synced-profile)) and the games it
-  refereed for you (as `GET /api/played` does), so a game only on a device
-  that never signed in isn't in it. It's loaded once and kept for five
-  minutes, so going back from one of their games doesn't load it again;
-  opening your friends list or signing out forgets it. A game the server
-  can't read for now is left out rather than holding up the rest.
+- **Where it comes from:** what your devices synced (README
+  [Synced profile](#synced-profile)) and the games the server refereed for
+  you (as `GET /api/played` gives them), so a game only on a device that
+  never signed in isn't in it. The server keeps it ready (Dev Plan item
+  18cb): it copies each of your games as a friend sees it, and works out
+  your stats and badges from them, after your device sends its last new
+  game or fetches its new server games, and again, if anything is new, when
+  a friend opens your profile, so it's never behind. Opening a profile is
+  one small request; the first time the server sees a player with many
+  games, it copies them over a few requests, which the app asks for until
+  it's done. Badges that count days in a row use Daily Rush's day (midnight
+  in New York), since the server doesn't know your time zone. It's loaded
+  once and kept for five minutes, so going back from one of their games
+  doesn't load it again; opening your friends list or signing out forgets
+  it. A server game whose room can't answer for now waits, with the games
+  after it, until it can, as in your own history.
 - **A Daily Set is left out** until the day after it is over (one started
   before midnight can still be finished the next day), so its words can't
   be read off a friend before you've played it. Their Daily Rush places
@@ -2020,11 +2029,13 @@ history**.
   the top, **You vs. Bob** is your record against them: won–drawn–lost for
   two player games against them, and for Word Sets you both played (a
   higher place than theirs is a win, the same place a draw; not placed
-  comes last, and one neither of you placed in isn't counted). It's worked out from your own games: a game the server
-  refereed has the same history ID in both histories, so it counts the
-  games in yours that are in theirs too.
+  comes last, and one neither of you placed in isn't counted). The server
+  works it out from the games you both played: a game it refereed has the
+  same history ID in both histories.
 - **Game history** has the same filters and search as yours, without
-  **Export CSV**. A game opens to review with a **← Bob's game** tag
+  **Export CSV**, and loads 20 games at a time as you scroll, the server
+  doing the filtering and search. A best or fastest game on their **Stats**
+  comes with the stats, so it opens without loading their history. A game opens to review with a **← Bob's game** tag
   instead of **← Past game**, back to their history.
 - **From games and boards** (Dev Plan item 18ca): a friend's name also
   opens their profile in the header of a two player game against them, in

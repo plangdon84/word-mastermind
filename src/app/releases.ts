@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.13.2',
+    notes: [
+      { text: 'Friends’ profiles open much faster, and their game history loads as you scroll.' },
+    ],
+  },
+  {
     version: '1.13.1',
     notes: [
       { text: 'Fixed a bug blocking download of historical games when reinstalling the app.' },
