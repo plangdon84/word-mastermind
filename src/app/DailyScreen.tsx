@@ -12,6 +12,7 @@ import { GameHeader, GameMenuItems } from './gameHeader';
 import { BoardPage, HowToPlay } from './panels';
 import { API_URL } from './config';
 import { dailyApi, DailyApiError, type DailyApi, type DailyBoard, type DailyToday } from './dailyApi';
+import { PlayerName } from './friendLink';
 import type { Circle } from './leaderboardsApi';
 import { receivePlacements } from './badges';
 import { loadDaily, saveDaily } from './dailyStorage';
@@ -127,7 +128,7 @@ export function DailyBoardPanel({ api, today, day: firstDay, difficulty: firstDi
               {board.top.map((r, i) => (
                 <li key={i} class={r.you ? 'you' : ''}>
                   <span class="board-rank">{r.rank}</span>
-                  <span class="board-name">{r.name}{r.you && <span class="visually-hidden"> (you)</span>}</span>
+                  <span class="board-name"><PlayerName name={r.name} code={r.friendCode} />{r.you && <span class="visually-hidden"> (you)</span>}</span>
                   {/* What the board ranks by comes first. */}
                   {rankBy === 'rush' ? (
                     <>

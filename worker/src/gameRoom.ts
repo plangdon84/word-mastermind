@@ -1,3 +1,4 @@
+import { friendCodes } from './friends';
 import { json } from './http';
 import type { Env } from './index';
 import { notifyGuest } from './push';
@@ -28,6 +29,7 @@ export class GameRoom implements DurableObject {
     this.deps = {
       saveFinished: (room, record, now) => saveFinishedGame(env.DB, room, record, now),
       namesOf: (ids) => currentNames(env.DB, ids),
+      friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
       ratingsOf: (players, control, now) => ratingsOf(env.DB, players, ratingPool(control), now),
       random: Math.random,
       // Sent after the answer; the Durable Object stays alive until they're done.

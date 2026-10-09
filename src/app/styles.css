@@ -75,6 +75,8 @@ html { padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 
 .app input, .app textarea, .app .definition { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 body { margin: 0; -webkit-text-size-adjust: 100%; }
 #root { height: 100%; }
+/* Every screen sits in this wrapper (App.tsx), hidden under a friend's profile opened over it. */
+.screen { display: contents; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -749,6 +751,13 @@ button.bubble:active { transform: scale(0.94); }
   align-self: center; border: 0; background: none; color: var(--accent);
   font-weight: 500; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 0 6px;
   min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center;
+}
+/* A friend's name in a game, a lobby's results or a board: it opens their profile (Dev Plan item 18ca). */
+.friend-name {
+  border: 0; background: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+  display: inline-block; max-width: 100%; min-height: 24px; vertical-align: bottom;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* How to play */

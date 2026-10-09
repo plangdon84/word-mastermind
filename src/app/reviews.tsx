@@ -21,6 +21,7 @@ export function friendReviewGame(game: PvpGame, seat: Seat, you: string, opponen
     state: 'over',
     hostName: names.host,
     guestName: names.guest,
+    opponentCode: null,
     inviteeName: null,
     invitedYou: false,
     inviteeDifficulty: null,

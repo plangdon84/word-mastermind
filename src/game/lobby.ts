@@ -498,6 +498,8 @@ export interface LobbyStanding {
   /** A computer player's strength; null for a person. */
   strength: Strength | null;
   you: boolean;
+  /** A friend of yours: their friend code (from `friendCodes`), which opens their profile; null for anyone else. */
+  friendCode: string | null;
   /**
    * 1 for the best, tied players (same score and time) sharing a rank; null
    * while still playing. Provisional until the game is over, since a
@@ -522,9 +524,11 @@ export interface LobbyStanding {
  * time, then score); then those still playing, by words found and fewest
  * guesses. A word given up or not found counts as that word's worst solved
  * result in the group plus the penalty (`penalized`); everyone's results so
- * far count.
+ * far count. `friendCodes` are your friends' friend codes, by seat ID.
  */
-export function lobbyStandings(game: LobbyGame, now: number, ids: readonly string[] = []): LobbyStanding[] {
+export function lobbyStandings(
+  game: LobbyGame, now: number, ids: readonly string[] = [], friendCodes: Readonly<Record<string, string>> = {},
+): LobbyStanding[] {
   const runs = game.seats.map((_, i) => seatRun(game, i, now));
   const results = runs.map((run) => run.results.map(toWordResult));
   const done = (r: WordResult | null): r is WordResult => r !== null;
@@ -543,6 +547,7 @@ export function lobbyStandings(game: LobbyGame, now: number, ids: readonly strin
       name: game.seats[i].name,
       strength: game.seats[i].strength,
       you: ids.includes(game.seats[i].id),
+      friendCode: friendCodes[game.seats[i].id] ?? null,
       rank: null,
       finished,
       words: run.results.map((r, w) => ({ outcome: r.outcome, guesses: r.guesses.length, counted: counted[w] })),
@@ -602,8 +607,14 @@ export interface LobbyView {
   words: readonly string[] | null;
 }
 
-/** The lobby as the player with these IDs (their own, and their account's other guest IDs) may see it. */
-export function lobbyView(lobby: LobbyRecord, ids: readonly string[], now: number): LobbyView {
+/**
+ * The lobby as the player with these IDs (their own, and their account's
+ * other guest IDs) may see it; `friendCodes` are their friends' friend
+ * codes, by seat ID, for the standings.
+ */
+export function lobbyView(
+  lobby: LobbyRecord, ids: readonly string[], now: number, friendCodes: Readonly<Record<string, string>> = {},
+): LobbyView {
   const { game } = lobby;
   const state = lobbyState(lobby, now);
   const over = state === 'over';
@@ -645,7 +656,7 @@ export function lobbyView(lobby: LobbyRecord, ids: readonly string[], now: numbe
       })),
       setBy: (game && seatSetters(game, yourIndex)?.map((j) => game.seats[j].name)) ?? null,
     },
-    standings: game && lobbyStandings(game, now, ids),
+    standings: game && lobbyStandings(game, now, ids, friendCodes),
     words: game && over ? game.words : null,
   };
 }

@@ -6,6 +6,7 @@ import type { ApiIdentity } from './apiIdentity';
 import { Keyboard, STRENGTH_LABEL } from './components';
 import { API_URL } from './config';
 import { isPhone, SecretStep, ShareIcon } from './friendParts';
+import { PlayerName } from './friendLink';
 import { useFriendsList } from './FriendsSection';
 import { useMessage, usePhysicalKeyboard } from './hooks';
 import { LobbyApiError, type LobbyApi } from './lobbyApi';
@@ -109,7 +110,7 @@ export function Standings({ lobby }: { lobby: LobbyView }) {
         return (
           <li key={i} class={p.you ? 'you' : ''}>
             <span class="board-rank">{p.rank ?? ''}</span>
-            <span class="lobby-name">{seatName(p)}{p.you && ' (you)'}</span>
+            <span class="lobby-name">{p.friendCode ? <PlayerName name={seatName(p)} code={p.friendCode} /> : seatName(p)}{p.you && ' (you)'}</span>
             <RushDots words={p.words} current={p.finished ? null : current} label={p.name} />
             <span class="lobby-score">{rankedText(rankBy, p)}</span>
             <span class="lobby-stat">

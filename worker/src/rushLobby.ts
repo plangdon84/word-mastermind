@@ -1,3 +1,4 @@
+import { friendCodes } from './friends';
 import { json } from './http';
 import type { Env } from './index';
 import { handleLobby, handleLobbyAlarm, saveFinishedLobby, type LobbyDeps, type LobbyRequest } from './lobbyRoom';
@@ -21,6 +22,7 @@ export class RushLobby implements DurableObject {
     this.deps = {
       random: Math.random,
       saveFinished: (lobby, endedAt) => saveFinishedLobby(env.DB, lobby, endedAt),
+      friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
       // Sent after the answer; the Durable Object stays alive until they're done.
       notify: (notices) => {
         const keys = vapidKeysOf(env);

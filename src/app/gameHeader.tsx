@@ -6,6 +6,7 @@ import logo from '../assets/logo.svg?raw';
 import { DIFFICULTIES, initials } from '../game';
 import { useUnseenBadges } from './badges';
 import { DIFFICULTY_LABEL } from './components';
+import { PlayerName } from './friendLink';
 import type { Review } from './panels';
 import { displayName, type Profile } from './profileStorage';
 import type { Difficulty } from './settings';
@@ -271,7 +272,7 @@ function PastGameTag({ review }: { review: Review }) {
  * **Past game** tag back to the history, and ☰ starts with its date.
  */
 export function GameHeader({
-  menu, profile, onProfile, onHome, opponent, opponentRating, matchup, difficulty, difficultyChoice, review, suggested = 0, children,
+  menu, profile, onProfile, onHome, opponent, opponentCode = null, opponentRating, matchup, difficulty, difficultyChoice, review, suggested = 0, children,
 }: {
   profile: Profile;
   /** The name top left: back to the main menu, as ☰ Main menu does. */
@@ -281,6 +282,8 @@ export function GameHeader({
   menu: (close: () => void) => ComponentChildren;
   /** E.g. "Computer · Expert". */
   opponent?: string;
+  /** A friend opponent's friend code, from the server: their name then opens their profile. */
+  opponentCode?: string | null;
   /** A rated game's opponent rating, e.g. "1512?": always shown whole, while a long name is cut short (…). */
   opponentRating?: string;
   /** Replaces "You vs. opponent" in modes without an opponent (Rush). */
@@ -320,7 +323,7 @@ export function GameHeader({
       <div class="matchup">
         {matchup ?? (
           <span class="matchup-who">
-            <b>You</b>&nbsp;vs.&nbsp;<b class="matchup-name">{opponent}</b>
+            <b>You</b>&nbsp;vs.&nbsp;<b class="matchup-name"><PlayerName name={opponent ?? ''} code={opponentCode} /></b>
             {opponentRating && <span class="matchup-rating">&nbsp;(<span class="visually-hidden">rating </span>{opponentRating})</span>}
           </span>
         )}

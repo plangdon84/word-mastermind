@@ -659,7 +659,8 @@ export function FriendScreen({
       <GameHeader profile={profile} onHome={onExit} onProfile={openProfile} difficulty={difficulty} menu={menu}
         difficultyChoice={difficultyChoice}
         review={review} suggested={view.suggested}
-        opponent={opponent} opponentRating={game.ratings ? ratingText(game.ratings.opponent) : undefined}>
+        opponent={opponent} opponentCode={review ? null : game.opponentCode}
+        opponentRating={game.ratings ? ratingText(game.ratings.opponent) : undefined}>
         {/* Row 3 follows the tab: your in-letters on yours, your word on your friend's. */}
         <div class="row3" data-tab={tab}>
           {shownMarks && (!over || practising) && <div class="for-you"><InSet marks={shownMarks} /></div>}

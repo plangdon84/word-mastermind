@@ -28,6 +28,8 @@ export interface FriendGame {
   hostName: string;
   /** Null until someone accepts the invite. */
   guestName: string | null;
+  /** Your opponent, when they're on your friends list: their friend code, which opens their profile. Null otherwise. */
+  opponentCode: string | null;
   /** A challenge to a friend (README "Friends"): the friend it's for, who alone can accept it; null for an invite link. */
   inviteeName: string | null;
   /** A challenge you may accept or decline: you're the friend it's for, and haven't answered. */
@@ -152,8 +154,10 @@ export function parseFriendGame(value: unknown): FriendGame | null {
   const r = value.rematch;
   const rematch = isObject(r) && typeof r.id === 'string' && GAME_ID.test(r.id) ? { id: r.id, byYou: r.byYou === true } : null;
   const inviteeDifficulty = isDifficulty(value.inviteeDifficulty) ? value.inviteeDifficulty : null;
+  // An older server sends none.
+  const opponentCode = typeof value.opponentCode === 'string' ? value.opponentCode : null;
   return {
-    id, seat, state: state as FriendGameState, hostName, guestName, inviteeName, invitedYou: value.invitedYou === true,
+    id, seat, state: state as FriendGameState, hostName, guestName, opponentCode, inviteeName, invitedYou: value.invitedYou === true,
     inviteeDifficulty, rematchOf, rematch, timeControl, createdAt, expiresAt, serverNow,
     rated: value.rated === true, matched: value.matched === true, ratings, view,
   };

@@ -323,8 +323,8 @@ describe('the leaderboard', () => {
     const board = await as(ANN).board(DAY, 'medium');
     expect(board).toMatchObject({ day: DAY, theme: 'Test set A', difficulty: 'medium', words: null, total: 2 });
     expect(board.top).toEqual([
-      { rank: 1, name: 'Bob', guesses: 4, ms: 4000, you: false },
-      { rank: 2, name: 'Ann', guesses: 8, ms: 8000, you: true },
+      { rank: 1, name: 'Bob', guesses: 4, ms: 4000, you: false, friendCode: null },
+      { rank: 2, name: 'Ann', guesses: 8, ms: 8000, you: true, friendCode: null },
     ]);
     expect(board.you).toMatchObject({ rank: 2, total: 2, behind: 0, guesses: 8 });
     expect((await as(CAT).board(DAY, 'hard')).top.map((r) => r.name)).toEqual(['Cat']);

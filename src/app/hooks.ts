@@ -42,7 +42,8 @@ export function usePhysicalKeyboard({ onLetter, onEnter, onBackspace }: {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest('input, [data-menu-open]') || document.querySelector('[data-menu-open]')) {
+      // Nor while a friend's profile covers the game (`data-covered`).
+      if (target?.closest('input, [data-menu-open]') || document.querySelector('[data-menu-open], [data-covered]')) {
         return;
       }
       if (e.key === 'Enter') {

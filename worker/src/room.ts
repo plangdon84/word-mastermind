@@ -95,6 +95,8 @@ export interface RoomDeps {
    * name it played under.
    */
   namesOf(ids: readonly string[]): Promise<Record<string, string>>;
+  /** Which of these player IDs are friends of the account `accountId`: their friend codes, by ID (`friendCodes`). */
+  friendCodes(accountId: string, ids: readonly string[]): Promise<Record<string, string>>;
   /** Both players' ratings as a rated game starts. */
   ratingsOf(players: Record<Seat, string>, control: TimeControl, now: number): Promise<Record<Seat, Rating>>;
   /** Picks who goes first: a number in [0, 1). */
@@ -201,6 +203,7 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
     state,
     hostName: room.host.name,
     guestName: room.guest?.name ?? null,
+    opponentCode: null,
     inviteeName: room.invitee?.name ?? null,
     invitedYou: !seat && isOpenInvite(room) && !!room.invitee && ids.includes(room.invitee.guestId),
     inviteeDifficulty: room.inviteeDifficulty ?? null,
@@ -273,7 +276,7 @@ export async function handleRoom(
   storage: RoomStorage, deps: RoomDeps, request: RoomRequest, now: number,
 ): Promise<RoomResponse> {
   const answer = await answerRoom(storage, deps, request, now);
-  return { ...answer, body: await withCurrentNames(storage, deps, answer.body) };
+  return { ...answer, body: await withCurrentNames(storage, deps, answer.body, request.guestId) };
 }
 
 /**
@@ -282,17 +285,27 @@ export async function handleRoom(
  * shows by the new name. The room keeps the names they played under, for
  * anyone without an account profile and if the lookup fails.
  */
-async function withCurrentNames(storage: RoomStorage, deps: RoomDeps, body: RoomResponse['body']): Promise<RoomResponse['body']> {
+async function withCurrentNames(
+  storage: RoomStorage, deps: RoomDeps, body: RoomResponse['body'], askerId: string,
+): Promise<RoomResponse['body']> {
   if (!('hostName' in body)) return body;
   const room = await storage.get<Room>(ROOM_KEY);
   if (!room || room.id !== body.id) return body;
   const players = [room.host, room.guest, room.invitee].filter((p): p is Player => !!p);
-  const names = await deps.namesOf(players.map((p) => p.guestId)).catch(() => ({} as Record<string, string>));
+  // Your opponent's name opens their profile when they're your friend (Dev Plan item 18ca): your ID is your
+  // account's once signed in, and a guest has no friends. Looked up alongside the names.
+  const opponent = body.seat === 'host' ? room.guest : body.seat === 'guest' ? room.host : null;
+  const none = {} as Record<string, string>;
+  const [names, codes] = await Promise.all([
+    deps.namesOf(players.map((p) => p.guestId)).catch(() => none),
+    opponent ? deps.friendCodes(askerId, [opponent.guestId]).catch(() => none) : none,
+  ]);
   const nameOf = (player: Player | null | undefined, fallback: string | null) => (player && names[player.guestId]) ?? fallback;
   return {
     ...body,
     hostName: nameOf(room.host, body.hostName)!,
     guestName: nameOf(room.guest, body.guestName),
+    opponentCode: opponent ? codes[opponent.guestId] ?? null : null,
     inviteeName: nameOf(room.invitee, body.inviteeName),
   };
 }

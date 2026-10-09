@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { authApi, type Session } from '../../src/app/account';
+import { dailyApi } from '../../src/app/dailyApi';
 import { friendApi, FriendApiError } from '../../src/app/friendApi';
 import {
   friendsApi, FriendsApiError, isFriendCode, isInviteKey, loadFriendProfile, normalizeFriendCode, formatFriendCode,
@@ -26,6 +27,7 @@ const APP = 'https://app.example';
 const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
 const CAT = '9f8e7d6c-5b4a-4c3d-a2e1-f0e9d8c7b6a5';
+const DAN = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
 
 async function vapidKeys(): Promise<VapidKeys> {
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair;
@@ -81,6 +83,7 @@ async function setup() {
     });
     await saveSubscription(db, guestId, { endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, ...await deviceKeys() }, NOW);
     return {
+      guestId,
       session,
       ratings: () => fetchRatings('https://api.example', id, fetchFn),
       friends: friendsApi('https://api.example', id, fetchFn),
@@ -518,5 +521,89 @@ describe("a friend's profile (Dev Plan item 18c)", () => {
       const response = await fetchFn(`https://api.example/api/friends/profile?${query}`, { headers });
       expect(response.status).toBe(400);
     }
+  });
+});
+
+describe("which names are friends' (Dev Plan item 18ca)", () => {
+  /** Ann and Bob are friends; Cat is a stranger to both, and Dan only asked to be Ann's friend. */
+  async function circle() {
+    const s = await setup();
+    const ann = await s.player(ANN, 'Ann');
+    const bob = await s.player(BOB, 'Bob');
+    const cat = await s.player(CAT, 'Cat');
+    const dan = await s.player(DAN, 'Dan');
+    const annCode = (await ann.friends.list()).code;
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    await bob.friends.add(annCode);
+    await dan.friends.add(annCode);
+    return { ...s, ann, bob, cat, dan, annCode, bobCode };
+  }
+  const answer = { secret: 'beach', difficulty: 'medium' } as const;
+  const invite = { name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d' } as const;
+
+  it("give your opponent's friend code in a game against a friend, to each of you, and nobody else's", async () => {
+    const { ann, bob, cat, dan, annCode, bobCode } = await circle();
+    const { id } = await ann.games.create({ ...invite, friend: bobCode });
+    expect(await bob.games.join(id, { name: 'Bob', ...answer })).toMatchObject({ opponentCode: annCode });
+    expect(await ann.games.get(id)).toMatchObject({ opponentCode: bobCode });
+
+    // An invite link taken by a stranger, or by someone whose request you haven't accepted.
+    for (const [them, name] of [[cat, 'Cat'], [dan, 'Dan']] as const) {
+      const game = await ann.games.create(invite);
+      expect(await them.games.join(game.id, { name, ...answer })).toMatchObject({ opponentCode: null });
+      expect(await ann.games.get(game.id)).toMatchObject({ opponentCode: null });
+    }
+  });
+
+  it('find a friend who played as a guest on a device they later signed in on, but never for a guest asking', async () => {
+    const { player, fetchFn, guest } = await setup();
+    const asGuest = friendApi('https://api.example', guest(CAT), fetchFn);
+    const { id } = await asGuest.create({ name: 'Guest-5678', ...answer, timeControl: '1d' });
+    const ann = await player(ANN, 'Ann');
+    await ann.games.join(id, { name: 'Ann', secret: 'storm', difficulty: 'medium' });
+    expect(await asGuest.get(id)).toMatchObject({ opponentCode: null });
+
+    const cat = await player(CAT, 'Cat');
+    const catCode = (await cat.friends.list()).code;
+    await ann.friends.add(catCode);
+    await cat.friends.add((await ann.friends.list()).code);
+    expect(await ann.games.get(id)).toMatchObject({ opponentCode: catCode });
+  });
+
+  it("give friends' codes in a finished lobby's standings, and not before you've finished", async () => {
+    const { ann, bob, cat, bobCode } = await circle();
+    const { lobby: { code } } = await ann.lobbies.create('Ann', 'medium');
+    await bob.lobbies.join(code, 'Bob');
+    await cat.lobbies.join(code, 'Cat');
+    await ann.lobbies.start(code);
+    const codes = (standings: readonly { name: string; friendCode: string | null }[] | null) =>
+      Object.fromEntries(standings!.map((s) => [s.name, s.friendCode]));
+    expect(codes((await ann.lobbies.get(code)).lobby.standings)).toEqual({ Ann: null, Bob: null, Cat: null });
+
+    await ann.lobbies.giveUp(code);
+    expect(codes((await ann.lobbies.get(code)).lobby.standings)).toEqual({ Ann: null, Bob: bobCode, Cat: null });
+    // Bob hasn't finished, and Cat is nobody's friend.
+    expect(codes((await bob.lobbies.get(code)).lobby.standings)).toEqual({ Ann: null, Bob: null, Cat: null });
+    await bob.lobbies.giveUp(code);
+    await cat.lobbies.giveUp(code);
+    expect((await cat.lobbies.get(code)).lobby.state).toBe('over');
+    expect(codes((await cat.lobbies.get(code)).lobby.standings)).toEqual({ Ann: null, Bob: null, Cat: null });
+  });
+
+  it("give friends' codes on the Daily Set board's Friends view only", async () => {
+    const { sqlite, fetchFn, now, ann, cat, bobCode } = await circle();
+    const day = dailyDay(now());
+    sqlite.prepare("INSERT INTO daily_themes (day, theme_id, theme, words) VALUES (?, 't', 'Test set', 'storm,beach,flame,quick')").run(day);
+    // Bob's result is under the guest ID of the device he signed in on.
+    const result = sqlite.prepare("INSERT INTO daily_results (day, player_id, difficulty, name, guesses, ms, finished_at) VALUES (?, ?, 'medium', ?, ?, 60000, 0)");
+    for (const [id, name, guesses] of [[BOB, 'Bob', 20], [CAT, 'Cat', 21], [DAN, 'Dan', 22]] as const) result.run(day, id, name, guesses);
+    const board = (who: typeof ann, circle: 'everyone' | 'friends') =>
+      dailyApi('https://api.example', { guestId: who.guestId, token: who.session.token }, fetchFn).board(day, 'medium', circle);
+    const codes = async (who: typeof ann, circle: 'everyone' | 'friends') =>
+      Object.fromEntries((await board(who, circle)).top.map((r) => [r.name, r.friendCode]));
+    expect(await codes(ann, 'friends')).toEqual({ Bob: bobCode });
+    expect(await codes(ann, 'everyone')).toEqual({ Bob: null, Cat: null, Dan: null });
+    expect(await codes(cat, 'friends')).toEqual({ Cat: null });
   });
 });

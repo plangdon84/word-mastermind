@@ -46,6 +46,8 @@ export interface LobbyDeps {
    * Durable Object sends them after answering, and a failure never undoes a move.
    */
   notify(notices: readonly Notice[]): void;
+  /** Which of these player IDs are friends of the account `accountId`: their friend codes, by ID (`friendCodes`). */
+  friendCodes(accountId: string, ids: readonly string[]): Promise<Record<string, string>>;
 }
 
 /**
@@ -94,10 +96,16 @@ function seatedAs(lobby: LobbyRecord, asker: Asker): string {
   return idsOf(asker).find((id) => seated.some((s) => s.id === id)) ?? asker.playerId;
 }
 
-function answer(room: LobbyRoom, asker: Asker, now: number, status = 200): LobbyResponse {
+async function answer(deps: LobbyDeps, room: LobbyRoom, asker: Asker, now: number, status = 200): Promise<LobbyResponse> {
   const change = room.ratings?.[seatedAs(room.lobby, asker)];
   const rating = change ? { ...showRating(change.before), after: showRating(change.after) } : null;
-  return { status, body: { lobby: lobbyView(room.lobby, idsOf(asker), now), now, rating } };
+  // The results name your friends, so their names open their profiles: once the game is over, or you've finished.
+  const { game } = room.lobby;
+  const seat = game ? game.seats.findIndex((s) => idsOf(asker).includes(s.id)) : -1;
+  const results = game && (lobbyEndedAt(room.lobby, now) !== null || (seat >= 0 && seatRun(game, seat, now).status === 'over'));
+  const codes = results && asker.signedIn
+    ? await deps.friendCodes(asker.playerId, game.seats.map((s) => s.id)).catch(() => ({})) : {};
+  return { status, body: { lobby: lobbyView(room.lobby, idsOf(asker), now, codes), now, rating } };
 }
 
 /**
@@ -165,12 +173,12 @@ export async function handleLobby(
     }
     const room: LobbyRoom = { lobby, saved: false, announced: [], alarmAt: null };
     await storage.put(ROOM_KEY, room);
-    return answer(room, request, now, 201);
+    return answer(deps, room, request, now, 201);
   }
 
   if (!stored) return refuse(404, 'not-found');
   const room = await settle(storage, deps, stored, now);
-  if (request.action === 'get') return answer(room, request, now);
+  if (request.action === 'get') return answer(deps, room, request, now);
 
   const { lobby } = room;
   const id = seatedAs(lobby, request);
@@ -202,7 +210,7 @@ export async function handleLobby(
     return refuse(STATUS[result.error] ?? 400, result.error);
   }
   const next = await save(storage, deps, { ...room, lobby: result.lobby }, now);
-  return answer(next, request, now);
+  return answer(deps, next, request, now);
 }
 
 /**

@@ -4,6 +4,7 @@ import type { ApiIdentity } from './apiIdentity';
 import { BackIcon, BoardPage } from './panels';
 import { API_URL } from './config';
 import { dailyApi } from './dailyApi';
+import { PlayerName } from './friendLink';
 import { DailyBoardPanel } from './DailyScreen';
 import { fetchRatingBoard, LeaderboardError, type Circle, type RatingBoard } from './leaderboardsApi';
 import { fetchRatings, ratingText, type PoolRating } from './ratingsApi';
@@ -85,7 +86,7 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
               {board.top.map((r, i) => (
                 <li key={i} class={r.you ? 'you' : ''}>
                   <span class="board-rank">{r.rank}</span>
-                  <span class="board-name">{r.name}{r.you && <span class="visually-hidden"> (you)</span>}</span>
+                  <span class="board-name"><PlayerName name={r.name} code={r.friendCode} />{r.you && <span class="visually-hidden"> (you)</span>}</span>
                   <span class="board-guesses" aria-label={`Rating ${r.rating}`}>{r.rating}</span>
                   <span class="board-time board-games" aria-label={gamesText(r.games)}>{r.games}</span>
                 </li>

@@ -3,7 +3,7 @@ import type { FriendGame } from './friendApi';
 import { pickNextGame } from './nextGame';
 
 const game = (id: string, state: FriendGame['state'], turn: 'you' | 'opponent' | null, deadline: number | null): FriendGame => ({
-  id, seat: 'host', state, hostName: 'Ann', guestName: 'Bob', inviteeName: null, invitedYou: false, inviteeDifficulty: null, rematchOf: null, rematch: null,
+  id, seat: 'host', state, hostName: 'Ann', guestName: 'Bob', opponentCode: null, inviteeName: null, invitedYou: false, inviteeDifficulty: null, rematchOf: null, rematch: null,
   timeControl: '1d', createdAt: 0, expiresAt: null,
   serverNow: 0, rated: false, matched: false, ratings: null,
   view: state === 'waiting' ? null : {

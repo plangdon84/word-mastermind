@@ -100,6 +100,33 @@ export async function friendByCode(db: D1Database, accountId: string, code: stri
   return id ? { id, name: await nameOrDefault(db, id) } : null;
 }
 
+/**
+ * SQL for the friend code of the player in `column` (an account's ID, or a
+ * guest ID linked to one) when they're a friend of the account `param`,
+ * else NULL. A name alone can't say who's a friend: two players can share
+ * one, and anyone can change theirs.
+ */
+export function friendCodeSql(column: string, param: string): string {
+  return `(SELECT a.friend_code FROM friends f JOIN accounts a ON a.id = f.friend_id
+    WHERE f.account_id = ${param} AND f.state = 'friends'
+      AND f.friend_id = COALESCE((SELECT account_id FROM guests WHERE id = ${column}), ${column}))`;
+}
+
+/**
+ * The friend codes of those of these player IDs who are friends of
+ * `accountId` (null for a guest, who has none), by player ID. One query,
+ * the IDs as one JSON parameter (D1 allows 100).
+ */
+export async function friendCodes(db: D1Database, accountId: string | null, ids: readonly string[]): Promise<Record<string, string>> {
+  if (!accountId || ids.length === 0) return {};
+  const { results } = await db.prepare(
+    `SELECT ids.value AS id, ${friendCodeSql('ids.value', '?1')} AS code FROM json_each(?2) AS ids`,
+  ).bind(accountId, JSON.stringify([...new Set(ids)])).all<{ id: string; code: string | null }>();
+  const codes: Record<string, string> = {};
+  for (const row of results) if (row.code) codes[row.id] = row.code;
+  return codes;
+}
+
 /** Sends notifications, if this server sends them. A failure never undoes what they're about. */
 export async function sendNotices(env: Env, notices: readonly Notice[], now: number, fetchFn: typeof fetch = fetch): Promise<void> {
   const keys = vapidKeysOf(env);
