@@ -53,35 +53,25 @@ export interface Env {
   /** Rate limits by address (`limits.ts`): 30 a minute, and 3 a minute for reports and sign-in emails. Without them, nothing is limited. */
   RATE_LIMIT?: RateLimit;
   RATE_LIMIT_STRICT?: RateLimit;
-  /** 60 a minute for opening a friend's profile, which the app asks for again while the server catches up (item 18cb). */
-  RATE_LIMIT_PROFILE?: RateLimit;
 }
-
-/**
- * Work that goes on after the answer is sent (`ExecutionContext.waitUntil`),
- * started only when there is one: without it (tests) it isn't started.
- */
-export type Later = (work: () => Promise<unknown>) => void;
 
 /**
  * Handles one API request. `now` is the server's clock, passed in (as game
  * logic expects) so tests can fix it, as they can `fetchFn`, for calls the
- * worker makes to other services (email, Google, GitHub), and `later`.
+ * worker makes to other services (email, Google, GitHub).
  */
-export async function handle(
-  request: Request, env: Env, now: number, fetchFn: typeof fetch = fetch, later: Later = () => undefined,
-): Promise<Response> {
+export async function handle(request: Request, env: Env, now: number, fetchFn: typeof fetch = fetch): Promise<Response> {
   const cors = corsHeaders(request.headers.get('origin'), env.ALLOWED_ORIGINS);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   const { pathname } = new URL(request.url);
   const socket = await routeLiveSocket(request, env, pathname);
   if (socket) return socket;
-  const response = await overLimit(request, env, pathname) ?? await route(request, env, now, fetchFn, later);
+  const response = await overLimit(request, env, pathname) ?? await route(request, env, now, fetchFn);
   for (const [name, value] of Object.entries(cors)) response.headers.set(name, value);
   return response;
 }
 
-async function route(request: Request, env: Env, now: number, fetchFn: typeof fetch, later: Later): Promise<Response> {
+async function route(request: Request, env: Env, now: number, fetchFn: typeof fetch): Promise<Response> {
   const { pathname } = new URL(request.url);
   const method = request.method;
   if (pathname === '/api/health' && method === 'GET') {
@@ -113,9 +103,9 @@ async function route(request: Request, env: Env, now: number, fetchFn: typeof fe
   if (lobbies) return lobbies;
   const friends = await routeFriends(request, env, now, pathname, fetchFn);
   if (friends) return friends;
-  const sync = await routeSync(request, env, now, pathname, later);
+  const sync = await routeSync(request, env, now, pathname);
   if (sync) return sync;
-  const played = await routePlayed(request, env, now, pathname, later);
+  const played = await routePlayed(request, env, now, pathname);
   if (played) return played;
   const ratings = await routeRatings(request, env, now, pathname);
   if (ratings) return ratings;
@@ -134,5 +124,5 @@ export { Matchmaker } from './matchmaker';
 export { RushLobby } from './rushLobby';
 
 export default {
-  fetch: (request, env, ctx) => handle(request, env, Date.now(), fetch, (work) => ctx.waitUntil(work())),
+  fetch: (request, env) => handle(request, env, Date.now()),
 } satisfies ExportedHandler<Env>;
