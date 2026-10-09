@@ -1,6 +1,7 @@
 import { GUESS_WORDS, isObject, SECRET_WORDS } from '../../src/game';
 import { routeAuth } from './authRoutes';
 import { routeDaily } from './dailyRoutes';
+import { routeProfileShare } from './friendProfiles';
 import { routeFriends } from './friends';
 import { routeGames, routeLiveSocket } from './games';
 import { routeLeaderboards } from './leaderboards';
@@ -53,6 +54,8 @@ export interface Env {
   /** Rate limits by address (`limits.ts`): 30 a minute, and 3 a minute for reports and sign-in emails. Without them, nothing is limited. */
   RATE_LIMIT?: RateLimit;
   RATE_LIMIT_STRICT?: RateLimit;
+  /** 60 a minute for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb). */
+  RATE_LIMIT_PROFILE?: RateLimit;
 }
 
 /**
@@ -103,6 +106,8 @@ async function route(request: Request, env: Env, now: number, fetchFn: typeof fe
   if (lobbies) return lobbies;
   const friends = await routeFriends(request, env, now, pathname, fetchFn);
   if (friends) return friends;
+  const shared = await routeProfileShare(request, env, now, pathname);
+  if (shared) return shared;
   const sync = await routeSync(request, env, now, pathname);
   if (sync) return sync;
   const played = await routePlayed(request, env, now, pathname);

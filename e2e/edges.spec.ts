@@ -489,9 +489,15 @@ test("a friend's profile: their stats, badges and games, and your record against
     const sync = await getStorage(friend, 'sync');
     return sync && Array.isArray(sync.pending) ? sync.pending.length : -1;
   }, { message: "the friend's games were synced" }).toBe(0);
+  // Opening the link reloads their app, which then indexes their games and shares their stats and badges for
+  // friends (Dev Plan item 18cb): a round that finishes after this.
+  const opened = Date.now();
   await friend.goto(link);
   await button(friend, 'Add').click();
   await expect(friend.getByText(/are friends\./)).toBeVisible();
+  await expect.poll(async () => (await getStorage(friend, 'shared-profile'))?.at ?? 0, {
+    message: "the friend's device shared their profile", timeout: 15_000,
+  }).toBeGreaterThan(opened);
 
   // Their name on your list opens their profile.
   await button(page, 'Back to profile').click();

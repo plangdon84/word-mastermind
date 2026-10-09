@@ -17,7 +17,7 @@ import type { Env } from './index';
  */
 
 /** A `games` row. `seq` is its rowid: rows are added as games finish, so it only grows. */
-interface GameRow {
+export interface GameRow {
   seq: number;
   id: string;
   mode: string;
@@ -39,7 +39,7 @@ async function entryId(mode: string, gameId: string): Promise<string> {
  * A lookup that failed for now (a busy room, the database), not a game that
  * can't be read: the page stops before its game, so the app asks again.
  */
-class TryAgain extends Error {}
+export class TryAgain extends Error {}
 
 /** Runs a lookup, turning any failure into `TryAgain`. */
 async function lookup<T>(run: () => Promise<T>): Promise<T> {
@@ -66,8 +66,13 @@ const parse = (text: string): unknown => {
   }
 };
 
-/** One game as your history entry, or null if it can't be (a room that's gone, a record that doesn't read). */
-async function toPlayed(env: Env, row: GameRow, player: Player, ids: readonly string[]): Promise<PlayedGame | null> {
+/**
+ * One game as your history entry, or null if it can't be (a room that's gone, a record that doesn't read).
+ * Without `rated` (a friend's profile, which never shows a rating), no rating is looked up.
+ */
+export async function toPlayed(
+  env: Env, row: GameRow, player: Player, ids: readonly string[], rated = true,
+): Promise<PlayedGame | null> {
   const base = { id: await entryId(row.mode, row.id), version: HISTORY_VERSION };
   const data = parse(row.record);
   if (row.mode === 'friend') {
@@ -86,7 +91,7 @@ async function toPlayed(env: Env, row: GameRow, player: Player, ids: readonly st
     });
     const opponent = room && opponentName(room);
     if (!room?.seat || !opponent) return null;
-    const rating = await lookup(() => ratingChange(env.DB, row.id, player));
+    const rating = rated ? await lookup(() => ratingChange(env.DB, row.id, player)) : null;
     const entry: HistoryEntry = { ...base, mode: 'friend', record, seat: room.seat, opponent, rating, marks: {} };
     return { entry, ref: row.id };
   }
@@ -109,7 +114,7 @@ async function toPlayed(env: Env, row: GameRow, player: Player, ids: readonly st
       name: s.name, strength: s.strength, you: s.you, rank: s.rank, score: s.score, seconds: s.seconds,
     }));
     const entry: HistoryEntry = {
-      ...base, mode: 'lobby', kind: lobbyKind(lobby), record, places, rating: await lookup(() => ratingChange(env.DB, row.id, player)),
+      ...base, mode: 'lobby', kind: lobbyKind(lobby), record, places, rating: rated ? await lookup(() => ratingChange(env.DB, row.id, player)) : null,
       marks: record.words.map(() => ({})),
     };
     return { entry, ref: lobby.code };
@@ -125,13 +130,8 @@ export interface PlayedGamesPage {
   stopped: boolean;
 }
 
-/**
- * The player's finished server games after `after`, a page at a time, in the
- * order they finished. With `skipStuck` (a friend's profile, which keeps
- * nothing), a game whose lookup fails for now is left out rather than ending
- * the page, so one stuck room can't hold up the rest.
- */
-export async function playedPage(env: Env, player: Player, after: number, skipStuck = false): Promise<PlayedGamesPage> {
+/** The player's finished server games after `after`, a page at a time, in the order they finished. */
+export async function playedPage(env: Env, player: Player, after: number): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
@@ -148,7 +148,7 @@ export async function playedPage(env: Env, player: Player, after: number, skipSt
       played = await toPlayed(env, row, player, ids);
     } catch (e) {
       // A lookup failed for now: stop before this game, so the next pull asks for it again.
-      if (e instanceof TryAgain && !skipStuck) return { games, next: null, cursor, stopped: true };
+      if (e instanceof TryAgain) return { games, next: null, cursor, stopped: true };
       // A game that can't be read never holds up the rest.
       played = null;
     }

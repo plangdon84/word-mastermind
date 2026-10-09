@@ -46,7 +46,8 @@ name = "QUEUES"
 class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
-# 30 a minute for what makes something new, 3 for reports and sign-in emails.
+# 30 a minute for what makes something new, 3 for reports and sign-in emails,
+# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[ratelimits]]
 name = "RATE_LIMIT"
@@ -57,6 +58,11 @@ simple = { limit = 30, period = 60 }
 name = "RATE_LIMIT_STRICT"
 namespace_id = "1002"
 simple = { limit = 3, period = 60 }
+
+[[ratelimits]]
+name = "RATE_LIMIT_PROFILE"
+namespace_id = "1003"
+simple = { limit = 60, period = 60 }
 
 # Durable Object classes, for every environment. Never edit an applied
 # migration; add a new tag.
@@ -131,7 +137,8 @@ name = "QUEUES"
 class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
-# 30 a minute for what makes something new, 3 for reports and sign-in emails.
+# 30 a minute for what makes something new, 3 for reports and sign-in emails,
+# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[env.staging.ratelimits]]
 name = "RATE_LIMIT"
@@ -142,6 +149,11 @@ simple = { limit = 30, period = 60 }
 name = "RATE_LIMIT_STRICT"
 namespace_id = "2002"
 simple = { limit = 3, period = 60 }
+
+[[env.staging.ratelimits]]
+name = "RATE_LIMIT_PROFILE"
+namespace_id = "2003"
+simple = { limit = 60, period = 60 }
 
 [env.production]
 name = "word-mastermind-api"
@@ -200,7 +212,8 @@ name = "QUEUES"
 class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
-# 30 a minute for what makes something new, 3 for reports and sign-in emails.
+# 30 a minute for what makes something new, 3 for reports and sign-in emails,
+# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[env.production.ratelimits]]
 name = "RATE_LIMIT"
@@ -211,3 +224,8 @@ simple = { limit = 30, period = 60 }
 name = "RATE_LIMIT_STRICT"
 namespace_id = "3002"
 simple = { limit = 3, period = 60 }
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_PROFILE"
+namespace_id = "3003"
+simple = { limit = 60, period = 60 }

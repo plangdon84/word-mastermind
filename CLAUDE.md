@@ -120,13 +120,21 @@ Run `npm test` and `npm run typecheck` before committing.
   in `LobbyScreen.tsx` and on the title screen's Games in progress (`LobbyInviteButton`).
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
-  read from `GET /api/friends/profile` (`friendProfilePage` in
-  `worker/src/friends.ts`, friends only): their synced games, then their
-  server games (`playedPage` in `worker/src/played.ts`, run as them with
-  `playerOfAccount`), only entries (never a `ref`, which is a credential),
-  leaving out a Daily Set until the day after it is over. Your record against them is
+  read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends
+  only): their synced and server games as entries (never a `ref`, which is
+  a credential), leaving out a Daily Set until the day after it is over. Your record against them is
   `headToHead` (`src/game/headToHead.ts`): games whose history ID is in
-  both histories. A friend's name in a game against them, a lobby's
+  both histories. Item 18cb rebuilt it within the Workers Free plan's
+  limits (about 10 ms and 50 calls a request; PR #14 worked stats out on
+  the server and was reverted): each device works out its own stats and
+  badges (`sharedSummary` in `src/app/sharedSummary.ts`, sent by
+  `profileShare.ts` from `App.tsx`) and has the server index its games a
+  few a request (`worker/src/friendProfiles.ts`: D1 `shared_profiles`,
+  `profile_games`, `POST /api/profile/shared` and `/api/profile/index`;
+  server games built by `playedPage` with `copy`). `GET /api/friends/profile`
+  reads the shared summary and counts your record in SQL (`versusOf`,
+  matching `headToHead`), and `/api/friends/profile/games` pages the
+  index. Never work stats out on the server. A friend's name in a game against them, a lobby's
   results or a board's Friends view opens it too (item 18ca): the server
   marks it with their friend code (`friendCodes` / `friendCodeSql` in
   `worker/src/friends.ts`; `opponentCode`, `friendCode`), shown by

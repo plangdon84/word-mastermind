@@ -1,5 +1,7 @@
 import {
-  isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, parseHistoryEntry, type DailyPlacement, type HistoryEntry,
+  BADGE_BY_ID, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, normalizeWord,
+  parseHistoryEntry, type DailyPlacement, type Difficulty, type EarnedBadge, type HeadToHead, type HistoryEntry,
+  type HistoryFilter, type HistoryMode, type HistoryResult, type Stats,
 } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import { isCountry } from './countries';
@@ -118,20 +120,6 @@ export interface FriendProfile {
   placements: DailyPlacement[];
 }
 
-/**
- * A page of a friend's games, each a history entry from their side. The
- * first page (asked for with no cursor) also has their profile; `next` is
- * where the next page starts, or null at the end.
- */
-export interface FriendProfilePage {
-  profile: FriendProfile | null;
-  games: HistoryEntry[];
-  next: string | null;
-}
-
-/** Where a page of a friend's games starts: their synced games (`h:`), then the server's (`p:`). */
-export const isProfileCursor = (value: unknown): value is string => typeof value === 'string' && /^[hp]:\d{1,15}$/.test(value);
-
 function parseFriendProfile(value: unknown): FriendProfile | null {
   if (!isObject(value) || typeof value.name !== 'string' || !Array.isArray(value.placements)) return null;
   const { name, country, memberSince } = value;
@@ -143,19 +131,148 @@ function parseFriendProfile(value: unknown): FriendProfile | null {
   };
 }
 
-export function parseFriendProfilePage(value: unknown): FriendProfilePage | null {
-  if (!isObject(value) || !Array.isArray(value.games) || !(value.next === null || isProfileCursor(value.next))) return null;
-  const profile = value.profile === null || value.profile === undefined ? null : parseFriendProfile(value.profile);
-  if (value.profile && !profile) return null;
+/**
+ * What a player shares with friends (Dev Plan item 18cb): their stats and
+ * badges as their own device works them out (`sharedSummary`), how many
+ * games their history lists, and the games their stats point at, to open
+ * from the stats. The server keeps it as sent: it can't work stats out
+ * within a request's limits, and a made-up badge only fools friends.
+ * `format` is `SHARED_FORMAT` when it was worked out.
+ */
+export interface SharedSummary {
+  format: number;
+  games: number;
+  stats: Stats;
+  badges: EarnedBadge[];
+  featured: HistoryEntry[];
+}
+
+/**
+ * The shape of the stats and badges a summary holds: raise it when they
+ * change, so a friend's app never reads one in a shape it doesn't know (it
+ * shows "not shared yet" until their device sends the new one).
+ */
+export const SHARED_FORMAT = 1;
+
+/** The longest summary the server keeps, as JSON: far more than any real one. */
+export const MAX_SHARED_CHARS = 200_000;
+/** The most badges and featured games a summary has: more than there are. */
+const MAX_BADGES = 500;
+const MAX_FEATURED = 40;
+
+/**
+ * `GET /api/friends/profile`: their profile, what they share (null until a
+ * device of theirs on this version has sent it) and your record against
+ * them, from the games you both played.
+ */
+export interface FriendProfileAnswer {
+  profile: FriendProfile;
+  summary: SharedSummary | null;
+  versus: HeadToHead;
+}
+
+/** A page of a friend's game history, newest first; `next` is the offset of the next page, or null at the end. */
+export interface FriendGamesPage {
+  games: HistoryEntry[];
+  next: number | null;
+}
+
+/** The most games one page of a friend's history has. */
+export const FRIEND_GAMES_PAGE_MAX = 50;
+
+/** Which page of a friend's history to load (`GET /api/friends/profile/games`). */
+export interface FriendGamesQuery {
+  filter: HistoryFilter;
+  offset: number;
+  limit: number;
+}
+
+/** A friend's history query, as `URLSearchParams`. The search is sent as `matchesFilter` reads it. */
+export function friendGamesParams(code: string, { filter, offset, limit }: FriendGamesQuery): URLSearchParams {
+  const params = new URLSearchParams({ code, offset: String(offset), limit: String(limit) });
+  if (filter.mode) params.set('mode', filter.mode);
+  if (filter.result) params.set('result', filter.result);
+  if (filter.difficulty) params.set('difficulty', filter.difficulty);
+  const search = normalizeWord(filter.search ?? '');
+  if (search) params.set('search', search);
+  return params;
+}
+
+/** The server's reading of `friendGamesParams`, or null if it's no such query. */
+export function parseFriendGamesParams(params: URLSearchParams): FriendGamesQuery | null {
+  const offset = Number(params.get('offset'));
+  const limit = Number(params.get('limit'));
+  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > FRIEND_GAMES_PAGE_MAX) {
+    return null;
+  }
+  const [mode, result, difficulty, search] = ['mode', 'result', 'difficulty', 'search'].map((k) => params.get(k));
+  if (mode !== null && !HISTORY_MODES.includes(mode as HistoryMode)) return null;
+  if (result !== null && !['won', 'lost', 'drawn'].includes(result)) return null;
+  if (difficulty !== null && !isDifficulty(difficulty)) return null;
+  if (search !== null && (search.length === 0 || search.length > 32)) return null;
+  const filter: HistoryFilter = {};
+  if (mode !== null) filter.mode = mode as HistoryMode;
+  if (result !== null) filter.result = result as HistoryResult;
+  if (difficulty !== null) filter.difficulty = difficulty as Difficulty;
+  if (search !== null) filter.search = search;
+  return { filter, offset, limit };
+}
+
+const parseEntries = (value: unknown[]) =>
   // A game this version of the app can't read (from a newer app or server) is left out: it's only shown.
-  const games = value.games.map(parseHistoryEntry).filter((e): e is HistoryEntry => e !== null);
-  return { profile, games, next: value.next as string | null };
+  value.map(parseHistoryEntry).filter((e): e is HistoryEntry => e !== null);
+
+const isTally = (value: unknown) =>
+  isObject(value) && [value.wins, value.draws, value.losses].every((n) => Number.isSafeInteger(n));
+
+/**
+ * A shared summary, checked as far as the app relies on it (the server
+ * checks what a device sends with it too), or null if it isn't one.
+ */
+export function parseSharedSummary(value: unknown): SharedSummary | null {
+  if (!isObject(value) || value.format !== SHARED_FORMAT || !Number.isSafeInteger(value.games)
+    || (value.games as number) < 0 || !Array.isArray(value.badges) || value.badges.length > MAX_BADGES
+    || !Array.isArray(value.featured) || value.featured.length > MAX_FEATURED) {
+    return null;
+  }
+  const { stats } = value;
+  if (!isObject(stats) || typeof stats.played !== 'number' || !isObject(stats.modes) || !isObject(stats.byDifficulty)
+    || !Array.isArray(stats.topGuesses) || !HISTORY_MODES.every((m) => isObject((stats.modes as Record<string, unknown>)[m]))) {
+    return null;
+  }
+  // Only badges this version knows, each once.
+  const badges = new Map<string, EarnedBadge>();
+  for (const b of value.badges) {
+    if (isObject(b) && typeof b.id === 'string' && BADGE_BY_ID.has(b.id) && !badges.has(b.id) && isTime(b.at)
+      && typeof b.gameId === 'string') {
+      badges.set(b.id, { id: b.id, at: b.at, gameId: b.gameId });
+    }
+  }
+  return {
+    format: SHARED_FORMAT, games: value.games as number, stats: stats as unknown as Stats, badges: [...badges.values()],
+    featured: parseEntries(value.featured),
+  };
+}
+
+export function parseFriendProfileAnswer(value: unknown): FriendProfileAnswer | null {
+  if (!isObject(value)) return null;
+  const profile = parseFriendProfile(value.profile);
+  // A summary this version can't read (from a newer app) shows as not shared yet.
+  const summary = value.summary === null ? null : parseSharedSummary(value.summary);
+  const { versus } = value;
+  if (!profile || !isObject(versus) || !HEAD_TO_HEAD_MODES.every((m) => isTally(versus[m]))) return null;
+  return { profile, summary, versus: versus as unknown as HeadToHead };
+}
+
+export function parseFriendGamesPage(value: unknown): FriendGamesPage | null {
+  if (!isObject(value) || !Array.isArray(value.games) || !(value.next === null || Number.isSafeInteger(value.next))) return null;
+  return { games: parseEntries(value.games), next: value.next as number | null };
 }
 
 /** The server's reasons for refusing. */
 export type FriendsErrorCode =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'own-code' | 'too-many-friends'
-  | 'unreachable'
+  | 'too-many-requests' | 'unreachable'
   // Opening an invite link: not codes the server sends, but how the app words its not-found and own-code.
   | 'invite-gone' | 'own-invite';
 
@@ -178,8 +295,14 @@ export interface FriendsApi {
   acceptInvite(key: string): Promise<{ list: FriendsList; friend: Friend | null }>;
   /** A new invite key, so links shared before stop working. Answers with the list. */
   resetInvite(): Promise<FriendsList>;
-  /** A page of a friend's profile and games, from `cursor` (null for the first, with their profile). */
-  profile(code: string, cursor: string | null): Promise<FriendProfilePage>;
+  /** A friend's profile, what they share and your record against them. */
+  profile(code: string): Promise<FriendProfileAnswer>;
+  /** A page of a friend's game history. */
+  profileGames(code: string, query: FriendGamesQuery): Promise<FriendGamesPage>;
+  /** Shares your stats and badges with your friends. */
+  share(summary: SharedSummary): Promise<void>;
+  /** Indexes a few more of your games for friends; `done` once there are none left. */
+  indexStep(): Promise<{ done: boolean }>;
 }
 
 /** Talks to the worker at `apiUrl` as the signed-in account (`identity`). Every call rejects with a `FriendsApiError`. */
@@ -207,30 +330,25 @@ export function friendsApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeo
       return { list, friend: friend ?? null };
     },
     resetInvite: () => request('POST', '/api/friends/invite/reset', {}),
-    profile: async (code, cursor) => {
-      const query = new URLSearchParams({ code, ...(cursor ? { after: cursor } : {}) });
-      const page = parseFriendProfilePage(await send('GET', `/api/friends/profile?${query}`));
+    profile: async (code) => {
+      const answer = parseFriendProfileAnswer(await send('GET', `/api/friends/profile?${new URLSearchParams({ code })}`));
+      if (!answer) throw new FriendsApiError('bad-request', 200);
+      return answer;
+    },
+    profileGames: async (code, query) => {
+      const page = parseFriendGamesPage(await send('GET', `/api/friends/profile/games?${friendGamesParams(code, query)}`));
       if (!page) throw new FriendsApiError('bad-request', 200);
       return page;
     },
+    share: async (summary) => {
+      await send('POST', '/api/profile/shared', summary);
+    },
+    indexStep: async () => {
+      const answer = await send('POST', '/api/profile/index', {});
+      if (!isObject(answer) || typeof answer.done !== 'boolean') throw new FriendsApiError('bad-request', 200);
+      return { done: answer.done };
+    },
   };
-}
-
-/** The most pages one friend's profile reads: far more games than anyone plays, but never an endless loop. */
-const MAX_PROFILE_PAGES = 1000;
-
-/** A friend's whole profile and every game in it, page by page. Rejects with a `FriendsApiError`. */
-export async function loadFriendProfile(api: FriendsApi, code: string): Promise<{ profile: FriendProfile; games: HistoryEntry[] }> {
-  const first = await api.profile(code, null);
-  if (!first.profile) throw new FriendsApiError('bad-request', 200);
-  const games = [...first.games];
-  let next = first.next;
-  for (let pages = 1; next !== null && pages < MAX_PROFILE_PAGES; pages++) {
-    const page = await api.profile(code, next);
-    games.push(...page.games);
-    next = page.next;
-  }
-  return { profile: first.profile, games };
 }
 
 /** What to tell someone when a change to their friends list didn't work. */
@@ -249,6 +367,8 @@ export function friendsErrorMessage(code: FriendsErrorCode): string {
     case 'signed-out':
     case 'sign-in-needed':
       return 'You were signed out. Sign in again to see your friends.';
+    case 'too-many-requests':
+      return 'Too many tries from this connection just now. Wait a minute and try again.';
     case 'unreachable':
       return "Can't reach the game server. Check your connection and try again.";
     case 'bad-request':

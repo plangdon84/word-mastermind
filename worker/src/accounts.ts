@@ -307,10 +307,10 @@ export async function deleteAccount(db: D1Database, accountId: string): Promise<
   await db.prepare('DELETE FROM lobby_invites WHERE account_id = ?1').bind(accountId).run();
   await deleteRatings(db, accountId);
   await db.prepare('UPDATE guests SET account_id = NULL WHERE account_id = ?1').bind(accountId).run();
-  // The friend profile tables (migration 0016, Dev Plan item 18cb, reverted for now) still reference the account.
+  // Its profile for friends (Dev Plan item 18cb) last, with the account, so a request indexing it meanwhile can't leave rows behind.
   await db.batch([
     db.prepare('DELETE FROM profile_games WHERE account_id = ?1').bind(accountId),
-    db.prepare('DELETE FROM profile_summaries WHERE account_id = ?1').bind(accountId),
+    db.prepare('DELETE FROM shared_profiles WHERE account_id = ?1').bind(accountId),
     db.prepare('DELETE FROM accounts WHERE id = ?1').bind(accountId),
   ]);
 }

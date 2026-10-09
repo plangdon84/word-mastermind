@@ -2003,13 +2003,29 @@ history**.
   of your profile: never your settings, email, friends list or an ID.
   Only your friends see it, and only while signed in; a request not yet
   accepted shows nothing either way.
-- **Where it comes from:** the server builds it each time from what your
-  devices synced (README [Synced profile](#synced-profile)) and the games it
-  refereed for you (as `GET /api/played` does), so a game only on a device
-  that never signed in isn't in it. It's loaded once and kept for five
-  minutes, so going back from one of their games doesn't load it again;
-  opening your friends list or signing out forgets it. A game the server
-  can't read for now is left out rather than holding up the rest.
+- **Where it comes from** (Dev Plan item 18cb): your own device works out
+  your stats and badges, as it does for your own profile, and shares them
+  for friends a few seconds after your game history loads or changes (and
+  at least once a day); the server keeps them as sent (working them
+  out itself would take far longer than a request may run on the server's
+  plan). A made-up badge would only fool friends, so that's accepted; the
+  leaderboards and games the server refereed can't be faked this way: a
+  best or fastest game the server refereed opens from the server's own
+  copy. Your
+  device also has the server index your games for friends, a few at a
+  time: what your devices synced (README [Synced profile](#synced-profile))
+  and the games the server refereed for you, which the server builds
+  itself (as `GET /api/played` does). A game only on a device that never
+  signed in isn't in it, and a game whose room can't answer for now is
+  added once it can. Until a friend's device on this version has shared,
+  their Stats, Achievements and Game history say their profile fills in
+  the next time they open Word Mastermind. Badges that count days in a row
+  count their own local days, as on their device. It's loaded once and kept
+  for five minutes, so going back from one of their games doesn't load it
+  again; opening your friends list or signing out forgets it. Opening a
+  profile and indexing your games share a limit of 60 requests a minute
+  from one internet address; a long first index waits a minute when it
+  reaches it, then carries on.
 - **A Daily Set is left out** until the day after it is over (one started
   before midnight can still be finished the next day), so its words can't
   be read off a friend before you've played it. Their Daily Rush places
@@ -2020,11 +2036,13 @@ history**.
   the top, **You vs. Bob** is your record against them: won–drawn–lost for
   two player games against them, and for Word Sets you both played (a
   higher place than theirs is a win, the same place a draw; not placed
-  comes last, and one neither of you placed in isn't counted). It's worked out from your own games: a game the server
-  refereed has the same history ID in both histories, so it counts the
-  games in yours that are in theirs too.
+  comes last, and one neither of you placed in isn't counted). The server
+  counts it from the games in both your indexes: a game it refereed has
+  the same history ID in both histories.
 - **Game history** has the same filters and search as yours, without
-  **Export CSV**. A game opens to review with a **← Bob's game** tag
+  **Export CSV**, and loads 20 games at a time as you scroll, the server
+  doing the filtering and search. A best or fastest game on their **Stats**
+  comes with what they shared, so it opens without loading their history. A game opens to review with a **← Bob's game** tag
   instead of **← Past game**, back to their history.
 - **From games and boards** (Dev Plan item 18ca): a friend's name also
   opens their profile in the header of a two player game against them, in

@@ -29,7 +29,7 @@ function setup(env: Partial<Env> = {}) {
     headers: { 'content-type': 'application/json', ...(address ? { 'cf-connecting-ip': address } : {}) },
     body: JSON.stringify({ id }),
   }), fullEnv, 0);
-  return { register };
+  return { register, env: fullEnv };
 }
 
 const guest = (n: number) => `0f8b6c2e-5d4a-4b1c-9e3f-${String(n).padStart(12, '0')}`;
@@ -48,6 +48,23 @@ describe('rate limits by address', () => {
       expect(limitOf('POST', path)).toBeNull();
     }
     expect(limitOf('GET', '/api/games')).toBeNull();
+    // Friends' profiles (item 18cb): opening one and indexing your games; a page of their history is one query.
+    expect(limitOf('GET', '/api/friends/profile')).toBe('profile');
+    expect(limitOf('POST', '/api/profile/index')).toBe('profile');
+    expect(limitOf('POST', '/api/profile/shared')).toBeNull();
+    expect(limitOf('GET', '/api/friends/profile/games')).toBeNull();
+  });
+
+  it("count opening a friend's profile on its own limit, never the general one", async () => {
+    const general = fakeLimit(30);
+    const profile = fakeLimit(1);
+    const env = { ...setup().env, RATE_LIMIT: general.binding, RATE_LIMIT_PROFILE: profile.binding };
+    const open = () => handle(new Request(`${API}/api/friends/profile?code=ABCDEFGH`, {
+      headers: { 'cf-connecting-ip': '203.0.113.7' },
+    }), env, 0);
+    expect((await open()).status).not.toBe(429);
+    expect((await open()).status).toBe(429);
+    expect(general.counts.size).toBe(0);
   });
 
   it('refuse an address over its limit with 429, whatever guest IDs it uses', async () => {

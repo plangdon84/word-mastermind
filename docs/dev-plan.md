@@ -34,20 +34,6 @@ and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
 from a mock-up, went before 18z; and 18c was split, opening a friend's
 profile from games and boards becoming 18ca)
 
-- [ ] **18cb. Faster friends' profiles** (round 1 review of 18c, finding 4;
-  server and privacy, review gate)
-  - Built in PR #14 and reverted: friends' profiles failed to open in
-    production. Its tables (migrations 0016 and 0017) stay; rebuild it
-    within the server's per-request limits, tested against a large history
-  - A friend's profile loads their whole history before showing anything,
-    and the server checks up to 20 game rooms a page, one by one: a friend
-    with thousands of online games is slow to open. Keep what the profile
-    needs up to date on the server as games finish (each player's stats
-    and badges, and your record against each friend), so the profile and
-    its stats show at once from one small read
-  - Their game history then loads a page at a time as you scroll, instead
-    of all at once
-  - Add the profile route to the rate limits (`limitOf`)
 - [ ] **18d. Finding friends** (issues #79 and #78; server and privacy,
   review gate)
   - Type a friend's email to send them a request, without ever saying
@@ -148,6 +134,22 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18cb. Faster friends' profiles** (round 1 review of 18c, finding 4;
+  server and privacy, review gate). Built in PR #14 and reverted (PR #15):
+  the server worked out stats and badges itself, far past the Workers Free
+  plan's 10 ms and 50 calls a request, so profiles failed to open. Agreed
+  with the owner on 9 October 2026: each device works out its own instead
+  - Each signed-in device works out its stats and badges (as its own
+    profile does, without a Daily Set that isn't over yet) and uploads
+    them for friends; the server keeps them as sent (spoofing a badge is
+    accepted; the boards and server games can't be faked). It also asks
+    the server to index its games for friends, a few at a time within the
+    Free plan's limits, server games always built by the server
+  - A friend's profile reads their uploaded stats and badges and your
+    record against them in one small request, and their game history loads
+    a page at a time as you scroll. A friend not yet on this version shows
+    "fills in the next time they open Word Mastermind"
+  - Add the profile route to the rate limits (`limitOf`)
 - [x] **18ca. Friends' profiles from games and boards** (Issue 64; split
   from 18c, which opens them from the friends list; server and privacy,
   review gate)

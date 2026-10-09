@@ -7,17 +7,22 @@ import type { Env } from './index';
  * round with a new one; these count per address instead, with Cloudflare's
  * rate limiting bindings (wrangler.toml `ratelimits`). They're generous,
  * since a household or a phone network can share one address, and they
- * only cover what makes something new or sends something out: playing a
+ * only cover what makes something new or sends something out (and opening
+ * a friend's profile, or indexing your games for friends): playing a
  * game never counts, nor does syncing history (accounts only, and capped
  * per account), whose first upload can be many requests. Without the bindings (tests, older configs) nothing is
  * limited.
  */
 
-/** Which limit a request counts against: `general` (30 a minute) or `strict` (3 a minute). */
-export type Limit = 'general' | 'strict';
+/** Which limit a request counts against: `general` (30 a minute), `strict` (3 a minute) or `profile` (60 a minute). */
+export type Limit = 'general' | 'strict' | 'profile';
 
 /** What each limited request counts against; anything else isn't limited. */
 export function limitOf(method: string, pathname: string): Limit | null {
+  // Friends' profiles (item 18cb) have a limit of their own, so they never use up the general one: opening one,
+  // and indexing your games for friends, which looks up game rooms. A page of their history is one query.
+  if (method === 'GET' && pathname === '/api/friends/profile') return 'profile';
+  if (method === 'POST' && pathname === '/api/profile/index') return 'profile';
   if (method !== 'POST') return null;
   if (pathname === '/api/reports' || pathname === '/api/auth/email') return 'strict';
   if (/^\/api\/(guests|games|lobbies|daily\/start|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
@@ -59,7 +64,7 @@ export function addressKey(address: string): string {
 export async function overLimit(request: Request, env: Env, pathname: string): Promise<Response | null> {
   const limit = limitOf(request.method, pathname);
   if (!limit) return null;
-  const binding = limit === 'strict' ? env.RATE_LIMIT_STRICT : env.RATE_LIMIT;
+  const binding = { general: env.RATE_LIMIT, strict: env.RATE_LIMIT_STRICT, profile: env.RATE_LIMIT_PROFILE }[limit];
   const address = addressOf(request);
   if (!binding || !address) return null;
   const { success } = await binding.limit({ key: address });

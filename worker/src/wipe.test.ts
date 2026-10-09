@@ -8,8 +8,15 @@ const count = (sqlite: ReturnType<typeof fakeD1>['sqlite'], table: string) =>
 
 describe('the admin wipe', () => {
   it('lists every table the migrations create, as wiped or kept', () => {
-    const created = migrationSql().flatMap((sql) => [...sql.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?(\w+)/gi)].map((m) => m[1]));
-    expect([...WIPE_TABLES, ...KEEP_TABLES].sort()).toEqual([...new Set(created)].sort());
+    // Tables as they stand after every migration: one a later migration drops is gone, unless it's made again.
+    const tables = new Set<string>();
+    for (const sql of migrationSql()) {
+      for (const m of sql.matchAll(/(CREATE|DROP) TABLE (?:IF (?:NOT )?EXISTS )?(\w+)/gi)) {
+        if (m[1].toUpperCase() === 'CREATE') tables.add(m[2]);
+        else tables.delete(m[2]);
+      }
+    }
+    expect([...WIPE_TABLES, ...KEEP_TABLES].sort()).toEqual([...tables].sort());
   });
 
   it('empties game history and keeps players', async () => {

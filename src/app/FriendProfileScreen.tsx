@@ -1,27 +1,30 @@
+import { Component, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  BADGES, computeAchievements, computeStats, HEAD_TO_HEAD_MODES, headToHead, initials, type HeadToHead, type HeadToHeadMode,
-  type DailyPlacement, type HistoryFilter,
+  BADGES, HEAD_TO_HEAD_MODES, initials, type HeadToHead, type HeadToHeadMode, type DailyPlacement, type HistoryEntry,
+  type HistoryFilter,
 } from '../game';
 import { Analytics } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { Achievements } from './Badge';
-import { localDay } from './badges';
 import { countryName } from './countries';
 import {
-  friendsApi, FriendsApiError, friendsErrorMessage, loadFriendProfile, type Friend, type FriendProfile,
+  friendsApi, FriendsApiError, friendsErrorMessage, type Friend, type FriendProfile, type SharedSummary,
 } from './friendsApi';
-import { GameHistory, listPage } from './GameHistory';
-import { toHistoryGame, type HistoryGame } from './historyDb';
+import { GameHistory } from './GameHistory';
+import { toHistoryGame, type HistoryGame, type HistoryPage } from './historyDb';
 import { plural } from './messages';
 import { BackIcon } from './panels';
 
 /*
  * A friend's profile (Dev Plan item 18c, README "Friends' profiles"): their
  * name and country, and their stats, achievements and game history as they
- * see them, from the server (`GET /api/friends/profile`). Their stats also
- * show your record against them, from your own games. Read-only: nothing
- * here changes their profile or yours.
+ * see them. Their stats and badges are what their own device shared (item
+ * 18cb, `GET /api/friends/profile`, with your record against them), and
+ * their history loads a page at a time as you scroll
+ * (`GET /api/friends/profile/games`). A friend whose app hasn't shared yet
+ * shows only their name and country. Read-only: nothing here changes their
+ * profile or yours.
  */
 
 /** A friend's profile's subpages; with none, its hub. */
@@ -33,8 +36,15 @@ const PAGE_TITLE: Record<FriendPage, string> = { stats: 'Stats', achievements: '
 
 export interface LoadedFriend {
   profile: FriendProfile;
-  games: HistoryGame[];
+  /** What they share; null until a device of theirs on this version has sent it. */
+  summary: SharedSummary | null;
+  versus: HeadToHead;
+  /** The games their stats point at, to open from the stats. */
+  featured: HistoryGame[];
 }
+
+const toHistoryGames = (entries: readonly HistoryEntry[]) =>
+  entries.map(toHistoryGame).filter((g): g is HistoryGame => g !== null);
 
 type Loading = { status: 'loading' } | { status: 'error'; text: string } | ({ status: 'ready' } & LoadedFriend);
 
@@ -46,7 +56,7 @@ const loaded = new Map<string, { at: number; friend: LoadedFriend }>();
 /** Forgets every friend's profile: the friends list calls it, as a friend may have been removed. */
 export const forgetFriendProfiles = () => loaded.clear();
 
-/** A friend's profile and games, loaded once and kept for a few minutes. `attempt` changes to try again. */
+/** A friend's profile, loaded once and kept for a few minutes. `attempt` changes to try again. */
 function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number): Loading {
   const key = `${identity.token ?? ''}:${code}`;
   const [state, setState] = useState<Loading>(() => {
@@ -57,8 +67,8 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
     if (state.status === 'ready') return;
     setState({ status: 'loading' });
     let live = true;
-    loadFriendProfile(friendsApi(apiUrl, identity), code).then(({ profile, games }) => {
-      const friend = { profile, games: games.map(toHistoryGame).filter((g): g is HistoryGame => g !== null) };
+    friendsApi(apiUrl, identity).profile(code).then(({ profile, summary, versus }) => {
+      const friend = { profile, summary, versus, featured: toHistoryGames(summary?.featured ?? []) };
       loaded.set(key, { at: Date.now(), friend });
       if (live) setState({ status: 'ready', ...friend });
     }, (e: unknown) => {
@@ -76,15 +86,30 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
   return state;
 }
 
+/**
+ * Shows what a friend shared, or `fallback` if it won't show: their device
+ * works it out and the server keeps it as sent, so a broken one mustn't
+ * break the screen.
+ */
+class Shared extends Component<{ fallback: ComponentChildren; children: ComponentChildren }, { failed: boolean }> {
+  state = { failed: false };
+  componentDidCatch() {
+    this.setState({ failed: true });
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
 const HEAD_TO_HEAD_LABEL: Record<HeadToHeadMode, string> = { friend: 'Two player', lobby: 'Word Sets with friends' };
 
 /** Your record against a friend: won–drawn–lost in each mode you've played them in. */
-function YouVersus({ name, record }: { name: string; record: HeadToHead | null }) {
-  const played = HEAD_TO_HEAD_MODES.filter((m) => record && record[m].wins + record[m].draws + record[m].losses > 0);
+function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
+  const played = HEAD_TO_HEAD_MODES.filter((m) => record[m].wins + record[m].draws + record[m].losses > 0);
   return (
     <div class="stat-block head-to-head">
       <h4>You vs. {name}</h4>
-      {!record ? <p class="field-note">Loading…</p> : played.length === 0 ? (
+      {played.length === 0 ? (
         <p class="field-note">You haven't played {name} yet. Your games against them appear here.</p>
       ) : (
         <dl class="stat-list">
@@ -92,7 +117,7 @@ function YouVersus({ name, record }: { name: string; record: HeadToHead | null }
             <div class="stat-row" key={m}>
               <dt>{HEAD_TO_HEAD_LABEL[m]}</dt>
               <dd>
-                {record![m].wins}–{record![m].draws}–{record![m].losses}
+                {record[m].wins}–{record[m].draws}–{record[m].losses}
                 <span class="stat-aside"> won–drawn–lost</span>
               </dd>
             </div>
@@ -109,11 +134,10 @@ const formatDate = (ms: number) =>
 /**
  * A friend's profile, opened from your friends list (or their name in a game,
  * a lobby's results or a board, item 18ca): a hub with their name
- * and country and a row per section, each a subpage. `yourGames` are this
- * browser's, for your record against them.
+ * and country and a row per section, each a subpage.
  */
 export function FriendProfileScreen({
-  apiUrl, identity, friend, page, onPage, onBack, backTo = 'friends', yourGames, onOpen, filter, onFilter,
+  apiUrl, identity, friend, page, onPage, onBack, backTo = 'friends', onOpen, filter, onFilter,
 }: {
   apiUrl: string;
   identity: ApiIdentity;
@@ -124,8 +148,6 @@ export function FriendProfileScreen({
   onBack: () => void;
   /** Where the hub's Back goes: your friends list, or the game, lobby or board their name was tapped on (item 18ca). */
   backTo?: 'friends' | 'back';
-  /** Every game in your history, or null while they load. */
-  yourGames: HistoryGame[] | null;
   /** Opens one of their games to review, with their current name and their Daily Rush places for it. */
   onOpen: (game: HistoryGame, name: string, placements: readonly DailyPlacement[]) => void;
   /** Their history's filters, kept while you review one of their games. */
@@ -142,13 +164,13 @@ export function FriendProfileScreen({
   const ready = state.status === 'ready' ? state : null;
   // Their current name, once loaded: the list's may be older.
   const name = ready?.profile.name ?? friend.name;
-  const theirs = useMemo(() => ready?.games.map((g) => ({ id: g.entry.id, replayed: g.replayed })) ?? null, [ready]);
-  const stats = useMemo(() => theirs && computeStats(theirs, Date.now()), [theirs]);
-  const earned = useMemo(() => theirs && computeAchievements(theirs, localDay, ready!.profile.placements), [theirs]);
-  const record = useMemo(
-    () => theirs && yourGames && headToHead(yourGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })), theirs),
-    [theirs, yourGames]);
-  const load = useMemo(() => listPage(ready?.games ?? []), [ready]);
+  const load = useMemo(() => {
+    const api = friendsApi(apiUrl, identity);
+    return async (filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage> => {
+      const page = await api.profileGames(friend.code, { filter, offset, limit });
+      return { games: toHistoryGames(page.games), next: page.next };
+    };
+  }, [apiUrl, identity, friend.code]);
 
   const open = (game: HistoryGame) => ready && onOpen(game, ready.profile.name, ready.profile.placements);
 
@@ -162,23 +184,38 @@ export function FriendProfileScreen({
         </>
       );
     }
+    const { summary } = state;
+    const notShared = <p class="field-note" role="status">{name}'s profile fills in the next time they open Word Mastermind.</p>;
     if (page === 'stats') {
+      if (!summary) {
+        return (
+          <>
+            <YouVersus name={name} record={state.versus} />
+            {notShared}
+          </>
+        );
+      }
       return (
-        <Analytics stats={stats} games={state.games} onOpen={open} friend={name}>
-          <YouVersus name={name} record={record} />
-        </Analytics>
+        <Shared fallback={<><YouVersus name={name} record={state.versus} />{notShared}</>}>
+          <Analytics stats={summary.stats} games={state.featured} onOpen={open} friend={name}>
+            <YouVersus name={name} record={state.versus} />
+          </Analytics>
+        </Shared>
       );
     }
-    if (page === 'achievements') return <Achievements earned={earned} fresh={new Set()} />;
+    if (page === 'achievements') {
+      return summary ? <Shared fallback={notShared}><Achievements earned={summary.badges} fresh={new Set()} /></Shared> : notShared;
+    }
     if (page === 'history') {
+      if (!summary) return notShared;
       return <GameHistory filter={filter} onFilter={onFilter} onOpen={open} load={load} friend={name} placements={state.profile.placements} />;
     }
     const { profile } = state;
-    const summaries: Record<FriendPage, string> = {
+    const summaries: Record<FriendPage, string> = summary ? {
       stats: `Their results, and yours against them`,
-      achievements: `${earned?.length ?? 0} of ${BADGES.length} badges`,
-      history: plural(state.games.length, 'game'),
-    };
+      achievements: `${summary.badges.length} of ${BADGES.length} badges`,
+      history: plural(summary.games, 'game'),
+    } : { stats: 'Your record against them', achievements: 'Not shared yet', history: 'Not shared yet' };
     return (
       <>
         <section class="profile-card" aria-label={name}>
