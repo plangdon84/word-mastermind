@@ -2023,9 +2023,11 @@ first.
     synced with your account) leaves you out of every search when off.
   - **By email:** a request goes to whoever has an account with that email.
     The app always answers "If they have a wordmastermind.app account,
-    they'll get your request", and the request stays off your list until
-    they accept (or you add them by code or name), so nobody can use it to
-    learn whether an email plays. Nothing is emailed, and an email with no
+    they'll get your request", and the request stays off your list (and
+    out of your friends limit) until they accept; adding them by code or
+    name starts a new request as if it never was, so nobody can use it to
+    learn whether an email plays. The server looks the email up after
+    answering, and sends friend notifications after answering too. Nothing is emailed, and an email with no
     account isn't kept. At most 20 a day, found or not. Someone who already
     asked you, or is already a friend, gets nothing new.
   - A phone's contacts and social accounts are left out: a web app can't

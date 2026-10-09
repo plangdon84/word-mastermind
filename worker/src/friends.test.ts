@@ -3,7 +3,7 @@ import { authApi, type Session } from '../../src/app/account';
 import { dailyApi } from '../../src/app/dailyApi';
 import { friendApi, FriendApiError } from '../../src/app/friendApi';
 import {
-  EMAIL_REQUESTS_PER_DAY, friendsApi, FriendsApiError, isFriendCode, isInviteKey, MAX_SHARED_CHARS, normalizeFriendCode, formatFriendCode,
+  EMAIL_REQUESTS_PER_DAY, MAX_FRIENDS, friendsApi, FriendsApiError, isFriendCode, isInviteKey, MAX_SHARED_CHARS, normalizeFriendCode, formatFriendCode,
   type SharedSummary,
 } from '../../src/app/friendsApi';
 import { addDays, dailyDay, headToHead, replayEntry, type HistoryEntry, type HistoryFilter } from '../../src/game';
@@ -233,15 +233,32 @@ describe('friend requests by email', () => {
     expect(await refusal(ann.friends.requestByEmail('bob@example.com'))).toBe('sent');
   });
 
-  it("show on the sender's list once they add the same player by code, without asking twice", async () => {
+  it('are forgotten once the sender adds the same player by code, which goes just as it would without them', async () => {
     const { player, pushed } = await setup();
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
-    const bobCode = (await bob.friends.list()).code;
+    const cat = await player(CAT, 'Cat');
+    const [bobCode, catCode] = [(await bob.friends.list()).code, (await cat.friends.list()).code];
     await ann.friends.requestByEmail('bob@example.com');
     pushed();
+    // Bob, whose email it was, and Cat, whose it wasn't: the same list, and the same notification.
     expect((await ann.friends.add(bobCode)).sent).toMatchObject([{ code: bobCode, name: 'Bob' }]);
-    expect(pushed()).toEqual([]);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+    await ann.friends.add(catCode);
+    expect(pushed()).toEqual([['Cat', await topicOf('friends')]]);
+    expect((await bob.friends.list()).received).toMatchObject([{ name: 'Ann' }]);
+  });
+
+  it("never count against the sender's limit, so a full list can't tell whose email it was", async () => {
+    const { player, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    const insert = sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?, ?, 'sent', ?)`);
+    sqlite.exec('PRAGMA foreign_keys = OFF');
+    for (let i = 0; i < MAX_FRIENDS - 1; i++) insert.run(ANN, `filler-${i}`, NOW);
+    await ann.friends.requestByEmail('bob@example.com');
+    expect(await refusal(ann.friends.add((await cat.friends.list()).code))).toBe('sent');
   });
 
   it("send nothing to a friend, or to someone who already asked you (who you'd accept on your list)", async () => {

@@ -122,10 +122,12 @@ Run `npm test` and `npm run typecheck` before committing.
   (`GET /api/friends/search`, `searchPlayers`; the synced `findByName`
   setting opts out) or an email (`POST /api/friends/email`,
   `requestByEmail`), which must answer the same whether or not the email
-  has an account: every refusal comes before the lookup, the sender's row
-  is `by_email` and stays off their list and out of search until accepted,
-  and the notification is sent after answering (`defer`, the worker's
-  `waitUntil`). Never store an email typed there.
+  has an account: every refusal is in `countEmailRequest`, before the
+  lookup; the lookup and request (`deliverEmailRequest`) and friend
+  notifications run after answering (`defer`, the worker's `waitUntil`);
+  the sender's row is `by_email`, off their list, search and limit until
+  accepted, and forgotten when they add that player another way
+  (`forgetEmailRequest`). Never store an email typed there.
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
   read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends
