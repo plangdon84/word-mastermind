@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 // Inlined, so its fill (currentColor) follows the text colour in dark mode.
 import logo from '../assets/logo.svg?raw';
 import { ProfileButton } from './gameHeader';
-import { BackIcon, HowToPlay, LockIcon } from './panels';
+import { BackIcon, LockIcon } from './panels';
 import { RankBySwitch } from './rushParts';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
@@ -438,7 +438,6 @@ export function TitleScreen({
   const [joinCode, setJoinCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>('home');
-  const [howTo, setHowTo] = useState(false);
   const [tutorial, setTutorial] = useState(false);
   // On the old address, the game has moved (issue #92): each visit until Done.
   const [moved, setMoved] = useState(() => movedNoticeDue(location.hostname));
@@ -530,24 +529,24 @@ export function TitleScreen({
               </div>
             </section>
           )}
-          <div class="link-row">
-            <button type="button" class="link-btn" onClick={() => setHowTo(true)}>How to play</button>
-            {!settings.showTutorial && (
-              <button type="button" class="link-btn" onClick={() => setTutorial(true)}>Tutorial</button>
-            )}
-            <button type="button" class="link-btn" onClick={() => openReport({ screen: 'Title screen' })}>
-              Report an issue
-            </button>
-          </div>
-          {/* The static pages (public/*.html), for search engines and anyone who wants to read more. */}
+          {/* One wrapped row of small print (Dev Plan item 18p): the static pages (public/*.html, for
+              search engines and anyone who wants to read more; Google's sign-in approval checks the
+              homepage links to Privacy), Report an issue and the version. Full rules stands in for
+              How to play here; the popup stays in ☰ and the profile's Help. */}
           <footer class="credit title-footer">
-            <a href="/how-to-play">Full rules</a>
-            <a href="/strategy">Strategy</a>
-            <a href="/jotto-and-wordle">Jotto and Wordle</a>
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Terms</a>
+            <ul>
+              <li><a href="/how-to-play">Full rules</a></li>
+              <li><a href="/strategy">Strategy</a></li>
+              <li><a href="/jotto-and-wordle">Jotto and Wordle</a></li>
+              {!settings.showTutorial && (
+                <li><button type="button" onClick={() => setTutorial(true)}>Tutorial</button></li>
+              )}
+              <li><a href="/privacy">Privacy</a></li>
+              <li><a href="/terms">Terms</a></li>
+              <li><button type="button" onClick={() => openReport({ screen: 'Title screen' })}>Report an issue</button></li>
+              <li><VersionLink onOpen={() => setStep('news')} /></li>
+            </ul>
           </footer>
-          <VersionLink onOpen={() => setStep('news')} />
         </>
       )}
 
@@ -664,7 +663,6 @@ export function TitleScreen({
       )}
       {step === 'news' && <WhatsNew />}
 
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
       {moved && step === 'home' && (
         <MovedNotice signedIn={identity.token !== null} onClose={() => setMoved(false)}
           onSignIn={() => onProfile('account')} onBackup={() => onProfile('data')} />

@@ -74,19 +74,6 @@ profile from games and boards becoming 18ca)
     other saves (item 17 fixed it for single player). Harder here: the
     computer's moves and the Rush clock's pauses run in each tab, so one
     tab has to lead
-- [ ] **18p. A shorter title screen footer** (agreed with the owner on 2
-  October 2026; app only, no review gate)
-  - The links under Leaderboards become one wrapped row of small print:
-    How to play · Full rules · Strategy · Jotto and Wordle · Privacy ·
-    Terms · Version, with Report an issue and the Tutorial link kept as
-    they are, so the bottom of the screen takes about two rows less on a
-    phone
-  - Every static page keeps a link from the title screen (18j's SEO), and
-    Privacy stays there, since Google's sign-in approval checks the
-    homepage links to the privacy policy
-  - Each link stays a full tap target; the version still opens What's new
-    (18g). A change players see, so it bumps the version (1.0.1) with its
-    release note
 
 **Later** (when their cost is worth it)
 
@@ -112,6 +99,20 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 ## Done, latest first
 
 **Phase D: after the launch**
+
+- [x] **18p. A shorter title screen footer** (agreed with the owner on 2
+  October 2026; app only, no review gate)
+  - The links under Leaderboards become one wrapped row of small print:
+    How to play · Full rules · Strategy · Jotto and Wordle · Privacy ·
+    Terms · Version, with Report an issue and the Tutorial link kept as
+    they are, so the bottom of the screen takes about two rows less on a
+    phone
+  - Every static page keeps a link from the title screen (18j's SEO), and
+    Privacy stays there, since Google's sign-in approval checks the
+    homepage links to the privacy policy
+  - Each link stays a full tap target; the version still opens What's new
+    (18g). A change players see, so it bumps the version (1.0.1) with its
+    release note
 
 - [x] **18d. Finding friends** (issue #79, and #78 but its last part, now 18da; server and privacy,
   review gate)

@@ -269,7 +269,7 @@ export function Tutorial({ hidden, onClose, onPlay }: {
         {last ? (
           <>
             <p>That's the game. Find the word from how many letters each guess shares with it.</p>
-            <p>How to play, on the home page, in ☰ and in your profile's Help, has all the rules whenever you need them.</p>
+            <p>How to play, in ☰ and in your profile's Help, and Full rules at the bottom of the home page have all the rules whenever you need them.</p>
             <label class="toggle tut-hide">
               <input type="checkbox" checked={hide} onChange={(e) => setHide(e.currentTarget.checked)} />
               Don't show the tutorial on the home page again

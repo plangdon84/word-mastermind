@@ -73,7 +73,7 @@ export const SCREENS: Screen[] = [
       await expect(page.getByRole('button', { name: 'Continue Practice' })).toBeVisible();
     },
   },
-  { name: 'how-to-play', open: async (page) => { await unlockAll(page); await button(page, 'How to play').click(); } },
+  { name: 'how-to-play', open: async (page) => { await profilePage(page, 'Help'); await button(page, 'How to play').click(); } },
   { name: 'tutorial', open: async (page) => { await unlockAll(page); await button(page, 'Tutorial').click(); } },
   { name: 'whats-new', open: async (page) => { await unlockAll(page); await button(page, /^Version .* What's new$/).click(); } },
   {
