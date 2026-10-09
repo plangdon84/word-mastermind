@@ -772,8 +772,7 @@ guess bubbles keep their grey.
 The title screen (Dev Plan item 18za, agreed with the owner from a
 mock-up on 8 October 2026) reads, top to bottom: the logo, a **Daily**
 card, **Games in progress**, the modes **Practice**, **Two player** and
-**Word Sets**, then **Leaderboards**, **How to play** and **Report an
-issue**. To players, Single player is **Practice** and Rush is **Word
+**Word Sets**, then **Leaderboards** and a footer of small print. To players, Single player is **Practice** and Rush is **Word
 Sets**, and Daily Rush is **Daily Set**; saved games, backups, badges and
 the code keep the old names, so nothing already saved changes.
 
@@ -819,13 +818,17 @@ the code keep the old names, so nothing already saved changes.
   (the title screen's mode choices don't: a tap there goes straight on).
 - The tagline is gone, to save height. **Leaderboards** sits under the
   modes at all times, whatever is unlocked or in progress and whether or
-  not you're signed in (see [Leaderboards](#leaderboards)). **How to play**
-  opens the rules, beside **Report an issue** (see [Reporting an
-  issue](#reporting-an-issue)). Until you hide it, a **Tutorial** card sits
-  above them (see [Tutorial](#tutorial)); once hidden, **Tutorial** joins
-  the links instead. Below them, a footer of small links opens the static
-  pages: **Full rules**, **Strategy**, **Jotto and Wordle**, **Privacy** and
-  **Terms** (Dev Plan item 18j). Under the modes, a new player is offered
+  not you're signed in (see [Leaderboards](#leaderboards)). Until you hide
+  it, a **Tutorial** card sits under it (see [Tutorial](#tutorial)). Last is
+  one wrapped row of small print, two lines on a phone (Dev Plan item 18p):
+  the static pages **Full rules**, **Strategy**, **Jotto and Wordle**
+  (then **Tutorial**, once the card is hidden), **Privacy** and **Terms**
+  (Dev Plan item 18j; every static page keeps a link here, and Privacy
+  must, since Google's sign-in approval checks that the homepage links to
+  it), **Report an issue** (see [Reporting an
+  issue](#reporting-an-issue)) and the version. Each link is still a full
+  tap target. Full rules stands in for the **How to play** popup here,
+  which stays in ☰ and the profile's Help. Under the modes, a new player is offered
   **Sign in** (opening the profile's **Account**, with **Not now**) and
   then, once signed in or after Not now, **Turn on turn alerts** (the same
   offer as in a first friend game): one card at a time, each gone once done
@@ -1519,8 +1522,8 @@ to 20 (Skilled), 🟥 more (Casual), and ⬛ for a word given up or not found.
 
 ### Version and release notes
 
-The app's version, starting at 1.0.0, is at the bottom of the title screen
-(**Version 1.0.0 · What's new**). A change players can see bumps it, 1.1.0
+The app's version, starting at 1.0.0, is at the end of the title screen's
+footer (**Version 1.0.0**, which opens What's new). A change players can see bumps it, 1.1.0
 for a feature and 1.0.1 for a fix, with one-line notes in plain words
 (`src/app/releases.ts`); other changes leave it alone. Each PR that bumps it
 shows its notes in a **Release note** section for the owner to review.

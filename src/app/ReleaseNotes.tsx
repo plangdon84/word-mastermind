@@ -1,11 +1,15 @@
 import { Modal } from './panels';
 import { APP_VERSION, RELEASES, type ReleasePicture } from './releases';
 
-/** The version at the bottom of the title screen; tapping it opens What's new. */
-export function VersionLink({ onOpen }: { onOpen: () => void }) {
+/**
+ * The version in the title screen's footer; tapping it opens What's new. The label is
+ * short to fit the footer's small print, and the name says What's new.
+ */
+export function VersionLink({ onOpen, tabIndex }: { onOpen?: () => void; tabIndex?: number }) {
   return (
-    <button type="button" class="link-btn version-link" onClick={onOpen}>
-      Version {APP_VERSION} · What's new
+    <button type="button" class="version-link" aria-label={`Version ${APP_VERSION} · What's new`}
+      title="What's new" tabIndex={tabIndex} onClick={onOpen}>
+      Version {APP_VERSION}
     </button>
   );
 }
@@ -14,9 +18,13 @@ export function VersionLink({ onOpen }: { onOpen: () => void }) {
 function Picture({ picture }: { picture: ReleasePicture }) {
   return (
     <div class="release-picture" inert aria-hidden="true">
-      {picture === 'how-to-play'
-        ? <button type="button" class="link-btn" tabIndex={-1}>How to play</button>
-        : <button type="button" class="link-btn version-link" tabIndex={-1}>Version {APP_VERSION} · What's new</button>}
+      <footer class="credit title-footer">
+        <ul>
+          <li>{picture === 'how-to-play'
+            ? <button type="button" tabIndex={-1}>How to play</button>
+            : <VersionLink tabIndex={-1} />}</li>
+        </ul>
+      </footer>
     </div>
   );
 }

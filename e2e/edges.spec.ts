@@ -325,7 +325,7 @@ test('content screens scroll from the side margins and the header, and a pop-up 
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     }
   }
-  await button(page, 'How to play').click();
+  await button(page, 'Tutorial').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   const before = await page.evaluate(() => window.scrollY);
   await page.mouse.move(8, 200);

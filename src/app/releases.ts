@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.15.1',
+    notes: [
+      { text: 'The links at the bottom of the home page are now one row of small print, so the screen is shorter.' },
+    ],
+  },
+  {
     version: '1.15.0',
     notes: [
       { text: 'Find friends by name: search for a player and send them a friend request.' },
