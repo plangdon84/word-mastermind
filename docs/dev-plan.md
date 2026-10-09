@@ -34,13 +34,6 @@ and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
 from a mock-up, went before 18z; and 18c was split, opening a friend's
 profile from games and boards becoming 18ca)
 
-- [ ] **18ca. Friends' profiles from games and boards** (Issue 64; split
-  from 18c, which opens them from the friends list; server and privacy,
-  review gate)
-  - A friend's name in a game against them, a lobby's places and the
-    Friends view of a board opens their profile too. The server marks
-    which names are your friends' (by friend code, never an ID), since
-    names alone can be shared or changed
 - [ ] **18cb. Faster friends' profiles** (round 1 review of 18c, finding 4;
   server and privacy, review gate)
   - A friend's profile loads their whole history before showing anything,
@@ -152,6 +145,13 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18ca. Friends' profiles from games and boards** (Issue 64; split
+  from 18c, which opens them from the friends list; server and privacy,
+  review gate)
+  - A friend's name in a game against them, a lobby's places and the
+    Friends view of a board opens their profile too. The server marks
+    which names are your friends' (by friend code, never an ID), since
+    names alone can be shared or changed
 - [x] **18c. Friends' profiles** (issues 64 and 155; server and privacy,
   review gate; adds README "Friends' profiles"). Opening one from games and
   boards moved to 18ca, to keep this PR small

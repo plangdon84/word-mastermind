@@ -2024,6 +2024,17 @@ history**.
 - **Game history** has the same filters and search as yours, without
   **Export CSV**. A game opens to review with a **← Bob's game** tag
   instead of **← Past game**, back to their history.
+- **From games and boards** (Dev Plan item 18ca): a friend's name also
+  opens their profile in the header of a two player game against them, in
+  the standings of a Word Set with friends once you've finished, and on the
+  **Friends** view of a leaderboard (the Daily Set's, and the rating
+  boards'). Only names of people on your friends list are buttons;
+  everyone else's, and every name on a board's **Everyone** view, stays
+  text. The server marks a friend's name with their friend code, never an
+  ID, since two players can share a name and anyone can change theirs. The
+  profile opens over the screen you tapped on, and **← Back** returns to
+  it as you left it (a reviewed game of theirs goes back to their profile,
+  then to that screen).
 
 ### Launch switches
 

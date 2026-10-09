@@ -126,7 +126,12 @@ Run `npm test` and `npm run typecheck` before committing.
   `playerOfAccount`), only entries (never a `ref`, which is a credential),
   leaving out a Daily Set until the day after it is over. Your record against them is
   `headToHead` (`src/game/headToHead.ts`): games whose history ID is in
-  both histories.
+  both histories. A friend's name in a game against them, a lobby's
+  results or a board's Friends view opens it too (item 18ca): the server
+  marks it with their friend code (`friendCodes` / `friendCodeSql` in
+  `worker/src/friends.ts`; `opponentCode`, `friendCode`), shown by
+  `PlayerName` (`src/app/friendLink.tsx`), and `App.tsx` opens the profile
+  over the screen (`friendOver`), which stays mounted for Back.
 - Repeated guesses (README "Repeated guesses"): every screen refuses a word
   already guessed (in Rush, at this word) before submitting, with
   `earlierGuess` (`src/game/repeats.ts`) and `repeatMessage` (the score too on
