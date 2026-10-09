@@ -492,6 +492,11 @@ test("a friend's profile: their stats, badges and games, and your record against
   await friend.goto(link);
   await button(friend, 'Add').click();
   await expect(friend.getByText(/are friends\./)).toBeVisible();
+  // Their device indexes their games and shares their stats and badges for friends (Dev Plan item 18cb).
+  const added = Date.now();
+  await expect.poll(async () => (await getStorage(friend, 'shared-profile'))?.at ?? 0, {
+    message: "the friend's device shared their profile", timeout: 15_000,
+  }).toBeGreaterThan(added);
 
   // Their name on your list opens their profile.
   await button(page, 'Back to profile').click();

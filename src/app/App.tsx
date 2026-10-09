@@ -21,7 +21,7 @@ import { friendApi } from './friendApi';
 import { FriendScreen } from './FriendScreen';
 import { MatchScreen } from './MatchScreen';
 import { clearFriendGames, gameIdFromUrl, loadFriendGames } from './friendGames';
-import { friendCodeFromUrl, inviteFromUrl, loadPendingInvite, savePendingInvite, type Friend } from './friendsApi';
+import { friendCodeFromUrl, friendsApi, inviteFromUrl, loadPendingInvite, savePendingInvite, type Friend } from './friendsApi';
 import { FriendsSection } from './FriendsSection';
 import { FriendProfileScreen, type FriendPage } from './FriendProfileScreen';
 import { OpenFriend } from './friendLink';
@@ -37,6 +37,7 @@ import { useHistoryGames } from './hooks';
 import { newId } from './ids';
 import { syncFriendGames } from './nextGame';
 import { pullPlayedGames } from './playedGames';
+import { clearSharedState, shareProfile } from './profileShare';
 import { ProfileScreen } from './ProfileScreen';
 import { DailyResult, friendReviewGame, LobbyPlaces, ratingLine } from './reviews';
 import { isProfilePage, type OpenProfile, type ProfilePage } from './profilePages';
@@ -113,6 +114,8 @@ const historyStore: HistoryStore = { allIds: getAllIds, getGames, putGames };
 
 /** How long after a change to the profile or settings it's sent, so a burst of changes goes as one. */
 const PROFILE_SYNC_DELAY_MS = 1500;
+/** How long after the history loads or changes it is shared with friends: it loads in bursts on opening and syncing. */
+const SHARE_DELAY_MS = 3000;
 
 /** The profile's stats subpage, from every saved game. */
 function StatsPage({ games, identity, signedIn, onOpen }: {
@@ -372,6 +375,7 @@ export function App() {
   const signedOut = (newGuest: boolean): string | null => {
     setSession(null);
     clearSyncState();
+    clearSharedState();
     if (!newGuest) return null;
     clearFriendGames();
     setFriendGamesVersion((v) => v + 1);
@@ -529,6 +533,27 @@ export function App() {
     () => historyGames && openModes(computeUnlocks(historyGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })))),
     [historyGames]);
 
+  /**
+   * Signed in, shares your stats and badges with friends and indexes your
+   * games for them (Dev Plan item 18cb), shortly after the history loads or
+   * changes. One round at a time; a failed one waits for the next change.
+   */
+  const sharing = useRef(false);
+  useEffect(() => {
+    const signedIn = session;
+    if (!API_URL || !signedIn || !historyGames || sharing.current) return;
+    const games = historyGames;
+    const timer = setTimeout(() => {
+      sharing.current = true;
+      shareProfile(friendsApi(API_URL!, latest.current.identity), signedIn.account.id, games, loadPlacements(), Date.now())
+        .catch(() => {})
+        .finally(() => {
+          sharing.current = false;
+        });
+    }, SHARE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [historyGames, session?.account.id]);
+
   const exit = () => setScreen({ name: 'title' });
   // Leaving a game for the profile keeps it (a Rush pauses), and Back picks it up again.
   /** Where the profile's Back returns to, opened from this screen. */
@@ -650,7 +675,7 @@ export function App() {
         <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friend} page={screen.page}
           onPage={(page) => setScreen({ ...screen, page })}
           onBack={() => setScreen(back ?? { name: 'profile', from, page: 'friends' })} backTo={back ? 'back' : 'friends'}
-          yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
+          filter={friendFilter} onFilter={setFriendFilter}
           onOpen={(game, name, placements) => setScreen({
             name: 'review', game, from, friend: { friend: { ...friend, name }, page: screen.page ?? 'history', placements, back },
           })} />
@@ -784,7 +809,7 @@ export function App() {
   const over = friendOver && API_URL && (
     <FriendProfileScreen apiUrl={API_URL} identity={identity} friend={friendOver.friend} page={friendOver.page}
       onPage={(page) => setFriendOver({ ...friendOver, page })} onBack={closeFriend} backTo="back"
-      yourGames={historyGames} filter={friendFilter} onFilter={setFriendFilter}
+      filter={friendFilter} onFilter={setFriendFilter}
       // Their game's review is a screen of its own: its Back comes to their profile, and that one's to here.
       onOpen={(game, name, placements) => setScreen({
         name: 'review', game, from: profileFrom(),
