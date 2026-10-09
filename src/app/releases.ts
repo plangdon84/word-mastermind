@@ -29,6 +29,7 @@ export const RELEASES: Release[] = [
     notes: [
       { text: 'Find friends by name: search for a player and send them a friend request.' },
       { text: 'Or type a friend’s email to send them a request if they have a wordmastermind.app account.' },
+      { text: 'You can now be found by your name. Turn it off on the Friends page.' },
     ],
   },
   {
