@@ -1,7 +1,7 @@
 import type { Difficulty } from './difficulty';
 import { dayEnd, type DailyDay } from './dailyDays';
 import type { RunGame, WordOutcome } from './run';
-import type { GuessResult } from './scoring';
+import type { GuessResult, RankBy } from './scoring';
 
 /*
  * Daily Rush (README "Rush modes"): everyone plays the same themed set of 4
@@ -47,6 +47,15 @@ export interface DailyView {
   /** Pauses not yet used (`DAILY_PAUSES` a run). */
   pausesLeft: number;
 }
+
+/** The daily games: the Daily Set (Daily Rush) and the Daily Word (Dev Plan item 7b), as history modes. */
+export type DailyMode = 'daily' | 'dailyWord';
+
+/**
+ * The boards each daily game has, Crush first: the Daily Set's Crush and Rush,
+ * the Daily Word's Crush (fewest guesses) alone.
+ */
+export const DAILY_BOARDS: Readonly<Record<DailyMode, readonly RankBy[]>> = { daily: ['crush', 'rush'], dailyWord: ['crush'] };
 
 /** Pauses a Daily Rush allows (owner, 8 October 2026). */
 export const DAILY_PAUSES = 2;

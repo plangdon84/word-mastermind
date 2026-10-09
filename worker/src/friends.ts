@@ -1,4 +1,4 @@
-import { dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
+import { DAILY_MODES, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
   FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, parseFriendGamesParams, type Friend,
@@ -267,7 +267,7 @@ async function friendProfile(db: D1Database, friendId: string, now: number): Pro
     country: isCountry(row?.country) ? row.country : null,
     memberSince: row?.member_since ?? null,
     // The Daily Word's places come last, so an older app, which takes a day's first, shows the Daily Set's.
-    placements: [...await pastPlacements(db, player, dailyDay(now)), ...await pastPlacements(db, player, dailyDay(now), 'dailyWord')],
+    placements: (await Promise.all(DAILY_MODES.map((mode) => pastPlacements(db, player, dailyDay(now), mode)))).flat(),
   };
 }
 

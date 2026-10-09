@@ -18,10 +18,11 @@ export const CSV_COLUMNS = [
 /**
  * A Word Set's `ranked_by` cell: `rush` (by time, its `rush_score` in seconds)
  * or `crush` (by guesses); `both` for the Daily Set, which is on both
- * boards. Empty for the other modes.
+ * boards, and `crush` for the Daily Word. Empty for the other modes.
  */
 function rankedBy(entry: HistoryEntry): Cell {
   if (entry.mode === 'daily') return 'both';
+  if (entry.mode === 'dailyWord') return 'crush';
   return entry.mode === 'rush' || entry.mode === 'lobby' ? runRankBy(entry.record) : null;
 }
 

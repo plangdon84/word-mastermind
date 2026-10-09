@@ -13,7 +13,7 @@ import { listOpen, loadListChoice, saveListChoice } from './gamesInProgress';
 import { useNow } from './hooks';
 import { countdownText } from './messages';
 import { openReport } from './reportIssue';
-import { DAILY_NAME } from './shareText';
+import { DAILY_NAME } from './messages';
 import type { ApiIdentity } from './apiIdentity';
 import type { Profile } from './profileStorage';
 import type { Difficulty, Mode, Opponent, RushKind, Settings, Strength } from './settings';

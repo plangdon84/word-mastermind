@@ -1,5 +1,5 @@
 import type { Strength } from './computer';
-import { isDailyDay, type DailyDay } from './daily';
+import { isDailyDay, type DailyDay, type DailyMode } from './daily';
 import type { Difficulty } from './difficulty';
 import type { LobbyKind } from './lobby';
 import { parseMarks, type Marks } from './marks';
@@ -31,10 +31,8 @@ export const HISTORY_MODES: readonly HistoryMode[] = ['single', 'computer', 'rus
  */
 export const SERVER_MODES: readonly HistoryMode[] = ['friend', 'daily', 'dailyWord', 'lobby'];
 
-/** The daily games (README "Daily Set" and "Daily Word"): each a run on its day, refereed by the server. */
-export const DAILY_MODES = ['daily', 'dailyWord'] as const;
-export type DailyMode = typeof DAILY_MODES[number];
-export const isDailyMode = (mode: HistoryMode): mode is DailyMode => mode === 'daily' || mode === 'dailyWord';
+/** The daily games (README "Daily Rush" and "Daily Word"): each a run on its day, refereed by the server. */
+export const DAILY_MODES: readonly DailyMode[] = ['daily', 'dailyWord'];
 
 export const isServerMode = (mode: HistoryMode) => SERVER_MODES.includes(mode);
 

@@ -101,6 +101,9 @@ export async function handleDaily(
       created = createRun([await deps.wordFor(day)], now, { difficulty: request.difficulty });
       if (!created.ok) throw new Error(`${day}'s Daily Word isn't a valid run: ${created.error}`);
     }
+    // Reading the day's words waits on D1, when another start from this player (a double tap) can get in:
+    // look again, so the second never replaces the first run.
+    if (await findEntry(storage, mode, request)) return refuse(409, 'already-played');
     const started: DailyEntry = { playerId: request.playerId, name: request.name, record: toRunRecord(created.game) };
     await storage.put(keyOf(mode, started.playerId), started);
     return answer(started);

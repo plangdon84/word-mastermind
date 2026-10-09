@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dailyApi, DailyApiError, type DailyApi } from '../../src/app/dailyApi';
 import { fetchPlayed } from '../../src/app/playedApi';
 import { addDays, dayEnd, replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
-import { DAILY_WORD_REPEAT_DAYS, pickWordFor } from './dailyWords';
+import { DAILY_WORD_FROM, DAILY_WORD_REPEAT_DAYS, pickWordFor } from './dailyWords';
 import { fakeD1 } from './fakeD1';
 import { fakeDaily } from './fakeDaily';
 import { handle, type Env } from './index';
@@ -104,6 +104,14 @@ describe("today's Daily Word", () => {
     expect((await s.word(ANN).today()).run?.words).toHaveLength(1);
   });
 
+  it('starts once from two starts at the same moment, the second never replacing the first', async () => {
+    const s = setup();
+    const results = await Promise.allSettled([s.word(ANN).start(DAY, 'medium', 'Ann'), s.word(ANN).start(DAY, 'hard', 'Ann')]);
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    const started = results.find((r) => r.status === 'fulfilled') as PromiseFulfilledResult<Awaited<ReturnType<DailyApi['start']>>>;
+    expect((await s.word(ANN).today()).run?.difficulty).toBe(started.value.run?.difficulty);
+  });
+
   it('can be given up, which leaves no entry and keeps the word hidden until the day is over', async () => {
     const s = setup();
     await s.word(ANN).start(DAY, 'medium', 'Ann');
@@ -183,7 +191,7 @@ describe("the Daily Word's board", () => {
     expect(await refusal(s.word(ANN).board(DAY, 'medium', 'everyone', 'rush'))).toBe('bad-request');
   });
 
-  it("is there today before anyone has played, shows the word once the day is over, and no day without one", async () => {
+  it("is there today before anyone has played, shows the word once the day is over, and no day before the first", async () => {
     const s = setup();
     expect(await s.word(ANN).board(DAY, 'medium')).toMatchObject({ total: 0, words: null, top: [], you: null });
     await s.word(ANN).start(DAY, 'medium', 'Ann');
@@ -191,7 +199,10 @@ describe("the Daily Word's board", () => {
     expect((await s.word(ANN).board(DAY, 'medium')).words).toBeNull();
     await s.word(ANN).giveUp(DAY);
     expect((await s.word(ANN).board(DAY, 'medium')).words).toEqual([s.wordOf()]);
-    expect(await refusal(s.word(ANN).board(addDays(DAY, -1), 'medium'))).toBe('not-found');
+    // A past day nobody played has an empty board, back to the first day of the Daily Word, so ‹ keeps working.
+    expect(await s.word(ANN).board(addDays(DAY, -1), 'medium')).toMatchObject({ total: 0, words: null });
+    expect(await s.word(ANN).board(DAILY_WORD_FROM, 'medium')).toMatchObject({ total: 0, words: null });
+    expect(await refusal(s.word(ANN).board(addDays(DAILY_WORD_FROM, -1), 'medium'))).toBe('not-found');
     expect(await refusal(s.word(ANN).board(addDays(DAY, 2), 'medium'))).toBe('not-found');
   });
 

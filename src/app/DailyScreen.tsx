@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow,
+  addDays, betterThan, DAILY_BOARDS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow,
   rankByName, validateGuess, type DailyDay, type DailyMode, type DailyView, type DailyWordView, type Difficulty, type Marks,
   type RankBy,
 } from '../game';
@@ -21,14 +21,14 @@ import { NO_GUESSES, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useDefinitions } from './definitions';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
-import { countdownText, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
+import { countdownText, DAILY_NAME, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
 import { formatClock, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
-import { DAILY_NAME, dailyShareText } from './shareText';
+import { dailyShareText } from './shareText';
 
 
 /** The server's refusal code, or `unreachable`. */
@@ -49,9 +49,6 @@ export function placeText(p: { rank: number; total: number; behind: number }): s
   const better = betterThan(p);
   return `${ordinal(p.rank)} of ${p.total}${better === null ? '' : ` · better than ${better}%`}`;
 }
-
-/** The boards each daily game has: the Daily Set's Crush and Rush, the Daily Word's Crush (fewest guesses) alone. */
-export const DAILY_BOARDS: Record<DailyMode, readonly RankBy[]> = { daily: ['crush', 'rush'], dailyWord: ['crush'] };
 
 /**
  * A day's leaderboard for one difficulty, with the days before it a tap
@@ -85,7 +82,7 @@ export function DailyBoardPanel({ mode = 'daily', api, today, day: firstDay, dif
       if (!live) return;
       const code = codeOf(e);
       if (code === 'not-found' && day < today) setFirst(addDays(day, 1));
-      setError(dailyErrorMessage(code));
+      setError(dailyErrorMessage(code, '', mode));
     });
     return () => {
       live = false;
@@ -208,6 +205,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   /** Your place so far on each of today's boards: Crush and (the Daily Set) Rush. */
   const [placements, setPlacements] = useState<Partial<Record<RankBy, NonNullable<DailyBoard['you']>>>>({});
   const [openDef, setOpenDef] = useState(-1);
+  /** Start is on its way: a second tap waits for it. */
+  const [starting, setStarting] = useState(false);
   const [howTo, setHowTo] = useState(false);
   const localNow = useNow(1000);
   const now = localNow + offset;
@@ -263,7 +262,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
         return;
       }
       setToday(await api.start(t.day, settings.difficulty, displayName(profile)));
-    }).catch((e: unknown) => setLoadError(dailyErrorMessage(codeOf(e))));
+    }).catch((e: unknown) => setLoadError(dailyErrorMessage(codeOf(e), '', mode)));
   };
   useEffect(() => load(), []);
 
@@ -304,7 +303,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
 
   /** The run's day is long over (more than a day late): it can't be finished, and today's set is out. */
   const dayOver = () => {
-    setMessage({ text: dailyErrorMessage('day-over'), error: true });
+    setMessage({ text: dailyErrorMessage('day-over', '', mode), error: true });
     setDraft('');
     api.today().then(setToday, () => {});
   };
@@ -343,7 +342,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     } catch (e) {
       const code = codeOf(e);
       if (code === 'day-over') dayOver();
-      else reject(dailyErrorMessage(code, guess));
+      else reject(dailyErrorMessage(code, guess, mode));
     } finally {
       busy.current = false;
     }
@@ -367,7 +366,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     } catch (e) {
       const code = codeOf(e);
       if (code === 'day-over') dayOver();
-      else reject(dailyErrorMessage(code, word));
+      else reject(dailyErrorMessage(code, word, mode));
     } finally {
       busy.current = false;
     }
@@ -386,7 +385,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     } catch (e) {
       const code = codeOf(e);
       if (code === 'day-over') dayOver();
-      else setMessage({ text: dailyErrorMessage(code), error: true });
+      else setMessage({ text: dailyErrorMessage(code, '', mode), error: true });
     } finally {
       busy.current = false;
     }
@@ -398,8 +397,16 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     if (!day) return;
     api.giveUp(day).then(setToday, (e: unknown) => {
       if (codeOf(e) === 'day-over') dayOver();
-      else setMessage({ text: dailyErrorMessage(codeOf(e)), error: true });
+      else setMessage({ text: dailyErrorMessage(codeOf(e), '', mode), error: true });
     });
+  };
+
+  const startRun = () => {
+    if (!today || starting) return;
+    setStarting(true);
+    api.start(today.day, settings.difficulty, displayName(profile))
+      .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e), '', mode), error: true }))
+      .finally(() => setStarting(false));
   };
 
   const markLetter = (letter: string) => {
@@ -496,10 +503,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
-                <button class="btn primary" type="button" onClick={() => {
-                  api.start(today.day, settings.difficulty, displayName(profile))
-                    .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e)), error: true }));
-                }}>Start Daily Word</button>
+                <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start Daily Word</button>
                 <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>
@@ -513,10 +517,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
-                <button class="btn primary" type="button" onClick={() => {
-                  api.start(today.day, settings.difficulty, displayName(profile))
-                    .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e)), error: true }));
-                }}>Start Daily Set</button>
+                <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start Daily Set</button>
                 <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>

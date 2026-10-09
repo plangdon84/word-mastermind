@@ -1,4 +1,4 @@
-import type { Difficulty, EarlierGuess, GuessResult, RunError, SoloGameError, TwoPlayerError, WordError } from '../game';
+import type { DailyMode, Difficulty, EarlierGuess, GuessResult, RunError, SoloGameError, TwoPlayerError, WordError } from '../game';
 import type { DailyError } from './dailyApi';
 import type { FriendError } from './friendApi';
 import type { LobbyErrorCode } from './lobbyApi';
@@ -196,7 +196,13 @@ export function dayEndingStartText(ms: number): string | null {
 }
 
 /** What to tell the player when the server refuses a Daily Rush request. */
-export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''): string {
+/** The daily games' names, as shown and shared. */
+export const DAILY_NAME: Record<DailyMode, string> = { daily: 'Daily Set', dailyWord: 'Daily Word' };
+
+/** A daily game's refusal, naming the game (`mode`): the Daily Set's, or the Daily Word's. */
+export function dailyErrorMessage(error: DailyError | 'unreachable', word = '', mode: DailyMode = 'daily'): string {
+  const name = DAILY_NAME[mode];
+  const next = mode === 'daily' ? 'set' : 'word';
   switch (error) {
     case 'wrong-length':
     case 'not-letters':
@@ -209,15 +215,15 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
     case 'unreachable':
       return "Can't reach the game server. Check your connection and try again.";
     case 'no-theme':
-      return "There's no Daily Set today.";
+      return `There's no ${name} today.`;
     case 'already-played':
-      return "You've already played today's Daily Set. A new set is out at midnight New York time.";
+      return `You've already played today's ${name}. A new ${next} is out at midnight New York time.`;
     case 'not-started':
-      return "You haven't started today's Daily Set.";
+      return `You haven't started today's ${name}.`;
     case 'day-over':
-      return "That day's Daily Set is over: a new set is out.";
+      return `That day's ${name} is over: a new ${next} is out.`;
     case 'game-over':
-      return "Today's Daily Set is over for you.";
+      return `Today's ${name} is over for you.`;
     case 'paused':
       return 'The clock is paused. Resume to keep playing.';
     case 'not-paused':
@@ -229,7 +235,7 @@ export function dailyErrorMessage(error: DailyError | 'unreachable', word = ''):
     case 'offensive-name':
       return "Your name can't go on the leaderboard. Change it on your profile to play.";
     case 'not-found':
-      return 'There was no Daily Set that day.';
+      return `There was no ${name} that day.`;
     case 'signed-out':
     case 'sign-in-needed':
       return 'You were signed out. Sign in again from your profile to play.';

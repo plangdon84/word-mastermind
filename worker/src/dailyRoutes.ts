@@ -1,5 +1,5 @@
 import {
-  addDays, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, RANK_BYS, validateName, type DailyDay,
+  addDays, DAILY_BOARDS, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, validateName, type DailyDay,
   type DailyMode, type DailyPlacement, type Difficulty, type RankBy,
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyToday } from '../../src/app/dailyApi';
@@ -7,7 +7,7 @@ import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
 import { identify, isPlayers, type Player } from './accounts';
 import { RESULTS_TABLE, type DailyRequest, type DailyResponse } from './dailyRoom';
 import { themeFor } from './dailyThemes';
-import { wordFor } from './dailyWords';
+import { DAILY_WORD_FROM, wordFor } from './dailyWords';
 import { friendCodeSql } from './friends';
 import { registerGuest } from './guests';
 import { errorResponse, json, readJson } from './http';
@@ -52,8 +52,6 @@ const placeColumns = (table: string, rankBy: RankBy, filter = '') => {
     AND (o.${first} > r.${first} OR (o.${first} = r.${first} AND o.${then} > r.${then}))) AS behind`;
 };
 
-/** The boards each daily game has: the Daily Set's Rush and Crush, the Daily Word's Crush alone (fewest guesses). */
-const BOARDS: Readonly<Record<DailyMode, readonly RankBy[]>> = { daily: RANK_BYS, dailyWord: ['crush'] };
 
 interface PlaceRow {
   day: string;
@@ -82,7 +80,7 @@ const toPlacement = (r: PlaceRow, rankBy: RankBy, mode: DailyMode): DailyPlaceme
 export async function pastPlacements(
   db: D1Database, player: Player, today: DailyDay, mode: DailyMode = 'daily',
 ): Promise<DailyPlacement[]> {
-  const boards = await Promise.all(BOARDS[mode].map(async (rankBy) => {
+  const boards = await Promise.all(DAILY_BOARDS[mode].map(async (rankBy) => {
     const { results } = await db.prepare(
       `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(RESULTS_TABLE[mode], rankBy)}
        FROM ${RESULTS_TABLE[mode]} r WHERE r.day < ?1 AND ${isPlayers('r.player_id', '?2')} ORDER BY r.day`,
@@ -130,8 +128,9 @@ async function wordsOf(env: Env, mode: DailyMode, day: DailyDay, now: number): P
     return theme && { theme: theme.theme, words: theme.words };
   }
   const word = await wordFor(env.DB, day);
-  // Today's board is there before anyone has started (and so picked) today's word.
-  return word ? { theme: null, words: [word] } : day === dailyDay(now) ? { theme: null, words: null } : null;
+  // A day's word is picked when it's first started, so a day nobody played (today, before anyone has) has an
+  // empty board, back to the first day of the Daily Word; the board pages back to there.
+  return word ? { theme: null, words: [word] } : day >= DAILY_WORD_FROM ? { theme: null, words: null } : null;
 }
 
 async function board(
@@ -205,7 +204,7 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
     // Crush, fewest guesses, unless asked for Rush, fastest: as every board was before Rush and Crush.
     const rankBy = params.get('by') ?? 'crush';
     if (!isDailyDay(day) || !isDifficulty(difficulty) || !isCircle(circle) || !isRankBy(rankBy)
-      || !BOARDS[mode].includes(rankBy)) return errorResponse(400, 'bad-request');
+      || !DAILY_BOARDS[mode].includes(rankBy)) return errorResponse(400, 'bad-request');
     // Only an account has friends.
     if (circle === 'friends' && !player.accountId) return errorResponse(401, 'signed-out');
     return board(env, mode, player, day, difficulty, circle, rankBy, now);

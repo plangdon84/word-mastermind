@@ -186,7 +186,7 @@ Run `npm test` and `npm run typecheck` before committing.
   never pick it from anything in this repo. Its board is
   `daily_word_results` (Crush only, `DAILY_BOARDS`), its places carry
   `mode: 'dailyWord'` (kept out of the Daily Set's top 10 badges), and it's
-  the history mode `dailyWord` (`DAILY_MODES`, `isDailyMode`). The app
+  the history mode `dailyWord` (`DAILY_MODES`, `DailyMode`). The app
   reuses `DailyScreen`, `DailyBoardPanel`, `dailyApi` and `dailyStorage`
   with a `mode`, and `DAILY_NAME` names both games.
 - Leaderboards (Dev Plan item 9b, README "Leaderboards"): a **Leaderboards**

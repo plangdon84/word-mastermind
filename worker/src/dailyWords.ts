@@ -8,6 +8,9 @@ import { themeFor } from './dailyThemes';
  * be, and keeps it so the day's word never changes.
  */
 
+/** The first day of the Daily Word (Dev Plan item 7b): a day before it has no board. */
+export const DAILY_WORD_FROM: DailyDay = '2026-10-09';
+
 /** A word isn't the Daily Word again within this many days. */
 export const DAILY_WORD_REPEAT_DAYS = 365;
 
@@ -30,6 +33,7 @@ export async function pickWordFor(db: D1Database, day: DailyDay, random: () => n
   const fresh = SECRET_WORDS.filter((w) => !used.has(w));
   const pool = fresh.length > 0 ? fresh : SECRET_WORDS;
   const word = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
-  await db.prepare('INSERT OR IGNORE INTO daily_words (day, word) VALUES (?1, ?2)').bind(day, word).run();
-  return (await wordFor(db, day))!;
+  const saved = await db.prepare('INSERT OR IGNORE INTO daily_words (day, word) VALUES (?1, ?2)').bind(day, word).run();
+  // Saved, it's the day's word; otherwise another pick got there first, so read that one.
+  return saved.meta.changes > 0 ? word : (await wordFor(db, day))!;
 }

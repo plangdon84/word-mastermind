@@ -6,6 +6,7 @@ import { API_URL } from './config';
 import { dailyApi } from './dailyApi';
 import { PlayerName } from './friendLink';
 import { DailyBoardPanel } from './DailyScreen';
+import { DAILY_NAME } from './messages';
 import { fetchRatingBoard, LeaderboardError, type Circle, type RatingBoard } from './leaderboardsApi';
 import { fetchRatings, ratingText, type PoolRating } from './ratingsApi';
 
@@ -19,8 +20,7 @@ import { fetchRatings, ratingText, type PoolRating } from './ratingsApi';
 export type BoardId = 'daily' | 'dailyWord' | RatingPool;
 
 export const BOARD_TITLE: Record<BoardId, string> = {
-  daily: 'Daily Set',
-  dailyWord: 'Daily Word',
+  ...DAILY_NAME,
   '15m': 'Live PvP · 15 min',
   '10m': 'Live PvP · 10 min',
   '5m': 'Live PvP · 5 min',

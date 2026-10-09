@@ -12,7 +12,7 @@ import {
   BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
   type DailyMode, type DailyPlacement, type HistoryFilter, type HistoryMode, type LobbyKind,
 } from '../game';
-import { DAILY_NAME } from './shareText';
+import { DAILY_NAME } from './messages';
 import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';

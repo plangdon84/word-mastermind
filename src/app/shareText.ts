@@ -2,7 +2,7 @@ import {
   dayStart, ordinal, strengthForAverage, wordSetName, type DailyDay, type DailyMode, type Difficulty, type RankBy, type Strength,
 } from '../game';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
-import { guessCount } from './messages';
+import { DAILY_NAME, guessCount } from './messages';
 import { formatClock } from './rushParts';
 
 /**
@@ -34,9 +34,6 @@ export interface SharedWord {
 /** One emoji per word, in the order played. */
 export const wordEmoji = (words: readonly SharedWord[]) =>
   words.map((w) => (w.found ? WORD_EMOJI[strengthForAverage(w.guesses)] : NOT_FOUND)).join('');
-
-/** The daily games' names, as shared and shown. */
-export const DAILY_NAME: Record<DailyMode, string> = { daily: 'Daily Set', dailyWord: 'Daily Word' };
 
 /**
  * "Daily Set #2 · Hard" (or "Daily Word #2 · Hard"), the emoji (one per
