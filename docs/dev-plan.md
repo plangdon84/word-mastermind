@@ -37,24 +37,35 @@ fixes players see, 18zb and 18zc, went first, and the server tidy-ups 18zd
 to 18zf after 18n; on 10 October 2026, 18zg went first: a player's online
 games stopped reaching their history)
 
-- [ ] **18zg. One stuck game no longer holds up your online games** (found
-  on 10 October 2026 restoring a player's history by hand; worker, review
-  gate)
+- [ ] **18zg. Saved games survive a word leaving the lists** (found on 10
+  October 2026 restoring a player's history by hand; game logic and worker,
+  review gate)
+  - The cause: every engine rebuilds a saved game by replaying its record,
+    and replay checks each word against today's lists. A word banned after
+    it was played (`wordlist/rules/ban.txt`) makes the record fail
+    (`not-in-word-list`). Two friend games from 2 and 4 October 2026 hold
+    a guess banned since: their rooms now answer every request with an
+    error, and the 3 players in them stopped getting their online games
+    (below). A scan of every server and synced game on 10 October 2026
+    found no others; a guest's local history can lose a game the same way
+  - Replaying a record accepts its words as recorded (as `replaying`
+    already does for difficulty changes) in every engine (two player,
+    friend, single player, Solo and Daily Rush, lobbies); the lists check
+    only new moves, so old records still replay. A test replays a record
+    holding a word that's off the lists, in each engine. The two stuck
+    rooms then answer again and their games reach all 3 players with
+    nothing for them to do
   - Fetching your finished online games (`playedPage` in
     `worker/src/played.ts`) stops before a game whose room doesn't answer
-    (`TryAgain`), so the app asks for it again next time. A room that keeps
-    failing stops the fetch at that game for good: no game after it ever
-    reaches that player's history, on any device, including games they
-    play later. Two such rooms have done this since 2 October 2026, for
-    every player in them
-  - The fetch carries on past a game whose room fails and keeps it to try
-    again (as indexing for friends already does with `shared_profiles.retry`),
-    so later games still arrive; a game that fails a few times in a row is
-    given up on. A device that's stuck today catches up on its next fetch,
-    with nothing for the player to do
-  - Find out from the worker's logs why those two rooms fail, and fix it if
-    it's in the room, so their games come back too. Builds alongside 18zd's
-    change to the same fetch (issue 209); whichever ships second keeps both
+    (`TryAgain`), for the app to ask again, so one room that keeps failing
+    holds up every later game for good, on every device. The fetch carries
+    on past it and keeps it to try again (as indexing for friends already
+    does with `shared_profiles.retry`), giving up after a few failures in a
+    row. Builds alongside 18zd's change to the same fetch (issue 209);
+    whichever ships second keeps both
+  - The PR's **Decisions needed before review**: an old game keeps showing
+    a since-banned word to the two players in it (recommended, as the
+    record can't change), or the screens hide it
 - [ ] **18zc. A Rush score reads as a time a word** (issues
   plangdon84/word-mastermind-archive#197 and
   plangdon84/word-mastermind-archive#207; app only, no review gate)
