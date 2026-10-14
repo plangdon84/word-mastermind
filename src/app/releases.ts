@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.15.3',
+    notes: [
+      { text: 'Fixed a bug preventing games history from fully loading for some players.' },
+    ],
+  },
+  {
     version: '1.15.2',
     notes: [
       { text: 'Small layout fixes: the Check for mistakes button, a friend’s name beside “You vs.” and the place on a Daily result now line up properly.' },

@@ -182,13 +182,24 @@ describe('replaySolo', () => {
   it('fails on a move the rules refuse', () => {
     const guess = (word: string) => ({ kind: 'guess' as const, word, at: T });
     const record = { secret: 'crane', startedAt: T, difficulty: 'medium' as const };
-    expect(replaySolo({ ...record, moves: [guess('zzzzz')] }))
-      .toEqual({ ok: false, error: 'not-in-word-list' });
+    expect(replaySolo({ ...record, moves: [guess('zzzz1')] }))
+      .toEqual({ ok: false, error: 'not-letters' });
     expect(replaySolo({ ...record, moves: [{ kind: 'give-up', at: T }, guess('plots')] }))
       .toEqual({ ok: false, error: 'game-over' });
     expect(replaySolo({ ...record, moves: [{ kind: 'give-up', at: T }, { kind: 'difficulty', difficulty: 'hard', at: T }] }))
       .toEqual({ ok: false, error: 'game-over' });
     expect(replaySolo({ ...record, secret: 'bunny', moves: [] })).toEqual({ ok: false, error: 'repeated-letters' });
+  });
+
+  it('takes words as recorded, though the lists have lost them since', () => {
+    const at = (kind: 'guess' | 'suggest', word: string) => ({ kind, word, at: T });
+    const record = { secret: 'qxjvw', startedAt: T, difficulty: 'easy' as const };
+    const replayed = replaySolo({ ...record, moves: [at('suggest', 'zzzzz'), at('guess', 'zzzzz'), at('guess', 'qxjvw')] });
+    expect(replayed.ok && replayed.game.guesses.map((g) => g.guess)).toEqual(['zzzzz', 'qxjvw']);
+    expect(replayed.ok && replayed.game.status).toBe('won');
+    // A new game or guess still checks the lists.
+    expect(createSoloGame('qxjvw', T)).toEqual({ ok: false, error: 'not-in-word-list' });
+    expect(submitGuess(newGame('crane'), 'zzzzz', T)).toEqual({ ok: false, error: 'not-in-word-list' });
   });
 });
 

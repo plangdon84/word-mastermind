@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HistoryEntry } from '../game';
 import { dailyEntry, friendEntry } from '../game/testGames';
 import { addFriendGame, updateFriendGame } from './friendGames';
-import { pullPlayedGames, type PlayedStore } from './playedGames';
+import { PLAYED_TRIES, pullPlayedGames, type PlayedStore } from './playedGames';
 
 const ID = 'a'.repeat(64);
 const T = Date.UTC(2026, 9, 31, 12);
@@ -90,5 +90,74 @@ describe('pulling your server games', () => {
     expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1']);
     await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
     expect(asked).toEqual([0, 4]);
+  });
+
+  describe('a game whose room does not answer (Dev Plan item 18zg)', () => {
+    /** A server that passes over game 4 while `failing`, and gives it once asked for again after that. */
+    function flaky() {
+      const state = { failing: true };
+      const asked: string[] = [];
+      const fetchFn = (async (url: RequestInfo | URL) => {
+        const params = new URL(String(url)).searchParams;
+        const after = Number(params.get('after'));
+        const retry = params.get('retry') ? params.get('retry')!.split(',').map(Number) : [];
+        asked.push(`${after}:${retry.join(',')}:${params.get('skip')}`);
+        const again = retry.includes(4);
+        const body = after === 0
+          ? { games: [{ entry: day, ref: '2026-10-31', seq: 5 }], next: null, cursor: 5, retried: [], retry: [4] }
+          : {
+            games: [], next: null, cursor: after,
+            retried: again && !state.failing ? [{ entry: won, ref: ID, seq: 4 }] : [],
+            retry: again && state.failing ? [4] : [],
+          };
+        return new Response(JSON.stringify(body));
+      }) as typeof fetch;
+      return { fetchFn, asked, state };
+    }
+
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('carries on past it, and brings it once its room answers', async () => {
+      const { fetchFn, asked, state } = flaky();
+      const { s } = store();
+      const pull = () => pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn, T);
+      expect(await pull()).toEqual(['daily-1']);
+      expect(await pull()).toEqual([]);
+      state.failing = false;
+      expect(await pull()).toEqual(['friend-1']);
+      await pull();
+      // Asked for again on each pull until it came, leaving room to pass over fewer meanwhile.
+      expect(asked).toEqual(['0::3', '5:4:2', '5:4:2', '5::3']);
+    });
+
+    it(`gives up on it after its room fails on ${PLAYED_TRIES} days in a row, counting a day's pulls once`, async () => {
+      const { fetchFn, asked } = flaky();
+      const { s } = store();
+      const pull = (at: number) => pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn, at);
+      // Many pulls in a few hours, as during an outage, count once.
+      for (let hour = 0; hour < 10; hour += 1) await pull(T + hour * 3_600_000);
+      for (let day = 1; day < PLAYED_TRIES; day += 1) await pull(T + day * DAY);
+      expect(asked.filter((a) => a.startsWith('5:4:'))).toHaveLength(9 + PLAYED_TRIES - 1);
+      await pull(T + PLAYED_TRIES * DAY);
+      expect(asked.at(-1)).toBe('5::3');
+    });
+
+    it("keeps one asked for again that this version can't read, without counting a try", async () => {
+      const future = { ...won, id: 'future-1', mode: 'hologram' } as unknown as HistoryEntry;
+      const asked: string[] = [];
+      const fetchFn = (async (url: RequestInfo | URL) => {
+        const params = new URL(String(url)).searchParams;
+        asked.push(params.get('retry') ?? '');
+        const body = Number(params.get('after')) === 0
+          ? { games: [], next: null, cursor: 5, retried: [], retry: [4] }
+          : { games: [], next: null, cursor: 5, retried: [{ entry: future, ref: 'x', seq: 4 }], retry: [] };
+        return new Response(JSON.stringify(body));
+      }) as typeof fetch;
+      const { s } = store();
+      for (let day = 0; day < PLAYED_TRIES + 2; day += 1) {
+        await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn, T + day * DAY);
+      }
+      expect(asked.slice(1)).toEqual(Array(PLAYED_TRIES + 1).fill('4'));
+    });
   });
 });

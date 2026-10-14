@@ -16,6 +16,14 @@ import { apiRequester, type ApiIdentity } from './apiIdentity';
 export const PLAYED_PAGE = 20;
 
 /**
+ * The most games the app keeps to ask for again, after their room didn't
+ * answer (Dev Plan item 18zg): a request looks them up again, and a page
+ * passes over no more than that many new ones, so a room that keeps failing
+ * doesn't hold up every game after it, and an outage still stops the page.
+ */
+export const PLAYED_RETRIES = 3;
+
+/**
  * One of your games, and what the app looks up its marks by: a friend
  * game's ID, a lobby's join code or a Daily Rush's day. These never go into
  * the entry, which can reach a backup file.
@@ -38,6 +46,26 @@ export interface PlayedPage {
   next: number | null;
   /** The cursor after this page, whether or not there's more. */
   cursor: number;
+  /** Games asked for again that came this time. */
+  retried: PlayedGame[];
+  /** Games passed over, or asked for again, whose room didn't answer for now (`seq`s), to ask for again. */
+  retry: number[];
+  /** Games asked for again that this version can't read (`seq`s): kept to ask for once the app is updated. */
+  unread: number[];
+}
+
+/** Games to ask for again (`seq`s), and how many more the page may pass over. */
+export interface PlayedRetries {
+  retry: readonly number[];
+  skip: number;
+}
+
+/** One game of a page, or null if this version can't read it; its `seq` either way, where it has one. */
+function parsePlayedGame(value: unknown): { game: PlayedGame | null; seq?: number } {
+  if (!isObject(value)) return { game: null };
+  const seq = Number.isSafeInteger(value.seq) ? value.seq as number : undefined;
+  const entry = typeof value.ref === 'string' && value.ref.length <= 128 ? parseHistoryEntry(value.entry) : null;
+  return { game: entry && { entry, ref: value.ref as string, seq }, seq };
 }
 
 /** Reads a page asked for from `after`. */
@@ -49,16 +77,24 @@ export function parsePlayedPage(value: unknown, after: number): PlayedPage | nul
   let unreadableFrom: number | null = null;
   let before = after;
   for (const g of value.games) {
-    const seq = isObject(g) && Number.isSafeInteger(g.seq) ? g.seq as number : undefined;
-    const entry = isObject(g) && typeof g.ref === 'string' && g.ref.length <= 128 ? parseHistoryEntry(g.entry) : null;
-    if (!entry) {
+    const { game, seq } = parsePlayedGame(g);
+    if (!game) {
       unreadableFrom = before;
       break;
     }
-    games.push({ entry, ref: (g as { ref: string }).ref, seq });
+    games.push(game);
     if (seq !== undefined) before = seq;
   }
-  return { games, unreadableFrom, next: value.next as number | null, cursor: value.cursor as number };
+  // A server from before games were retried sends neither list.
+  const retry = Array.isArray(value.retry) ? value.retry.filter((seq): seq is number => Number.isSafeInteger(seq)) : [];
+  const retried: PlayedGame[] = [];
+  const unread: number[] = [];
+  for (const g of Array.isArray(value.retried) ? value.retried : []) {
+    const { game, seq } = parsePlayedGame(g);
+    if (game) retried.push(game);
+    else if (seq !== undefined) unread.push(seq);
+  }
+  return { games, unreadableFrom, next: value.next as number | null, cursor: value.cursor as number, retried, retry, unread };
 }
 
 export class PlayedError extends Error {
@@ -67,12 +103,16 @@ export class PlayedError extends Error {
   }
 }
 
-/** Your games the server refereed, after `cursor` (0 for all of them). Rejects with a `PlayedError`. */
+/**
+ * Your games the server refereed, after `cursor` (0 for all of them), and
+ * any asked for again (`retries`). Rejects with a `PlayedError`.
+ */
 export async function fetchPlayed(
-  apiUrl: string, identity: ApiIdentity, cursor: number, fetchFn: typeof fetch = fetch,
+  apiUrl: string, identity: ApiIdentity, cursor: number, fetchFn: typeof fetch = fetch, retries?: PlayedRetries,
 ): Promise<PlayedPage> {
   const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new PlayedError(code, status));
-  const page = parsePlayedPage(await request('GET', `/api/played?after=${cursor}`), cursor);
+  const query = retries ? `&retry=${retries.retry.join(',')}&skip=${retries.skip}` : '';
+  const page = parsePlayedPage(await request('GET', `/api/played?after=${cursor}${query}`), cursor);
   if (!page) throw new PlayedError('bad-request', 200);
   return page;
 }

@@ -49,7 +49,7 @@ describe('parseRushSaved', () => {
   it('rejects anything that does not replay', () => {
     expect(parseRushSaved(saved({ words: ['bunny'] }))).toBeNull();
     expect(parseRushSaved(saved({ words: 'beach' }))).toBeNull();
-    expect(parseRushSaved(saved({ moves: [guess('zzzzz')] }))).toBeNull();
+    expect(parseRushSaved(saved({ moves: [guess('zzzz1')] }))).toBeNull();
     expect(parseRushSaved(saved({ moves: [{ kind: 'guess', word: 'bunny' }] }))).toBeNull();
     expect(parseRushSaved(saved({ moves: [{ kind: 'cheat', at: T }] }))).toBeNull();
     expect(parseRushSaved(saved({ timeLimitMs: 'soon' }))).toBeNull();

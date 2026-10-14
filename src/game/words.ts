@@ -54,13 +54,19 @@ export function validateWord(kind: WordKind, word: string): WordValidation {
   return kind === 'secret' ? validateSecretWord(word) : validateGuess(word);
 }
 
-export function validateSecretWord(word: string): WordValidation {
-  return validate(word, isValidSecretWord, { allowRepeatedLetters: false });
+/**
+ * `recorded` accepts a word from a saved record without the lists, which can
+ * lose a word after it was played (Dev Plan item 18zg); its shape is still checked.
+ */
+export function validateSecretWord(word: string, recorded = false): WordValidation {
+  return validate(word, recorded ? onAnyList : isValidSecretWord, { allowRepeatedLetters: false });
 }
 
-export function validateGuess(word: string): WordValidation {
-  return validate(word, isValidGuessWord, { allowRepeatedLetters: true });
+export function validateGuess(word: string, recorded = false): WordValidation {
+  return validate(word, recorded ? onAnyList : isValidGuessWord, { allowRepeatedLetters: true });
 }
+
+const onAnyList = (): boolean => true;
 
 function validate(
   word: string,

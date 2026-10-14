@@ -58,7 +58,7 @@ describe('parseTwoPlayerSaved', () => {
   it('rejects moves that do not replay', () => {
     expect(parseTwoPlayerSaved(saved({ moves: [computer('crane')] }))).toBeNull();
     expect(parseTwoPlayerSaved(saved({ moves: [human('beach'), computer('crane'), human('plots')] }))).toBeNull();
-    expect(parseTwoPlayerSaved(saved({ moves: [human('zzzzz')] }))).toBeNull();
+    expect(parseTwoPlayerSaved(saved({ moves: [human('zzzz1')] }))).toBeNull();
     expect(parseTwoPlayerSaved(saved({ moves: [{ side: 'computer', kind: 'concede', at: T }] }))).toBeNull();
     expect(parseTwoPlayerSaved(saved({ moves: [{ side: 'human', kind: 'guess', word: 'crane' }] }))).toBeNull();
     expect(parseTwoPlayerSaved(saved({ humanSecret: 'bunny' }))).toBeNull();

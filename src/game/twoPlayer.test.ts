@@ -192,10 +192,28 @@ describe('replayTwoPlayer', () => {
     };
     expect(replayTwoPlayer({ ...record, moves: [{ side: 'computer', kind: 'guess', word: 'crane', at: T }] }))
       .toEqual({ ok: false, error: 'not-your-turn' });
-    expect(replayTwoPlayer({ ...record, moves: [{ side: 'human', kind: 'guess', word: 'zzzzz', at: T }] }))
-      .toEqual({ ok: false, error: 'not-in-word-list' });
+    expect(replayTwoPlayer({ ...record, moves: [{ side: 'human', kind: 'guess', word: 'zzzz1', at: T }] }))
+      .toEqual({ ok: false, error: 'not-letters' });
     expect(replayTwoPlayer({ ...record, computerSecret: 'bunny', moves: [] }))
       .toEqual({ ok: false, error: 'repeated-letters' });
+  });
+
+  it('takes words as recorded, though the lists have lost them since', () => {
+    const record = {
+      humanSecret: 'qxjvw', computerSecret: 'vwxjq', first: 'human' as const, startedAt: T,
+      difficulty: 'easy' as const, strength: 'skilled' as const,
+    };
+    const replayed = replayTwoPlayer({
+      ...record,
+      moves: [
+        { side: 'human', kind: 'suggest', word: 'zzzzz', at: T },
+        { side: 'human', kind: 'guess', word: 'zzzzz', at: T },
+        { side: 'computer', kind: 'guess', word: 'qxjvw', at: T },
+      ],
+    });
+    expect(replayed.ok && replayed.game.humanGuesses.map((g) => g.guess)).toEqual(['zzzzz']);
+    expect(replayed.ok && replayed.game.status).toBe('computer-won');
+    expect(createTwoPlayerGame('qxjvw', 'beach', 'human', T)).toEqual({ ok: false, error: 'not-in-word-list' });
   });
 });
 

@@ -1830,6 +1830,10 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   (the others' guesses stay theirs). A guest gets their games by guest ID,
   an account every one of its guest IDs' games. The entry's ID is a hash of
   the server's, since a friend game's ID or a join code lets anyone in.
+  A game whose room doesn't answer for now is passed over and asked for
+  again on each later visit (a few at a time), so it never holds up the
+  games after it; a device gives one up once its room has failed on 5 days
+  in a row.
   Rows: **vs. Bob** with W/L/D (and a rated game's rating change); **Daily
   Rush** with your total guesses and final place once the day is over;
   **Rush with Friends** (or **Competitive Rush**) with your place, green
@@ -2191,6 +2195,9 @@ baseline:
 - **Guess words** are any valid word up to ESDB size 80, including British and
   Canadian spellings.
 - **Offensive words** are banned from both lists.
+- **A word that leaves the lists** after it was played stays in the games
+  that hold it: a saved game is rebuilt with its words as they were played,
+  and only new games and guesses are checked against today's lists.
 
 ## Tech Stack (Confirmed)
 

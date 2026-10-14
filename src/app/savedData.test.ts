@@ -114,7 +114,7 @@ describe('1.0 localStorage', () => {
   it('keeps sign-in, sync and notices', () => {
     expect(parseSession(JSON.parse(key('session')))?.account.id).toBe('acct-fixture');
     expect(parseSyncState(key('sync'))).toEqual({ accountId: 'acct-fixture', cursor: 7, pending: ['fx-rush'], profile: null });
-    expect(parsePlayedState(key('played'))).toEqual({ who: 'fixture-device-0000', cursor: 12 });
+    expect(parsePlayedState(key('played'))).toEqual({ who: 'fixture-device-0000', cursor: 12, retry: [] });
     expect(parseBadgeNotices(key('badges'))).toEqual({ announced: ['clutch'], unseen: [] });
   });
 });

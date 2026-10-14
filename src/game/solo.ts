@@ -49,8 +49,9 @@ export type SoloGameResult =
   | { ok: true; game: SoloGame }
   | { ok: false; error: SoloGameError };
 
-export function createSoloGame(secret: string, now: number, difficulty: Difficulty = 'medium'): SoloGameResult {
-  const validation = validateSecretWord(secret);
+/** `replaying` takes words as recorded (`validateSecretWord`), here and below. */
+export function createSoloGame(secret: string, now: number, difficulty: Difficulty = 'medium', replaying = false): SoloGameResult {
+  const validation = validateSecretWord(secret, replaying);
   if (!validation.ok) return validation;
   return {
     ok: true,
@@ -62,10 +63,10 @@ export function createSoloGame(secret: string, now: number, difficulty: Difficul
 }
 
 /** Returns a new game state; the input game is never modified. */
-export function submitGuess(game: SoloGame, guess: string, now: number): SoloGameResult {
+export function submitGuess(game: SoloGame, guess: string, now: number, replaying = false): SoloGameResult {
   if (game.status !== 'playing') return { ok: false, error: 'game-over' };
 
-  const validation = validateGuess(guess);
+  const validation = validateGuess(guess, replaying);
   if (!validation.ok) return validation;
 
   const result = evaluateGuess(validation.word, game.secret);
@@ -107,11 +108,11 @@ export function setSoloDifficulty(game: SoloGame, difficulty: Difficulty, now: n
 }
 
 /** Easy's Suggest offered `word` (picked by the app, `suggestWord`). Limited to `SUGGEST_LIMIT` a game. */
-export function suggestSolo(game: SoloGame, word: string, now: number): SoloGameResult {
+export function suggestSolo(game: SoloGame, word: string, now: number, replaying = false): SoloGameResult {
   if (game.status !== 'playing') return { ok: false, error: 'game-over' };
   const refused = checkSuggestion(game.playingDifficulty, game.suggested);
   if (refused) return { ok: false, error: refused };
-  const validation = validateGuess(word);
+  const validation = validateGuess(word, replaying);
   if (!validation.ok) return validation;
   return {
     ok: true,
@@ -119,12 +120,13 @@ export function suggestSolo(game: SoloGame, word: string, now: number): SoloGame
   };
 }
 
+/** Replays a recorded move, as `replaySolo` does. */
 export function applySoloMove(game: SoloGame, move: SoloMove): SoloGameResult {
   switch (move.kind) {
-    case 'guess': return submitGuess(game, move.word, move.at);
+    case 'guess': return submitGuess(game, move.word, move.at, true);
     case 'give-up': return giveUp(game, move.at);
     case 'difficulty': return setSoloDifficulty(game, move.difficulty, move.at, true);
-    case 'suggest': return suggestSolo(game, move.word, move.at);
+    case 'suggest': return suggestSolo(game, move.word, move.at, true);
   }
 }
 
@@ -133,9 +135,9 @@ export function toSoloRecord(game: SoloGame): SoloRecord {
   return { secret, startedAt, difficulty, moves };
 }
 
-/** Rebuilds a game from its record. Fails on the first move the rules refuse. */
+/** Rebuilds a game from its record, taking its words as recorded. Fails on the first move the rules refuse. */
 export function replaySolo(record: SoloRecord): SoloGameResult {
-  let result = createSoloGame(record.secret, record.startedAt, record.difficulty);
+  let result = createSoloGame(record.secret, record.startedAt, record.difficulty, true);
   for (const move of record.moves) {
     if (!result.ok) break;
     result = applySoloMove(result.game, move);

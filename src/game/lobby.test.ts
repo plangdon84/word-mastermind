@@ -120,6 +120,14 @@ describe('the game', () => {
     expect(playLobby(lobby, 'bob', { kind: 'guess', word: 'xxxxx' }, at(13))).toEqual({ ok: false, error: 'not-in-word-list' });
   });
 
+  it('replays a seat with words the lists have lost since', () => {
+    const game = started().game!;
+    const moves = [{ kind: 'guess' as const, word: 'zzzzz', at: at(1) }, { kind: 'guess' as const, word: 'qxjvw', at: at(2) }];
+    const seats = game.seats.map((s, i) => (i === 0 ? { ...s, moves } : s));
+    const old = { ...game, words: ['qxjvw', ...game.words.slice(1)], seats };
+    expect(seatRun(old, 0, at(3)).results[0]).toMatchObject({ outcome: 'solved', guesses: [{ guess: 'zzzzz' }, { guess: 'qxjvw' }] });
+  });
+
   it('is over once everyone has finished', () => {
     let lobby = play(started(), ...WORDS.map((w, i): [string, string, number] => ['ann', w, i + 1]));
     expect(lobbyState(lobby, at(10))).toBe('playing');

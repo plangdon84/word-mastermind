@@ -50,7 +50,7 @@ describe('parseHistoryEntry', () => {
   });
 
   it('refuses a game that does not replay, or an unknown mode, version or ID', () => {
-    expect(parseHistoryEntry(single([guess('zzzzz'), guess('beach')]))).toBeNull();
+    expect(parseHistoryEntry(single([guess('zzzz1'), guess('beach')]))).toBeNull();
     expect(parseHistoryEntry(single([guess('beach')], { mode: 'chess' }))).toBeNull();
     expect(parseHistoryEntry(single([guess('beach')], { version: 2 }))).toBeNull();
     expect(parseHistoryEntry(single([guess('beach')], { version: '1' }))).toBeNull();

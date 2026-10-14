@@ -422,7 +422,9 @@ played. It never deletes a day either: a day taken out of the calendar
 keeps its old row, and is still played, until it's given a new theme or
 deleted by hand (`wrangler d1 execute`). A day with no row has no Daily
 Rush (`no-theme`). Run it again
-after changing a theme to come, and before the calendar runs out. The
+after changing a theme to come, before the calendar runs out, and after
+banning a word (`wordlist/rules/ban.txt`): a day to come that holds a word
+no longer on the secret list can't start, and the check finds it. The
 wipe keeps the table. Never paste its output, the SQL or a day's words into
 an issue, a PR or a log.
 

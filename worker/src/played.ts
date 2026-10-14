@@ -3,7 +3,7 @@ import {
   toRunRecord, type HistoryEntry, type LobbyRecord, type RatingChange,
 } from '../../src/game';
 import { opponentName, type FriendGame } from '../../src/app/friendApi';
-import { PLAYED_PAGE, type PlayedGame } from '../../src/app/playedApi';
+import { PLAYED_PAGE, PLAYED_RETRIES, type PlayedGame } from '../../src/app/playedApi';
 import { identify, isPlayers, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -37,7 +37,8 @@ async function entryId(mode: string, gameId: string): Promise<string> {
 
 /**
  * A lookup that failed for now (a busy room, the database), not a game that
- * can't be read: the page stops before its game, so the app asks again.
+ * can't be read: the page passes over its game for the app to ask for again
+ * (`skip`), or stops before it, so the app asks again.
  */
 export class TryAgain extends Error {}
 
@@ -50,12 +51,17 @@ async function lookup<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Your rating before and after a rated game, as shown (rounded); null if it wasn't rated for you. */
-async function ratingChange(db: D1Database, gameId: string, player: Player): Promise<RatingChange | null> {
-  if (!player.accountId) return null;
-  const row = await db.prepare('SELECT rating_before, rating_after FROM rated_games WHERE game_id = ?1 AND account_id = ?2')
-    .bind(gameId, player.accountId).first<{ rating_before: number; rating_after: number }>();
-  return row ? { before: Math.round(row.rating_before), after: Math.round(row.rating_after) } : null;
+/**
+ * Your rating before and after each of these games that was rated for you,
+ * as shown (rounded), in one query: a request may make only so many calls.
+ */
+async function ratingChanges(db: D1Database, rows: readonly GameRow[], player: Player): Promise<Map<string, RatingChange>> {
+  const ids = rows.filter((r) => r.mode === 'friend' || r.mode === 'lobby').map((r) => r.id);
+  if (!player.accountId || ids.length === 0) return new Map();
+  const { results } = await db.prepare(
+    'SELECT game_id, rating_before, rating_after FROM rated_games WHERE account_id = ?1 AND game_id IN (SELECT value FROM json_each(?2))',
+  ).bind(player.accountId, JSON.stringify(ids)).all<{ game_id: string; rating_before: number; rating_after: number }>();
+  return new Map(results.map((r) => [r.game_id, { before: Math.round(r.rating_before), after: Math.round(r.rating_after) }]));
 }
 
 const parse = (text: string): unknown => {
@@ -68,11 +74,13 @@ const parse = (text: string): unknown => {
 
 /**
  * One game as your history entry, or null if it can't be (a room that's gone, a record that doesn't read).
- * Without `rated` (a friend's profile, which never shows a rating), no rating is looked up.
+ * `ratings` are your rating changes by game ID (`ratingChanges`); without them (a friend's profile, which
+ * never shows a rating), every game's rating is null.
  */
 export async function toPlayed(
-  env: Env, row: GameRow, player: Player, ids: readonly string[], rated = true,
+  env: Env, row: GameRow, player: Player, ids: readonly string[], ratings: ReadonlyMap<string, RatingChange> | null,
 ): Promise<PlayedGame | null> {
+  const rating = ratings ? ratings.get(row.id) ?? null : null;
   const base = { id: await entryId(row.mode, row.id), version: HISTORY_VERSION };
   const data = parse(row.record);
   if (row.mode === 'friend') {
@@ -91,7 +99,6 @@ export async function toPlayed(
     });
     const opponent = room && opponentName(room);
     if (!room?.seat || !opponent) return null;
-    const rating = rated ? await lookup(() => ratingChange(env.DB, row.id, player)) : null;
     const entry: HistoryEntry = { ...base, mode: 'friend', record, seat: room.seat, opponent, rating, marks: {} };
     return { entry, ref: row.id };
   }
@@ -114,7 +121,7 @@ export async function toPlayed(
       name: s.name, strength: s.strength, you: s.you, rank: s.rank, score: s.score, seconds: s.seconds,
     }));
     const entry: HistoryEntry = {
-      ...base, mode: 'lobby', kind: lobbyKind(lobby), record, places, rating: rated ? await lookup(() => ratingChange(env.DB, row.id, player)) : null,
+      ...base, mode: 'lobby', kind: lobbyKind(lobby), record, places, rating,
       marks: record.words.map(() => ({})),
     };
     return { entry, ref: lobby.code };
@@ -122,17 +129,59 @@ export async function toPlayed(
   return null;
 }
 
-/** A page of a player's games; `stopped` when a lookup failed for now, the page ending before that game. */
+/**
+ * A page of a player's games; `stopped` when a lookup failed for now, the
+ * page ending before that game. `retried` are the games asked for again that
+ * came this time, and `retry` those passed over that failed for now.
+ */
 export interface PlayedGamesPage {
   games: PlayedGame[];
+  retried: PlayedGame[];
+  retry: number[];
   next: number | null;
   cursor: number;
   stopped: boolean;
 }
 
+/**
+ * Games to ask for again (`retry`, their `seq`s) and how many games that
+ * fail for now the page may pass over (`skip`). Both are at most
+ * `PLAYED_RETRIES`, so a request makes only a few more room lookups and an
+ * outage still stops the page; without them (an older app), a game that
+ * fails for now stops it, as before.
+ */
+export interface PlayedRetries {
+  retry?: readonly number[];
+  skip?: number;
+}
+
+const AGAIN = Symbol('again');
+
+/** One row as your game, null if it can't be one, or `AGAIN` if a lookup failed for now. */
+async function tryPlayed(
+  env: Env, row: GameRow, player: Player, ids: readonly string[], ratings: ReadonlyMap<string, RatingChange>,
+): Promise<PlayedGame | null | typeof AGAIN> {
+  try {
+    return await toPlayed(env, row, player, ids, ratings);
+  } catch (e) {
+    if (e instanceof TryAgain) return AGAIN;
+    // A game that can't be read never holds up the rest.
+    return null;
+  }
+}
+
 /** The player's finished server games after `after`, a page at a time, in the order they finished. */
-export async function playedPage(env: Env, player: Player, after: number): Promise<PlayedGamesPage> {
+export async function playedPage(
+  env: Env, player: Player, after: number, { retry = [], skip = 0 }: PlayedRetries = {},
+): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
+  // The games asked for again: only the player's own, and only ever a few.
+  const asked = retry.length === 0 ? [] : (await env.DB.prepare(
+    `SELECT rowid AS seq, id, mode, record, finished_at FROM games
+     WHERE finished_at IS NOT NULL AND rowid IN (SELECT value FROM json_each(?1))
+       AND id IN (SELECT game_id FROM game_players WHERE ${isPlayers('guest_id', '?2')})
+     ORDER BY rowid LIMIT ${PLAYED_RETRIES}`,
+  ).bind(JSON.stringify(retry), player.id).all<GameRow>()).results;
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
      WHERE finished_at IS NOT NULL AND rowid > ?1
@@ -140,22 +189,43 @@ export async function playedPage(env: Env, player: Player, after: number): Promi
      ORDER BY rowid LIMIT ${PLAYED_PAGE + 1}`,
   ).bind(after, player.id).all<GameRow>();
   const page = results.slice(0, PLAYED_PAGE);
+  // A room lookup each for the rest, at most PLAYED_PAGE + PLAYED_RETRIES: within a request's calls. If the
+  // database fails here, the request does, and the app asks again with its place unchanged.
+  const ratings = await ratingChanges(env.DB, [...asked, ...page], player);
+  const retried: PlayedGame[] = [];
+  const failing: number[] = [];
+  for (const row of asked) {
+    const played = await tryPlayed(env, row, player, ids, ratings);
+    if (played === AGAIN) failing.push(row.seq);
+    else if (played) retried.push({ ...played, seq: row.seq });
+  }
   const games: PlayedGame[] = [];
   let cursor = after;
+  let skips = skip;
   for (const row of page) {
-    let played: PlayedGame | null;
-    try {
-      played = await toPlayed(env, row, player, ids);
-    } catch (e) {
-      // A lookup failed for now: stop before this game, so the next pull asks for it again.
-      if (e instanceof TryAgain) return { games, next: null, cursor, stopped: true };
-      // A game that can't be read never holds up the rest.
-      played = null;
+    const played = await tryPlayed(env, row, player, ids, ratings);
+    if (played === AGAIN) {
+      // A lookup failed for now: pass over this game for the app to ask for again, or once it may pass
+      // over no more, stop before it, so the next pull asks for it again.
+      if (skips === 0) return { games, retried, retry: failing, next: null, cursor, stopped: true };
+      skips -= 1;
+      failing.push(row.seq);
+    } else if (played) {
+      games.push({ ...played, seq: row.seq });
     }
-    if (played) games.push({ ...played, seq: row.seq });
     cursor = row.seq;
   }
-  return { games, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false };
+  return { games, retried, retry: failing, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false };
+}
+
+/** A query's `retry` (comma-separated `seq`s) and `skip`, or null if they don't read. */
+function parseRetries(params: URLSearchParams): PlayedRetries | null {
+  const listed = params.get('retry');
+  const retry = listed ? listed.split(',').map(Number) : [];
+  const skip = Number(params.get('skip') ?? 0);
+  if (retry.length > PLAYED_RETRIES || !retry.every((seq) => Number.isSafeInteger(seq) && seq > 0)) return null;
+  if (!Number.isSafeInteger(skip) || skip < 0 || skip > PLAYED_RETRIES) return null;
+  return { retry, skip };
 }
 
 /** Routes `/api/played`, or returns null for any other path. */
@@ -164,8 +234,10 @@ export async function routePlayed(request: Request, env: Env, now: number, pathn
   if (request.method !== 'GET') return errorResponse(405, 'bad-request');
   const who = await identify(request, env.DB, now);
   if (!who.ok) return errorResponse(who.status, who.error);
-  const after = Number(new URL(request.url).searchParams.get('after') ?? 0);
-  if (!Number.isSafeInteger(after) || after < 0) return errorResponse(400, 'bad-request');
-  const { games, next, cursor } = await playedPage(env, who.player, after);
-  return json({ games, next, cursor });
+  const params = new URL(request.url).searchParams;
+  const after = Number(params.get('after') ?? 0);
+  const retries = parseRetries(params);
+  if (!Number.isSafeInteger(after) || after < 0 || !retries) return errorResponse(400, 'bad-request');
+  const { games, retried, retry, next, cursor } = await playedPage(env, who.player, after, retries);
+  return json({ games, retried, retry, next, cursor });
 }
