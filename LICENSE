@@ -24,7 +24,9 @@ own license, whose terms and credits continue to apply:
   ENABLE2K. Its license notice is in wordlist/NOTICE-ESDB.
 - The definitions in wordlist/lists/definitions.json are adapted from Open
   English WordNet (2025 edition), licensed under the Creative Commons
-  Attribution 4.0 International License (CC BY 4.0). See wordlist/NOTICE-OEWN.
+  Attribution 4.0 International License (CC BY 4.0), and derived from
+  Princeton WordNet 3.0, Copyright 2006 by Princeton University. See
+  wordlist/NOTICE-OEWN.
 - The bundled fonts Rubik and JetBrains Mono (via Fontsource) are under the
   SIL Open Font License 1.1.
 - Preact and the other npm packages the app and server are built with are

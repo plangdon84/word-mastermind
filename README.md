@@ -2368,7 +2368,8 @@ cover them, and their terms and credits still apply:
   [`wordlist/NOTICE-ESDB`](wordlist/NOTICE-ESDB).
 - **Definitions** (`wordlist/lists/definitions.json`): adapted from
   [Open English WordNet](https://github.com/globalwordnet/english-wordnet)
-  (2025), CC BY 4.0, credited in the app's ☰ menu and in
+  (2025), CC BY 4.0, derived from Princeton WordNet 3.0 (© 2006 Princeton
+  University), credited in the app's ☰ menu and in
   [`wordlist/NOTICE-OEWN`](wordlist/NOTICE-OEWN).
 - **Fonts**: Rubik and JetBrains Mono, bundled through Fontsource, under the
   SIL Open Font License 1.1.
