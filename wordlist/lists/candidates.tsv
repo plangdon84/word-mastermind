@@ -1027,6 +1027,7 @@ bings	rejected	size 85 > 80	85	ns	_		[ukacd]
 bingy	rejected	size 85 > 80	85	n0	_		[ukacd]	
 binit	rejected	size 85 > 80	85	n0	_		[stale]	
 binks	rejected	size 85 > 80	85	ns	_		[ukacd]	
+binky	guess	guess-include.txt	0					
 bints	banned	ban.txt	70	ns	_		[5d+2a]	
 biogs	guess	size 80 > 35	80	ns	_			
 biome	guess	size 60 > 35	60	n0	_		[3of6],[5d+2a],[coca-llm],[moby]	
