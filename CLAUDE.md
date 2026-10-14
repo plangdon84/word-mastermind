@@ -34,7 +34,9 @@ Run `npm test` and `npm run typecheck` before committing.
   from a third-party host at runtime (fonts are bundled via fontsource).
 - A game is a record (secret words, start time, moves) and everything else is
   rebuilt by replaying it (`replaySolo`, `replayTwoPlayer`); save records, not
-  derived state. Game logic never reads the clock or `Date.now()`: time is an
+  derived state. Replay takes a record's words as recorded (`replaying`, Dev
+  Plan item 18zg): the lists check only new games and moves, so a word banned
+  since still replays. Game logic never reads the clock or `Date.now()`: time is an
   argument. `twoPlayerView` hides the opponent's word for one side.
 - The local profile (Dev Plan items 3a and 3b: profile, game history,
   analytics, achievements) is specified in README "Profile". 3a is built:
