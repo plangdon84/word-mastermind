@@ -1080,6 +1080,39 @@ be played from the device that joined it, or, once you've signed in (see
   Since Dev Plan item 13, games against a friend are in the profile's
   history, stats and achievements too (see [Game history](#game-history)).
 
+#### Reminders
+
+Dev Plan item 18zj (issue plangdon84/word-mastermind-archive#224), decided
+with the owner on 14 October 2026. Reminders are turn alerts too: they
+reach only devices with turn alerts on.
+
+- **Time running out:** in a correspondence game (1 or 3 days a guess), one
+  notification a turn when 5% of your time is left: about 72 minutes of a
+  day, or 3.6 hours of 3 days ("Time's running out against Ann", "1 hour 12
+  minutes left to guess, or you lose on time."). The game's alarm sends it,
+  so it comes with the game closed; a new turn gets its own. Live clocks get
+  none, since you're both playing. Tapping it opens the game.
+- **The dailies:** at 8pm New York time, one notification if you haven't
+  started the Daily Set or the Daily Word today, naming what's left
+  ("Today's Daily Word is waiting"); nothing once you've started both, and
+  nothing while they're still locked on that device (see
+  [Unlocking modes](#unlocking-modes)). Tapping it opens the first one left.
+- **Coming back:** one notification after 7 days with no game the server
+  knows of ("Ready for another game?"), then none until you play again. It
+  knows your online games (against a friend, from starting or accepting one
+  and each guess; Daily Set, Daily Word, lobbies) and, signed in, your
+  synced games, not a guest's offline games, so a guest who only plays
+  offline isn't reminded. Sent at noon New York time; tapping it opens the
+  title screen.
+- **Switches:** Profile → Settings → **Reminders** has one for each kind,
+  on by default. Signed in, they're synced with the account, and a reminder
+  needs both the account's switch and the device's (which may not have
+  picked up a change yet) to be on.
+- The dailies and coming back are sent by a Cron Trigger (free), every
+  minute of the hours they're due, a few players a minute to stay within
+  the Workers Free plan's limits (about 300 players an hour each);
+  `worker/src/reminders.ts`.
+
 #### Rematch
 
 After a game against a friend or a link opponent (Dev Plan item 18h,
@@ -1205,6 +1238,9 @@ clocks only.
   opens today's board too (and [Leaderboards](#leaderboards) opens it from
   the title screen). Today's words stay hidden until the day is over; the
   guess counts you're up against are shown, which is accepted.
+- **The 8pm reminder** (Dev Plan item 18zj): with turn alerts on, a
+  notification at 8pm New York time if you haven't started today's Daily
+  Set or Daily Word (see [Reminders](#reminders)).
 - **A known limit, accepted for 1.0** (security review, Dev Plan item 15):
   the words are the same for everyone, so someone can play once as a
   throwaway guest (a private window, or cleared site data), then again as
@@ -1986,9 +2022,10 @@ device, as before.
   Stats and achievements, worked out from the games, then match everywhere.
 - **What syncs:** your name, guest name, country, member-since date (the
   earliest of your devices') and the settings that are yours rather than the
-  device's: default difficulty, guess order per difficulty and **Show the
-  tutorial on the home page**. The title screen's last choices, turn alerts
-  and **Enter on the right** stay with each device.
+  device's: default difficulty, guess order per difficulty, **Show the
+  tutorial on the home page** and the [Reminders](#reminders) switches. The
+  title screen's last choices, turn alerts and **Enter on the right** stay
+  with each device.
 - **The first sign-in on a device** takes the account's profile, filling a
   name or country the account hasn't set from this device. After that a
   change made on any device goes to the account within a couple of seconds,

@@ -40,25 +40,6 @@ games stopped reaching their history; on 14 October 2026, the ownership
 notice 18zh went first, as the owner asked, then 18zc, then that day's
 small app fixes 18zi and the reminders 18zj ahead of 18m)
 
-- [ ] **18zj. Reminders: time running out, the dailies and coming back**
-  (issue plangdon84/word-mastermind-archive#224; worker, review gate;
-  updates README "Two player vs. a friend" (Turn alerts) and "Daily Rush")
-  - Decided with the owner on 14 October 2026. Reminders reach only players
-    who turned on notifications, and each kind has its own switch in the
-    profile, on by default, synced with the account (`SyncedSettings`)
-  - Time running out: in a correspondence game (1 or 3 days a guess), one
-    notification a turn when 5% of your time is left (about 72 minutes or
-    3.6 hours before you'd lose), from the game room's alarm. Live clocks
-    get none
-  - The dailies: at 8pm New York time, one notification if you haven't
-    played the Daily Set or the Daily Word today, naming what's left;
-    nothing once you've played both. A Cron Trigger (free) sends them in
-    batches within the Free plan's limits
-  - Coming back: one notification after 7 days with no game the server
-    knows of (online games and signed-in players' synced games), then none
-    until you play again
-  - Texts in `worker/src/notices.ts`; tapping one opens the game, the Daily
-    screen or the title screen
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
     the game), kept out of 18j's sitemap and footers and sent with
@@ -197,6 +178,25 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18zj. Reminders: time running out, the dailies and coming back**
+  (issue plangdon84/word-mastermind-archive#224; worker, review gate;
+  updates README "Two player vs. a friend" (Turn alerts) and "Daily Rush")
+  - Decided with the owner on 14 October 2026. Reminders reach only players
+    who turned on notifications, and each kind has its own switch in the
+    profile, on by default, synced with the account (`SyncedSettings`)
+  - Time running out: in a correspondence game (1 or 3 days a guess), one
+    notification a turn when 5% of your time is left (about 72 minutes or
+    3.6 hours before you'd lose), from the game room's alarm. Live clocks
+    get none
+  - The dailies: at 8pm New York time, one notification if you haven't
+    played the Daily Set or the Daily Word today, naming what's left;
+    nothing once you've played both. A Cron Trigger (free) sends them in
+    batches within the Free plan's limits
+  - Coming back: one notification after 7 days with no game the server
+    knows of (online games and signed-in players' synced games), then none
+    until you play again
+  - Texts in `worker/src/notices.ts`; tapping one opens the game, the Daily
+    screen or the title screen
 - [x] **18zi. Challenge a friend from Two player, and small fixes**
   (issues plangdon84/word-mastermind-archive#218,
   plangdon84/word-mastermind-archive#219,
