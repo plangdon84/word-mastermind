@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HistoryEntry } from '../game';
 import { dailyEntry, friendEntry } from '../game/testGames';
 import { addFriendGame, updateFriendGame } from './friendGames';
-import { pullPlayedGames, type PlayedStore } from './playedGames';
+import { PLAYED_TRIES, pullPlayedGames, type PlayedStore } from './playedGames';
 
 const ID = 'a'.repeat(64);
 const T = Date.UTC(2026, 9, 31, 12);
@@ -90,5 +90,49 @@ describe('pulling your server games', () => {
     expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1']);
     await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
     expect(asked).toEqual([0, 4]);
+  });
+
+  describe('a game whose room does not answer (Dev Plan item 18zg)', () => {
+    /** A server that passes over game 4 while `failing`, and gives it once asked for again after that. */
+    function flaky() {
+      const state = { failing: true };
+      const asked: string[] = [];
+      const fetchFn = (async (url: RequestInfo | URL) => {
+        const params = new URL(String(url)).searchParams;
+        const after = Number(params.get('after'));
+        const retry = params.get('retry') ? params.get('retry')!.split(',').map(Number) : [];
+        asked.push(`${after}:${retry.join(',')}:${params.get('skip')}`);
+        const again = retry.includes(4);
+        const body = after === 0
+          ? { games: [{ entry: day, ref: '2026-10-31', seq: 5 }], next: null, cursor: 5, retried: [], retry: [4] }
+          : {
+            games: [], next: null, cursor: after,
+            retried: again && !state.failing ? [{ entry: won, ref: ID, seq: 4 }] : [],
+            retry: again && state.failing ? [4] : [],
+          };
+        return new Response(JSON.stringify(body));
+      }) as typeof fetch;
+      return { fetchFn, asked, state };
+    }
+
+    it('carries on past it, and brings it once its room answers', async () => {
+      const { fetchFn, asked, state } = flaky();
+      const { s } = store();
+      expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['daily-1']);
+      expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual([]);
+      state.failing = false;
+      expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1']);
+      await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
+      // Asked for again on each pull until it came, leaving room to pass over fewer meanwhile.
+      expect(asked).toEqual(['0::3', '5:4:2', '5:4:2', '5::3']);
+    });
+
+    it(`gives up on it after ${PLAYED_TRIES} pulls in a row`, async () => {
+      const { fetchFn, asked } = flaky();
+      const { s } = store();
+      for (let i = 0; i < PLAYED_TRIES + 1; i += 1) await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
+      expect(asked.filter((a) => a.startsWith('5:4:'))).toHaveLength(PLAYED_TRIES - 1);
+      expect(asked.at(-1)).toBe('5::3');
+    });
   });
 });

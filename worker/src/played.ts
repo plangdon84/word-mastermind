@@ -3,7 +3,7 @@ import {
   toRunRecord, type HistoryEntry, type LobbyRecord, type RatingChange,
 } from '../../src/game';
 import { opponentName, type FriendGame } from '../../src/app/friendApi';
-import { PLAYED_PAGE, type PlayedGame } from '../../src/app/playedApi';
+import { PLAYED_PAGE, PLAYED_RETRIES, type PlayedGame } from '../../src/app/playedApi';
 import { identify, isPlayers, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -37,7 +37,8 @@ async function entryId(mode: string, gameId: string): Promise<string> {
 
 /**
  * A lookup that failed for now (a busy room, the database), not a game that
- * can't be read: the page stops before its game, so the app asks again.
+ * can't be read: the page passes over its game for the app to ask for again
+ * (`skip`), or stops before it, so the app asks again.
  */
 export class TryAgain extends Error {}
 
@@ -122,17 +123,66 @@ export async function toPlayed(
   return null;
 }
 
-/** A page of a player's games; `stopped` when a lookup failed for now, the page ending before that game. */
+/**
+ * A page of a player's games; `stopped` when a lookup failed for now, the
+ * page ending before that game. `retried` are the games asked for again that
+ * came this time, and `retry` those passed over that failed for now.
+ */
 export interface PlayedGamesPage {
   games: PlayedGame[];
+  retried: PlayedGame[];
+  retry: number[];
   next: number | null;
   cursor: number;
   stopped: boolean;
 }
 
+/**
+ * Games to ask for again (`retry`, their `seq`s) and how many games that
+ * fail for now the page may pass over (`skip`). Both are at most
+ * `PLAYED_RETRIES`, so a request makes only a few more room lookups and an
+ * outage still stops the page; without them (an older app), a game that
+ * fails for now stops it, as before.
+ */
+export interface PlayedRetries {
+  retry?: readonly number[];
+  skip?: number;
+}
+
+const AGAIN = Symbol('again');
+
+/** One row as your game, null if it can't be one, or `AGAIN` if a lookup failed for now. */
+async function tryPlayed(env: Env, row: GameRow, player: Player, ids: readonly string[]): Promise<PlayedGame | null | typeof AGAIN> {
+  try {
+    return await toPlayed(env, row, player, ids);
+  } catch (e) {
+    if (e instanceof TryAgain) return AGAIN;
+    // A game that can't be read never holds up the rest.
+    return null;
+  }
+}
+
 /** The player's finished server games after `after`, a page at a time, in the order they finished. */
-export async function playedPage(env: Env, player: Player, after: number): Promise<PlayedGamesPage> {
+export async function playedPage(
+  env: Env, player: Player, after: number, { retry = [], skip = 0 }: PlayedRetries = {},
+): Promise<PlayedGamesPage> {
   const ids = [player.id, ...player.aliases];
+  // The games asked for again first: only the player's own, and only ever a few.
+  const retried: PlayedGame[] = [];
+  const failing: number[] = [];
+  if (retry.length > 0) {
+    const { results: rows } = await env.DB.prepare(
+      `SELECT rowid AS seq, id, mode, record, finished_at FROM games
+       WHERE finished_at IS NOT NULL AND rowid IN (SELECT value FROM json_each(?1))
+         AND id IN (SELECT game_id FROM game_players WHERE ${isPlayers('guest_id', '?2')})
+       ORDER BY rowid LIMIT ${PLAYED_RETRIES}`,
+    ).bind(JSON.stringify(retry), player.id).all<GameRow>();
+    for (const row of rows) {
+      const played = await tryPlayed(env, row, player, ids);
+      if (played === AGAIN) failing.push(row.seq);
+      else if (played) retried.push({ ...played, seq: row.seq });
+    }
+  }
   const { results } = await env.DB.prepare(
     `SELECT rowid AS seq, id, mode, record, finished_at FROM games
      WHERE finished_at IS NOT NULL AND rowid > ?1
@@ -142,20 +192,31 @@ export async function playedPage(env: Env, player: Player, after: number): Promi
   const page = results.slice(0, PLAYED_PAGE);
   const games: PlayedGame[] = [];
   let cursor = after;
+  let skips = skip;
   for (const row of page) {
-    let played: PlayedGame | null;
-    try {
-      played = await toPlayed(env, row, player, ids);
-    } catch (e) {
-      // A lookup failed for now: stop before this game, so the next pull asks for it again.
-      if (e instanceof TryAgain) return { games, next: null, cursor, stopped: true };
-      // A game that can't be read never holds up the rest.
-      played = null;
+    const played = await tryPlayed(env, row, player, ids);
+    if (played === AGAIN) {
+      // A lookup failed for now: pass over this game for the app to ask for again, or once it may pass
+      // over no more, stop before it, so the next pull asks for it again.
+      if (skips === 0) return { games, retried, retry: failing, next: null, cursor, stopped: true };
+      skips -= 1;
+      failing.push(row.seq);
+    } else if (played) {
+      games.push({ ...played, seq: row.seq });
     }
-    if (played) games.push({ ...played, seq: row.seq });
     cursor = row.seq;
   }
-  return { games, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false };
+  return { games, retried, retry: failing, next: results.length > PLAYED_PAGE ? cursor : null, cursor, stopped: false };
+}
+
+/** A query's `retry` (comma-separated `seq`s) and `skip`, or null if they don't read. */
+function parseRetries(params: URLSearchParams): PlayedRetries | null {
+  const listed = params.get('retry');
+  const retry = listed ? listed.split(',').map(Number) : [];
+  const skip = Number(params.get('skip') ?? 0);
+  if (retry.length > PLAYED_RETRIES || !retry.every((seq) => Number.isSafeInteger(seq) && seq > 0)) return null;
+  if (!Number.isSafeInteger(skip) || skip < 0 || skip > PLAYED_RETRIES) return null;
+  return { retry, skip };
 }
 
 /** Routes `/api/played`, or returns null for any other path. */
@@ -164,8 +225,10 @@ export async function routePlayed(request: Request, env: Env, now: number, pathn
   if (request.method !== 'GET') return errorResponse(405, 'bad-request');
   const who = await identify(request, env.DB, now);
   if (!who.ok) return errorResponse(who.status, who.error);
-  const after = Number(new URL(request.url).searchParams.get('after') ?? 0);
-  if (!Number.isSafeInteger(after) || after < 0) return errorResponse(400, 'bad-request');
-  const { games, next, cursor } = await playedPage(env, who.player, after);
-  return json({ games, next, cursor });
+  const params = new URL(request.url).searchParams;
+  const after = Number(params.get('after') ?? 0);
+  const retries = parseRetries(params);
+  if (!Number.isSafeInteger(after) || after < 0 || !retries) return errorResponse(400, 'bad-request');
+  const { games, retried, retry, next, cursor } = await playedPage(env, who.player, after, retries);
+  return json({ games, retried, retry, next, cursor });
 }

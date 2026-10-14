@@ -3,7 +3,7 @@ import { authApi } from '../../src/app/account';
 import { dailyApi } from '../../src/app/dailyApi';
 import { friendApi } from '../../src/app/friendApi';
 import { lobbyApi } from '../../src/app/lobbyApi';
-import { fetchPlayed } from '../../src/app/playedApi';
+import { fetchPlayed, type PlayedRetries } from '../../src/app/playedApi';
 import { replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { fakeDaily } from './fakeDaily';
@@ -63,7 +63,8 @@ function setup() {
     friend: (id: string) => friendApi('https://api.example', identity(id), fetchFn),
     daily: (id: string) => dailyApi('https://api.example', identity(id), fetchFn),
     lobby: (id: string) => lobbyApi('https://api.example', identity(id), fetchFn),
-    played: (id: string, after = 0) => fetchPlayed('https://api.example', identity(id), after, fetchFn),
+    played: (id: string, after = 0, retries?: PlayedRetries) => fetchPlayed('https://api.example', identity(id), after, fetchFn, retries),
+    get: (id: string, query: string) => fetchFn(`https://api.example/api/played?${query}`, { headers: { 'x-guest-id': id } }),
     tick: (ms: number) => { clock += ms; },
   };
 }
@@ -165,6 +166,54 @@ describe('your games the server refereed', () => {
     s.busy.rooms = false;
     const again = await s.played(ANN, first.cursor);
     expect(again.games.map((g) => g.entry.mode)).toEqual(['friend', 'daily']);
+  });
+
+  it("pass over a game whose room can't be reached, for the app to ask for again (Dev Plan item 18zg)", async () => {
+    const s = setup();
+    const ann = s.daily(ANN);
+    await ann.start(DAY, 'medium', 'Ann');
+    const { id } = await s.friend(ANN).create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d' });
+    await s.friend(BOB).join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+    await s.friend(ANN).concede(id);
+    for (const word of ['brick', 'jumpy', 'solve', 'night']) await ann.guess(DAY, word);
+    s.busy.rooms = true;
+    const first = await s.played(ANN, 0, { retry: [], skip: 1 });
+    // The friend game is passed over, and the Daily Rush after it comes.
+    expect(first.games.map((g) => g.entry.mode)).toEqual(['daily']);
+    expect(first.retry).toHaveLength(1);
+    const [seq] = first.retry;
+    // Still failing: it stays to ask for again.
+    const busy = await s.played(ANN, first.cursor, { retry: [seq], skip: 0 });
+    expect(busy).toMatchObject({ games: [], retried: [], retry: [seq] });
+    s.busy.rooms = false;
+    const again = await s.played(ANN, first.cursor, { retry: [seq], skip: 0 });
+    expect(again.retried.map((g) => g.entry.mode)).toEqual(['friend']);
+    expect(again.retry).toEqual([]);
+    // Someone else can't ask for it.
+    const cat = await s.played(CAT, 0, { retry: [seq], skip: 0 });
+    expect(cat.retried).toEqual([]);
+  });
+
+  it('stop once the page may pass over no more, so an outage still holds the place', async () => {
+    const s = setup();
+    for (const secret of ['storm', 'crane']) {
+      const { id } = await s.friend(ANN).create({ name: 'Ann', secret, difficulty: 'medium', timeControl: '1d' });
+      await s.friend(BOB).join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+      await s.friend(ANN).concede(id);
+    }
+    s.busy.rooms = true;
+    const page = await s.played(ANN, 0, { retry: [], skip: 1 });
+    expect(page.retry).toHaveLength(1);
+    expect(page.next).toBeNull();
+    expect(page.cursor).toBe(page.retry[0]);
+  });
+
+  it('refuse more games to ask for again, or more to pass over, than a few', async () => {
+    const s = setup();
+    for (const query of ['retry=1,2,3,4', 'retry=0', 'retry=a', 'skip=4', 'skip=-1']) {
+      expect((await s.get(ANN, query)).status).toBe(400);
+    }
+    expect((await s.get(ANN, 'retry=1,2,3&skip=3')).status).toBe(200);
   });
 
   it("include an account's games from its other devices, and never anyone else's", async () => {
