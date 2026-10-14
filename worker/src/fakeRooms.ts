@@ -5,6 +5,7 @@ import { json } from './http';
 import type { Notice } from './notices';
 import { ratingPool } from '../../src/game';
 import { ratingsOf } from './ratings';
+import { notePlayed } from './reminders';
 import { currentNames } from './sync';
 import { handleAlarm, handleRoom, saveFinishedGame, type RoomDeps, type RoomRequest, type RoomStorage } from './room';
 
@@ -62,6 +63,7 @@ export function fakeRooms({ db, now, random = () => 0 }: FakeRoomsOptions) {
     friendCodes: (accountId, ids) => friendCodes(db, accountId, ids),
     ratingsOf: (players, control, at) => ratingsOf(db, players, ratingPool(control), at),
     notify: (sent: readonly Notice[]) => notices.push(...sent),
+    played: (playerId, at) => notePlayed(db, playerId, at),
   };
   /** Runs every alarm that is due by the rooms' clock, as Cloudflare would. */
   const runAlarms = async () => {

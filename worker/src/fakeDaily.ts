@@ -6,6 +6,7 @@ import { themeFor } from './dailyThemes';
 import { pickWordFor } from './dailyWords';
 import { memoryStorage } from './fakeRooms';
 import { json } from './http';
+import { noteDailyStarted } from './reminders';
 
 /** `random` orders each player's words; always 0 (the default) keeps the theme's order. */
 export function fakeDaily({ db, now, random = () => 0 }: { db: D1Database; now: () => number; random?: () => number }) {
@@ -15,6 +16,7 @@ export function fakeDaily({ db, now, random = () => 0 }: { db: D1Database; now: 
     random,
     themeFor: (day) => themeFor(db, day),
     wordFor: (day) => pickWordFor(db, day, random),
+    started: (mode, day, playerId, at) => noteDailyStarted(db, mode, day, playerId, at),
   };
   const namespace = {
     idFromName: (name: string) => ({ toString: () => name }),

@@ -32,4 +32,12 @@ describe('parseSyncedProfile', () => {
     expect(parseSyncedProfile(withFind(false))?.settings.findByName).toBe(false);
     expect(parseSyncedProfile(withFind('no'))).toBeNull();
   });
+
+  it('reads settings saved before reminders as sending every one', () => {
+    const order = { easy: false, medium: true, hard: false, extreme: true };
+    expect(parseSyncedProfile(profile(order))?.settings).toMatchObject({ remindTimeLow: true, remindDailies: true, remindComeBack: true });
+    const withReminder = (remindDailies: unknown) => ({ ...profile(order), settings: { ...profile(order).settings, remindDailies } });
+    expect(parseSyncedProfile(withReminder(false))?.settings.remindDailies).toBe(false);
+    expect(parseSyncedProfile(withReminder('no'))).toBeNull();
+  });
 });

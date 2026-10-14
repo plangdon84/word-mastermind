@@ -1,4 +1,5 @@
 import { identityHeaders, type ApiIdentity } from './apiIdentity';
+import { loadSettings, type Settings } from './settings';
 
 /*
  * Turn alerts (README "Two player vs. a friend"): Web Push notifications for
@@ -6,6 +7,24 @@ import { identityHeaders, type ApiIdentity } from './apiIdentity';
  * key, and the server (`worker/src/push.ts`) sends to that subscription.
  * The service worker (`public/sw.js`) shows them.
  */
+
+/**
+ * Which reminders this device wants (README "Reminders"), sent with its
+ * subscription. Signed in, the account's synced settings must want them too.
+ */
+export interface ReminderSwitches {
+  timeLow: boolean;
+  dailies: boolean;
+  comeBack: boolean;
+}
+
+/** The reminders `settings` want; never the dailies while they're locked (`dailiesOpen`, README "Unlocking modes"). */
+export const remindersOf = (settings: Settings, dailiesOpen = true): ReminderSwitches => ({
+  timeLow: settings.remindTimeLow, dailies: settings.remindDailies && dailiesOpen, comeBack: settings.remindComeBack,
+});
+
+/** The reminders the app last sent (`resyncAlerts`), which turning alerts on sends too. */
+let lastReminders: ReminderSwitches | null = null;
 
 /** Where this device stands. */
 export type AlertsState =
@@ -102,6 +121,8 @@ function post(apiUrl: string, identity: ApiIdentity, path: string, body: unknown
  * straight from a tap), subscribes, and tells the server. Returns the new state.
  */
 export async function enableAlerts(apiUrl: string, identity: ApiIdentity): Promise<AlertsState> {
+  // Before the app knows whether the dailies are unlocked, they're left off; it sends them once it does.
+  const reminders = lastReminders ?? remindersOf(loadSettings(), false);
   if (!hasPush()) return alertsState();
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';
@@ -120,7 +141,7 @@ export async function enableAlerts(apiUrl: string, identity: ApiIdentity): Promi
     subscription = null;
   }
   subscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-  const saved = await post(apiUrl, identity, '/api/push/subscribe', subscription.toJSON());
+  const saved = await post(apiUrl, identity, '/api/push/subscribe', { ...subscription.toJSON(), reminders });
   if (!saved.ok) return 'off';
   store(ENABLED_KEY, true);
   return 'on';
@@ -139,13 +160,16 @@ export async function disableAlerts(apiUrl: string, identity: ApiIdentity): Prom
 
 /**
  * Sends this device's subscription to the server again, in case it lost it
- * (a reset profile, or signing out, gives the device a new guest ID). Cheap,
- * and harmless when nothing changed.
+ * (a reset profile, or signing out, gives the device a new guest ID), with
+ * the reminders it wants now. Cheap, and harmless when nothing changed.
  */
-export async function resyncAlerts(apiUrl: string, identity: ApiIdentity): Promise<void> {
+export async function resyncAlerts(apiUrl: string, identity: ApiIdentity, reminders: ReminderSwitches): Promise<void> {
+  lastReminders = reminders;
   if (!hasPush() || Notification.permission !== 'granted') return;
   const subscription = await currentSubscription().catch(() => null);
-  if (subscription) await post(apiUrl, identity, '/api/push/subscribe', subscription.toJSON()).catch(() => {});
+  if (subscription) {
+    await post(apiUrl, identity, '/api/push/subscribe', { ...subscription.toJSON(), reminders }).catch(() => {});
+  }
 }
 
 function stored(key: string): boolean {

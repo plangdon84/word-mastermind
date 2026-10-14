@@ -33,6 +33,8 @@ export interface DailyDeps {
   themeFor(day: DailyDay): Promise<DailyTheme | null>;
   /** The day's Daily Word (`pickWordFor`, from D1), picked the first time it's asked for. */
   wordFor(day: DailyDay): Promise<string>;
+  /** Notes that a player started one of the day's games, for the 8pm reminder (`noteDailyStarted`). */
+  started(mode: DailyMode, day: DailyDay, playerId: string, now: number): Promise<void>;
 }
 
 /** Who is asking: their player ID, and (signed in) their account's other guest IDs. */
@@ -106,6 +108,7 @@ export async function handleDaily(
     if (await findEntry(storage, mode, request)) return refuse(409, 'already-played');
     const started: DailyEntry = { playerId: request.playerId, name: request.name, record: toRunRecord(created.game) };
     await storage.put(keyOf(mode, started.playerId), started);
+    await deps.started(mode, day, started.playerId, now).catch(() => {});
     return answer(started);
   }
 

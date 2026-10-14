@@ -42,6 +42,15 @@ export interface Settings {
   shareMarks: boolean;
   /** Signed in, other players can find you by searching for your name (README "Friends"). Synced. */
   findByName: boolean;
+  /**
+   * Reminders (README "Reminders"), sent with turn alerts on. Synced. Time
+   * running out in a correspondence game, at 5% of the turn left.
+   */
+  remindTimeLow: boolean;
+  /** At 8pm in New York, the day's daily games you haven't played. */
+  remindDailies: boolean;
+  /** After a week with no game. */
+  remindComeBack: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -58,6 +67,9 @@ export const DEFAULT_SETTINGS: Settings = {
   enterRight: false,
   shareMarks: true,
   findByName: true,
+  remindTimeLow: true,
+  remindDailies: true,
+  remindComeBack: true,
 };
 
 /** One guess order for every difficulty. */
@@ -114,6 +126,9 @@ export function parseSettings(raw: string | null, legacySoloRaw: string | null =
     enterRight: s.enterRight === true,
     shareMarks: s.shareMarks !== false,
     findByName: s.findByName !== false,
+    remindTimeLow: s.remindTimeLow !== false,
+    remindDailies: s.remindDailies !== false,
+    remindComeBack: s.remindComeBack !== false,
   };
 }
 

@@ -76,7 +76,7 @@ export function notePending(ids: readonly string[]): void {
 
 /** A synced profile with its keys in a fixed order, so two equal profiles compare equal as JSON. */
 function canonical(p: SyncedProfile): SyncedProfile {
-  const { difficulty, newestFirst, showTutorial, shareMarks, findByName } = p.settings;
+  const { difficulty, newestFirst, showTutorial, shareMarks, findByName, remindTimeLow, remindDailies, remindComeBack } = p.settings;
   return {
     guestName: p.guestName,
     name: p.name,
@@ -88,6 +88,9 @@ function canonical(p: SyncedProfile): SyncedProfile {
       showTutorial,
       shareMarks,
       findByName,
+      remindTimeLow,
+      remindDailies,
+      remindComeBack,
     },
   };
 }

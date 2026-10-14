@@ -7,6 +7,7 @@ describe('parseSettings', () => {
       mode: 'two', opponent: 'friend', rushKind: 'daily', strength: 'expert', timeControl: '5m', difficulty: 'extreme',
       newestFirst: { easy: true, medium: false, hard: true, extreme: true }, showTutorial: false,
       enterRight: true, shareMarks: false, rankBy: 'rush', boardRankBy: 'rush', findByName: false,
+      remindTimeLow: false, remindDailies: true, remindComeBack: false,
     };
     expect(parseSettings(JSON.stringify(settings))).toEqual(settings);
   });
@@ -80,6 +81,11 @@ describe('parseSettings', () => {
     expect(parseSettings(JSON.stringify({ shareMarks: false })).shareMarks).toBe(false);
     expect(parseSettings(JSON.stringify({})).findByName).toBe(true);
     expect(parseSettings(JSON.stringify({ findByName: false })).findByName).toBe(false);
+  });
+
+  it('sends every reminder until one is turned off (README "Reminders")', () => {
+    expect(parseSettings(JSON.stringify({}))).toMatchObject({ remindTimeLow: true, remindDailies: true, remindComeBack: true });
+    expect(parseSettings(JSON.stringify({ remindDailies: false }))).toMatchObject({ remindTimeLow: true, remindDailies: false, remindComeBack: true });
   });
 
   it('offers the tutorial until it is turned off', () => {

@@ -203,7 +203,8 @@ describe('the time per guess', () => {
 
   it("concedes for a player who runs out, when the room's alarm goes off", async () => {
     const { as, id, tick, rooms, runAlarms, sqlite } = await started('3d');
-    expect(rooms.get(id)?.alarm).toBe(NOW + 3 * DAY_MS);
+    // First, the reminder that their time is running out.
+    expect(rooms.get(id)?.alarm).toBe(NOW + 3 * DAY_MS - 0.15 * DAY_MS);
     tick(3 * DAY_MS);
     await runAlarms();
     expect(rooms.get(id)?.alarm).toBeNull();
@@ -224,8 +225,34 @@ describe('the time per guess', () => {
     const { id } = await as(HOST).create(invite);
     tick(DAY_MS - 1);
     await as(GUEST).join(id, answer);
-    // The invite's alarm is replaced by the first player's deadline.
-    expect(rooms.get(id)?.alarm).toBe(NOW + DAY_MS - 1 + DAY_MS);
+    // The invite's alarm is replaced by the first player's reminder that their time is running out.
+    expect(rooms.get(id)?.alarm).toBe(NOW + DAY_MS - 1 + 0.95 * DAY_MS);
+  });
+
+  it('reminds the player to move once a turn, with 5% of their time left (README "Reminders")', async () => {
+    const { as, id, tick, rooms, runAlarms, sent, sqlite } = await started();
+    sent();
+    tick(0.95 * DAY_MS);
+    await runAlarms();
+    expect(sent()).toEqual([['host', "Time's running out against Bob", '1 hour 12 minutes left to guess, or you lose on time.']]);
+    expect(rooms.get(id)?.alarm).toBe(NOW + DAY_MS);
+    await as(HOST).setDifficulty(id, 'hard');
+    await as(GUEST).get(id);
+    expect(sent()).toEqual([]);
+    expect(rooms.get(id)?.alarm).toBe(NOW + DAY_MS);
+    // A guess starts the other player's turn, with its own reminder, and counts as playing.
+    await as(HOST).guess(id, 'crane');
+    expect(rooms.get(id)?.alarm).toBe(NOW + 0.95 * DAY_MS + 0.95 * DAY_MS);
+    expect(sqlite.prepare('SELECT played_at FROM player_activity WHERE player_id = ?').get(HOST))
+      .toEqual({ played_at: NOW + 0.95 * DAY_MS });
+  });
+
+  it('reminds on the next request if the alarm is late', async () => {
+    const { as, id, tick, sent } = await started('3d');
+    sent();
+    tick(2.9 * DAY_MS);
+    await as(GUEST).get(id);
+    expect(sent()).toEqual([['host', "Time's running out against Bob", '2 hours 24 minutes left to guess, or you lose on time.']]);
   });
 });
 

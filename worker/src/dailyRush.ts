@@ -3,6 +3,7 @@ import { handleDaily, saveFinishedDaily, type DailyDeps, type DailyRequest } fro
 import { themeFor } from './dailyThemes';
 import { pickWordFor } from './dailyWords';
 import { json } from './http';
+import { noteDailyStarted } from './reminders';
 import type { Env } from './index';
 
 /**
@@ -20,6 +21,7 @@ export class DailyRush implements DurableObject {
       random: Math.random,
       themeFor: (day) => themeFor(env.DB, day),
       wordFor: (day) => pickWordFor(env.DB, day, Math.random),
+      started: (mode, day, playerId, now) => noteDailyStarted(env.DB, mode, day, playerId, now),
     };
   }
 

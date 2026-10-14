@@ -29,6 +29,10 @@ need a VAPID key pair: `npm run vapid-keys -- --dev` writes one to
 doesn't offer them. The local server sends real notifications through the
 browsers' push services. Sign-in emails are printed in the
 `wrangler dev` console (`LOG_LOGIN_LINKS`), so open the link from there.
+The reminders' Cron Trigger (`src/reminders.ts`) runs locally only on
+request: start `npx wrangler dev --test-scheduled` from `worker/` and open
+`http://localhost:8787/__scheduled?cron=*+*+*+*+*`; it sends only in the
+8pm and noon hours in New York.
 Google sign-in needs an OAuth client (below); put its ID and secret in
 `worker/.dev.vars` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, with
 `http://localhost:8787/api/auth/google/callback` among its redirect URIs.
@@ -80,6 +84,8 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   API; `ping` is answered with `pong` without waking it).
 - `src/notices.ts`: the turn notifications a change to a game sends, and
   what they say.
+- `src/reminders.ts`: the dailies and come-back reminders, sent in batches
+  by the Cron Trigger (`scheduled` in `src/index.ts`; README "Reminders").
 - `src/push.ts`: Web Push with WebCrypto only: encrypting a message for a
   device (RFC 8291), signing the request with the server's VAPID key (RFC
   8292), sending it, and the `push_subscriptions` table. `src/pushRoutes.ts`

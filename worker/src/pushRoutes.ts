@@ -3,7 +3,7 @@ import { identify } from './accounts';
 import { registerGuest } from './guests';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
-import { deleteSubscription, parseSubscription, saveSubscription, type VapidKeys } from './push';
+import { deleteSubscription, parseReminderSwitches, parseSubscription, saveSubscription, type VapidKeys } from './push';
 
 /** The server's VAPID keys, or null if turn notifications aren't set up for this environment. */
 export function vapidKeysOf(env: Env): VapidKeys | null {
@@ -14,7 +14,8 @@ export function vapidKeysOf(env: Env): VapidKeys | null {
 
 /**
  * `/api/push/…`: the public key the app subscribes with, and turning a
- * device's turn notifications on (`subscribe`) or off (`unsubscribe`).
+ * device's turn notifications on (`subscribe`, which also says which
+ * reminders it wants) or off (`unsubscribe`).
  * Returns null for any other path.
  */
 export async function routePush(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
@@ -34,7 +35,7 @@ export async function routePush(request: Request, env: Env, now: number, pathnam
     const subscription = parseSubscription(body);
     if (!subscription) return errorResponse(400, 'bad-request');
     await registerGuest(env.DB, guestId, now);
-    await saveSubscription(env.DB, guestId, subscription, now);
+    await saveSubscription(env.DB, guestId, subscription, now, parseReminderSwitches(body));
     return json({ ok: true });
   }
   if (pathname === '/api/push/unsubscribe') {

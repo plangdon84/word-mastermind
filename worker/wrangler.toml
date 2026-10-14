@@ -64,6 +64,13 @@ name = "RATE_LIMIT_PROFILE"
 namespace_id = "1003"
 simple = { limit = 60, period = 60 }
 
+# Reminders (src/reminders.ts, README "Reminders"): every minute of the UTC
+# hours holding 8pm and noon in New York (00:00 or 01:00 and 16:00 or 17:00 UTC,
+# with daylight saving); each run checks the hour there and sends a small batch.
+# Cron Triggers are free (5 an account on the Free plan).
+[triggers]
+crons = ["* 0,1,16,17 * * *"]
+
 # Durable Object classes, for every environment. Never edit an applied
 # migration; add a new tag.
 [[migrations]]
@@ -89,6 +96,9 @@ new_sqlite_classes = ["Matchmaker"]
 # touches production data.
 [env.staging]
 name = "word-mastermind-api-staging"
+
+[env.staging.triggers]
+crons = ["* 0,1,16,17 * * *"]
 
 [env.staging.vars]
 # Every Pages preview (`https://<id or branch>.word-mastermind.pages.dev`),
@@ -166,6 +176,9 @@ name = "word-mastermind-api"
 # VITE_API_URL is changed (worker/README.md "The game's domain").
 routes = [{ pattern = "api.wordmastermind.app", custom_domain = true }]
 workers_dev = true
+
+[env.production.triggers]
+crons = ["* 0,1,16,17 * * *"]
 
 [env.production.vars]
 # The app on its own domain, and its old Pages address while players move over.

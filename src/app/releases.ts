@@ -25,6 +25,15 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.17.0',
+    notes: [
+      { text: 'With Alerts on, you now get push notifications for the following:' },
+      { text: 'Correspondence game’s time to guess is nearly up' },
+      { text: 'Reminder to play the Daily Set and Word if you haven’t by 8pm New York Time' },
+      { text: 'To play a game if you haven’t in the last week' },
+    ],
+  },
+  {
     version: '1.16.0',
     notes: [
       { text: 'Two player → A friend now lists your friends under the invite link: tap one to challenge them.' },
