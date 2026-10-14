@@ -40,15 +40,6 @@ games stopped reaching their history; on 14 October 2026, the ownership
 notice 18zh went first, as the owner asked, then 18zc, then that day's
 small app fixes 18zi and the reminders 18zj ahead of 18m)
 
-- [ ] **18zc. A Rush score reads as a time a word** (issues
-  plangdon84/word-mastermind-archive#197 and
-  plangdon84/word-mastermind-archive#207; app only, no review gate)
-  - Decided with the owner on 9 October 2026: wherever a Rush (by time)
-    score shows (the result, the history row, Analytics, the share text and
-    a lobby's results), it says "a word" after the time ("4:25 a word"),
-    so it can't be read as a number of guesses, and it rounds **up** to the
-    whole second, so the shown time always matches the level (120.6 s shows
-    as 2:01, Expert). Scoring and levels don't change
 - [ ] **18zi. Challenge a friend from Two player, and small fixes**
   (issues plangdon84/word-mastermind-archive#218,
   plangdon84/word-mastermind-archive#219,
@@ -227,6 +218,18 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18zc. A Rush score reads as a time a word** (issues
+  plangdon84/word-mastermind-archive#197 and
+  plangdon84/word-mastermind-archive#207; app only, no review gate)
+  - Decided with the owner on 9 October 2026: wherever a Rush (by time)
+    score shows (the result, the history row, Analytics, the share text and
+    a lobby's results), it says "a word" after the time ("4:25 a word"),
+    so it can't be read as a number of guesses, and it rounds **up** to the
+    whole second, so the shown time always matches the level (120.6 s shows
+    as 2:01, Expert). Scoring and levels don't change.
+    (Choices made in the PR: a lobby's Rush time is a total, so it rounds
+    up but doesn't say "a word"; the history row's round tag stays the time
+    alone, with "a word" on the line under the name)
 - [x] **18zh. Copyright notice and licence** (issue
   plangdon84/word-mastermind-archive#220; docs and two comments, review
   gate by the letter since a comment touches `worker/`)

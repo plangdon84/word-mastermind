@@ -41,6 +41,16 @@ export function formatClock(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
+/**
+ * A Rush's time rounded **up** to the whole second (Dev Plan item 18zc):
+ * 120.6 → "2:01", so a score never shows under the limit of a level it
+ * missed. A hair over a whole second from floating point stays on it.
+ */
+export const formatClockUp = (seconds: number) => formatClock(Math.ceil(seconds - 1e-9));
+
+/** A Solo Rush's score, its average seconds a word × the difficulty factor: "2:01 a word", never read as guesses. */
+export const rushScoreText = (seconds: number) => `${formatClockUp(seconds)} a word`;
+
 /** A word's seconds, once it has an outcome. */
 export const spentSeconds = (w: { startedAt: number | null; endedAt: number | null }) =>
   w.startedAt === null || w.endedAt === null ? null : (w.endedAt - w.startedAt) / 1000;

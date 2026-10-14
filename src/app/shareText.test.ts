@@ -61,7 +61,13 @@ describe('soloRushShareText', () => {
       words: [{ guesses: 8, found: true }],
       score: 125.4,
       level: 'skilled',
-    })).toBe('Word Mastermind Solo Rush · Hard\n🟩\nScore 2:05 · Skilled level\nwordmastermind.app');
+    })).toBe('Word Mastermind Solo Rush · Hard\n🟩\nScore 2:06 a word · Skilled level\nwordmastermind.app');
+  });
+
+  it('rounds a Rush score up, so it matches the level (Dev Plan item 18zc)', () => {
+    expect(soloRushShareText({
+      difficulty: 'easy', rankBy: 'rush', words: [{ guesses: 8, found: true }], score: 120.6, level: 'expert',
+    })).toContain('Score 2:01 a word · Expert level');
   });
 });
 

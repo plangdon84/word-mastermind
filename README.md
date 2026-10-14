@@ -1379,7 +1379,11 @@ Switched off for the 1.0 launch, until there are enough players (see
   tapping the guess count shows that word's guesses, with their marks),
   then the **score** (a Crush: average guesses per word × the difficulty
   factor; a Rush: average time per word × the difficulty factor, shown as
-  a time; see [Scoring](#scoring)) and **your level**. One line under them spells out
+  a time a word, "2:01 a word", so it isn't read as guesses, and rounded
+  **up** to the whole second, so it always matches the level: 120.6
+  seconds shows as 2:01, Expert, since Mastermind is under 2:00 (Dev Plan
+  item 18zc; the history row, Analytics, the share text and a Rush lobby's
+  times round up too); see [Scoring](#scoring)) and **your level**. One line under them spells out
   the sum where the difficulty changes the number, e.g. "15.0 guesses a word
   × 0.8 (Extreme) = 12.0", then total guesses and time, the average time
   (and at Medium, where the score is the average, the average guesses) per

@@ -25,7 +25,7 @@ import {
 } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
-import { formatClock, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
+import { formatClock, formatClockUp, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
 import type { Settings } from './settings';
 import { TurnAlertsPrompt } from './TurnAlerts';
 import { ShareResult } from './ShareResult';
@@ -642,7 +642,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
           )}
           <p class="tally">
             {found} of 4 found in {guessCount(totalGuesses)} ({yourTime}) on {DIFFICULTY_LABEL[difficulty]}.
-            {mine?.score != null && rankBy === 'rush' && <> Time: {formatClock(mine.seconds ?? 0)}
+            {mine?.score != null && rankBy === 'rush' && <> Time: {formatClockUp(mine.seconds ?? 0)}
               {counted > totalGuesses && ', with penalties for words not found'}. Faster is better; fewer guesses break ties.</>}
             {mine?.score != null && rankBy === 'crush' && <> Score: {(counted / 4).toFixed(1)} guesses a word
               {counted > totalGuesses && ', with penalties for words not found,'} × {factor} = {scoreText(mine.score)}.
