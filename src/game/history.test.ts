@@ -125,6 +125,19 @@ describe('matchesFilter', () => {
     expect(matchesFilter(won, { search: 'each' })).toBe(false);
     expect(matchesFilter(drawn, { search: 'sto' })).toBe(true);
   });
+
+  it('searches names: a friend you played, or the other people in a Word Set with friends, by how they start', () => {
+    const vsBob = summarizeGame(replayEntry(friendEntry('f1', T, { you: ['crane', 'beach'], them: ['house', 'crane'], opponent: 'Bob Smith' }))!);
+    expect(matchesFilter(vsBob, { name: 'bob' })).toBe(true);
+    expect(matchesFilter(vsBob, { name: ' BOB S ' })).toBe(true);
+    expect(matchesFilter(vsBob, { name: 'smith' })).toBe(false);
+    const lobbyGame = summarizeGame(replayEntry(lobbyEntry('l1', T, [['beach'], ['crane'], ['storm'], ['house']], { rank: 1, of: 3 }))!);
+    expect(matchesFilter(lobbyGame, { name: 'player 3' })).toBe(true);
+    // Your own name isn't searched, and games with no one else in them never match a name.
+    expect(matchesFilter(lobbyGame, { name: 'you' })).toBe(false);
+    expect(matchesFilter(won, { name: 'b' })).toBe(false);
+    expect(matchesFilter(won, { name: '  ' })).toBe(true);
+  });
 });
 
 describe("the server's games", () => {
