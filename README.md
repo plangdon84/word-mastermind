@@ -65,6 +65,7 @@ Build and deploy a **web app** for **Word Mastermind**, a 2-player word-guessing
   - [Backend plan](#backend-plan)
   - [Rating](#rating)
 - [Open Questions](#open-questions)
+- [Copyright and licensing](#copyright-and-licensing)
 
 ## Development
 
@@ -2336,3 +2337,41 @@ numbered item is one PR. Items still to build come first, in build order
   player isn't possible without bigger themes. To discuss.
 - **Leaderboards by country:** the profile has a country, so a board could
   be filtered by it. Later, if wanted.
+
+## Copyright and licensing
+
+Copyright © 2026 Paul Langdon. All rights reserved.
+
+Word Mastermind, including its source code and original implementation, is
+proprietary software. No license is granted to copy, modify, distribute,
+sublicense, sell or otherwise commercially exploit this software, except for
+the limited rights necessary to view and fork this repository as permitted by
+GitHub's Terms of Service.
+
+For licensing inquiries, commercial use or other permissions, please contact
+the copyright holder.
+
+The Word Mastermind name, branding and associated original visual assets are
+not offered for reuse under any license.
+
+The same terms are in [`LICENSE`](LICENSE). The app's and the server's entry
+files (`src/main.tsx`, `worker/src/index.ts`) carry a short header pointing
+here.
+
+**Third-party parts keep their own licences.** The notice above doesn't
+cover them, and their terms and credits still apply:
+
+- **Word lists** (`wordlist/lists/`): created from
+  [ESDB](https://github.com/en-wl/wordlist) (formerly SCOWL), © Kevin
+  Atkinson, whose main sources are Alan Beale's 12dicts and ENABLE2K. Its
+  notice ships with the lists in
+  [`wordlist/NOTICE-ESDB`](wordlist/NOTICE-ESDB).
+- **Definitions** (`wordlist/lists/definitions.json`): adapted from
+  [Open English WordNet](https://github.com/globalwordnet/english-wordnet)
+  (2025), CC BY 4.0, derived from Princeton WordNet 3.0 (© 2006 Princeton
+  University), credited in the app's ☰ menu and in
+  [`wordlist/NOTICE-OEWN`](wordlist/NOTICE-OEWN).
+- **Fonts**: Rubik and JetBrains Mono, bundled through Fontsource, under the
+  SIL Open Font License 1.1.
+- **Libraries**: Preact (MIT) and the other npm packages the app and worker
+  are built with, each under its own licence (listed in `package-lock.json`).
