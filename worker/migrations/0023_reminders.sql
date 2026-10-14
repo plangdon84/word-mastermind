@@ -49,7 +49,7 @@ INSERT INTO player_activity (player_id, played_at)
 SELECT player_id, MAX(played_at) FROM (
   SELECT gp.guest_id AS player_id, COALESCE(g.finished_at, g.started_at) AS played_at
     FROM game_players gp JOIN games g ON g.id = gp.game_id
-  UNION ALL SELECT account_id, started_at FROM history_entries
+  UNION ALL SELECT account_id, MIN(started_at, uploaded_at) FROM history_entries
   UNION ALL SELECT guest_id, added_at FROM friend_game_players
 ) GROUP BY player_id;
 
@@ -60,9 +60,11 @@ BEGIN
     ON CONFLICT (player_id) DO UPDATE SET played_at = MAX(played_at, excluded.played_at);
 END;
 
+-- A synced game counts from when it started, never later than it arrived
+-- (a device's clock can be ahead).
 CREATE TRIGGER activity_history_entries AFTER INSERT ON history_entries
 BEGIN
-  INSERT INTO player_activity (player_id, played_at) VALUES (NEW.account_id, NEW.started_at)
+  INSERT INTO player_activity (player_id, played_at) VALUES (NEW.account_id, MIN(NEW.started_at, NEW.uploaded_at))
     ON CONFLICT (player_id) DO UPDATE SET played_at = MAX(played_at, excluded.played_at);
 END;
 

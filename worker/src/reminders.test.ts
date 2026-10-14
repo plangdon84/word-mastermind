@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DAY_MS } from '../../src/game';
+import { deleteAccount } from './accounts';
 import { fakeD1 } from './fakeD1';
 import { toBase64Url, type VapidKeys } from './push';
+import { comeBackNotice } from './notices';
 import { COME_BACK_AFTER_MS, REMINDER_BATCH, runReminders } from './reminders';
 
 /** 8pm in New York on 14 October 2026 (summer time, UTC-4). */
@@ -79,7 +81,7 @@ describe('the dailies reminder', () => {
     expect(await run(EIGHT_PM + 60_000)).toEqual([]);
   });
 
-  it('opens the first game left when tapped', async () => {
+  it('opens the first game left when tapped (and coming back, the title screen)', async () => {
     const { db, keys, guest, started, fetchFn } = await setup();
     guest(id(1));
     guest(id(2));
@@ -87,6 +89,7 @@ describe('the dailies reminder', () => {
     const { sent } = await runReminders(db, keys, EIGHT_PM, fetchFn);
     expect(sent.map((n) => n.message.url)).toEqual(['/?daily=set', '/?daily=word']);
     expect(sent[1].message.body).toBe("You've played the Daily Set. The Daily Word is there until midnight in New York.");
+    expect(comeBackNotice(id(1)).message.url).toBe('/?title');
   });
 
   it("isn't sent outside 8pm in New York, nor without push keys", async () => {
@@ -128,6 +131,14 @@ describe('the dailies reminder', () => {
     expect(await run(EIGHT_PM)).toHaveLength(REMINDER_BATCH);
     expect(await run(EIGHT_PM + 60_000)).toHaveLength(2);
     expect(await run(EIGHT_PM + 120_000)).toHaveLength(0);
+  });
+
+  it('reaches first, the next day, the players a short hour left out', async () => {
+    const { guest, run } = await setup();
+    for (let n = 1; n <= REMINDER_BATCH + 2; n++) guest(id(n));
+    // Only one run on the first day.
+    expect((await run(EIGHT_PM)).map(([g]) => g)).toEqual([1, 2, 3, 4, 5].map(id));
+    expect((await run(EIGHT_PM + DAY_MS)).map(([g]) => g)).toEqual([6, 7, 1, 2, 3].map(id));
   });
 });
 
@@ -188,5 +199,22 @@ describe('what counts as playing', () => {
       `INSERT INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at) VALUES (?, 'e', 'single', 1, '{}', 700, 2000)`,
     ).run(id(2));
     expect(activity(sqlite, id(2))).toBe(700);
+    // A device whose clock is ahead counts no later than the game arrived.
+    sqlite.prepare(
+      `INSERT INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at) VALUES (?, 'f', 'single', 1, '{}', 9000, 3000)`,
+    ).run(id(2));
+    expect(activity(sqlite, id(2))).toBe(3000);
+  });
+
+  it('is forgotten with the account', async () => {
+    const { db, sqlite, account, guest, started, run } = await setup();
+    account(id(1));
+    guest(id(1), {}, id(1));
+    started(id(1), 'daily');
+    await run(EIGHT_PM);
+    await deleteAccount(db, id(1));
+    for (const table of ['player_activity', 'daily_played', 'reminders_sent']) {
+      expect(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()).toEqual({ n: 0 });
+    }
   });
 });

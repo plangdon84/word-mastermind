@@ -26,6 +26,16 @@ export const remindersOf = (settings: Settings, dailiesOpen = true): ReminderSwi
 /** The reminders the app last sent (`resyncAlerts`), which turning alerts on sends too. */
 let lastReminders: ReminderSwitches | null = null;
 
+/** Whether the dailies were unlocked when the app last knew, so a page that opens into a game can tell the server at once. */
+const DAILIES_OPEN_KEY = 'word-mastermind:alerts-dailies-open:v1';
+
+/** The dailies' lock as last known on this device: locked until the app has seen them open. */
+export const knownDailiesOpen = (): boolean => stored(DAILIES_OPEN_KEY);
+
+export function rememberDailiesOpen(open: boolean): void {
+  store(DAILIES_OPEN_KEY, open);
+}
+
 /** Where this device stands. */
 export type AlertsState =
   /** This browser can't receive them. */
@@ -121,8 +131,7 @@ function post(apiUrl: string, identity: ApiIdentity, path: string, body: unknown
  * straight from a tap), subscribes, and tells the server. Returns the new state.
  */
 export async function enableAlerts(apiUrl: string, identity: ApiIdentity): Promise<AlertsState> {
-  // Before the app knows whether the dailies are unlocked, they're left off; it sends them once it does.
-  const reminders = lastReminders ?? remindersOf(loadSettings(), false);
+  const reminders = lastReminders ?? remindersOf(loadSettings(), knownDailiesOpen());
   if (!hasPush()) return alertsState();
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';

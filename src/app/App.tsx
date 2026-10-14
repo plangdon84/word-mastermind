@@ -54,7 +54,7 @@ import { SoloScreen } from './SoloScreen';
 import { loadSaved } from './storage';
 import { syncApi } from './syncApi';
 import { TitleScreen } from './TitleScreen';
-import { remindersOf, resyncAlerts } from './turnAlerts';
+import { knownDailiesOpen, rememberDailiesOpen, remindersOf, resyncAlerts } from './turnAlerts';
 import { TwoPlayerScreen } from './TwoPlayerScreen';
 import { loadTwoPlayer } from './twoPlayerStorage';
 import { plural } from './messages';
@@ -177,7 +177,7 @@ function profileSummaries({ games, session, settings }: {
  * The screen a link opens: an invite link or a turn notification opens its
  * game; a friend's link (a request or a private invite), or a notification
  * about a friend request, the friends list on the profile; a lobby's join link, or a notification about
- * it, the lobby; the dailies reminder, the Daily screen.
+ * it, the lobby; the dailies reminder, the Daily screen; the come-back reminder, the title screen.
  */
 function linkScreen(search: string): Screen | null {
   const friendGame = gameIdFromUrl(search);
@@ -190,6 +190,8 @@ function linkScreen(search: string): Screen | null {
   // The 8pm reminder (README "Reminders"): the first of the day's games you haven't played.
   const daily = API_URL ? new URLSearchParams(search).get('daily') : null;
   if (daily === 'set' || daily === 'word') return { name: 'daily', mode: daily === 'set' ? 'daily' : 'dailyWord', start: false };
+  // The come-back reminder: the title screen, without reloading an open app.
+  if (new URLSearchParams(search).has('title')) return { name: 'title' };
   return null;
 }
 
@@ -534,10 +536,14 @@ export function App() {
     [historyGames]);
 
   // The server keeps turn alerts under this device's guest ID, which signing out changes, with the reminders it
-  // wants: never the dailies while they're locked. Sent once the unlocked modes are known.
-  const dailiesOpen = open ? open.otherRush : null;
+  // wants: never the dailies while they're locked. Sent on opening, with the lock as last known here (the
+  // unlocked modes load only on the title screen and profile), and again when anything in it changes.
+  const dailiesOpen = open ? open.otherRush : knownDailiesOpen();
   useEffect(() => {
-    if (API_URL && dailiesOpen !== null) void resyncAlerts(API_URL, identity, remindersOf(settings, dailiesOpen));
+    if (open) rememberDailiesOpen(open.otherRush);
+  }, [open?.otherRush]);
+  useEffect(() => {
+    if (API_URL) void resyncAlerts(API_URL, identity, remindersOf(settings, dailiesOpen));
   }, [identity, settings.remindTimeLow, settings.remindDailies, settings.remindComeBack, dailiesOpen]);
 
   /**

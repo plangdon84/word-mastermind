@@ -50,6 +50,14 @@ const playersFor = (kind: ReminderKind) => `
 const startedDaily = (mode: DailyMode) => `EXISTS (SELECT 1 FROM daily_played d
   WHERE d.day = ?1 AND d.mode = '${mode}' AND ${isPlayers('d.player_id', 'x.player')})`;
 
+/**
+ * Orders a batch: players never reminded of this kind first, then whoever
+ * was reminded longest ago, so if there are ever more players due than the
+ * hour's batches reach, the ones left out one day come first the next.
+ */
+const longestWaiting = (kind: ReminderKind) =>
+  `(SELECT r.sent_at FROM reminders_sent r WHERE r.player_id = player AND r.kind = '${kind}') ASC NULLS FIRST, player`;
+
 /** Marks a reminder as sent before sending it, so a run that fails partway never sends one twice. */
 async function claim(db: D1Database, playerId: string, kind: ReminderKind, about: string, now: number): Promise<void> {
   await db.prepare(
@@ -65,7 +73,7 @@ async function dailiesDue(db: D1Database, day: DailyDay): Promise<{ player: stri
        SELECT x.player, ${startedDaily('daily')} AS daily_set, ${startedDaily('dailyWord')} AS daily_word
        FROM (${playersFor('dailies')}) x
        WHERE NOT EXISTS (SELECT 1 FROM reminders_sent r WHERE r.player_id = x.player AND r.kind = 'dailies' AND r.about = ?1)
-     ) WHERE NOT (daily_set AND daily_word) ORDER BY player LIMIT ?2`,
+     ) WHERE NOT (daily_set AND daily_word) ORDER BY ${longestWaiting('dailies')} LIMIT ?2`,
   ).bind(day, REMINDER_BATCH).all<{ player: string; set: number; word: number }>();
   return results;
 }
@@ -83,7 +91,7 @@ async function comeBackDue(db: D1Database, now: number): Promise<{ player: strin
        FROM (${playersFor('comeBack')}) x
      ) WHERE last IS NOT NULL AND last <= ?1
        AND NOT EXISTS (SELECT 1 FROM reminders_sent r WHERE r.player_id = player AND r.kind = 'comeBack' AND r.about = CAST(last AS TEXT))
-     ORDER BY player LIMIT ?2`,
+     ORDER BY ${longestWaiting('comeBack')} LIMIT ?2`,
   ).bind(now - COME_BACK_AFTER_MS, REMINDER_BATCH).all<{ player: string; last: number }>();
   return results;
 }

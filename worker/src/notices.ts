@@ -179,9 +179,9 @@ export const comeBackNotice = (playerId: string): Notice => ({
   reminder: 'comeBack',
   message: {
     title: 'Ready for another game?',
-    body: "It's been a week since your last game. Today's Daily Word is waiting.",
+    body: "It's been a week since your last game. Tap to play.",
     gameId: 'come-back',
-    url: '/',
+    url: '/?title',
   },
 });
 
