@@ -159,8 +159,17 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    name: 'friend-timing',
+    // Two player → A friend: the invite link, then (signed out) the line to sign in to challenge friends.
+    name: 'friend-pick',
     open: async (page) => { await twoPlayerSetup(page); await modeButton(page, 'A friend').click(); },
+  },
+  {
+    name: 'friend-timing',
+    open: async (page) => {
+      await twoPlayerSetup(page);
+      await modeButton(page, 'A friend').click();
+      await modeButton(page, 'Send an invite link').click();
+    },
   },
   { name: 'rush-kind', open: async (page) => { await unlockAll(page); await modeButton(page, 'Word Sets').click(); } },
   {

@@ -152,6 +152,7 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
   await unlockAll(page);
   await modeButton(page, 'Two player').click();
   await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
   await button(page, /1 day a guess/).click();
   await button(page, /^Medium/).click();
   await button(page, 'Next: your word').click();

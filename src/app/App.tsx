@@ -820,6 +820,10 @@ export function App() {
           setScreen({ name: mode, resume: true });
         }}
         onOpenFriendGame={(id) => setScreen({ name: 'friend', id })}
+        onChallenge={(friend) => {
+          setSettings({ ...settings, mode: 'two', opponent: 'friend' });
+          setScreen({ name: 'friend', id: null, challenge: friend });
+        }}
         onStart={() => setScreen(settings.mode === 'two' && settings.opponent === 'friend' ? { name: 'friend', id: null }
           : settings.mode === 'two' && settings.opponent === 'random' ? { name: 'match' }
           : settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord')

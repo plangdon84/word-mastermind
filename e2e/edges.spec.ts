@@ -29,6 +29,7 @@ async function friendGame(page: Page, browser: Parameters<typeof newPlayer>[0]) 
   await unlockAll(page);
   await modeButton(page, 'Two player').click();
   await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
   await button(page, /1 day a guess/).click();
   await button(page, /^Medium/).click();
   await button(page, 'Next: your word').click();
@@ -281,6 +282,7 @@ test("a refused secret word never turns up as a guess, nor letters typed while w
   await unlockAll(page);
   await modeButton(page, 'Two player').click();
   await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
   await button(page, /1 day a guess/).click();
   await button(page, /^Medium/).click();
   await button(page, 'Next: your word').click();
@@ -419,6 +421,36 @@ test("a challenge from the friends list keeps the whole keyboard on screen at ev
   }
 });
 
+test('Two player → A friend lists your friends under the invite link, and picking one challenges them (issue 218)', async ({ page, browser }) => {
+  await unlockAll(page);
+  // Signed out, a line says to sign in to challenge friends.
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await expect(modeButton(page, 'Send an invite link')).toBeVisible();
+  await expect(page.locator('.friend-pick')).toContainText('to challenge your friends from here');
+
+  await page.goto('/');
+  await signIn(page, 'picker@example.com');
+  await button(page, 'Back to profile').click();
+  await button(page, /^Friends/).click();
+  const link = await page.locator('#friend-link').inputValue();
+  const friend = await newPlayer(browser, page);
+  await unlockAll(friend);
+  await signIn(friend, 'picked@example.com');
+  await friend.goto(link);
+  await button(friend, 'Add').click();
+
+  await page.goto('/');
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  const pick = page.locator('.friend-pick .choice');
+  await expect(pick).toHaveCount(1);
+  await pick.click();
+  await expect(page.getByRole('heading', { name: /^Challenge / })).toBeVisible();
+  await guess(page, 'storm');
+  await expect(page.getByRole('heading', { name: /^Challenge sent to/ })).toBeVisible();
+});
+
 test('at Extreme, the latest guess stays at the top while the scores scroll under it (issue 194)', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await unlockAll(page);
@@ -554,6 +586,7 @@ test("a friend's name in a game opens their profile over it, and Back comes back
   await friend.goto('/');
   await modeButton(friend, 'Two player').click();
   await modeButton(friend, 'A friend').click();
+  await modeButton(friend, 'Send an invite link').click();
   await button(friend, /1 day a guess/).click();
   await button(friend, /^Medium/).click();
   await button(friend, 'Next: your word').click();

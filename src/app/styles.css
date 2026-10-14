@@ -467,6 +467,8 @@ button.bubble:active { transform: scale(0.94); }
 .choice-detail { color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
 .time-group { display: flex; flex-direction: column; gap: 8px; }
 .time-group h3 { margin: 4px 0 0; }
+.friend-pick { display: flex; flex-direction: column; gap: 8px; }
+.friend-pick h3 { margin: 4px 0 0; }
 .time-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; }
 .time-choices .choice { align-items: center; }
 .tag {
@@ -1344,8 +1346,14 @@ button.bubble:active { transform: scale(0.94); }
   border-radius: 18px;
   overflow: hidden;
 }
-.daily-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 16px 8px; }
-.daily-head h2 { margin: 0; font-size: 1.05rem; }
+/* The heading folds the card to one line (issue 222). */
+.daily-head {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); padding: 6px 16px;
+  border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.daily-head h2 { flex: 1; margin: 0; font-size: 1.05rem; }
+.daily-head .tag { white-space: nowrap; flex-shrink: 0; }
+.daily-head[aria-expanded="true"] .progress-chevron { transform: rotate(90deg); }
 .daily-next { color: var(--muted); font-size: 0.82rem; }
 .daily-game {
   display: grid;
