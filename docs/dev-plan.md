@@ -20,7 +20,8 @@ plans them here and closes the ones a merged PR fixed.
 
 Open GitHub issues were triaged with the owner on 2 October 2026, in two
 rounds, again on 4 October 2026, on 7 October 2026, and on 8 and 9 October
-2026 in the archive (each issue has its severity and the decisions as a comment).
+2026 in the archive, and on 14 October 2026 (each issue has its severity and
+the decisions as a comment).
 
 **Next, in this order** (reordered with the owner on 3 October 2026:
 18h, 18i, 18b, 18o, 18c and 18d moved ahead of 18m, and 18h built
@@ -35,8 +36,28 @@ from a mock-up, went before 18z; and 18c was split, opening a friend's
 profile from games and boards becoming 18ca; on 9 October 2026, the small
 fixes players see, 18zb and 18zc, went first, and the server tidy-ups 18zd
 to 18zf after 18n; on 10 October 2026, 18zg went first: a player's online
-games stopped reaching their history)
+games stopped reaching their history; on 14 October 2026, the ownership
+notice 18zh went first, as the owner asked, then 18zc, then that day's
+small app fixes 18zi and the reminders 18zj ahead of 18m)
 
+- [ ] **18zh. Copyright notice and licence** (issue
+  plangdon84/word-mastermind-archive#220; docs and two comments, review
+  gate by the letter since a comment touches `worker/`)
+  - Decided with the owner on 14 October 2026: the README gets a
+    **Copyright and licensing** section with the owner's "All rights
+    reserved" text (proprietary; no licence to copy, modify, distribute or
+    sell it beyond viewing and forking as GitHub's terms allow; the name and
+    branding aren't offered for reuse; ask the owner for permission), and a
+    `LICENSE` file carries the same terms
+  - The section says which parts keep their own licences and credits (the
+    word list sources, Open English WordNet's CC BY 4.0 credit, the bundled
+    fonts and libraries), so those obligations still hold
+  - The short header (the year, the owner's name, "All rights reserved",
+    and a pointer to the README's terms)
+    goes in the two entry files only, `src/main.tsx` and
+    `worker/src/index.ts`. The repo stays public, so CI stays free. Not
+    legal advice: the PR says a lawyer can confirm the wording. No release
+    note: players see nothing new
 - [ ] **18zc. A Rush score reads as a time a word** (issues
   plangdon84/word-mastermind-archive#197 and
   plangdon84/word-mastermind-archive#207; app only, no review gate)
@@ -46,6 +67,46 @@ games stopped reaching their history)
     so it can't be read as a number of guesses, and it rounds **up** to the
     whole second, so the shown time always matches the level (120.6 s shows
     as 2:01, Expert). Scoring and levels don't change
+- [ ] **18zi. Challenge a friend from Two player, and small fixes**
+  (issues plangdon84/word-mastermind-archive#218,
+  plangdon84/word-mastermind-archive#219,
+  plangdon84/word-mastermind-archive#222 and
+  plangdon84/word-mastermind-archive#223; app only, no review gate;
+  updates README "Title screen", "Two player vs. a friend" and "Game
+  history")
+  - Issue 218: after **A friend** in Two player, the invite link stays at
+    the top and, signed in, your friends list is under it; picking a friend
+    sends the same challenge as Profile → Friends → Challenge (only that
+    friend can accept). Signed out, a line under the link says to sign in
+    to challenge friends
+  - Issue 219: decided with the owner on 14 October 2026, game history's
+    search finds **names only** (opponents in games against friends,
+    players in Word Sets with friends), matching the start of a name and
+    ignoring case; searching by word goes away. The box reads "Search names"
+  - Issue 222: tapping the Daily card's heading on the title screen
+    collapses or opens it, remembered on this device; collapsed, it's one
+    line saying what's left ("2 to play", "1 to play" or "Played")
+  - Issue 223: a word reported missing goes on the guess list (not the
+    secret list) through `wordlist/rules/guess-include.txt`
+- [ ] **18zj. Reminders: time running out, the dailies and coming back**
+  (issue plangdon84/word-mastermind-archive#224; worker, review gate;
+  updates README "Two player vs. a friend" (Turn alerts) and "Daily Rush")
+  - Decided with the owner on 14 October 2026. Reminders reach only players
+    who turned on notifications, and each kind has its own switch in the
+    profile, on by default, synced with the account (`SyncedSettings`)
+  - Time running out: in a correspondence game (1 or 3 days a guess), one
+    notification a turn when 5% of your time is left (about 72 minutes or
+    3.6 hours before you'd lose), from the game room's alarm. Live clocks
+    get none
+  - The dailies: at 8pm New York time, one notification if you haven't
+    played the Daily Set or the Daily Word today, naming what's left;
+    nothing once you've played both. A Cron Trigger (free) sends them in
+    batches within the Free plan's limits
+  - Coming back: one notification after 7 days with no game the server
+    knows of (online games and signed-in players' synced games), then none
+    until you play again
+  - Texts in `worker/src/notices.ts`; tapping one opens the game, the Daily
+    screen or the title screen
 - [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
   - A page at a hidden address (`wordmastermind.app/admin`, not linked in
     the game), kept out of 18j's sitemap and footers and sent with
@@ -74,6 +135,7 @@ games stopped reaching their history)
 - [ ] **18zd. Fewer server reads for daily and online games** (issues
   plangdon84/word-mastermind-archive#209,
   plangdon84/word-mastermind-archive#213,
+  plangdon84/word-mastermind-archive#225,
   plangdon84/word-mastermind-archive#214 and
   plangdon84/word-mastermind-archive#212; worker, review gate)
   - Issue 209: fetching your finished online games reads each of your IDs'
@@ -81,6 +143,11 @@ games stopped reaching their history)
     of every game you've played (as indexing for friends already does)
   - Issue 213: the title screen asks once for both daily games, through a
     new combined route (the old ones stay for older apps)
+  - Issue 225: decided with the owner on 14 October 2026, the combined
+    route also gives today's place so far, and each played row on the
+    Daily card shows it ("12th of 340 so far ›") on your difficulty's
+    board, the Daily Set's by fewest guesses like the Daily Word's; it's
+    final after midnight New York time. Needs a release note
   - Issue 214: the Daily Word's first day moves to the day it went live; a
     past day with no Daily Word skips the late-finish check; a stray code
     comment moves to the item it describes
@@ -140,6 +207,24 @@ games stopped reaching their history)
 - [ ] **18da. Friending your random opponent** (issue #78; split from
   18d on 9 October 2026; when Random opponent is switched back on)
   - Add your opponent as a friend during or after the game
+- [ ] **18zk. Ways to earn from the game: a write-up** (issue
+  plangdon84/word-mastermind-archive#221; docs only)
+  - Decided with the owner on 14 October 2026: a short written comparison
+    to discuss before anything is built: ads, a paid no-ads tier, a tip
+    jar, a supporter badge or cosmetic extras, each with what players see,
+    the work and the fees. No code
+- [ ] **18zl. Android app** (issue
+  plangdon84/word-mastermind-archive#226; $25 once for Google Play; after
+  the review clean-ups, as the owner noted)
+  - The web app wrapped with CapacitorJS for Google Play
+- [ ] **18zm. iPhone app and its extras** (issues
+  plangdon84/word-mastermind-archive#226 and
+  plangdon84/word-mastermind-archive#227; the $99-a-year Apple Developer
+  Program, shared with 12a; after 18zl)
+  - The same Capacitor app on the App Store, then Game Center, the
+    home-screen badge count and finding friends from contacts. Contacts is
+    a privacy question (what leaves the phone and how it's matched),
+    settled with the owner when it's built
 - [ ] **12a. Sign in with Apple** (needs the $99-a-year Apple Developer
   Program membership)
 - [ ] **Competitive Rush shared places** (issue
