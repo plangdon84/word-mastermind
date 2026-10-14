@@ -50,6 +50,8 @@ export interface PlayedPage {
   retried: PlayedGame[];
   /** Games passed over, or asked for again, whose room didn't answer for now (`seq`s), to ask for again. */
   retry: number[];
+  /** Games asked for again that this version can't read (`seq`s): kept to ask for once the app is updated. */
+  unread: number[];
 }
 
 /** Games to ask for again (`seq`s), and how many more the page may pass over. */
@@ -83,16 +85,16 @@ export function parsePlayedPage(value: unknown, after: number): PlayedPage | nul
     games.push(game);
     if (seq !== undefined) before = seq;
   }
-  // A server from before games were retried sends neither list. A game asked for again that this version can't
-  // read stays to ask for again, like one whose room didn't answer.
+  // A server from before games were retried sends neither list.
   const retry = Array.isArray(value.retry) ? value.retry.filter((seq): seq is number => Number.isSafeInteger(seq)) : [];
   const retried: PlayedGame[] = [];
+  const unread: number[] = [];
   for (const g of Array.isArray(value.retried) ? value.retried : []) {
     const { game, seq } = parsePlayedGame(g);
     if (game) retried.push(game);
-    else if (seq !== undefined) retry.push(seq);
+    else if (seq !== undefined) unread.push(seq);
   }
-  return { games, unreadableFrom, next: value.next as number | null, cursor: value.cursor as number, retried, retry };
+  return { games, unreadableFrom, next: value.next as number | null, cursor: value.cursor as number, retried, retry, unread };
 }
 
 export class PlayedError extends Error {

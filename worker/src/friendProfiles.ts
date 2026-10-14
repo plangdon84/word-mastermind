@@ -219,7 +219,7 @@ async function buildGames(env: Env, rows: readonly LinkedRow[], player: Player, 
   const built: Built = { rows: [], stuck: [] };
   for (const row of rows) {
     try {
-      const played = await toPlayed(env, row, player, ids, false);
+      const played = await toPlayed(env, row, player, ids, null);
       if (played) built.rows.push(indexRow(played.entry, row.seq));
     } catch (e) {
       // A game that can't be read is left out for good; one whose room can't answer for now, retried.

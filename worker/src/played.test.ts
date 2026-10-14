@@ -194,6 +194,25 @@ describe('your games the server refereed', () => {
     expect(cat.retried).toEqual([]);
   });
 
+  it('give a rated game your rating change, on the page and asked for again', async () => {
+    const s = setup();
+    await s.signIn(ANN, 'ann@example.com');
+    for (const secret of ['storm', 'crane']) {
+      const { id } = await s.friend(ANN).create({ name: 'Ann', secret, difficulty: 'medium', timeControl: '1d' });
+      await s.friend(BOB).join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+      await s.friend(ANN).concede(id);
+      // An account's ID is the guest ID of the device that made it.
+      s.sqlite.prepare('INSERT INTO rated_games (game_id, account_id, pool, rating_before, rating_after, rd_after, rated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(id, ANN, '1d', 1500, 1490.4, 200, NOON);
+    }
+    const page = await s.played(ANN, 0, { retry: [], skip: 1 });
+    expect(page.games.map((g) => g.entry.mode === 'friend' && g.entry.rating)).toEqual([
+      { before: 1500, after: 1490 }, { before: 1500, after: 1490 },
+    ]);
+    const again = await s.played(ANN, page.cursor, { retry: [page.games[0].seq!], skip: 0 });
+    expect(again.retried.map((g) => g.entry.mode === 'friend' && g.entry.rating)).toEqual([{ before: 1500, after: 1490 }]);
+  });
+
   it('stop once the page may pass over no more, so an outage still holds the place', async () => {
     const s = setup();
     for (const secret of ['storm', 'crane']) {

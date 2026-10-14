@@ -16,7 +16,7 @@ import { fetchPlayed, PLAYED_RETRIES, type PlayedGame } from './playedApi';
 /**
  * How far this browser has read, for whoever it plays as: a guest, or an
  * account (which also gets its guests' games), and the games passed over
- * whose room didn't answer, with how many pulls in a row it hasn't.
+ * whose room didn't answer, with how many days in a row it hasn't.
  */
 interface PlayedState {
   who: string;
@@ -26,11 +26,19 @@ interface PlayedState {
 
 interface RetryGame {
   seq: number;
+  /** Failed tries counted, at most one a `TRY_GAP_MS`. */
   tries: number;
+  /** When the last one was counted. */
+  countedAt: number;
 }
 
-/** A game whose room fails this many pulls in a row is given up on (Dev Plan item 18zg). */
+/**
+ * A game whose room fails on this many days in a row is given up on (Dev
+ * Plan item 18zg): a pull fails a try at most once a day, so an outage of
+ * a few hours, with pulls on every visit, never loses a game.
+ */
 export const PLAYED_TRIES = 5;
+const TRY_GAP_MS = 24 * 60 * 60 * 1000;
 
 /**
  * v1 could save its place past games it had left out as from before this
@@ -44,7 +52,7 @@ export function parsePlayedState(raw: string | null): PlayedState | null {
     const data: unknown = raw ? JSON.parse(raw) : null;
     if (!isObject(data) || typeof data.who !== 'string' || !Number.isSafeInteger(data.cursor)) return null;
     const retry = (Array.isArray(data.retry) ? data.retry : [])
-      .filter((r): r is RetryGame => isObject(r) && Number.isSafeInteger(r.seq) && Number.isSafeInteger(r.tries))
+      .filter((r): r is RetryGame => isObject(r) && [r.seq, r.tries, r.countedAt].every(Number.isSafeInteger))
       .slice(0, PLAYED_RETRIES);
     return { who: data.who, cursor: data.cursor as number, retry };
   } catch {
@@ -105,7 +113,7 @@ export interface PlayedStore {
  * server can't be reached.
  */
 export async function pullPlayedGames(
-  apiUrl: string, identity: ApiIdentity, who: string, store: PlayedStore, fetchFn: typeof fetch = fetch,
+  apiUrl: string, identity: ApiIdentity, who: string, store: PlayedStore, fetchFn: typeof fetch = fetch, now = Date.now(),
 ): Promise<string[]> {
   const saved = loadState();
   let cursor = saved?.who === who ? saved.cursor : 0;
@@ -126,15 +134,17 @@ export async function pullPlayedGames(
       known.add(e.id);
       added.push(e.id);
     }
-    // Those asked for that came, or aren't yours to have, are done; those that failed again count a try,
-    // given up on after `PLAYED_TRIES`; those passed over now join them.
+    // Those asked for that came, or aren't yours to have, are done; those that failed again count a try (once
+    // a day), given up on after `PLAYED_TRIES`; one this version can't read waits for the app to be updated;
+    // those passed over now join them.
     const failed = new Set(page.retry);
-    const tries = new Map(retry.map((r) => [r.seq, r.tries]));
+    const kept = new Set([...page.retry, ...page.unread]);
+    const listed = new Set(retry.map((r) => r.seq));
     const asking = new Set(asked.map((r) => r.seq));
     retry = [
-      ...retry.filter((r) => !asking.has(r.seq) || failed.has(r.seq)),
-      ...page.retry.filter((seq) => !tries.has(seq)).map((seq) => ({ seq, tries: 0 })),
-    ].map((r) => (failed.has(r.seq) ? { ...r, tries: (tries.get(r.seq) ?? 0) + 1 } : r))
+      ...retry.filter((r) => !asking.has(r.seq) || kept.has(r.seq)),
+      ...page.retry.filter((seq) => !listed.has(seq)).map((seq) => ({ seq, tries: 0, countedAt: 0 })),
+    ].map((r) => (failed.has(r.seq) && now - r.countedAt >= TRY_GAP_MS ? { ...r, tries: r.tries + 1, countedAt: now } : r))
       .filter((r) => r.tries < PLAYED_TRIES)
       .slice(0, PLAYED_RETRIES);
     asked = [];

@@ -115,24 +115,49 @@ describe('pulling your server games', () => {
       return { fetchFn, asked, state };
     }
 
+    const DAY = 24 * 60 * 60 * 1000;
+
     it('carries on past it, and brings it once its room answers', async () => {
       const { fetchFn, asked, state } = flaky();
       const { s } = store();
-      expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['daily-1']);
-      expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual([]);
+      const pull = () => pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn, T);
+      expect(await pull()).toEqual(['daily-1']);
+      expect(await pull()).toEqual([]);
       state.failing = false;
-      expect(await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn)).toEqual(['friend-1']);
-      await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
+      expect(await pull()).toEqual(['friend-1']);
+      await pull();
       // Asked for again on each pull until it came, leaving room to pass over fewer meanwhile.
       expect(asked).toEqual(['0::3', '5:4:2', '5:4:2', '5::3']);
     });
 
-    it(`gives up on it after ${PLAYED_TRIES} pulls in a row`, async () => {
+    it(`gives up on it after its room fails on ${PLAYED_TRIES} days in a row, counting a day's pulls once`, async () => {
       const { fetchFn, asked } = flaky();
       const { s } = store();
-      for (let i = 0; i < PLAYED_TRIES + 1; i += 1) await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn);
-      expect(asked.filter((a) => a.startsWith('5:4:'))).toHaveLength(PLAYED_TRIES - 1);
+      const pull = (at: number) => pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn, at);
+      // Many pulls in a few hours, as during an outage, count once.
+      for (let hour = 0; hour < 10; hour += 1) await pull(T + hour * 3_600_000);
+      for (let day = 1; day < PLAYED_TRIES; day += 1) await pull(T + day * DAY);
+      expect(asked.filter((a) => a.startsWith('5:4:'))).toHaveLength(9 + PLAYED_TRIES - 1);
+      await pull(T + PLAYED_TRIES * DAY);
       expect(asked.at(-1)).toBe('5::3');
+    });
+
+    it("keeps one asked for again that this version can't read, without counting a try", async () => {
+      const future = { ...won, id: 'future-1', mode: 'hologram' } as unknown as HistoryEntry;
+      const asked: string[] = [];
+      const fetchFn = (async (url: RequestInfo | URL) => {
+        const params = new URL(String(url)).searchParams;
+        asked.push(params.get('retry') ?? '');
+        const body = Number(params.get('after')) === 0
+          ? { games: [], next: null, cursor: 5, retried: [], retry: [4] }
+          : { games: [], next: null, cursor: 5, retried: [{ entry: future, ref: 'x', seq: 4 }], retry: [] };
+        return new Response(JSON.stringify(body));
+      }) as typeof fetch;
+      const { s } = store();
+      for (let day = 0; day < PLAYED_TRIES + 2; day += 1) {
+        await pullPlayedGames('https://api.example', identity, 'guest', s, fetchFn, T + day * DAY);
+      }
+      expect(asked.slice(1)).toEqual(Array(PLAYED_TRIES + 1).fill('4'));
     });
   });
 });
