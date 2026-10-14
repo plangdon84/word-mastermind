@@ -3,6 +3,7 @@ import { isDailyDay, type DailyDay, type DailyMode } from './daily';
 import type { Difficulty } from './difficulty';
 import type { LobbyKind } from './lobby';
 import { parseMarks, type Marks } from './marks';
+import { normalizeName } from './profile';
 import { otherSeat, replayPvp, type PvpGame, type PvpRecord, type Seat } from './pvp';
 import {
   isCount, isDifficulty, isObject, isSeat, isStrength, isTime, parsePvpRecord, parseRunRecord, parseSoloRecord, parseTwoPlayerRecord,
@@ -224,8 +225,10 @@ export interface GameSummary {
   opponentGuesses: number | null;
   /** When the last move was made. */
   endedAt: number;
-  /** Every secret word and guess, for search. */
+  /** Every secret word and guess, for a friend's games on the server (`search`). */
   words: ReadonlySet<string>;
+  /** The other people you played, for the history's name search: a friend, or a Word Set's players (not computers). */
+  names: readonly string[];
   /** A Rush's score and level, or null if it has none (given up, or no word found). */
   rush: SoloRunSummary | null;
 }
@@ -249,6 +252,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         words: new Set([game.secret, ...game.guesses.map((g) => g.guess)]),
         rush: null,
         opponent: null,
+        names: [],
         place: null,
         rating: null,
       };
@@ -271,6 +275,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         ]),
         rush: null,
         opponent: null,
+        names: [],
         place: null,
         rating: null,
       };
@@ -290,6 +295,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         words: new Set([...game.words, ...guesses.map((g) => g.guess)]),
         rush: summarizeSoloRun(game),
         opponent: null,
+        names: [],
         place: null,
         rating: null,
       };
@@ -313,6 +319,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         ]),
         rush: null,
         opponent,
+        names: [opponent],
         place: null,
         rating,
       };
@@ -335,6 +342,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         words: new Set([...game.words, ...guesses.map((g) => g.guess)]),
         rush: null,
         opponent: null,
+        names: replayed.mode === 'lobby' ? replayed.places.filter((p) => !p.you && p.strength === null).map((p) => p.name) : [],
         place: replayed.mode === 'lobby' ? { rank: you?.rank ?? null, of: replayed.places.length } : null,
         rating: replayed.mode === 'lobby' ? replayed.rating : null,
       };
@@ -347,9 +355,17 @@ export interface HistoryFilter {
   mode?: HistoryMode;
   result?: HistoryResult;
   difficulty?: Difficulty;
-  /** Matches any secret word or guess that starts with it, ignoring case. */
+  /**
+   * Matches any secret word or guess that starts with it, ignoring case. Only
+   * a friend's games on the server read it now; the app searches by `name`.
+   */
   search?: string;
+  /** Matches a game against someone whose name starts with it, ignoring case (issue 219). */
+  name?: string;
 }
+
+/** A name as the search compares it: spaces as `normalizeName` leaves them, and lower case. */
+const searchName = (name: string) => normalizeName(name).toLocaleLowerCase();
 
 export function matchesFilter(summary: GameSummary, filter: HistoryFilter): boolean {
   if (filter.mode && summary.mode !== filter.mode) return false;
@@ -357,5 +373,7 @@ export function matchesFilter(summary: GameSummary, filter: HistoryFilter): bool
   if (filter.difficulty && isDifficulty(filter.difficulty) && summary.difficulty !== filter.difficulty) return false;
   const search = normalizeWord(filter.search ?? '');
   if (search && ![...summary.words].some((w) => w.startsWith(search))) return false;
+  const name = searchName(filter.name ?? '');
+  if (name && !summary.names.some((n) => searchName(n).startsWith(name))) return false;
   return true;
 }

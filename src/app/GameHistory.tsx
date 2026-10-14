@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  DIFFICULTIES, HISTORY_MODES, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
+  DIFFICULTIES, HISTORY_MODES, NAME_MAX, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
   type DailyPlacement, type HistoryMode, type HistoryResult, type RatingChange,
 } from '../game';
 import { API_URL } from './config';
@@ -149,9 +149,9 @@ interface Loaded {
 
 /**
  * The game history list (README "Game history"): newest first, a page at a
- * time, with filters and a word search. Tapping a game opens its review.
+ * time, with filters and a search by name (issue 219). Tapping a game opens its review.
  * By default it's this browser's games; a friend's profile passes `load`
- * with theirs, and their list has no export.
+ * with theirs, and their list has no export or search (theirs is searched on the server, which reads words).
  */
 export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGamesPage, friend, placements: theirPlaces }: {
   filter: HistoryFilter;
@@ -167,7 +167,7 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGam
   const placements = theirPlaces ?? loadPlacements();
   const [loaded, setLoaded] = useState<Loaded>({ games: [], next: null, status: 'loading' });
   const [csvMessage, setCsvMessage] = useState<string | null>(null);
-  const [search, setSearch] = useState(filter.search ?? '');
+  const [search, setSearch] = useState(filter.name ?? '');
   /** Only the latest request's result is shown. */
   const request = useRef(0);
 
@@ -186,7 +186,7 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGam
   useEffect(() => {
     setCsvMessage(null);
     load(0, false);
-  }, [filter.mode, filter.result, filter.difficulty, filter.search]);
+  }, [filter.mode, filter.result, filter.difficulty, filter.search, filter.name]);
 
   /** Exports every game the filters match, not just the pages loaded. */
   const exportCsv = async () => {
@@ -207,12 +207,12 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGam
 
   // Search as you type, once typing pauses.
   useEffect(() => {
-    if (search === (filter.search ?? '')) return;
-    const timer = setTimeout(() => onFilter({ ...filter, search: search || undefined }), 250);
+    if (search === (filter.name ?? '')) return;
+    const timer = setTimeout(() => onFilter({ ...filter, name: search.trim() ? search : undefined }), 250);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const filtered = Boolean(filter.mode || filter.result || filter.difficulty || filter.search);
+  const filtered = Boolean(filter.mode || filter.result || filter.difficulty || filter.search || filter.name);
 
   return (
     <section class="profile-section" aria-label="Game history">
@@ -233,11 +233,13 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGam
         <Filter<Difficulty> label="Difficulty" value={filter.difficulty}
           onChange={(difficulty) => onFilter({ ...filter, difficulty })}
           options={DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABEL[d] }))} />
-        <label class="history-filter search">
-          <span class="visually-hidden">Search by word</span>
-          <input class="text-input" type="search" placeholder="Search words" value={search} maxLength={5}
-            autoComplete="off" spellcheck={false} onInput={(e) => setSearch(e.currentTarget.value.replace(/[^a-z]/gi, ''))} />
-        </label>
+        {!friend && (
+          <label class="history-filter search">
+            <span class="visually-hidden">Search by name</span>
+            <input class="text-input" type="search" placeholder="Search names" value={search} maxLength={NAME_MAX}
+              autoComplete="off" spellcheck={false} onInput={(e) => setSearch(e.currentTarget.value)} />
+          </label>
+        )}
       </div>
       {loaded.status === 'error' ? (
         <p class="field-note error">Couldn't load {friend ? 'their' : 'your'} games.</p>

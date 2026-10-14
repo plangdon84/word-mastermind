@@ -8,8 +8,11 @@ import { RankBySwitch } from './rushParts';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
 import { dailyApi, type DailyToday } from './dailyApi';
+import { useFriendsList } from './FriendsSection';
+import type { Friend } from './friendsApi';
 import { FriendGameButton, friendGameWaits, LobbyInviteButton, useFriendGames, useLobbyInvites } from './FriendGamesList';
 import { listOpen, loadListChoice, saveListChoice } from './gamesInProgress';
+import { dailyLeftText, loadDailyCollapsed, saveDailyCollapsed } from './dailyCard';
 import { useNow } from './hooks';
 import { countdownText } from './messages';
 import { openReport } from './reportIssue';
@@ -71,7 +74,7 @@ function SetupOffers({ apiUrl, identity, onSignIn }: { apiUrl: string; identity:
     offer="Get a notification when it's your turn against a friend, or a Word Set with friends ends, even with the game closed." />;
 }
 
-type Step = 'home' | 'rush' | 'friends' | 'opponent' | 'strength' | 'turn' | 'difficulty' | 'news';
+type Step = 'home' | 'rush' | 'friends' | 'opponent' | 'friend' | 'strength' | 'turn' | 'difficulty' | 'news';
 
 interface Choice<T> {
   value: T;
@@ -110,7 +113,7 @@ const RUSH_KINDS = ([
 const OPPONENTS = ([
   { value: 'computer', label: 'Computer', detail: 'Play now, on this device.' },
   API_URL
-    ? { value: 'friend', label: 'A friend', detail: 'Send an invite link. Play live, or take turns over days.' }
+    ? { value: 'friend', label: 'A friend', detail: 'Send an invite link, or challenge a friend. Play live, or take turns over days.' }
     : { value: 'friend', label: 'A friend', detail: 'Challenge someone you know.', later: true },
   { value: 'random', label: 'Random opponent', detail: 'Get matched with a player near your rating. Signed in.', later: !API_URL },
 ] satisfies Choice<Opponent>[]).filter((c) => c.value !== 'random' || FEATURES.randomOpponent);
@@ -259,7 +262,8 @@ function DailyRow({ mode, today, inProgress, onPlay, onResult }: {
  * The Daily card (Dev Plan item 18za, README "Title screen"): a row per daily
  * game, the Daily Set and the Daily Word (item 7b), each with its marker (the
  * number of words) and Play. A played row is greyed but still opens that
- * game's result, through a line that isn't.
+ * game's result, through a line that isn't. Tapping its heading folds it to
+ * one line saying what's left (issue 222), remembered on this device.
  */
 function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
   /** Today's Daily Set and Daily Word from the server, each null while it loads. */
@@ -273,16 +277,29 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
   onResult: (mode: DailyMode) => void;
 }) {
   const nextAt = today.daily?.nextAt ?? today.dailyWord?.nextAt;
+  const [collapsed, setCollapsed] = useState(loadDailyCollapsed);
+  const toggle = () => {
+    saveDailyCollapsed(!collapsed);
+    setCollapsed(!collapsed);
+  };
+  const left = !API_URL || lock ? null : dailyLeftText(today, inProgress);
   const head = (
-    <div class="daily-head">
+    <button type="button" class="daily-head" aria-expanded={!collapsed} aria-controls="daily-games" onClick={toggle}>
       <h2>Daily</h2>
-      {nextAt !== undefined && <span class="daily-next">New games in {countdownText(nextAt - now)}</span>}
-    </div>
+      {collapsed
+        ? left && <span class={left === 'Played' ? 'tag' : 'tag yours'}>{left}</span>
+        : nextAt !== undefined && <span class="daily-next">New games in {countdownText(nextAt - now)}</span>}
+      <span class="progress-chevron" aria-hidden="true">›</span>
+    </button>
   );
+  if (collapsed) {
+    return <section class="daily-card collapsed" aria-label="Daily">{head}</section>;
+  }
   if (!API_URL || lock) {
     return (
       <section class="daily-card" aria-label="Daily">
         {head}
+        <div id="daily-games">
         {DAILY_MODES.map((mode) => (
           <div class="daily-game locked" key={mode}>
             <span class="daily-marker" aria-hidden="true">{mode === 'daily' ? 4 : 1}</span>
@@ -293,16 +310,19 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
             {lock && <LockIcon />}
           </div>
         ))}
+        </div>
       </section>
     );
   }
   return (
     <section class="daily-card" aria-label="Daily">
       {head}
-      {DAILY_MODES.map((mode) => (
-        <DailyRow key={mode} mode={mode} today={today[mode]} inProgress={inProgress[mode]}
-          onPlay={() => onPlay(mode)} onResult={() => onResult(mode)} />
-      ))}
+      <div id="daily-games">
+        {DAILY_MODES.map((mode) => (
+          <DailyRow key={mode} mode={mode} today={today[mode]} inProgress={inProgress[mode]}
+            onPlay={() => onPlay(mode)} onResult={() => onResult(mode)} />
+        ))}
+      </div>
     </section>
   );
 }
@@ -367,13 +387,57 @@ function GamesInProgress({ continues, identity, onOpenFriendGame, onLobby }: {
 }
 
 /**
+ * After Two player → A friend (issue 218): the invite link at the top, as
+ * before, then, signed in, your friends list, where picking a friend sends
+ * the same challenge as Profile → Friends → Challenge.
+ */
+function FriendPick({ identity, onLink, onChallenge, onSignIn }: {
+  identity: ApiIdentity;
+  onLink: () => void;
+  onChallenge: (friend: Friend) => void;
+  onSignIn: () => void;
+}) {
+  const [list] = useFriendsList(API_URL, identity);
+  return (
+    <>
+      <Choices label="Invite link" selected={null} onPick={onLink} choices={[{
+        value: 'link', label: 'Send an invite link', detail: 'Whoever opens it plays you. Choose the clock next.',
+      }]} />
+      <section class="friend-pick" aria-label="Challenge a friend">
+        <h3 class="menu-label">Or challenge a friend</h3>
+        {!identity.token ? (
+          <p class="step-note">
+            <button type="button" class="link-btn" onClick={onSignIn}>Sign in</button> to challenge your friends from here.
+          </p>
+        ) : !list ? (
+          <p class="step-note">Loading your friends…</p>
+        ) : list.friends.length === 0 ? (
+          <p class="step-note">No friends yet. Add them in your profile, under Friends.</p>
+        ) : (
+          <>
+            <p class="step-note">Only the friend you pick can accept. You choose the clock and your word next.</p>
+            <Choices label="Your friends" selected={null}
+              choices={list.friends.map((f) => ({ value: f.code, label: f.name, detail: 'Challenge' }))}
+              onPick={(code) => {
+                const friend = list.friends.find((f) => f.code === code);
+                if (friend) onChallenge(friend);
+              }} />
+          </>
+        )}
+      </section>
+    </>
+  );
+}
+
+/**
  * The title screen and the setup steps after it:
- * Single player → difficulty, Rush → kind → difficulty, or Two player → opponent → strength → difficulty.
+ * Single player → difficulty, Rush → kind → difficulty, or Two player → opponent → strength → difficulty
+ * (a friend: invite link → timing → difficulty, or a challenge to one friend).
  * Each step pre-selects the last choice made.
  */
 export function TitleScreen({
   settings, onSettings, profile, identity, friendGamesVersion, onProfile, inProgress, dailyInProgress, onContinue, onStart,
-  onOpenFriendGame, onDaily, lobbyInProgress, onLobby, onLeaderboards, open,
+  onOpenFriendGame, onDaily, lobbyInProgress, onLobby, onLeaderboards, onChallenge, open,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
@@ -399,6 +463,8 @@ export function TitleScreen({
   onLobby: (code?: string) => void;
   /** Opens a game against a friend from the list of yours. */
   onOpenFriendGame: (id: string) => void;
+  /** Starts a challenge to one friend (signed in), as Profile → Friends → Challenge does. */
+  onChallenge: (friend: Friend) => void;
   /** Which modes you've unlocked (README "Unlocking modes"); null while your games load, when nothing shows locked. */
   open: OpenModes | null;
 }) {
@@ -457,8 +523,9 @@ export function TitleScreen({
     rush: 'home',
     friends: 'rush',
     opponent: 'home',
+    friend: 'opponent',
     strength: 'opponent',
-    turn: 'opponent',
+    turn: friend ? 'friend' : 'opponent',
     news: 'home',
     difficulty: friend || random ? 'turn' : two ? 'strength' : lobbyChosen ? 'friends' : dailyChosen ? 'home' : settings.mode === 'rush' ? 'rush' : 'home',
   };
@@ -475,6 +542,7 @@ export function TitleScreen({
     rush: 'Word Sets',
     friends: 'Word Sets with friends',
     opponent: 'Who do you want to play?',
+    friend: 'Play a friend',
     strength: 'How strong is the computer?',
     turn: 'How is the game timed?',
     difficulty: 'Your difficulty',
@@ -605,8 +673,13 @@ export function TitleScreen({
         <Choices label="Opponent" choices={OPPONENTS} selected={settings.opponent}
           onPick={(opponent) => {
             onSettings({ ...settings, opponent });
-            setStep(opponent === 'computer' ? 'strength' : 'turn');
+            setStep(opponent === 'computer' ? 'strength' : opponent === 'friend' ? 'friend' : 'turn');
           }} />
+      )}
+
+      {step === 'friend' && (
+        <FriendPick identity={identity} onLink={() => setStep('turn')} onChallenge={onChallenge}
+          onSignIn={() => onProfile('account')} />
       )}
 
       {step === 'turn' && TIME_GROUPS

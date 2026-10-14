@@ -40,27 +40,6 @@ games stopped reaching their history; on 14 October 2026, the ownership
 notice 18zh went first, as the owner asked, then 18zc, then that day's
 small app fixes 18zi and the reminders 18zj ahead of 18m)
 
-- [ ] **18zi. Challenge a friend from Two player, and small fixes**
-  (issues plangdon84/word-mastermind-archive#218,
-  plangdon84/word-mastermind-archive#219,
-  plangdon84/word-mastermind-archive#222 and
-  plangdon84/word-mastermind-archive#223; app only, no review gate;
-  updates README "Title screen", "Two player vs. a friend" and "Game
-  history")
-  - Issue 218: after **A friend** in Two player, the invite link stays at
-    the top and, signed in, your friends list is under it; picking a friend
-    sends the same challenge as Profile → Friends → Challenge (only that
-    friend can accept). Signed out, a line under the link says to sign in
-    to challenge friends
-  - Issue 219: decided with the owner on 14 October 2026, game history's
-    search finds **names only** (opponents in games against friends,
-    players in Word Sets with friends), matching the start of a name and
-    ignoring case; searching by word goes away. The box reads "Search names"
-  - Issue 222: tapping the Daily card's heading on the title screen
-    collapses or opens it, remembered on this device; collapsed, it's one
-    line saying what's left ("2 to play", "1 to play" or "Played")
-  - Issue 223: a word reported missing goes on the guess list (not the
-    secret list) through `wordlist/rules/guess-include.txt`
 - [ ] **18zj. Reminders: time running out, the dailies and coming back**
   (issue plangdon84/word-mastermind-archive#224; worker, review gate;
   updates README "Two player vs. a friend" (Turn alerts) and "Daily Rush")
@@ -218,6 +197,27 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18zi. Challenge a friend from Two player, and small fixes**
+  (issues plangdon84/word-mastermind-archive#218,
+  plangdon84/word-mastermind-archive#219,
+  plangdon84/word-mastermind-archive#222 and
+  plangdon84/word-mastermind-archive#223; app only, no review gate;
+  updates README "Title screen", "Two player vs. a friend" and "Game
+  history")
+  - Issue 218: after **A friend** in Two player, the invite link stays at
+    the top and, signed in, your friends list is under it; picking a friend
+    sends the same challenge as Profile → Friends → Challenge (only that
+    friend can accept). Signed out, a line under the link says to sign in
+    to challenge friends
+  - Issue 219: decided with the owner on 14 October 2026, game history's
+    search finds **names only** (opponents in games against friends,
+    players in Word Sets with friends), matching the start of a name and
+    ignoring case; searching by word goes away. The box reads "Search names"
+  - Issue 222: tapping the Daily card's heading on the title screen
+    collapses or opens it, remembered on this device; collapsed, it's one
+    line saying what's left ("2 to play", "1 to play" or "Played")
+  - Issue 223: a word reported missing goes on the guess list (not the
+    secret list) through `wordlist/rules/guess-include.txt`
 - [x] **18zc. A Rush score reads as a time a word** (issues
   plangdon84/word-mastermind-archive#197 and
   plangdon84/word-mastermind-archive#207; app only, no review gate)
