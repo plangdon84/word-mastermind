@@ -4,7 +4,7 @@ import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { MODE_LABEL } from './GameHistory';
 import type { HistoryGame } from './historyDb';
 import { POOL_LABEL, POOL_SHORT_LABEL, ratingText, type PoolRating } from './ratingsApi';
-import { formatClock } from './rushParts';
+import { formatClock, formatClockUp, rushScoreText } from './rushParts';
 import { guessCount } from './messages';
 
 /** 2.25 → "2.3"; whole numbers stay whole. */
@@ -81,10 +81,11 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
             <button type="button" class="link-btn" onClick={() => onOpen(stats.best!.id)}>{bestValue(stats.best.value)}</button>
           ) : '—'}
         </Stat>
-        {/* A Rush is scored by time: its best is a time, shown once there's one (Dev Plan item 18z). */}
+        {/* A Rush is scored by time: its best is a time, shown once there's one (Dev Plan item 18z): Solo Rush's
+            a time a word, a lobby's its total, both rounded up (18zc). */}
         {stats.bestRush && (
           <Stat label={mode === 'rush' ? 'Best Rush score' : 'Best Rush time'}>
-            <button type="button" class="link-btn" onClick={() => onOpen(stats.bestRush!.id)}>{formatClock(stats.bestRush.value)}</button>
+            <button type="button" class="link-btn" onClick={() => onOpen(stats.bestRush!.id)}>{mode === 'rush' ? rushScoreText(stats.bestRush.value) : formatClockUp(stats.bestRush.value)}</button>
           </Stat>
         )}
         <Stat label="Fastest solve">

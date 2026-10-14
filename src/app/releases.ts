@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.15.4',
+    notes: [
+      { text: 'A Rush score now reads as a time a word (“2:01 a word”), so it can’t be mistaken for a number of guesses.' },
+      { text: 'A Rush score now rounds up to the whole second.' },
+    ],
+  },
+  {
     version: '1.15.3',
     notes: [
       { text: 'Fixed a bug preventing games history from fully loading for some players.' },

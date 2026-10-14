@@ -3,7 +3,7 @@ import {
   type Seat,
 } from '../game';
 import type { FriendGame, RatingLine } from './friendApi';
-import { formatClock } from './rushParts';
+import { formatClock, formatClockUp } from './rushParts';
 import { guessCount } from './messages';
 
 /*
@@ -82,7 +82,7 @@ export function LobbyPlaces({ places, rankBy = 'crush', rating }: {
             <span class="board-name">{p.name}{p.you && ' (you)'}</span>
             {rankBy === 'rush' ? (
               <>
-                <span class="board-guesses">{p.seconds === null ? 'Not finished' : formatClock(p.seconds)}</span>
+                <span class="board-guesses">{p.seconds === null ? 'Not finished' : formatClockUp(p.seconds)}</span>
                 <span class="board-time">{p.score === null ? '' : p.score.toFixed(1)}</span>
               </>
             ) : (

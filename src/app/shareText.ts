@@ -3,7 +3,7 @@ import {
 } from '../game';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { DAILY_NAME, guessCount } from './messages';
-import { formatClock } from './rushParts';
+import { formatClockUp, rushScoreText } from './rushParts';
 
 /**
  * The results a player can share (Dev Plan item 18k): short and spoiler-free,
@@ -59,7 +59,7 @@ export function dailyShareText({ mode = 'daily', day, difficulty, words, place }
 
 /**
  * "Solo Crush · Medium", the emoji, "Score 11.3 · Expert level"; a Solo Rush,
- * scored by time, "Score 2:05 · Skilled level".
+ * scored by time, "Score 2:05 a word · Skilled level".
  */
 export function soloRushShareText({ difficulty, rankBy = 'crush', words, score, level }: {
   difficulty: Difficulty;
@@ -71,7 +71,7 @@ export function soloRushShareText({ difficulty, rankBy = 'crush', words, score, 
   return [
     `Word Mastermind ${wordSetName('solo', rankBy)} · ${DIFFICULTY_LABEL[difficulty]}`,
     wordEmoji(words),
-    `Score ${rankBy === 'rush' ? formatClock(score) : score.toFixed(1)} · ${STRENGTH_LABEL[level]} level`,
+    `Score ${rankBy === 'rush' ? rushScoreText(score) : score.toFixed(1)} · ${STRENGTH_LABEL[level]} level`,
     SHARE_ADDRESS,
   ].join('\n');
 }
@@ -151,7 +151,7 @@ export function lobbyShareText({ mode, rankBy = 'crush', players }: {
     ...players.map((p) => [
       ordinal(p.rank),
       wordEmoji(p.words),
-      rankBy === 'rush' && p.seconds != null ? formatClock(p.seconds) : guessCount(p.words.reduce((sum, w) => sum + w.guesses, 0)),
+      rankBy === 'rush' && p.seconds != null ? formatClockUp(p.seconds) : guessCount(p.words.reduce((sum, w) => sum + w.guesses, 0)),
       p.strength ? `${p.name} (${STRENGTH_LABEL[p.strength]})` : p.name,
     ].join(' ')),
     SHARE_ADDRESS,

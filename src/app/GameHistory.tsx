@@ -7,7 +7,7 @@ import { API_URL } from './config';
 import { loadPlacements } from './dailyStorage';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { downloadFile } from './backup';
-import { formatClock } from './rushParts';
+import { formatClockUp, rushScoreText } from './rushParts';
 import { loadAllMatching, loadGamesPage, type HistoryGame, type HistoryPage } from './historyDb';
 import { CSV_ROW_LIMIT, csvRowCount, historyCsv } from './historyCsv';
 import { guessCount } from './messages';
@@ -44,15 +44,17 @@ function rowParts(game: HistoryGame, placements: readonly DailyPlacement[]): { t
   const rating = summary.rating ? ` · ${ratingText(summary.rating)}` : '';
   switch (summary.mode) {
     case 'rush': {
-      // A Rush is scored by time, a Crush by guesses.
+      // A Rush is scored by time, a Crush by guesses. A Rush's tag is the time
+      // alone, to fit; its line says "a word", so it isn't read as guesses.
       const rankBy = replayed.mode === 'rush' ? runRankBy(replayed.game) : 'crush';
-      const score = summary.rush && (rankBy === 'rush' ? formatClock(summary.rush.score) : summary.rush.score.toFixed(1));
+      const rush = rankBy === 'rush';
+      const score = summary.rush && (rush ? formatClockUp(summary.rush.score) : summary.rush.score.toFixed(1));
       return {
         tone: summary.rush ? `metal-${summary.rush.level}` : 'no-score',
         tag: score || '–',
-        tagLabel: score ? `Score ${score}` : 'No score',
+        tagLabel: summary.rush ? `Score ${rush ? rushScoreText(summary.rush.score) : score}` : 'No score',
         who: wordSetName('solo', rankBy),
-        detail: `${summary.rush ? STRENGTH_LABEL[summary.rush.level] : 'No score'} · ${played}`,
+        detail: `${summary.rush ? STRENGTH_LABEL[summary.rush.level] : 'No score'}${summary.rush && rush ? ` · ${rushScoreText(summary.rush.score)}` : ''} · ${played}`,
       };
     }
     case 'daily':

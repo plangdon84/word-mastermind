@@ -12,7 +12,7 @@ import { useMessage, usePhysicalKeyboard } from './hooks';
 import { LobbyApiError, type LobbyApi } from './lobbyApi';
 import { lobbyLink, lobbyMessage } from './lobbyStorage';
 import { guessCount, lobbyErrorMessage, secretErrorMessage } from './messages';
-import { formatClock, RushDots } from './rushParts';
+import { formatClock, formatClockUp, RushDots } from './rushParts';
 import { smsLink } from './friendGames';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
 import { shareLink } from './share';
@@ -90,7 +90,7 @@ export const scoreText = (score: number) => score.toFixed(1);
 
 /** A finished player's result as a lobby ranks it: a Rush's total time, or a Crush's score. */
 export const rankedText = (rankBy: RankBy, p: { score: number | null; seconds: number | null }) =>
-  rankBy === 'rush' ? (p.seconds === null ? '' : formatClock(p.seconds)) : p.score === null ? '' : scoreText(p.score);
+  rankBy === 'rush' ? (p.seconds === null ? '' : formatClockUp(p.seconds)) : p.score === null ? '' : scoreText(p.score);
 
 /**
  * The standings: finished players ranked by score (time breaks ties; a Rush
@@ -115,7 +115,7 @@ export function Standings({ lobby }: { lobby: LobbyView }) {
             <span class="lobby-score">{rankedText(rankBy, p)}</span>
             <span class="lobby-stat">
               {p.finished && rankBy === 'rush'
-                ? `${found} found · ${formatClock(p.seconds ?? 0)}${counted > guesses ? ', with penalties' : ''} · ${guessCount(counted)}`
+                ? `${found} found · ${formatClockUp(p.seconds ?? 0)}${counted > guesses ? ', with penalties' : ''} · ${guessCount(counted)}`
                 : p.finished
                 ? `${found} found · ${guessCount(counted)}${counted > guesses ? ', with penalties' : ''} · ${formatClock(p.seconds ?? 0)}`
                 : `${found} found · ${guessCount(guesses)} so far · playing`}

@@ -12,7 +12,7 @@ import { GameHeader, GameMenuItems } from './gameHeader';
 import { HowToPlay, ReplaceGamePanel, type Review } from './panels';
 import { ShareResult } from './ShareResult';
 import { soloRushShareText } from './shareText';
-import { formatClock, RushBar, RushBoard, RushDots, RushSummary, RushWords } from './rushParts';
+import { formatClock, formatClockUp, rushScoreText, RushBar, RushBoard, RushDots, RushSummary, RushWords } from './rushParts';
 import { BadgeToast } from './Badge';
 import { useBadgesEarnedBy } from './badges';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
@@ -427,7 +427,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
             }))} />
           {review?.heading ? review.result : summary && (
             <RushSummary tiers={[
-              ['Score', rankBy === 'rush' ? formatClock(summary.score) : summary.score.toFixed(1)],
+              ['Score', rankBy === 'rush' ? rushScoreText(summary.score) : summary.score.toFixed(1)],
               ['Your level', STRENGTH_LABEL[summary.level]],
             ]} />
           )}
@@ -435,12 +435,12 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
             <p class="tally">
               {/* A Rush is scored by time: the average a word, × the difficulty factor where it isn't 1. */}
               {summary.factor !== 1 && <>
-                {formatClock(summary.average.seconds)} a word × {summary.factor}{' '}
-                ({DIFFICULTY_LABEL[summary.difficulty]}) = {formatClock(summary.score)}.{' '}
+                {formatClockUp(summary.average.seconds)} a word × {summary.factor}{' '}
+                ({DIFFICULTY_LABEL[summary.difficulty]}) = {rushScoreText(summary.score)}.{' '}
               </>}
               Faster is better.{' '}
               {guessCount(summary.words.reduce((sum, w) => sum + w.guesses, 0))} in {formatClock(summary.totalSeconds)}
-              {summary.factor === 1 && <> · {formatClock(summary.average.seconds)} and {summary.average.guesses.toFixed(1)} guesses a word</>}
+              {summary.factor === 1 && <> · {formatClockUp(summary.average.seconds)} and {summary.average.guesses.toFixed(1)} guesses a word</>}
               {summary.factor !== 1 && <> · {summary.average.guesses.toFixed(1)} guesses a word</>}
               {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
             </p>
