@@ -141,6 +141,14 @@ describe("today's Daily Rush", () => {
     expect((await as(ANN).today()).run?.current).toBe(1);
   });
 
+  it("is noted as played as soon as it starts, for the 8pm reminder (README \"Reminders\")", async () => {
+    const { as, sqlite } = setup();
+    await as(ANN).start(DAY, 'medium', 'Ann');
+    expect(sqlite.prepare('SELECT player_id, day, mode, played_at FROM daily_played').all())
+      .toEqual([{ player_id: ANN, day: DAY, mode: 'daily', played_at: NOON }]);
+    expect(sqlite.prepare('SELECT played_at FROM player_activity WHERE player_id = ?').get(ANN)).toEqual({ played_at: NOON });
+  });
+
   it('is once a day: starting again is refused', async () => {
     const { as } = setup();
     await as(ANN).start(DAY, 'medium', 'Ann');

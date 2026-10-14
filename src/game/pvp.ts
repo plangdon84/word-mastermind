@@ -190,6 +190,21 @@ export function pvpDeadline(game: PvpGame): number | null {
   return turnStart(game) + (clocks ? clocks[turn] : (game.turnDays ?? 1) * DAY_MS);
 }
 
+/** How much of a correspondence turn is left when its player is reminded (README "Reminders"): 5%. */
+export const TIME_LOW_SHARE = 0.05;
+
+/**
+ * When the player to move in a correspondence game is reminded that their
+ * time is running out (README "Reminders"): with 5% of their turn left,
+ * about 72 minutes of a day or 3.6 hours of 3 days. Null for a live game,
+ * whose players are watching, and once the game is over.
+ */
+export function pvpTimeLowAt(game: PvpGame): number | null {
+  const deadline = pvpDeadline(game);
+  if (deadline === null || pvpClocks(game)) return null;
+  return deadline - Math.round(TIME_LOW_SHARE * (game.turnDays ?? 1) * DAY_MS);
+}
+
 /**
  * Both words must be valid secret words, and a rated game refuses Easy.
  * `replaying` takes words as recorded (`validateSecretWord`), here and below.

@@ -144,7 +144,8 @@ describe('sending', () => {
     const [a, b, keys] = [await device(), await device(), await vapidKeys()];
     const gone = 'https://fcm.googleapis.com/fcm/send/gone';
     for (const [endpoint, d] of [[ENDPOINT, a], [gone, b]] as const) {
-      sqlite.prepare('INSERT INTO push_subscriptions VALUES (?, ?, ?, ?, 0)').run(endpoint, GUEST, d.keys.p256dh, d.keys.auth);
+      sqlite.prepare('INSERT INTO push_subscriptions (endpoint, guest_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, 0)')
+        .run(endpoint, GUEST, d.keys.p256dh, d.keys.auth);
     }
     const fetchFn = (async (input: RequestInfo | URL) =>
       new Response(null, { status: String(input) === gone ? 410 : 201 })) as typeof fetch;
@@ -187,5 +188,15 @@ describe('the push routes', () => {
     expect((await call('POST', '/api/push/subscribe', { endpoint: 'https://evil.example/', keys: d.keys })).status).toBe(400);
     expect((await call('POST', '/api/push/unsubscribe', { endpoint: ENDPOINT })).status).toBe(200);
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM push_subscriptions').get()).toEqual({ n: 0 });
+  });
+
+  it('keep which reminders a device wants, every one on unless it says otherwise', async () => {
+    const { sqlite, call } = await setup();
+    const d = await device();
+    const switches = () => sqlite.prepare('SELECT remind_time_low, remind_dailies, remind_come_back FROM push_subscriptions').get();
+    await call('POST', '/api/push/subscribe', { endpoint: ENDPOINT, keys: d.keys });
+    expect(switches()).toEqual({ remind_time_low: 1, remind_dailies: 1, remind_come_back: 1 });
+    await call('POST', '/api/push/subscribe', { endpoint: ENDPOINT, keys: d.keys, reminders: { timeLow: true, dailies: false, comeBack: false } });
+    expect(switches()).toEqual({ remind_time_low: 1, remind_dailies: 0, remind_come_back: 0 });
   });
 });

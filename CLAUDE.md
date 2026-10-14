@@ -57,6 +57,19 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
   (the worker). Add every new D1 table to `WIPE_TABLES` or `KEEP_TABLES` in
   `worker/src/wipe.ts` (`npm run wipe`).
+- Reminders (Dev Plan item 18zj, README "Reminders"): turn alerts for
+  time running out in a correspondence game (5% left, `pvpTimeLowAt`, from
+  the game room's alarm, `timeLowFor` on the room), the day's daily games at
+  8pm New York time and coming back after a week, each with a synced switch
+  (`remindTimeLow`, `remindDailies`, `remindComeBack`) that the device also
+  sends with its subscription (the dailies off while locked there); a
+  reminder needs both (`reminderOn` in `worker/src/push.ts`). The dailies
+  and coming back are `worker/src/reminders.ts`, run by the worker's Cron
+  Trigger (`scheduled` in `index.ts`, crons in `wrangler.toml`) a small
+  batch a minute (Free plan limits), from D1 `daily_played` (written when a
+  daily game starts), `player_activity` (kept by triggers on every game
+  table and `notePlayed` on each guess against a friend) and
+  `reminders_sent` (claimed before sending, so none goes twice).
 - Two player vs. a friend (Dev Plan item 5, README "Two player vs. a
   friend"; playable from any device once signed in; a challenge from the
   friends list is an invite only that friend can accept): the rules are `src/game/pvp.ts` (seats `host` and `guest`,

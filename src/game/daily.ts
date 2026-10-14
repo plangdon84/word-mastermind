@@ -10,7 +10,7 @@ import type { GuessResult, RankBy } from './scoring';
  * nothing here reads the clock: the time is passed in.
  */
 
-export { addDays, dailyDay, dayEnd, dayStart, isDailyDay, NEW_YORK_FROM, type DailyDay } from './dailyDays';
+export { addDays, dailyDay, dayEnd, dayStart, isDailyDay, newYorkHour, NEW_YORK_FROM, type DailyDay } from './dailyDays';
 
 /**
  * Where a player's Daily Rush is. It's finished once every word is found;

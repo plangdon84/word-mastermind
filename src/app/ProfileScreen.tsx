@@ -235,6 +235,27 @@ export function ProfileScreen({
             <span class="field-note">Against a friend at Medium, they see the letters you've marked, sent with each guess.</span>
           </div>
           {API_URL && <TurnAlertsSetting apiUrl={API_URL} identity={identity} />}
+          {API_URL && (
+            <div class="menu-group reminders-setting">
+              <span class="menu-label">Reminders</span>
+              <label class="toggle">
+                <input type="checkbox" checked={settings.remindTimeLow}
+                  onChange={(e) => onSettings({ ...settings, remindTimeLow: e.currentTarget.checked })} />
+                Time running out in a correspondence game
+              </label>
+              <label class="toggle">
+                <input type="checkbox" checked={settings.remindDailies}
+                  onChange={(e) => onSettings({ ...settings, remindDailies: e.currentTarget.checked })} />
+                The Daily Set and Daily Word, at 8pm New York time
+              </label>
+              <label class="toggle">
+                <input type="checkbox" checked={settings.remindComeBack}
+                  onChange={(e) => onSettings({ ...settings, remindComeBack: e.currentTarget.checked })} />
+                A game after a week away
+              </label>
+              <span class="field-note">Sent as notifications while turn alerts are on.</span>
+            </div>
+          )}
       </section>
     ) : page === 'help' ? (
       <section class="profile-section" aria-label="Help">

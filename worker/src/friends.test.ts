@@ -34,7 +34,8 @@ const DAN = '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e';
 /** A synced profile, as `player` sends it. */
 const SYNCED: SyncedProfile = {
   guestName: 'Guest-1234', name: null, country: null, memberSince: NOW,
-  settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
+  settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true,
+    remindTimeLow: true, remindDailies: true, remindComeBack: true },
 };
 
 async function vapidKeys(): Promise<VapidKeys> {
@@ -556,7 +557,8 @@ describe('challenging a friend', () => {
 describe("a friend game's names", () => {
   const profile = (name: string | null) => ({
     guestName: 'Guest-1234', name, country: null, memberSince: NOW,
-    settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
+    settings: { difficulty: 'medium', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true,
+      remindTimeLow: true, remindDailies: true, remindComeBack: true },
   } as const);
 
   it("are each player's current one: a guest who signs in, and a renamed profile (#133)", async () => {
@@ -697,7 +699,8 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     const { ann, bob, bobCode, now } = await friends();
     await bob.sync.putProfile({
       guestName: 'Guest-1234', name: 'Bob', country: 'GB', memberSince: NOW,
-      settings: { difficulty: 'hard', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true },
+      settings: { difficulty: 'hard', newestFirst: { easy: false, medium: false, hard: false, extreme: false }, showTutorial: true, shareMarks: true, findByName: true,
+        remindTimeLow: true, remindDailies: true, remindComeBack: true },
     });
     const solo = soloEntry('bob-solo-1', now() - 60_000, ['crane', 'beach']);
     await bob.sync.upload([solo]);

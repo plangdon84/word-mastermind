@@ -54,7 +54,7 @@ import { SoloScreen } from './SoloScreen';
 import { loadSaved } from './storage';
 import { syncApi } from './syncApi';
 import { TitleScreen } from './TitleScreen';
-import { resyncAlerts } from './turnAlerts';
+import { knownDailiesOpen, rememberDailiesOpen, remindersOf, resyncAlerts } from './turnAlerts';
 import { TwoPlayerScreen } from './TwoPlayerScreen';
 import { loadTwoPlayer } from './twoPlayerStorage';
 import { plural } from './messages';
@@ -177,7 +177,7 @@ function profileSummaries({ games, session, settings }: {
  * The screen a link opens: an invite link or a turn notification opens its
  * game; a friend's link (a request or a private invite), or a notification
  * about a friend request, the friends list on the profile; a lobby's join link, or a notification about
- * it, the lobby.
+ * it, the lobby; the dailies reminder, the Daily screen; the come-back reminder, the title screen.
  */
 function linkScreen(search: string): Screen | null {
   const friendGame = gameIdFromUrl(search);
@@ -187,6 +187,11 @@ function linkScreen(search: string): Screen | null {
   }
   const lobby = API_URL ? lobbyCodeFromUrl(search) : null;
   if (lobby) return { name: 'lobby', code: lobby };
+  // The 8pm reminder (README "Reminders"): the first of the day's games you haven't played.
+  const daily = API_URL ? new URLSearchParams(search).get('daily') : null;
+  if (daily === 'set' || daily === 'word') return { name: 'daily', mode: daily === 'set' ? 'daily' : 'dailyWord', start: false };
+  // The come-back reminder: the title screen, without reloading an open app.
+  if (new URLSearchParams(search).has('title')) return { name: 'title' };
   return null;
 }
 
@@ -434,11 +439,6 @@ export function App() {
     if (screen.name === 'title' || screen.name === 'profile') pullPlayed();
   }, [screen.name]);
 
-  // The server keeps turn alerts under this device's guest ID, which signing out changes.
-  useEffect(() => {
-    if (API_URL) void resyncAlerts(API_URL, identity);
-  }, [identity]);
-
   /** After switching this device to a new guest ID, a Google sign-in (tied to the old one) must start again. */
   const SIGN_IN_AGAIN = 'This device was signed out of another account. Sign in again to continue.';
   /**
@@ -534,6 +534,17 @@ export function App() {
   const open = useMemo(
     () => historyGames && openModes(computeUnlocks(historyGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })))),
     [historyGames]);
+
+  // The server keeps turn alerts under this device's guest ID, which signing out changes, with the reminders it
+  // wants: never the dailies while they're locked. Sent on opening, with the lock as last known here (the
+  // unlocked modes load only on the title screen and profile), and again when anything in it changes.
+  const dailiesOpen = open ? open.otherRush : knownDailiesOpen();
+  useEffect(() => {
+    if (open) rememberDailiesOpen(open.otherRush);
+  }, [open?.otherRush]);
+  useEffect(() => {
+    if (API_URL) void resyncAlerts(API_URL, identity, remindersOf(settings, dailiesOpen));
+  }, [identity, settings.remindTimeLow, settings.remindDailies, settings.remindComeBack, dailiesOpen]);
 
   /**
    * Signed in, shares your stats and badges with friends and indexes your

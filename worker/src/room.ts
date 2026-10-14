@@ -1,11 +1,11 @@
 import {
   concedePvp, createPvpGame, otherSeat, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, ratingPool, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
-  isLive, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
+  isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
   type Marks, type Rating, type TimeControl, type TurnDays,
 } from '../../src/game';
 import type { FriendError, FriendGame, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
-import { declinedNotice, expiredNotice, joinedNotice, moveNotices, type Notice } from './notices';
+import { declinedNotice, expiredNotice, joinedNotice, moveNotices, timeLowNotice, type Notice } from './notices';
 import { rateFinishedGame, type RatingChange } from './ratings';
 
 /*
@@ -58,6 +58,11 @@ export interface Room {
   ratings?: Record<Seat, Rating>;
   ratingsBefore?: Record<Seat, Rating>;
   ratingsAfter?: Record<Seat, Rating>;
+  /**
+   * The deadline whose player was reminded their time is running out
+   * (README "Reminders"), so each turn reminds once.
+   */
+  timeLowFor?: number;
 }
 
 /** How long an invite link works for, from when it's sent. */
@@ -106,6 +111,8 @@ export interface RoomDeps {
    * Object sends them after answering, and a failure never undoes a move.
    */
   notify(notices: readonly Notice[]): void;
+  /** Notes that a player made a move, so they aren't reminded to come back (README "Reminders"). */
+  played(playerId: string, now: number): Promise<void>;
 }
 
 /**
@@ -228,8 +235,8 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
 async function save(storage: RoomStorage, deps: RoomDeps, room: Room, now: number): Promise<Room> {
   await storage.put(ROOM_KEY, room);
   const game = gameOf(room);
-  const deadline = game && pvpDeadline(game);
-  if (deadline) await storage.setAlarm(deadline);
+  const next = game && nextAlarm(room, game, now);
+  if (next) await storage.setAlarm(next);
   else await storage.deleteAlarm();
   if (game?.status !== 'over' || !room.record) return room;
   const changes = await deps.saveFinished(room, room.record, now);
@@ -241,6 +248,18 @@ async function save(storage: RoomStorage, deps: RoomDeps, room: Room, now: numbe
   };
   await storage.put(ROOM_KEY, rated);
   return rated;
+}
+
+/**
+ * When the room next has something to do: remind the player to move that
+ * their time is running out, unless they've been reminded this turn, or
+ * end the game when it has run out. Null once the game is over.
+ */
+function nextAlarm(room: Room, game: PvpGame, now: number): number | null {
+  const deadline = pvpDeadline(game);
+  const timeLow = pvpTimeLowAt(game);
+  if (deadline !== null && timeLow !== null && room.timeLowFor !== deadline && timeLow > now) return timeLow;
+  return deadline;
 }
 
 /**
@@ -257,7 +276,8 @@ async function settle(storage: RoomStorage, deps: RoomDeps, room: Room, now: num
   }
   const game = gameOf(room);
   const deadline = game && pvpDeadline(game);
-  if (!game || deadline === null || now < deadline) return room;
+  if (!game || deadline === null) return room;
+  if (now < deadline) return remindTimeLow(storage, deps, room, game, deadline, now);
   const result = timeOutPvp(game, now);
   if (!result.ok) return room;
   const settled = await save(storage, deps, { ...room, record: toPvpRecord(result.game) }, now);
@@ -265,7 +285,23 @@ async function settle(storage: RoomStorage, deps: RoomDeps, room: Room, now: num
   return settled;
 }
 
-/** The room's alarm: a player's time may have run out. */
+/**
+ * Once a correspondence turn is down to its last 5%, tells the player to
+ * move, once a turn (README "Reminders"), and sets the alarm for the deadline.
+ */
+async function remindTimeLow(
+  storage: RoomStorage, deps: RoomDeps, room: Room, game: PvpGame, deadline: number, now: number,
+): Promise<Room> {
+  const timeLow = pvpTimeLowAt(game);
+  if (timeLow === null || now < timeLow || room.timeLowFor === deadline) return room;
+  const reminded: Room = { ...room, timeLowFor: deadline };
+  await storage.put(ROOM_KEY, reminded);
+  await storage.setAlarm(deadline);
+  deps.notify(timeLowNotice(reminded, game, deadline, now));
+  return reminded;
+}
+
+/** The room's alarm: a player's time may be running out, or have run out. */
 export async function handleAlarm(storage: RoomStorage, deps: RoomDeps, now: number): Promise<void> {
   const room = await storage.get<Room>(ROOM_KEY);
   if (room) await settle(storage, deps, room, now);
@@ -426,6 +462,7 @@ async function answerRoom(
   }
   const next = await save(storage, deps, { ...room, record: toPvpRecord(result.game) }, now);
   deps.notify(moveNotices(next, result.game));
+  if (request.action === 'guess') await deps.played((seat === 'host' ? room.host : room.guest!).guestId, now).catch(() => {});
   return { status: 200, body: describeRoom(next, ids, now) };
 }
 

@@ -19,6 +19,10 @@ export interface SyncedSettings {
   shareMarks: boolean;
   /** Others can find you by searching for your name (Dev Plan item 18d). */
   findByName: boolean;
+  /** Reminders (Dev Plan item 18zj): the server reads these from the synced profile, by these names. */
+  remindTimeLow: boolean;
+  remindDailies: boolean;
+  remindComeBack: boolean;
 }
 
 /** The profile as the server keeps it. The device ID stays on each device. */
@@ -42,9 +46,13 @@ function parseSyncedSettings(value: unknown): SyncedSettings | null {
   if (value.shareMarks !== undefined && typeof value.shareMarks !== 'boolean') return null;
   // Find me by name came later (Dev Plan item 18d): settings saved before it can be found.
   if (value.findByName !== undefined && typeof value.findByName !== 'boolean') return null;
+  // Reminders came later (Dev Plan item 18zj): settings saved before them have every reminder on.
+  const reminders = ['remindTimeLow', 'remindDailies', 'remindComeBack'] as const;
+  if (reminders.some((r) => value[r] !== undefined && typeof value[r] !== 'boolean')) return null;
   return {
     difficulty: value.difficulty, newestFirst, showTutorial: value.showTutorial, shareMarks: value.shareMarks !== false,
-    findByName: value.findByName !== false,
+    findByName: value.findByName !== false, remindTimeLow: value.remindTimeLow !== false,
+    remindDailies: value.remindDailies !== false, remindComeBack: value.remindComeBack !== false,
   };
 }
 

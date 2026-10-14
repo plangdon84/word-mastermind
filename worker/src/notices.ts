@@ -1,5 +1,5 @@
 import {
-  isLive, lobbyKind, lobbyRankBy, lobbyStandings, ordinal, otherSeat, pvpView, rankByName, timeControlOf, timeControlText,
+  isLive, lobbyKind, pvpTurn, lobbyRankBy, lobbyStandings, ordinal, otherSeat, pvpView, rankByName, timeControlOf, timeControlText,
   wordSetName, type LobbyKind, type LobbyRecord, type LobbyStanding, type PvpGame, type RankBy, type Seat, type TimeControl,
 } from '../../src/game';
 import type { PushMessage } from './push';
@@ -14,7 +14,16 @@ import type { Room } from './room';
 export interface Notice {
   guestId: string;
   message: PushMessage;
+  /** A reminder (README "Reminders"): sent only to devices whose player has this kind switched on. */
+  reminder?: ReminderKind;
 }
+
+/**
+ * The kinds of reminder, each with its own switch in the profile: time
+ * running out in a correspondence game, the day's Daily Set and Daily Word,
+ * and coming back after a week away.
+ */
+export type ReminderKind = 'timeLow' | 'dailies' | 'comeBack';
 
 const upper = (word: string) => word.toUpperCase();
 const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
@@ -112,6 +121,69 @@ export function moveNotices(room: Room, game: PvpGame): Notice[] {
   return [notice(other, `Your turn against ${name[mover]}`,
     `${name[mover]} guessed ${upper(guess.guess)} – ${guess.score}. You have ${days(game.turnDays ?? 1)} to reply.`)];
 }
+
+/** 4,320,000 ms → "1 hour 12 minutes", to the nearest minute. */
+export function timeLeft(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const parts = [
+    ...(hours ? [`${hours} ${hours === 1 ? 'hour' : 'hours'}`] : []),
+    ...(minutes % 60 ? [`${minutes % 60} ${minutes % 60 === 1 ? 'minute' : 'minutes'}`] : []),
+  ];
+  return parts.join(' ');
+}
+
+/** The player to move in a correspondence game is down to the last 5% of their turn. */
+export function timeLowNotice(room: Room, game: PvpGame, deadline: number, now: number): Notice[] {
+  const seat = pvpTurn(game);
+  if (!seat) return [];
+  const opponent = names(room)[otherSeat(seat)];
+  return [{
+    guestId: guestIds(room)[seat],
+    reminder: 'timeLow',
+    message: {
+      title: `Time's running out against ${opponent}`,
+      body: `${timeLeft(deadline - now)} left to ${game.status === 'final-guess' ? 'make your last guess' : 'guess'}, or you lose on time.`,
+      gameId: room.id,
+    },
+  }];
+}
+
+/** Which of the day's games a player hasn't played yet. */
+export interface DailiesLeft {
+  daily: boolean;
+  dailyWord: boolean;
+}
+
+/**
+ * 8pm in New York, and the player hasn't played one or both of today's daily
+ * games: tapping it opens the first one left.
+ */
+export function dailiesNotice(playerId: string, left: DailiesLeft): Notice[] {
+  if (!left.daily && !left.dailyWord) return [];
+  const both = left.daily && left.dailyWord;
+  const title = both ? "Today's Daily Set and Daily Word are waiting"
+    : `Today's ${left.daily ? 'Daily Set' : 'Daily Word'} is waiting`;
+  const body = both ? "There's still time to play both before midnight in New York."
+    : `You've played the ${left.daily ? 'Daily Word' : 'Daily Set'}. The ${left.daily ? 'Daily Set' : 'Daily Word'} is there until midnight in New York.`;
+  return [{
+    guestId: playerId,
+    reminder: 'dailies',
+    message: { title, body, gameId: 'dailies', url: `/?daily=${left.daily ? 'set' : 'word'}` },
+  }];
+}
+
+/** A week without a game: tapping it opens the title screen. */
+export const comeBackNotice = (playerId: string): Notice => ({
+  guestId: playerId,
+  reminder: 'comeBack',
+  message: {
+    title: 'Ready for another game?',
+    body: "It's been a week since your last game. Tap to play.",
+    gameId: 'come-back',
+    url: '/?title',
+  },
+});
 
 /** The mode's name, for a lobby's notifications: Rush with Friends, Competitive Crush… */
 const modeName = (lobby: LobbyRecord) => wordSetName(lobbyKind(lobby), lobbyRankBy(lobby.settings));

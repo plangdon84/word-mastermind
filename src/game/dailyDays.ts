@@ -32,6 +32,9 @@ function newYork(ms: number): { date: string; hour: number } {
   return { date: `${part.year}-${part.month}-${part.day}`, hour: Number(part.hour) % 24 };
 }
 
+/** The hour (0 to 23) in New York at `ms`: when reminders go out (README "Reminders"). */
+export const newYorkHour = (ms: number): number => newYork(ms).hour;
+
 const utcDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 const utcMidnight = (day: DailyDay): number => Date.parse(`${day}T00:00:00Z`);
 

@@ -1108,6 +1108,8 @@ button.bubble:active { transform: scale(0.94); }
 .alerts-card p { margin: 0; color: var(--muted); line-height: 1.4; }
 .alerts-card .row-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .alerts-setting .btn { align-self: flex-start; }
+.reminders-setting .toggle { align-items: flex-start; line-height: 1.35; padding: 10px 0; }
+.reminders-setting .toggle input { margin-top: 3px; }
 .friend-games .choice-label { justify-content: space-between; align-items: flex-start; }
 .friend-games .tag { white-space: nowrap; flex-shrink: 0; }
 /* Every row's label spans the card, so the Your turn tag always sits top right. */

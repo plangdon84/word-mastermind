@@ -6,6 +6,8 @@
  * with the server's VAPID key (RFC 8292), using WebCrypto only.
  */
 
+import type { ReminderKind } from './notices';
+
 /** What a notification says. The app's service worker (`public/sw.js`) shows it. */
 export interface PushMessage {
   title: string;
@@ -189,11 +191,43 @@ export async function sendPush(
 /** Most devices a guest can have turn alerts on; the oldest goes first. */
 export const MAX_SUBSCRIPTIONS = 10;
 
-export async function saveSubscription(db: D1Database, guestId: string, sub: PushSubscriptionKeys, now: number): Promise<void> {
+/** Which reminders a device's player wants (README "Reminders"): each is on unless switched off. */
+export type ReminderSwitches = Readonly<Record<ReminderKind, boolean>>;
+
+export const ALL_REMINDERS: ReminderSwitches = { timeLow: true, dailies: true, comeBack: true };
+
+/** Each kind's switch: its column on `push_subscriptions`, and its name in the synced settings. */
+const REMINDER_COLUMN: Record<ReminderKind, string> = {
+  timeLow: 'remind_time_low', dailies: 'remind_dailies', comeBack: 'remind_come_back',
+};
+const REMINDER_SETTING: Record<ReminderKind, string> = {
+  timeLow: 'remindTimeLow', dailies: 'remindDailies', comeBack: 'remindComeBack',
+};
+
+/**
+ * SQL that's true when the subscription `s` (with its guest `g` and their
+ * account's synced profile `p`, both left joins) is switched on for this
+ * kind of reminder: the device says so (its own setting as it last sent it,
+ * and for the dailies, that they're unlocked there), and signed in, so does
+ * the account's synced setting, which a device not opened since it changed
+ * may not have sent yet. A profile from before reminders has them on.
+ */
+export const reminderOn = (kind: ReminderKind) =>
+  `s.${REMINDER_COLUMN[kind]} = 1 AND COALESCE(json_extract(p.settings, '$.${REMINDER_SETTING[kind]}'), 1) = 1`;
+
+export async function saveSubscription(
+  db: D1Database, guestId: string, sub: PushSubscriptionKeys, now: number, reminders: ReminderSwitches = ALL_REMINDERS,
+): Promise<void> {
   await db.prepare(
-    `INSERT INTO push_subscriptions (endpoint, guest_id, p256dh, auth, created_at) VALUES (?1, ?2, ?3, ?4, ?5)
-     ON CONFLICT (endpoint) DO UPDATE SET guest_id = excluded.guest_id, p256dh = excluded.p256dh, auth = excluded.auth`,
-  ).bind(sub.endpoint, guestId, sub.p256dh, sub.auth, now).run();
+    `INSERT INTO push_subscriptions (endpoint, guest_id, p256dh, auth, created_at, remind_time_low, remind_dailies, remind_come_back)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+     ON CONFLICT (endpoint) DO UPDATE SET guest_id = excluded.guest_id, p256dh = excluded.p256dh, auth = excluded.auth,
+       remind_time_low = excluded.remind_time_low, remind_dailies = excluded.remind_dailies,
+       remind_come_back = excluded.remind_come_back`,
+  ).bind(
+    sub.endpoint, guestId, sub.p256dh, sub.auth, now,
+    Number(reminders.timeLow), Number(reminders.dailies), Number(reminders.comeBack),
+  ).run();
   await db.prepare(
     `DELETE FROM push_subscriptions WHERE guest_id = ?1 AND endpoint NOT IN
        (SELECT endpoint FROM push_subscriptions WHERE guest_id = ?1 ORDER BY created_at DESC LIMIT ?2)`,
@@ -207,14 +241,18 @@ export async function deleteSubscription(db: D1Database, guestId: string, endpoi
 /**
  * Sends a message to every device the guest turned alerts on for, and, once
  * they've signed in, every device of their account, forgetting any that are
- * gone.
+ * gone. A reminder goes only to devices with its kind switched on.
  */
 export async function notifyGuest(
   db: D1Database, keys: VapidKeys, guestId: string, message: PushMessage, now: number, fetchFn: typeof fetch = fetch,
+  reminder?: ReminderKind,
 ): Promise<void> {
   const { results } = await db.prepare(
-    `SELECT endpoint, p256dh, auth, guest_id FROM push_subscriptions WHERE guest_id = ?1 OR guest_id IN
-       (SELECT id FROM guests WHERE account_id = (SELECT account_id FROM guests WHERE id = ?1))`,
+    `SELECT s.endpoint, s.p256dh, s.auth, s.guest_id FROM push_subscriptions s
+       LEFT JOIN guests g ON g.id = s.guest_id LEFT JOIN profiles p ON p.account_id = g.account_id
+     WHERE (s.guest_id = ?1 OR s.guest_id IN
+       (SELECT id FROM guests WHERE account_id = (SELECT account_id FROM guests WHERE id = ?1)))
+       ${reminder ? `AND ${reminderOn(reminder)}` : ''}`,
   ).bind(guestId).all<PushSubscriptionKeys & { guest_id: string }>();
   await Promise.all(results.map(async ({ guest_id: owner, ...sub }) => {
     const sent = await sendPush(sub, message, keys, now, fetchFn).catch(() => 'failed' as const);
@@ -235,4 +273,16 @@ export function parseSubscription(body: unknown): PushSubscriptionKeys | null {
   }
   if (fromBase64Url(p256dh).length !== 65 || fromBase64Url(auth).length !== 16) return null;
   return { endpoint, p256dh, auth };
+}
+
+/**
+ * Which reminders a subscribing device wants, from the request body's
+ * `reminders`; any left out (an app from before reminders) are on.
+ */
+export function parseReminderSwitches(body: unknown): ReminderSwitches {
+  const value = typeof body === 'object' && body !== null ? (body as { reminders?: unknown }).reminders : undefined;
+  const given = typeof value === 'object' && value !== null ? value as Record<string, unknown> : {};
+  return {
+    timeLow: given.timeLow !== false, dailies: given.dailies !== false, comeBack: given.comeBack !== false,
+  };
 }

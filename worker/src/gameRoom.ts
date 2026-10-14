@@ -2,6 +2,7 @@ import { friendCodes } from './friends';
 import { json } from './http';
 import type { Env } from './index';
 import { notifyGuest } from './push';
+import { notePlayed } from './reminders';
 import { vapidKeysOf } from './pushRoutes';
 import { ratingsOf } from './ratings';
 import { currentNames } from './sync';
@@ -32,12 +33,13 @@ export class GameRoom implements DurableObject {
       friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
       ratingsOf: (players, control, now) => ratingsOf(env.DB, players, ratingPool(control), now),
       random: Math.random,
+      played: (playerId, now) => notePlayed(env.DB, playerId, now),
       // Sent after the answer; the Durable Object stays alive until they're done.
       notify: (notices) => {
         const keys = vapidKeysOf(env);
         if (!keys) return;
-        for (const { guestId, message } of notices) {
-          state.waitUntil(notifyGuest(env.DB, keys, guestId, message, Date.now()).catch(() => {}));
+        for (const { guestId, message, reminder } of notices) {
+          state.waitUntil(notifyGuest(env.DB, keys, guestId, message, Date.now(), fetch, reminder).catch(() => {}));
         }
       },
     };

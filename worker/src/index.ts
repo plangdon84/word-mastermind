@@ -11,7 +11,7 @@ import { routeGames, routeLiveSocket } from './games';
 import { routeLeaderboards } from './leaderboards';
 import { routeLobbies } from './lobbyRoutes';
 import { routePlayed } from './played';
-import { routePush } from './pushRoutes';
+import { routePush, vapidKeysOf } from './pushRoutes';
 import { routeQueue } from './queueRoutes';
 import { routeRatings } from './ratings';
 import { routeReports } from './reports';
@@ -19,6 +19,7 @@ import { routeSync } from './sync';
 import { isGuestId, registerGuest } from './guests';
 import { corsHeaders, errorResponse, json, readJson } from './http';
 import { overLimit } from './limits';
+import { runReminders } from './reminders';
 import { checkWord, parseWordCheck } from './words';
 
 /** The bindings and vars wrangler.toml gives the worker. */
@@ -140,4 +141,8 @@ export { RushLobby } from './rushLobby';
 
 export default {
   fetch: (request, env, ctx) => handle(request, env, Date.now(), fetch, (work) => ctx.waitUntil(work)),
+  // The Cron Trigger (wrangler.toml): the dailies and come-back reminders (`reminders.ts`).
+  scheduled: (controller, env, ctx) => {
+    ctx.waitUntil(runReminders(env.DB, vapidKeysOf(env), controller.scheduledTime));
+  },
 } satisfies ExportedHandler<Env>;
