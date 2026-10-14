@@ -57,7 +57,7 @@ describe('parseSaved', () => {
 
   it('rejects moves that do not replay', () => {
     expect(parseSaved(saved({ secret: 'bunny', moves: [] }))).toBeNull();
-    expect(parseSaved(saved({ secret: 'beach', moves: [guess('zzzzz')] }))).toBeNull();
+    expect(parseSaved(saved({ secret: 'beach', moves: [guess('zzzz1')] }))).toBeNull();
     expect(parseSaved(saved({ secret: 'beach', moves: [guess('beach'), guess('crane')] }))).toBeNull();
     expect(parseSaved(saved({ secret: 'beach', moves: [{ kind: 'cheat', at: T }] }))).toBeNull();
     expect(parseSaved(saved({ secret: 'beach', moves: [{ kind: 'guess', word: 'crane' }] }))).toBeNull();
@@ -96,8 +96,8 @@ describe('parseSaved on a save from before moves were recorded', () => {
       .toBe('gave-up');
   });
 
-  it('rejects words off the lists', () => {
+  it('rejects words that break the rules', () => {
     expect(parseSaved(legacy({ secret: 'bunny', guesses: [], status: 'playing' }))).toBeNull();
-    expect(parseSaved(legacy({ secret: 'beach', guesses: [{ guess: 'zzzzz' }], status: 'playing' }))).toBeNull();
+    expect(parseSaved(legacy({ secret: 'beach', guesses: [{ guess: 'zzzz1' }], status: 'playing' }))).toBeNull();
   });
 });

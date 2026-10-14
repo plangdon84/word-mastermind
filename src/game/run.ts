@@ -103,19 +103,21 @@ export interface RunOptions {
   pausable?: boolean;
   difficulty?: Difficulty;
   rankBy?: RankBy;
+  /** Takes words as recorded (`validateSecretWord`), here and below. */
+  replaying?: boolean;
 }
 
 /** Every word must be a valid secret word. A run can have a time limit or be pausable, not both. */
 export function createRun(
   words: readonly string[],
   now: number,
-  { timeLimitMs = null, pausable = false, difficulty = 'medium', rankBy = 'crush' }: RunOptions = {},
+  { timeLimitMs = null, pausable = false, difficulty = 'medium', rankBy = 'crush', replaying = false }: RunOptions = {},
 ): RunResult {
   if (timeLimitMs !== null && pausable) throw new Error('A run with a time limit cannot be paused');
   if (words.length === 0) return { ok: false, error: 'no-words' };
   const secrets: string[] = [];
   for (const word of words) {
-    const validation = validateSecretWord(word);
+    const validation = validateSecretWord(word, replaying);
     if (!validation.ok) return validation;
     secrets.push(validation.word);
   }
@@ -161,10 +163,10 @@ function checkPlaying(run: RunGame, now: number): RunError | null {
 }
 
 /** A guess at the word being played. Finding it moves on to the next word. */
-export function submitRunGuess(run: RunGame, guess: string, now: number): RunResult {
+export function submitRunGuess(run: RunGame, guess: string, now: number, replaying = false): RunResult {
   const blocked = checkPlaying(run, now);
   if (blocked) return { ok: false, error: blocked };
-  const validation = validateGuess(guess);
+  const validation = validateGuess(guess, replaying);
   if (!validation.ok) return validation;
 
   const result = evaluateGuess(validation.word, run.words[run.current]);
@@ -206,12 +208,12 @@ export function setRunDifficulty(run: RunGame, difficulty: Difficulty, now: numb
 }
 
 /** Easy's Suggest offered `word` (picked by the app) at the word being played. Limited to `SUGGEST_LIMIT` a word. */
-export function suggestRun(run: RunGame, word: string, now: number): RunResult {
+export function suggestRun(run: RunGame, word: string, now: number, replaying = false): RunResult {
   const blocked = checkPlaying(run, now);
   if (blocked) return { ok: false, error: blocked };
   const refused = checkSuggestion(run.playingDifficulty, run.results[run.current].suggested);
   if (refused) return { ok: false, error: refused };
-  const validation = validateGuess(word);
+  const validation = validateGuess(word, replaying);
   if (!validation.ok) return validation;
   return {
     ok: true,
@@ -262,14 +264,15 @@ export function endRun(run: RunGame, now: number): RunResult {
   return { ok: true, game: { ...game, results } };
 }
 
+/** Replays a recorded move, as `replayRun` does. */
 export function applyRunMove(run: RunGame, move: RunMove): RunResult {
   switch (move.kind) {
-    case 'guess': return submitRunGuess(run, move.word, move.at);
+    case 'guess': return submitRunGuess(run, move.word, move.at, true);
     case 'give-up-word': return giveUpWord(run, move.at);
     case 'pause': return pauseRun(run, move.at);
     case 'resume': return resumeRun(run, move.at);
     case 'difficulty': return setRunDifficulty(run, move.difficulty, move.at, true);
-    case 'suggest': return suggestRun(run, move.word, move.at);
+    case 'suggest': return suggestRun(run, move.word, move.at, true);
     case 'end': return endRun(run, move.at);
   }
 }
@@ -279,10 +282,11 @@ export function toRunRecord(run: RunGame): RunRecord {
   return { words, startedAt, timeLimitMs, pausable, difficulty, ...(rankBy ? { rankBy } : {}), moves };
 }
 
-/** Rebuilds a run from its record. Fails on the first move the rules refuse. */
+/** Rebuilds a run from its record, taking its words as recorded. Fails on the first move the rules refuse. */
 export function replayRun(record: RunRecord): RunResult {
   let result = createRun(record.words, record.startedAt, {
     timeLimitMs: record.timeLimitMs, pausable: record.pausable, difficulty: record.difficulty, rankBy: runRankBy(record),
+    replaying: true,
   });
   for (const move of record.moves) {
     if (!result.ok) break;

@@ -141,6 +141,24 @@ describe('the time per guess', () => {
     const wrongSeat = { ...toPvpRecord(late.game), moves: [{ seat: 'host' as const, kind: 'timeout' as const, at: T + DAY_MS }] };
     expect(replayPvp(wrongSeat)).toEqual({ ok: false, error: 'not-your-turn' });
   });
+
+  it('replays words as recorded, though the lists have lost them since', () => {
+    const record = toPvpRecord(newGame('host'));
+    const replayed = replayPvp({
+      ...record,
+      secrets: { host: 'qxjvw', guest: 'beach' },
+      difficulty: { host: 'easy', guest: 'hard' },
+      moves: [
+        { seat: 'host', kind: 'suggest', word: 'zzzzz', at: T },
+        { seat: 'host', kind: 'guess', word: 'zzzzz', at: T },
+        { seat: 'guest', kind: 'guess', word: 'qxjvw', at: T },
+      ],
+    });
+    expect(replayed.ok && replayed.game.guesses.host.map((g) => g.guess)).toEqual(['zzzzz']);
+    expect(replayed.ok && replayed.game.outcome).toMatchObject({ winner: 'guest' });
+    expect(createPvpGame({ host: 'qxjvw', guest: 'beach' }, 'host', T, '1d', { host: 'medium', guest: 'medium' }))
+      .toEqual({ ok: false, error: 'not-in-word-list' });
+  });
 });
 
 describe('time controls', () => {

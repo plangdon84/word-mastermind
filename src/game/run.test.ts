@@ -134,6 +134,23 @@ describe('replayRun', () => {
       .toEqual({ ok: false, error: 'time-up' });
     expect(replayRun({ ...record, moves: [{ kind: 'end', at: at(1) }, { kind: 'end', at: at(2) }] }))
       .toEqual({ ok: false, error: 'game-over' });
+    expect(replayRun({ ...record, moves: [{ kind: 'guess', word: 'zzzz1', at: at(1) }] }))
+      .toEqual({ ok: false, error: 'not-letters' });
+  });
+
+  it('takes words as recorded, though the lists have lost them since (Solo and Daily Rush, lobbies)', () => {
+    const record = { words: ['qxjvw', 'beach'], startedAt: T, timeLimitMs: null, pausable: true, difficulty: 'easy' as const };
+    const run = ok(replayRun({
+      ...record,
+      moves: [
+        { kind: 'suggest', word: 'zzzzz', at: at(1) },
+        { kind: 'guess', word: 'zzzzz', at: at(2) },
+        { kind: 'guess', word: 'qxjvw', at: at(3) },
+      ],
+    }));
+    expect(run.results[0]).toMatchObject({ outcome: 'solved', guesses: [{ guess: 'zzzzz' }, { guess: 'qxjvw' }] });
+    expect(createRun(['qxjvw'], T)).toEqual({ ok: false, error: 'not-in-word-list' });
+    expect(submitRunGuess(run, 'zzzzz', at(4))).toEqual({ ok: false, error: 'not-in-word-list' });
   });
 });
 

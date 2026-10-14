@@ -121,6 +121,8 @@ export function isTwoPlayerOver(game: TwoPlayerGame): boolean {
 export interface TwoPlayerOptions {
   difficulty?: Difficulty;
   strength?: Strength;
+  /** Takes words as recorded (`validateSecretWord`), here and below. */
+  replaying?: boolean;
 }
 
 /** Both secrets must be valid secret words. */
@@ -129,11 +131,11 @@ export function createTwoPlayerGame(
   computerSecret: string,
   first: Side,
   now: number,
-  { difficulty = 'medium', strength = 'skilled' }: TwoPlayerOptions = {},
+  { difficulty = 'medium', strength = 'skilled', replaying = false }: TwoPlayerOptions = {},
 ): TwoPlayerResult {
-  const human = validateSecretWord(humanSecret);
+  const human = validateSecretWord(humanSecret, replaying);
   if (!human.ok) return human;
-  const computer = validateSecretWord(computerSecret);
+  const computer = validateSecretWord(computerSecret, replaying);
   if (!computer.ok) throw new Error(`Invalid computer secret: ${computer.error}`);
   return {
     ok: true,
@@ -160,12 +162,12 @@ export function createTwoPlayerGame(
  * the input game is never modified. A rejected guess (not on the word list,
  * say) doesn't use up the turn, including a final guess.
  */
-export function submitTurn(game: TwoPlayerGame, side: Side, guess: string, now: number): TwoPlayerResult {
+export function submitTurn(game: TwoPlayerGame, side: Side, guess: string, now: number, replaying = false): TwoPlayerResult {
   const turn = whoseTurn(game);
   if (turn === null) return { ok: false, error: 'game-over' };
   if (turn !== side) return { ok: false, error: 'not-your-turn' };
 
-  const validation = validateGuess(guess);
+  const validation = validateGuess(guess, replaying);
   if (!validation.ok) return validation;
 
   const target = side === 'human' ? game.computerSecret : game.humanSecret;
@@ -207,11 +209,11 @@ export function setTwoPlayerDifficulty(game: TwoPlayerGame, difficulty: Difficul
 }
 
 /** Easy's Suggest offered the human `word` (picked by the app). Limited to `SUGGEST_LIMIT` a game. */
-export function suggestTwoPlayer(game: TwoPlayerGame, word: string, now: number): TwoPlayerResult {
+export function suggestTwoPlayer(game: TwoPlayerGame, word: string, now: number, replaying = false): TwoPlayerResult {
   if (isTwoPlayerOver(game)) return { ok: false, error: 'game-over' };
   const refused = checkSuggestion(game.playingDifficulty, game.suggested);
   if (refused) return { ok: false, error: refused };
-  const validation = validateGuess(word);
+  const validation = validateGuess(word, replaying);
   if (!validation.ok) return validation;
   return {
     ok: true,
@@ -221,12 +223,13 @@ export function suggestTwoPlayer(game: TwoPlayerGame, word: string, now: number)
   };
 }
 
+/** Replays a recorded move, as `replayTwoPlayer` does. */
 export function applyTwoPlayerMove(game: TwoPlayerGame, move: TwoPlayerMove): TwoPlayerResult {
   switch (move.kind) {
-    case 'guess': return submitTurn(game, move.side, move.word, move.at);
+    case 'guess': return submitTurn(game, move.side, move.word, move.at, true);
     case 'concede': return concede(game, move.at);
     case 'difficulty': return setTwoPlayerDifficulty(game, move.difficulty, move.at, true);
-    case 'suggest': return suggestTwoPlayer(game, move.word, move.at);
+    case 'suggest': return suggestTwoPlayer(game, move.word, move.at, true);
   }
 }
 
@@ -236,14 +239,14 @@ export function toTwoPlayerRecord(game: TwoPlayerGame): TwoPlayerRecord {
 }
 
 /**
- * Rebuilds a game from its record. Fails on the first move the rules refuse,
- * including one played out of turn.
+ * Rebuilds a game from its record, taking its words as recorded. Fails on
+ * the first move the rules refuse, including one played out of turn.
  */
 export function replayTwoPlayer(record: TwoPlayerRecord): TwoPlayerResult {
-  const computer = validateSecretWord(record.computerSecret);
+  const computer = validateSecretWord(record.computerSecret, true);
   if (!computer.ok) return computer;
   let result = createTwoPlayerGame(record.humanSecret, computer.word, record.first, record.startedAt, {
-    difficulty: record.difficulty, strength: record.strength,
+    difficulty: record.difficulty, strength: record.strength, replaying: true,
   });
   for (const move of record.moves) {
     if (!result.ok) break;

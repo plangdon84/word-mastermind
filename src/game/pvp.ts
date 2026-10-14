@@ -190,7 +190,10 @@ export function pvpDeadline(game: PvpGame): number | null {
   return turnStart(game) + (clocks ? clocks[turn] : (game.turnDays ?? 1) * DAY_MS);
 }
 
-/** Both words must be valid secret words, and a rated game refuses Easy. */
+/**
+ * Both words must be valid secret words, and a rated game refuses Easy.
+ * `replaying` takes words as recorded (`validateSecretWord`), here and below.
+ */
 export function createPvpGame(
   secrets: Record<Seat, string>,
   first: Seat,
@@ -198,10 +201,11 @@ export function createPvpGame(
   control: TimeControl,
   difficulty: Record<Seat, Difficulty>,
   rated = false,
+  replaying = false,
 ): PvpResult {
-  const host = validateSecretWord(secrets.host);
+  const host = validateSecretWord(secrets.host, replaying);
   if (!host.ok) return host;
-  const guest = validateSecretWord(secrets.guest);
+  const guest = validateSecretWord(secrets.guest, replaying);
   if (!guest.ok) return guest;
   if (rated && !(isRatedDifficulty(difficulty.host) && isRatedDifficulty(difficulty.guest))) return { ok: false, error: 'easy-unrated' };
   return {
@@ -230,12 +234,12 @@ export function createPvpGame(
  * list, say) doesn't use up the turn. `marks` are their Medium marks to
  * share with the opponent, kept only while they play at Medium.
  */
-export function submitPvpGuess(game: PvpGame, seat: Seat, guess: string, now: number, marks?: Marks): PvpResult {
+export function submitPvpGuess(game: PvpGame, seat: Seat, guess: string, now: number, marks?: Marks, replaying = false): PvpResult {
   const turn = pvpTurn(game);
   if (turn === null) return { ok: false, error: 'game-over' };
   if (turn !== seat) return { ok: false, error: 'not-your-turn' };
   if (now >= pvpDeadline(game)!) return { ok: false, error: 'time-up' };
-  const validation = validateGuess(guess);
+  const validation = validateGuess(guess, replaying);
   if (!validation.ok) return validation;
   const result = evaluateGuess(validation.word, game.secrets[otherSeat(seat)]);
   const guesses = { ...game.guesses, [seat]: [...game.guesses[seat], result] };
@@ -319,11 +323,11 @@ export function setPvpDifficulty(game: PvpGame, seat: Seat, difficulty: Difficul
 }
 
 /** Easy's Suggest offered `seat` `word` (picked by their app). Limited to `SUGGEST_LIMIT` a game each. */
-export function suggestPvp(game: PvpGame, seat: Seat, word: string, now: number): PvpResult {
+export function suggestPvp(game: PvpGame, seat: Seat, word: string, now: number, replaying = false): PvpResult {
   if (game.status === 'over') return { ok: false, error: 'game-over' };
   const refused = checkSuggestion(game.playingDifficulty[seat], game.suggested[seat]);
   if (refused) return { ok: false, error: refused };
-  const validation = validateGuess(word);
+  const validation = validateGuess(word, replaying);
   if (!validation.ok) return validation;
   return {
     ok: true,
@@ -335,13 +339,14 @@ export function suggestPvp(game: PvpGame, seat: Seat, word: string, now: number)
   };
 }
 
+/** Replays a recorded move, as `replayPvp` does. */
 export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
   switch (move.kind) {
-    case 'guess': return submitPvpGuess(game, move.seat, move.word, move.at, move.marks);
+    case 'guess': return submitPvpGuess(game, move.seat, move.word, move.at, move.marks, true);
     case 'concede': return concedePvp(game, move.seat, move.at);
     case 'timeout': return pvpTurn(game) === move.seat ? timeOutPvp(game, move.at) : { ok: false, error: 'not-your-turn' };
     case 'difficulty': return setPvpDifficulty(game, move.seat, move.difficulty, move.at, true);
-    case 'suggest': return suggestPvp(game, move.seat, move.word, move.at);
+    case 'suggest': return suggestPvp(game, move.seat, move.word, move.at, true);
   }
 }
 
@@ -350,10 +355,10 @@ export function toPvpRecord(game: PvpGame): PvpRecord {
   return { secrets, first, startedAt, ...timingOf(timeControlOf(game)), difficulty, ...(rated ? { rated } : {}), moves };
 }
 
-/** Rebuilds a game from its record, failing on the first move the rules refuse. */
+/** Rebuilds a game from its record, taking its words as recorded, failing on the first move the rules refuse. */
 export function replayPvp(record: PvpRecord): PvpResult {
   let result = createPvpGame(
-    record.secrets, record.first, record.startedAt, timeControlOf(record), record.difficulty, record.rated === true,
+    record.secrets, record.first, record.startedAt, timeControlOf(record), record.difficulty, record.rated === true, true,
   );
   for (const move of record.moves) {
     if (!result.ok) break;
