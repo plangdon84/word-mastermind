@@ -40,24 +40,6 @@ games stopped reaching their history; on 14 October 2026, the ownership
 notice 18zh went first, as the owner asked, then 18zc, then that day's
 small app fixes 18zi and the reminders 18zj ahead of 18m)
 
-- [ ] **18zh. Copyright notice and licence** (issue
-  plangdon84/word-mastermind-archive#220; docs and two comments, review
-  gate by the letter since a comment touches `worker/`)
-  - Decided with the owner on 14 October 2026: the README gets a
-    **Copyright and licensing** section with the owner's "All rights
-    reserved" text (proprietary; no licence to copy, modify, distribute or
-    sell it beyond viewing and forking as GitHub's terms allow; the name and
-    branding aren't offered for reuse; ask the owner for permission), and a
-    `LICENSE` file carries the same terms
-  - The section says which parts keep their own licences and credits (the
-    word list sources, Open English WordNet's CC BY 4.0 credit, the bundled
-    fonts and libraries), so those obligations still hold
-  - The short header (the year, the owner's name, "All rights reserved",
-    and a pointer to the README's terms)
-    goes in the two entry files only, `src/main.tsx` and
-    `worker/src/index.ts`. The repo stays public, so CI stays free. Not
-    legal advice: the PR says a lawyer can confirm the wording. No release
-    note: players see nothing new
 - [ ] **18zc. A Rush score reads as a time a word** (issues
   plangdon84/word-mastermind-archive#197 and
   plangdon84/word-mastermind-archive#207; app only, no review gate)
@@ -245,6 +227,24 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18zh. Copyright notice and licence** (issue
+  plangdon84/word-mastermind-archive#220; docs and two comments, review
+  gate by the letter since a comment touches `worker/`)
+  - Decided with the owner on 14 October 2026: the README gets a
+    **Copyright and licensing** section with the owner's "All rights
+    reserved" text (proprietary; no licence to copy, modify, distribute or
+    sell it beyond viewing and forking as GitHub's terms allow; the name and
+    branding aren't offered for reuse; ask the owner for permission), and a
+    `LICENSE` file carries the same terms
+  - The section says which parts keep their own licences and credits (the
+    word list sources, Open English WordNet's CC BY 4.0 credit, the bundled
+    fonts and libraries), so those obligations still hold
+  - The short header (the year, the owner's name, "All rights reserved",
+    and a pointer to the README's terms)
+    goes in the two entry files only, `src/main.tsx` and
+    `worker/src/index.ts`. The repo stays public, so CI stays free. Not
+    legal advice: the PR says a lawyer can confirm the wording. No release
+    note: players see nothing new
 - [x] **18zg. Saved games survive a word leaving the lists** (found on 10
   October 2026 restoring a player's history by hand; game logic and worker,
   review gate)

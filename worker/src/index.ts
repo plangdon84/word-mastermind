@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Paul Langdon.
+// All rights reserved.
+// Proprietary software. See the repository README for terms.
+
 import { GUESS_WORDS, isObject, SECRET_WORDS } from '../../src/game';
 import { routeAuth } from './authRoutes';
 import { routeDaily } from './dailyRoutes';

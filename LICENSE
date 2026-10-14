@@ -1,0 +1,31 @@
+Copyright (c) 2026 Paul Langdon. All rights reserved.
+
+Word Mastermind, including its source code and original implementation, is
+proprietary software. No license is granted to copy, modify, distribute,
+sublicense, sell or otherwise commercially exploit this software, except for
+the limited rights necessary to view and fork this repository as permitted by
+GitHub's Terms of Service.
+
+The Word Mastermind name, branding and associated original visual assets are
+not offered for reuse under any license.
+
+For licensing inquiries, commercial use or other permissions, please contact
+the copyright holder.
+
+Third-party parts
+-----------------
+
+The following parts are not covered by the notice above. Each stays under its
+own license, whose terms and credits continue to apply:
+
+- The word lists in wordlist/lists/ (secret, guess and banned words) are
+  created from the English Speller Database (ESDB, formerly SCOWL), Copyright
+  2000-2026 by Kevin Atkinson, whose main sources are Alan Beale's 12dicts and
+  ENABLE2K. Its license notice is in wordlist/NOTICE-ESDB.
+- The definitions in wordlist/lists/definitions.json are adapted from Open
+  English WordNet (2025 edition), licensed under the Creative Commons
+  Attribution 4.0 International License (CC BY 4.0). See wordlist/NOTICE-OEWN.
+- The bundled fonts Rubik and JetBrains Mono (via Fontsource) are under the
+  SIL Open Font License 1.1.
+- Preact and the other npm packages the app and server are built with are
+  under their own licenses, as listed in package-lock.json and each package.
