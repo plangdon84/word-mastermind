@@ -789,7 +789,10 @@ the code keep the old names, so nothing already saved changes.
   a line that isn't greyed, **Your place ›** (**Your result ›**), opening
   that run's result, which links to its board. A new player sees both rows
   locked, saying how to unlock them. Without the game server they're tagged
-  coming later. Daily isn't in the Word Sets menu.
+  coming later. Daily isn't in the Word Sets menu. Tapping the card's
+  heading folds it to one line, or opens it again (issue 222, remembered on
+  this device): folded, it says what's left today, **2 to play**, **1 to
+  play** or **Played** (a day with no Daily Set leaves it out).
 - **Games in progress:** one collapsible list of **Continue** (each mode
   with a game in progress on this device, naming it: **Continue
   Practice**), games against a friend or a random opponent that you
@@ -805,7 +808,11 @@ the code keep the old names, so nothing already saved changes.
 - **Practice** (one word, no opponent) asks for your difficulty, then
   **Start game**. **Two player** asks for the opponent (Computer, A friend
   or Random opponent), then the computer's strength (Casual, Skilled,
-  Expert, Mastermind) or, against a person, the time control: **Live**
+  Expert, Mastermind) or, against a friend, **Send an invite link** and,
+  signed in, your friends list under it (issue 218): picking a friend sends
+  them a challenge, as Profile → Friends → Challenge does, while signed out
+  a line asks you to sign in to challenge friends. For the invite link or
+  a random opponent, then the time control: **Live**
   with 15, 10 or 5 minutes each, or 1 or 3 days per guess; then your
   difficulty and **Start game** (against a person, **Next: your word**).
   **Word Sets** asks which: **Solo** (Solo Rush or Crush), **With friends** (Rush
@@ -963,8 +970,11 @@ needed: you play as your guest (this device's profile), so a game can only
 be played from the device that joined it, or, once you've signed in (see
 [Accounts](#accounts)), from any device signed in to your account.
 
-- **Inviting:** choose the time control (live, or days per guess) and your
-  difficulty on the title screen, then your secret word. The server makes the game and the app shows
+- **Inviting:** choose **A friend**, then **Send an invite link**, the time
+  control (live, or days per guess) and your difficulty on the title
+  screen, then your secret word. Signed in, your friends are listed under
+  **Send an invite link**: picking one sends a challenge only they can
+  accept (see [Friends](#friends)). The server makes the game and the app shows
   its **invite link** (`/?join=…`, with a long random ID nobody can guess),
   with **Copy link** and **Share** (a share icon). Share opens the device's
   share sheet (Messages, WhatsApp, email…) with the link and "Ann wants to
@@ -1862,9 +1872,11 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   (given up, or no word found) has a plain border and "No score". Rows are
   dated by the game's last move, and load 20 at a time (**Show more**).
 - **Filters:** mode, result and difficulty (the easiest used). A Rush has no
-  result, so a result filter leaves Rushes out. **Search** by word, matching
-  secret words and guesses (yours and the computer's) that start with what
-  you type. Search by player name and by date aren't built.
+  result, so a result filter leaves Rushes out. **Search names** finds games
+  by who you played (issue 219): your opponent in a game against a friend,
+  or the other people in a Word Set with friends (not computers), matching
+  the start of a name and ignoring case. Search by word went away; search
+  by date isn't built.
 - **Review:** tapping a row opens that game's end-of-game screen, celebration
   included, with its guess lists and marks and a small **← Past game** tag
   in place of the profile button, which goes back to the history (Dev Plan
@@ -2131,9 +2143,9 @@ history**.
   comes last, and one neither of you placed in isn't counted). The server
   counts it from the games in both your indexes: a game it refereed has
   the same history ID in both histories.
-- **Game history** has the same filters and search as yours, without
-  **Export CSV**, and loads 20 games at a time as you scroll, the server
-  doing the filtering and search. A best or fastest game on their **Stats**
+- **Game history** has the same filters as yours, without **Export CSV**
+  or the name search, and loads 20 games at a time as you scroll, the
+  server doing the filtering. A best or fastest game on their **Stats**
   comes with what they shared, so it opens without loading their history. A game opens to review with a **← Bob's game** tag
   instead of **← Past game**, back to their history.
 - **From games and boards** (Dev Plan item 18ca): a friend's name also

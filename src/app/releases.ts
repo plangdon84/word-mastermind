@@ -25,6 +25,15 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.16.0',
+    notes: [
+      { text: 'Two player → A friend now lists your friends under the invite link: tap one to challenge them.' },
+      { text: 'Game history’s search now finds games by who you played. Searching by word is gone.' },
+      { text: 'Tap the Daily card’s heading to fold it to one line showing what’s left to play.' },
+      { text: '“Binky” is now accepted as a guess.' },
+    ],
+  },
+  {
     version: '1.15.4',
     notes: [
       { text: 'A Rush score now reads as a time a word (“2:01 a word”), so it can’t be mistaken for a number of guesses.' },
