@@ -23,3 +23,10 @@ https://:version.word-mastermind.pages.dev/*
 # The app checks this for a newer build (issue #136), so no cache may keep an old one.
 /version.json
   Cache-Control: no-store
+
+# The usage dashboard (Dev Plan item 18m) sits behind Cloudflare Access and is
+# never listed by search engines; robots.txt doesn't name it, since anyone can read that.
+/admin
+  X-Robots-Tag: noindex
+/admin/*
+  X-Robots-Tag: noindex

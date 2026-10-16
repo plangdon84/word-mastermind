@@ -40,25 +40,6 @@ games stopped reaching their history; on 14 October 2026, the ownership
 notice 18zh went first, as the owner asked, then 18zc, then that day's
 small app fixes 18zi and the reminders 18zj ahead of 18m)
 
-- [ ] **18m. Usage dashboard** (issue #103; worker, review gate)
-  - A page at a hidden address (`wordmastermind.app/admin`, not linked in
-    the game), kept out of 18j's sitemap and footers and sent with
-    `X-Robots-Tag: noindex` (`public/_headers`), never named in
-    `robots.txt`, which anyone can read; if it needs a Pages Function, it
-    goes in 18j's `public/_routes.json`. Behind Cloudflare Access:
-    Cloudflare asks for an allowed email and sends a one-time code before
-    the page loads (free for up to 50 people). The worker's figures route checks Access's signed
-    token itself too, so it can't be reached around Access. The PR lists
-    the owner's setup steps in the Cloudflare dashboard
-  - It counts only what the server already has, collecting nothing new:
-    players (guests and accounts), new and active players per day, week
-    and month, games per mode (online games and signed-in players' synced
-    games), Daily Rush entries per day and difficulty, and players by the
-    country they chose in their profile. Guests' offline games aren't
-    counted, and the page says so
-  - Totals only: never a player's ID, name or email. Charts drawn by the
-    page itself (no third-party scripts). The layout is settled in the
-    PR's **Decisions needed before review**
 - [ ] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
   review gate)
   - Signed in and opening another account's link, **Sign in** on "Sign in
@@ -178,6 +159,25 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 
 **Phase D: after the launch**
 
+- [x] **18m. Usage dashboard** (issue #103; worker, review gate)
+  - A page at a hidden address (`wordmastermind.app/admin`, not linked in
+    the game), kept out of 18j's sitemap and footers and sent with
+    `X-Robots-Tag: noindex` (`public/_headers`), never named in
+    `robots.txt`, which anyone can read; if it needs a Pages Function, it
+    goes in 18j's `public/_routes.json`. Behind Cloudflare Access:
+    Cloudflare asks for an allowed email and sends a one-time code before
+    the page loads (free for up to 50 people). The worker's figures route checks Access's signed
+    token itself too, so it can't be reached around Access. The PR lists
+    the owner's setup steps in the Cloudflare dashboard
+  - It counts only what the server already has, collecting nothing new:
+    players (guests and accounts), new and active players per day, week
+    and month, games per mode (online games and signed-in players' synced
+    games), Daily Rush entries per day and difficulty, and players by the
+    country they chose in their profile. Guests' offline games aren't
+    counted, and the page says so
+  - Totals only: never a player's ID, name or email. Charts drawn by the
+    page itself (no third-party scripts). The layout is settled in the
+    PR's **Decisions needed before review**
 - [x] **18zj. Reminders: time running out, the dailies and coming back**
   (issue plangdon84/word-mastermind-archive#224; worker, review gate;
   updates README "Two player vs. a friend" (Turn alerts) and "Daily Rush")

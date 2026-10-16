@@ -1,0 +1,82 @@
+/* The usage dashboard (Dev Plan item 18m). Light and dark follow the device. */
+:root {
+  color-scheme: light;
+  --bg: #EDF0F3;
+  --surface: #FCFCFB;
+  --ink: #16191D;
+  --muted: #5B6570;
+  --line: #C9D0D7;
+  --grid: #E3E7EB;
+  --accent: #2F63C4;
+  --err: #B3261E;
+  /* Chart series: the validated categorical order (blue, orange, aqua, yellow). */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --font: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121417;
+    --surface: #1B1F24;
+    --ink: #E8ECF0;
+    --muted: #98A2AD;
+    --line: #343B43;
+    --grid: #262C33;
+    --accent: #86A9F0;
+    --err: #F2B8B5;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--font); }
+.dashboard { max-width: 960px; margin: 0 auto; padding: 16px 16px 48px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-size: 1.4rem; font-weight: 500; margin: 8px 0; }
+h2 { font-size: 1.1rem; font-weight: 500; margin: 32px 0 12px; }
+button {
+  font: inherit; min-height: 44px; padding: 0 16px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+button:disabled { opacity: 0.6; cursor: default; }
+button:focus-visible, .hit:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.status { padding: 16px; background: var(--surface); border-radius: 8px; }
+.error { color: var(--err); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.tile-label { color: var(--muted); font-size: 0.85rem; }
+.tile-value { font-size: 1.8rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tile-note { color: var(--muted); font-size: 0.8rem; }
+
+.period-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.period-tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.chart { margin: 0 0 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.chart-title { font-weight: 500; }
+.chart svg { display: block; overflow: visible; }
+.readout { margin: 4px 0 8px; color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; min-height: 1.3em; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; list-style: none; margin: 4px 0 0; padding: 0; font-size: 0.85rem; color: var(--muted); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: baseline; }
+.grid { stroke: var(--grid); stroke-width: 1; }
+.axis { stroke: var(--line); stroke-width: 1; }
+.tick { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.bar { opacity: 0.85; }
+.bar.on { opacity: 1; }
+.hit { fill: transparent; cursor: pointer; outline: none; }
+.table-view summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; min-height: 32px; padding-top: 6px; }
+
+.tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.figures { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+caption { text-align: left; font-weight: 500; padding: 0 0 8px; }
+th, td { padding: 6px 10px; border-bottom: 1px solid var(--grid); text-align: right; }
+th[scope="row"], thead th:first-child { text-align: left; font-weight: 400; }
+thead th { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+.notes { margin-top: 32px; color: var(--muted); font-size: 0.85rem; }
