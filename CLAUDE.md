@@ -367,6 +367,15 @@ Run `npm test` and `npm run typecheck` before committing.
   (`by=rush` on `/api/daily/board`), and its places come back for both
   (`rankBy: 'rush'` on the Rush one). Crush level badges keep the old
   `rush-*` IDs; Rush's are `rush-time-*` (`levelBadgeId`).
+- Usage dashboard (Dev Plan item 18m, worker/README.md "Usage dashboard"):
+  `wordmastermind.app/admin/` (`admin/index.html`, `src/admin/`, a second
+  Vite entry that shares no code with the app's bundle), behind Cloudflare
+  Access, never linked, listed or in `robots.txt`. Its Pages Function
+  (`functions/admin/figures.ts`) passes Access's token to
+  `GET /api/admin/figures` (`worker/src/admin.ts`), which checks it itself
+  (`worker/src/access.ts`; `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` secrets) and
+  answers totals only (`Usage` in `src/admin/usage.ts`): never a player's
+  ID, name or email, and nothing new collected.
 - Open questions are listed in `README.md`.
 
 ## Rules summary (see README.md for detail)

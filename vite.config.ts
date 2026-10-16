@@ -30,6 +30,8 @@ export default defineConfig(({ mode }) => {
       ...(api !== undefined ? { 'import.meta.env.VITE_API_URL': JSON.stringify(api) } : {}),
     },
     build: {
+      // The app, and the usage dashboard (Dev Plan item 18m) at /admin/, behind Cloudflare Access.
+      rollupOptions: { input: { main: 'index.html', admin: 'admin/index.html' } },
       // The definitions chunk (~700 kB, ~210 kB gzipped) is deliberately one
       // lazy-loaded file; everything else stays well under the default limit.
       chunkSizeWarningLimit: 800,

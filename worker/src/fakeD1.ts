@@ -40,6 +40,12 @@ class FakeStatement {
     const { changes } = this.db.prepare(this.sql).run(...this.args);
     return { success: true, results: [], meta: { changes: Number(changes) } };
   }
+
+  /** In a batch, D1 gives each statement's rows too, as `all` does. */
+  async inBatch() {
+    if (this.db.prepare(this.sql).columns().length === 0) return this.run();
+    return this.all();
+  }
 }
 
 /**
@@ -58,7 +64,7 @@ export function fakeD1({ dailyThemes = false } = {}): { db: D1Database; sqlite: 
       sqlite.exec('BEGIN');
       try {
         const results = [];
-        for (const statement of statements) results.push(await statement.run());
+        for (const statement of statements) results.push(await statement.inBatch());
         sqlite.exec('COMMIT');
         return results;
       } catch (e) {

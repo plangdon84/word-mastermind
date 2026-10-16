@@ -172,6 +172,7 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 | `POST /api/queue` | `{ timeControl, difficulty, name, secret }` | `QueueStatus` (`src/app/queueApi.ts`): `waiting` or `matched` with the game's ID; signed in only |
 | `POST /api/queue/poll` | `{ timeControl, difficulty }` | `QueueStatus`, keeping your place; `idle` if you were dropped |
 | `POST /api/queue/leave` | `{ timeControl, difficulty }` | `{ state: "idle" }` |
+| `GET /api/admin/figures` | | `Usage` (`src/admin/usage.ts`): the usage dashboard's totals, for a request carrying a valid Cloudflare Access token (`cf-access-jwt-assertion`); 403 `forbidden` without one, 404 `off` until `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are set, 503 `access-unavailable` if Access's keys can't be fetched ("Usage dashboard", below) |
 | `GET /api/auth/me` | | `{ account, methods }`: the signed-in account (null without an `authorization` header) and `{ email, google }`, the ways to sign in; 401 `signed-out` if the session ended |
 | `POST /api/auth/email` | `{ email, returnTo }` | `{ ok: true }`: emails a sign-in link to `returnTo` (an allowed origin) `/?login=…`; 400 `bad-email`, 429 `too-many-emails`, 404 `email-off`, 502 `email-failed` |
 | `POST /api/auth/google` | `{ returnTo }` | `{ url }`, Google's sign-in page; 404 `google-off` |
@@ -403,6 +404,46 @@ data (Dev Plan item 13b):
   (`GET /api/push/key` answers 404 `push-off`).
 - **Wiping:** `npm run wipe -- staging` empties staging's history whenever
   wanted.
+
+## Usage dashboard
+
+The owner's page of totals (Dev Plan item 18m) is `wordmastermind.app/admin/`
+(`admin/index.html`, `src/admin/`), never linked from the game, kept out of
+the sitemap and `robots.txt` and sent with `X-Robots-Tag: noindex`. It reads
+`/admin/figures`, a Pages Function (`functions/admin/figures.ts`) that passes
+Cloudflare Access's token on to `GET /api/admin/figures` (`src/admin.ts`),
+which checks the token itself (`src/access.ts`): signed by the team's keys,
+for the dashboard's application, not expired. Without both settings below,
+the route answers 404 `off`. It counts only what D1 already holds, and
+answers totals only. Counts over a period read only that period's rows
+(indexes from migration 0024); the all-time games per mode read one index
+entry per game. Counted figures are kept for 5 minutes, so Refresh taps
+don't count again, keeping it well within D1's free 5 million rows a day.
+
+Setting it up (once, in the Cloudflare dashboard; Access is free for up to
+50 people):
+
+1. **Zero Trust** (one.dash.cloudflare.com): on first use, pick a team name
+   and the Free plan. Cloudflare may ask for a card; the Free plan isn't
+   charged.
+2. **Settings → Authentication → Login methods:** make sure **One-time PIN**
+   is there (add it if not).
+3. **Access → Applications → Add an application → Self-hosted:** name it
+   "Usage dashboard", domain `wordmastermind.app`, path `admin`, session
+   duration 24 hours. Add a policy: action **Allow**, include **Emails**,
+   your email (and anyone else's who may look). Save.
+4. Open the application again and copy its **Application Audience (AUD)
+   Tag**.
+5. **Workers & Pages → word-mastermind-api → Settings → Variables and
+   Secrets:** add `ACCESS_TEAM_DOMAIN` (your team's domain,
+   `TEAM.cloudflareaccess.com`, under Zero Trust **Settings → Custom
+   Pages**) and `ACCESS_AUD` (the tag), each as type **Secret**, so deploys
+   keep them.
+6. Open `https://wordmastermind.app/admin/`: Access asks for your email and
+   sends a code, then the page loads.
+
+Previews use the staging worker, which has no Access settings, so a
+preview's `/admin/` loads the page and says the figures are off.
 
 ## Daily Rush themes
 
