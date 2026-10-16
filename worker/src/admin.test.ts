@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { isUsage, type Usage } from '../../src/admin/usage';
 import { DAY_MS } from '../../src/game';
 import { forgetAccessKeys, teamHost, verifyAccessToken } from './access';
-import { periodsTo } from './admin';
+import { KEEP_FIGURES_MS, periodsTo } from './admin';
 import { fakeD1 } from './fakeD1';
 import { handle, type Env } from './index';
 import { limitOf } from './limits';
+import { apiFor } from '../../functions/admin/figures';
+import { STAGING_API_URL } from '../../src/buildApiUrl';
 
 /*
  * The usage dashboard (Dev Plan item 18m): its figures route answers only a
@@ -117,8 +119,25 @@ describe('the figures route', () => {
     await expect(verifyAccessToken(await key.sign(valid), { teamDomain: TEAM, aud: AUD }, NOW, failing)).rejects.toThrow();
   });
 
-  it('is limited per address', () => {
-    expect(limitOf('GET', '/api/admin/figures')).toBe('general');
+  it('isn’t rate limited: a made-up token is turned away before counting', () => {
+    expect(limitOf('GET', '/api/admin/figures')).toBeNull();
+  });
+
+  it('keeps counted figures for 5 minutes', async () => {
+    const { sqlite, key, figures } = await setup();
+    const players = async (now: number) => ((await (await figures(await key.sign(valid), now)).json()) as Usage).players.total;
+    expect(await players(NOW)).toBe(0);
+    sqlite.prepare('INSERT INTO guests (id, created_at, last_seen_at) VALUES (?, ?, ?)').run(guestId(9), NOW, NOW);
+    expect(await players(NOW + KEEP_FIGURES_MS - 1)).toBe(0);
+    expect(await players(NOW + KEEP_FIGURES_MS)).toBe(1);
+  });
+
+  it('is asked for by the site and previews only, each of their own server', () => {
+    expect(apiFor('wordmastermind.app')).toBe('https://api.wordmastermind.app');
+    expect(apiFor('www.wordmastermind.app')).toBe('https://api.wordmastermind.app');
+    expect(apiFor('claude-item.word-mastermind.pages.dev')).toBe(STAGING_API_URL);
+    expect(apiFor('word-mastermind.pages.dev')).toBeNull();
+    expect(apiFor('example.com')).toBeNull();
   });
 });
 

@@ -15,7 +15,7 @@ import type { Env } from './index';
  * A player is an account, or a guest ID that never signed in. Days, weeks
  * (from Monday) and months are New York's, like the daily games', at
  * today's offset from UTC (so a day across a daylight saving change is an
- * hour out).
+ * hour out). Counted figures are kept for 5 minutes.
  */
 
 const DAYS = 30;
@@ -42,13 +42,16 @@ export function periodsTo(today: string): Record<PeriodKind, string[]> {
   };
 }
 
-/** Players first seen: an account's devices count once, from its first. */
-const NEW_PLAYERS = `SELECT MIN(created_at) AS at FROM guests GROUP BY COALESCE(account_id, id) HAVING at >= ?2`;
+/** Players first seen: an account's devices count once, from its first (the earliest, then the lowest ID). */
+const NEW_PLAYERS = `
+  SELECT created_at AS at FROM guests g WHERE created_at >= ?2 AND (account_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM guests e WHERE e.account_id = g.account_id AND (e.created_at, e.id) < (g.created_at, g.id)))`;
 const NEW_ACCOUNTS = `SELECT created_at AS at FROM accounts WHERE created_at >= ?2`;
 /** Who played when: online games and their moves, daily games started, and synced games (guests' offline games never reach the server). */
+// Each filter is written as its index (migration 0024) is, so only the period's rows are read.
 const PLAYING = `
   SELECT COALESCE(g.account_id, gp.guest_id) AS player, COALESCE(gm.finished_at, gm.started_at) AS at
-    FROM game_players gp JOIN games gm ON gm.id = gp.game_id LEFT JOIN guests g ON g.id = gp.guest_id
+    FROM games gm JOIN game_players gp ON gp.game_id = gm.id LEFT JOIN guests g ON g.id = gp.guest_id
     WHERE COALESCE(gm.finished_at, gm.started_at) >= ?2
   UNION ALL SELECT COALESCE(g.account_id, f.guest_id), f.added_at
     FROM friend_game_players f LEFT JOIN guests g ON g.id = f.guest_id WHERE f.added_at >= ?2
@@ -62,6 +65,20 @@ const perPeriod = (source: string, kind: PeriodKind, count: string) =>
   `SELECT ${PERIOD_KEY[kind]} AS period, ${count} AS count FROM (${source}) GROUP BY period`;
 
 const DIFFICULTY_TABLES = { daily: 'daily_results', dailyWord: 'daily_word_results' } as const;
+
+/** How long counted figures are kept, so Refresh taps don't count again (D1's free plan reads 5 million rows a day). */
+export const KEEP_FIGURES_MS = 5 * 60 * 1000;
+
+const kept = new WeakMap<D1Database, Usage>();
+
+/** The figures counted in the last 5 minutes, or counted afresh at `now`. */
+export async function usageFor(db: D1Database, now: number): Promise<Usage> {
+  const last = kept.get(db);
+  if (last && now - last.at >= 0 && now - last.at < KEEP_FIGURES_MS) return last;
+  const usage = await usageAt(db, now);
+  kept.set(db, usage);
+  return usage;
+}
 
 /** Counts the figures at `now`. */
 export async function usageAt(db: D1Database, now: number): Promise<Usage> {
@@ -87,9 +104,11 @@ export async function usageAt(db: D1Database, now: number): Promise<Usage> {
     ...series(NEW_ACCOUNTS, 'COUNT(*)'),
     ...series(PLAYING, 'COUNT(DISTINCT player)'),
     db.prepare(
-      `SELECT CASE WHEN mode = 'lobby' AND json_extract(record, '$.kind') = 'competitive' THEN 'competitive' ELSE mode END AS mode,
-         COUNT(*) AS total, SUM(started_at >= ?1) AS recent
-       FROM games GROUP BY 1 ORDER BY total DESC`,
+      `SELECT CASE WHEN mode = 'lobby' AND kind = 'competitive' THEN 'competitive' ELSE mode END AS mode,
+         SUM(total) AS total, SUM(recent) AS recent
+       FROM (SELECT mode, json_extract(record, '$.kind') AS kind, COUNT(*) AS total, SUM(started_at >= ?1) AS recent
+             FROM games GROUP BY mode, json_extract(record, '$.kind'))
+       GROUP BY 1 ORDER BY total DESC`,
     ).bind(recent),
     db.prepare(`SELECT mode, COUNT(*) AS total, SUM(started_at >= ?1) AS recent FROM history_entries GROUP BY mode ORDER BY total DESC`)
       .bind(recent),
@@ -152,5 +171,5 @@ export async function routeAdmin(
     return errorResponse(503, 'access-unavailable');
   }
   if (!allowed) return errorResponse(403, 'forbidden');
-  return json(await usageAt(env.DB, now), 200, { 'cache-control': 'no-store' });
+  return json(await usageFor(env.DB, now), 200, { 'cache-control': 'no-store' });
 }

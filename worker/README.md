@@ -415,9 +415,10 @@ Cloudflare Access's token on to `GET /api/admin/figures` (`src/admin.ts`),
 which checks the token itself (`src/access.ts`): signed by the team's keys,
 for the dashboard's application, not expired. Without both settings below,
 the route answers 404 `off`. It counts only what D1 already holds, and
-answers totals only. Each load reads every row of the tables it counts
-(guests, games, synced history, daily results), within D1's free 5 million
-rows a day while those stay well under a million rows.
+answers totals only. Counts over a period read only that period's rows
+(indexes from migration 0024); the all-time games per mode read one index
+entry per game. Counted figures are kept for 5 minutes, so Refresh taps
+don't count again, keeping it well within D1's free 5 million rows a day.
 
 Setting it up (once, in the Cloudflare dashboard; Access is free for up to
 50 people):

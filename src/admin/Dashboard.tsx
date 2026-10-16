@@ -17,7 +17,8 @@ function problem(status: number, error: unknown): string {
   if (status === 404 && error === 'off') return 'The figures are off: the worker needs ACCESS_TEAM_DOMAIN and ACCESS_AUD set.';
   if (status === 403) return 'Cloudflare Access didn’t vouch for this visit. Reload the page to sign in again.';
   if (status === 503) return 'The server couldn’t reach Cloudflare Access to check your sign-in. Try again in a minute.';
-  if (status === 429) return 'Too many loads in a minute. Try again shortly.';
+  if (status === 502 && error === 'unreachable') return 'The page couldn’t reach the game server. Try again in a minute.';
+  if (status === 404 && error === 'not-found') return 'This address has no figures: open wordmastermind.app/admin/.';
   return `The server answered ${status}. Try again in a minute.`;
 }
 
@@ -135,7 +136,8 @@ function Figures({ usage }: { usage: Usage }) {
         <p>
           Counted from what the server already keeps, nothing new. Guests’ offline games (single player, two player
           vs. the computer and Solo Rush without signing in) never reach the server, so they aren’t counted; signed-in
-          players’ synced games are. Active means the app was opened online. A player is an account, or a guest who
+          players’ synced games are. Active means the app was opened online. Players who played counts each game the server
+          knows of, but for some kinds of play it keeps only a player’s latest, so older weeks and months read a little low. A player is an account, or a guest who
           never signed in. Days, weeks (from Monday) and months are New York’s, like the daily games’.
         </p>
         <p>Counted {new Date(usage.at).toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' })} New York time.</p>
