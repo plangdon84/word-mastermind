@@ -25,6 +25,8 @@ export function limitOf(method: string, pathname: string): Limit | null {
   if (method === 'POST' && pathname === '/api/profile/index') return 'profile';
   // Searching players by name (item 18d) is a query, but limited so nobody can list every name quickly.
   if (method === 'GET' && pathname === '/api/friends/search') return 'general';
+  // The usage dashboard (item 18m) counts over whole tables, and a made-up token can make it fetch Access's keys.
+  if (method === 'GET' && pathname === '/api/admin/figures') return 'general';
   if (method !== 'POST') return null;
   // A friend request by email (item 18d) sends a notification, and each try could test whether an email plays.
   if (pathname === '/api/reports' || pathname === '/api/auth/email' || pathname === '/api/friends/email') return 'strict';

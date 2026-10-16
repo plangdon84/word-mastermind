@@ -3,6 +3,7 @@
 // Proprietary software. See the repository README for terms.
 
 import { GUESS_WORDS, isObject, SECRET_WORDS } from '../../src/game';
+import { routeAdmin } from './admin';
 import { routeAuth } from './authRoutes';
 import { routeDaily } from './dailyRoutes';
 import { routeProfileShare } from './friendProfiles';
@@ -61,6 +62,15 @@ export interface Env {
   RATE_LIMIT_STRICT?: RateLimit;
   /** 60 a minute for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb). */
   RATE_LIMIT_PROFILE?: RateLimit;
+  /**
+   * The usage dashboard (`admin.ts`, Dev Plan item 18m): the Cloudflare
+   * Access team's domain (`TEAM.cloudflareaccess.com`) and the dashboard
+   * application's AUD tag, which the figures route checks Access's token
+   * against. Set as secrets in the dashboard, so deploys keep them; without
+   * both, the route is off.
+   */
+  ACCESS_TEAM_DOMAIN?: string;
+  ACCESS_AUD?: string;
 }
 
 /**
@@ -131,6 +141,8 @@ async function route(
   if (push) return push;
   const reports = await routeReports(request, env, now, pathname, fetchFn);
   if (reports) return reports;
+  const admin = await routeAdmin(request, env, now, pathname, fetchFn);
+  if (admin) return admin;
   return errorResponse(404, 'not-found');
 }
 
