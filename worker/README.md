@@ -421,24 +421,38 @@ entry per game. Counted figures are kept for 5 minutes, so Refresh taps
 don't count again, keeping it well within D1's free 5 million rows a day.
 
 Setting it up (once, in the Cloudflare dashboard; Access is free for up to
-50 people):
+50 people). The menu names are the Cloudflare One dashboard's as of
+October 2026:
 
 1. **Zero Trust** (one.dash.cloudflare.com): on first use, pick a team name
    and the Free plan. Cloudflare may ask for a card; the Free plan isn't
-   charged.
-2. **Settings → Authentication → Login methods:** make sure **One-time PIN**
-   is there (add it if not).
-3. **Access → Applications → Add an application → Self-hosted:** name it
-   "Usage dashboard", domain `wordmastermind.app`, path `admin`, session
-   duration 24 hours. Add a policy: action **Allow**, include **Emails**,
-   your email (and anyone else's who may look). Save.
+   charged. **Settings → Team domain** shows the team's full domain
+   (`TEAM.cloudflareaccess.com`), needed in step 5.
+2. **Integrations → Identity providers:** make sure **One-time PIN** is
+   listed (**Add new identity provider → One-time PIN** if not). A newer
+   account may also list **Cloudflare**; it can stay.
+3. **Access controls → Applications → Add an application → Self-hosted**,
+   then fill in:
+   - **Destinations → Public hostnames:** subdomain blank, domain
+     `wordmastermind.app`, path `admin` (no slashes; it covers `/admin/`
+     and everything under it). Leave the **Destinations** dropdown below it
+     empty and browser-based RDP, SSH or VNC **Off**.
+   - **Access policies → Create new policy:** name "Owner only", action
+     **Allow**, include **Emails** with your email (and anyone else's who
+     may look). Never include Everyone, or One-time PIN on its own: either
+     lets anyone get a code. If the policy opens in another tab, pick it
+     back here with **Add current policies**.
+   - **Authentication → Identity:** leave **Accept all available identity
+     providers** off and choose **One-time PIN** only; leave **Apply
+     instant authentication** on and **Authenticate with Cloudflare One
+     Client** off. Skip the **MFA** tab.
+   - **Details:** name "Usage dashboard", session duration 24 hours.
+   Then save.
 4. Open the application again and copy its **Application Audience (AUD)
    Tag**.
 5. **Workers & Pages → word-mastermind-api → Settings → Variables and
-   Secrets:** add `ACCESS_TEAM_DOMAIN` (your team's domain,
-   `TEAM.cloudflareaccess.com`, under Zero Trust **Settings → Custom
-   Pages**) and `ACCESS_AUD` (the tag), each as type **Secret**, so deploys
-   keep them.
+   Secrets:** add `ACCESS_TEAM_DOMAIN` (the team domain from step 1) and
+   `ACCESS_AUD` (the tag), each as type **Secret**, so deploys keep them.
 6. Open `https://wordmastermind.app/admin/`: Access asks for your email and
    sends a code, then the page loads.
 
