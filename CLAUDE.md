@@ -62,7 +62,7 @@ Run `npm test` and `npm run typecheck` before committing.
   the game room's alarm, `timeLowFor` on the room), the day's daily games at
   8pm New York time and coming back after a week, each with a synced switch
   (`remindTimeLow`, `remindDailies`, `remindComeBack`) that the device also
-  sends with its subscription (the dailies off while locked there); a
+  sends with its subscription; a
   reminder needs both (`reminderOn` in `worker/src/push.ts`). The dailies
   and coming back are `worker/src/reminders.ts`, run by the worker's Cron
   Trigger (`scheduled` in `index.ts`, crons in `wrangler.toml`) a small
@@ -479,11 +479,13 @@ Run `npm test` and `npm run typecheck` before committing.
   credential), the app saves them (`src/app/playedGames.ts`), and sync
   never uploads them. Reviews reuse `FriendScreen` and `RushScreen` with a
   `review` (`src/app/reviews.tsx`).
-- Unlocking modes (Dev Plan item 13, README "Unlocking modes"):
+- Unlocking modes (Dev Plan items 13 and 18zn, README "Unlocking modes"):
   `src/game/unlocks.ts` (`computeUnlocks`, `openModes`), pure over the
-  saved games like achievements, each step needing the one before; the
-  title screen locks what isn't open (`open` prop), and each step has a
-  badge (`unlock-*`). Achievements also has Daily Rush badges (each
+  saved games like achievements: Practice, the Daily Word and two player
+  vs. the computer are open, and a win in one opens the rest; the title
+  screen locks what isn't open (`open` prop), with one badge
+  (`unlock-all`). `computeOldUnlocks` keeps item 13's three steps only so
+  Achievement Hunter keeps levels reached with their badges. Achievements also has Daily Rush badges (each
   difficulty, a streak of Daily Rush days), friend, lobby and Competitive Rush wins,
   and Achievement Hunter (`hunter-*`, 25–100% of the other badges, Easy's
   included). Item 13d's rules (README "Achievements"): a solve is any word

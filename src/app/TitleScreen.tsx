@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 // Inlined, so its fill (currentColor) follows the text colour in dark mode.
 import logo from '../assets/logo.svg?raw';
 import { ProfileButton } from './gameHeader';
-import { BackIcon, LockIcon } from './panels';
+import { BackIcon, HOW_TO_UNLOCK, LockIcon } from './panels';
 import { RankBySwitch } from './rushParts';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
@@ -158,12 +158,6 @@ interface Done {
   link?: { label: string; onClick: () => void };
 }
 
-/** How to open each locked choice (README "Unlocking modes"). */
-const HOW_TO_UNLOCK = {
-  two: 'Win a Practice game to unlock.',
-  rush: 'Win a two player game to unlock.',
-  otherRush: 'Finish a Solo Rush or Solo Crush in Word Sets without giving up a word to unlock.',
-};
 
 const locked = (how: string, link?: Done['link']): { done: Done; detail: string } =>
   ({ done: { tag: 'Locked', lock: true, link }, detail: how });
@@ -271,7 +265,7 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
   now: number;
   /** Today's run of each was started on this device and isn't over. */
   inProgress: Record<DailyMode, boolean>;
-  /** How to unlock them, while they're locked. */
+  /** How to unlock the Daily Set, while it's locked; the Daily Word never is. */
   lock: string | null;
   onPlay: (mode: DailyMode) => void;
   onResult: (mode: DailyMode) => void;
@@ -282,7 +276,8 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
     saveDailyCollapsed(!collapsed);
     setCollapsed(!collapsed);
   };
-  const left = !API_URL || lock ? null : dailyLeftText(today, inProgress);
+  // While the Daily Set is locked, only the Daily Word is left to play.
+  const left = !API_URL ? null : dailyLeftText(today, inProgress, lock ? ['dailyWord'] : DAILY_MODES);
   const head = (
     <button type="button" class="daily-head" aria-expanded={!collapsed} aria-controls="daily-games" onClick={toggle}>
       <h2>Daily</h2>
@@ -295,12 +290,11 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
   if (collapsed) {
     return <section class="daily-card collapsed" aria-label="Daily">{head}</section>;
   }
-  if (!API_URL || lock) {
-    return (
-      <section class="daily-card" aria-label="Daily">
-        {head}
-        <div id="daily-games">
-        {DAILY_MODES.map((mode) => (
+  return (
+    <section class="daily-card" aria-label="Daily">
+      {head}
+      <div id="daily-games">
+        {DAILY_MODES.map((mode) => !API_URL || (lock && mode === 'daily') ? (
           <div class="daily-game locked" key={mode}>
             <span class="daily-marker" aria-hidden="true">{mode === 'daily' ? 4 : 1}</span>
             <span class="daily-name">{DAILY_NAME[mode]}{!API_URL && <span class="tag">Coming later</span>}</span>
@@ -309,16 +303,7 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
             </span>
             {lock && <LockIcon />}
           </div>
-        ))}
-        </div>
-      </section>
-    );
-  }
-  return (
-    <section class="daily-card" aria-label="Daily">
-      {head}
-      <div id="daily-games">
-        {DAILY_MODES.map((mode) => (
+        ) : (
           <DailyRow key={mode} mode={mode} today={today[mode]} inProgress={inProgress[mode]}
             onPlay={() => onPlay(mode)} onResult={() => onResult(mode)} />
         ))}
@@ -530,12 +515,14 @@ export function TitleScreen({
     difficulty: friend || random ? 'turn' : two ? 'strength' : lobbyChosen ? 'friends' : dailyChosen ? 'home' : settings.mode === 'rush' ? 'rush' : 'home',
   };
 
-  // Modes not yet unlocked are greyed out, saying how to open them. The tutorial, How to play and Leaderboards never are.
-  const modeLocks = {
-    two: open && !open.twoPlayer ? locked(HOW_TO_UNLOCK.two) : undefined,
-    rush: open && !open.soloRush ? locked(HOW_TO_UNLOCK.rush) : undefined,
-  };
-  const rushLock = open && !open.otherRush ? locked(HOW_TO_UNLOCK.otherRush) : undefined;
+  // Modes not yet unlocked are greyed out, saying how to open them. Practice, the Daily Word, two player against
+  // the computer, the tutorial, How to play and Leaderboards never are.
+  const lock = open && !open.all ? locked(HOW_TO_UNLOCK) : undefined;
+  // A friend's join code still works while Word Sets is locked: the lock is only on opening a lobby.
+  const joinWithCode: Done['link'] = { label: 'Join with a code', onClick: () => {
+    onSettings({ ...settings, mode: 'rush', rushKind: 'friends' });
+    setStep('friends');
+  } };
 
   const heading: Record<Step, string> = {
     home: '',
@@ -569,7 +556,7 @@ export function TitleScreen({
 
       {step === 'home' && (
         <>
-          <DailyCard today={daily} now={now} inProgress={dailyInProgress} lock={rushLock?.detail ?? null}
+          <DailyCard today={daily} now={now} inProgress={dailyInProgress} lock={lock?.detail ?? null}
             onResult={onDaily} onPlay={(mode) => {
               onSettings({ ...settings, mode: 'rush', rushKind: mode });
               setStep('difficulty');
@@ -578,8 +565,8 @@ export function TitleScreen({
           <GamesInProgress key={friendGamesVersion} continues={continues} identity={identity}
             onOpenFriendGame={onOpenFriendGame} onLobby={(code) => onLobby(code)} />
           <Choices label="Game mode" choices={MODES} selected={null}
-            details={{ two: modeLocks.two?.detail, rush: modeLocks.rush?.detail }}
-            done={{ two: modeLocks.two?.done, rush: modeLocks.rush?.done }}
+            details={{ rush: lock?.detail }}
+            done={{ rush: lock && API_URL ? { ...lock.done, link: joinWithCode } : lock?.done }}
             onPick={(mode) => {
               onSettings({ ...settings, mode });
               setStep(mode === 'two' ? 'opponent' : mode === 'rush' ? 'rush' : 'difficulty');
@@ -620,14 +607,11 @@ export function TitleScreen({
 
       {step === 'rush' && (
         <Choices label="Kind of Rush" choices={RUSH_KINDS} selected={settings.rushKind}
-          details={rushLock ? { friends: rushLock.detail, competitive: rushLock.detail } : undefined}
-          done={rushLock ? {
-            // A friend's join code still works: the lock is only on opening a lobby.
-            friends: { ...rushLock.done, link: { label: 'Join with a code', onClick: () => {
-              onSettings({ ...settings, rushKind: 'friends' });
-              setStep('friends');
-            } } },
-            competitive: rushLock.done,
+          details={lock ? { solo: lock.detail, friends: lock.detail, competitive: lock.detail } : undefined}
+          done={lock ? {
+            solo: lock.done,
+            friends: { ...lock.done, link: joinWithCode },
+            competitive: lock.done,
           } : undefined}
           onPick={(kind) => {
             onSettings({ ...settings, rushKind: kind });
@@ -640,10 +624,10 @@ export function TitleScreen({
           <p class="step-note">{competitiveChosen
             ? "5 seats: each player sets a secret word and solves the other 4, at one difficulty, on one clock that never pauses. Computers fill the empty seats with random words. Rated, so it needs an account."
             : 'Up to 5 players solve the same 4 words, at one difficulty, on one clock that never pauses. Open a lobby to host, or join one with its code.'}</p>
-          {rushLock ? (
+          {lock ? (
             <Choices label="Open a lobby" selected={null}
               choices={[{ value: 'open', label: 'Open a lobby', detail: "You're the host: share its join code, then start when everyone's in." }]}
-              details={{ open: rushLock.detail }} done={{ open: rushLock.done }}
+              details={{ open: lock.detail }} done={{ open: lock.done }}
               onPick={() => setStep('difficulty')} />
           ) : (
             <button type="button" class="btn primary big" onClick={() => setStep('difficulty')}>Open a lobby</button>
@@ -671,6 +655,9 @@ export function TitleScreen({
 
       {step === 'opponent' && (
         <Choices label="Opponent" choices={OPPONENTS} selected={settings.opponent}
+          // A choice coming later says so rather than how to unlock it.
+          details={lock && API_URL ? { friend: lock.detail, random: lock.detail } : undefined}
+          done={lock && API_URL ? { friend: lock.done, random: lock.done } : undefined}
           onPick={(opponent) => {
             onSettings({ ...settings, opponent });
             setStep(opponent === 'computer' ? 'strength' : opponent === 'friend' ? 'friend' : 'turn');

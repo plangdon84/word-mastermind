@@ -21,4 +21,11 @@ describe("the folded Daily card's line", () => {
     expect(dailyLeftText({ daily: day(null, null), dailyWord: day(null, null) }, notStarted)).toBe('1 to play');
     expect(dailyLeftText({ daily: null, dailyWord: day(null, null) }, notStarted)).toBeNull();
   });
+
+  it('counts only the Daily Word while the Daily Set is locked', () => {
+    const today = { daily: day('Made-up theme', null), dailyWord: day(null, null) };
+    expect(dailyLeftText(today, notStarted, ['dailyWord'])).toBe('1 to play');
+    expect(dailyLeftText({ ...today, dailyWord: day(null, 'finished') }, notStarted, ['dailyWord'])).toBe('Played');
+    expect(dailyLeftText({ ...today, daily: null }, notStarted, ['dailyWord'])).toBe('1 to play');
+  });
 });

@@ -24,7 +24,7 @@ export function soloWin(id: string, startedAt: number, guesses: readonly string[
   };
 }
 
-/** One game for each unlock step (src/game/unlocks.ts): every mode is open after these. */
+/** A game of each kind that once opened a step of unlocking (src/game/unlocks.ts): every mode is open after these. */
 export function unlockingGames(start = Date.UTC(2026, 8, 1)): Entry[] {
   return [
     soloWin('unlock-single', start),

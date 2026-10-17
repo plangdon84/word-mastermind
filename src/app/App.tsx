@@ -54,7 +54,7 @@ import { SoloScreen } from './SoloScreen';
 import { loadSaved } from './storage';
 import { syncApi } from './syncApi';
 import { TitleScreen } from './TitleScreen';
-import { knownDailiesOpen, rememberDailiesOpen, remindersOf, resyncAlerts } from './turnAlerts';
+import { remindersOf, resyncAlerts } from './turnAlerts';
 import { TwoPlayerScreen } from './TwoPlayerScreen';
 import { loadTwoPlayer } from './twoPlayerStorage';
 import { plural } from './messages';
@@ -536,15 +536,10 @@ export function App() {
     [historyGames]);
 
   // The server keeps turn alerts under this device's guest ID, which signing out changes, with the reminders it
-  // wants: never the dailies while they're locked. Sent on opening, with the lock as last known here (the
-  // unlocked modes load only on the title screen and profile), and again when anything in it changes.
-  const dailiesOpen = open ? open.otherRush : knownDailiesOpen();
+  // wants. Sent on opening, and again when either changes.
   useEffect(() => {
-    if (open) rememberDailiesOpen(open.otherRush);
-  }, [open?.otherRush]);
-  useEffect(() => {
-    if (API_URL) void resyncAlerts(API_URL, identity, remindersOf(settings, dailiesOpen));
-  }, [identity, settings.remindTimeLow, settings.remindDailies, settings.remindComeBack, dailiesOpen]);
+    if (API_URL) void resyncAlerts(API_URL, identity, remindersOf(settings));
+  }, [identity, settings.remindTimeLow, settings.remindDailies, settings.remindComeBack]);
 
   /**
    * Signed in, shares your stats and badges with friends and indexes your

@@ -8,7 +8,7 @@ import { STRENGTHS } from './records';
 import { runRankBy, summarizeSoloRun } from './run';
 import { RANK_BYS, type RankBy } from './scoring';
 import type { StatsGame } from './stats';
-import { computeUnlocks, type UnlockStep } from './unlocks';
+import { computeOldUnlocks, computeUnlocks, OLD_UNLOCK_STEPS, type UnlockStep } from './unlocks';
 
 /*
  * Achievements (README "Achievements"): each badge is a rule over the saved
@@ -90,9 +90,7 @@ export const cpuBadgeId = (strength: Strength, difficulty: Difficulty) => `${str
 
 /** The badge for each step of unlocking modes (README "Unlocking modes"), and what its toast names. */
 export const UNLOCKS: readonly { step: UnlockStep; label: string; title: string; how: string }[] = [
-  { step: 'two-player', label: 'TWO PLAYER', title: 'Two player', how: 'win a Practice game' },
-  { step: 'solo-rush', label: 'WORD SETS', title: 'Word Sets', how: 'win a two player game' },
-  { step: 'all-rush', label: 'ALL SETS', title: 'Daily Set, Daily Word and With friends', how: 'finish a Solo Rush or Solo Crush with every word solved, none given up' },
+  { step: 'all', label: 'ALL MODES', title: 'Every mode', how: 'win a Practice game, find the Daily Word or beat the computer' },
 ];
 
 /** Every badge, including those of modes switched off, in the order the profile shows them. */
@@ -177,8 +175,11 @@ const ALL_BADGES: readonly Badge[] = [
     id: 'competitive-win', family: 'feat', metal: 'ruby', tag: 'COMPETITIVE', label: 'FIRST',
     title: 'Finish first in a Competitive Rush or Crush against another player', count: 1, feature: 'competitiveRush',
   },
+  // Item 18zn made the three steps' badges one, which anyone with any of the old ones has earned. Achievement
+  // Hunter counts the old three toward the levels it reached with them, so it's one added later.
   ...UNLOCKS.map(({ step, label, title: name, how }, i): Badge => ({
     id: `unlock-${step}`, family: 'feat', metal: COUNT_METALS[i], tag: 'UNLOCKED', label, title: `${name} unlocked: ${how}`,
+    addedLater: true,
   })),
   ...HUNTER_PERCENTS.map((n, i): Badge => ({
     id: `hunter-${n}`, family: 'feat', metal: HUNTER_METALS[i], tag: null, label: 'HUNTER',
@@ -195,8 +196,11 @@ export const BADGES: readonly Badge[] = badgesFor(FEATURES);
 /** How many badges Achievement Hunter counts: every one offered but its own. */
 export const HUNTED_BADGES = BADGES.filter((b) => !b.id.startsWith('hunter-')).length;
 
-/** How many it counted before the badges `addedLater`, which a Hunter level already reached doesn't need. */
-const HUNTED_BEFORE = BADGES.filter((b) => !b.id.startsWith('hunter-') && !b.addedLater).length;
+/**
+ * How many it counted before the badges `addedLater`, which a Hunter level
+ * already reached doesn't need: the old unlock badges among them.
+ */
+const HUNTED_BEFORE = BADGES.filter((b) => !b.id.startsWith('hunter-') && !b.addedLater).length + OLD_UNLOCK_STEPS.length;
 
 export const BADGE_BY_ID: ReadonlyMap<string, Badge> = new Map(BADGES.map((b) => [b.id, b]));
 
@@ -378,9 +382,13 @@ export function computeAchievements(
     earned.set(`unlock-${unlock.step}`, { id: `unlock-${unlock.step}`, at: unlock.at, gameId: unlock.gameId });
   }
   // Achievement Hunter, earned with the badge that takes you past each share of the rest. A level reached
-  // counting only the badges from before `addedLater` ones stays reached, so it's whichever comes first.
+  // counting only the badges from before `addedLater` ones, the old unlock badges included, stays reached,
+  // so it's whichever comes first.
   const others = [...earned.values()].sort((a, b) => a.at - b.at);
-  const before = others.filter((e) => !BADGE_BY_ID.get(e.id)?.addedLater);
+  const before = [
+    ...others.filter((e) => !BADGE_BY_ID.get(e.id)?.addedLater),
+    ...computeOldUnlocks(games).map((u) => ({ id: `unlock-${u.step}`, at: u.at, gameId: u.gameId })),
+  ].sort((a, b) => a.at - b.at);
   for (const n of HUNTER_PERCENTS) {
     const reached = [before[Math.ceil((HUNTED_BEFORE * n) / 100) - 1], others[Math.ceil((HUNTED_BADGES * n) / 100) - 1]]
       .filter((e) => e !== undefined)

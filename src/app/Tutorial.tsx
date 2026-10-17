@@ -3,7 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { evaluateGuess, FEATURES, type GuessResult, type Marks } from '../game';
 import { Bubble, History, InSet, Keyboard, MarkKey, ScoreHistory, Slots } from './components';
 import { GameMenuItems } from './gameHeader';
-import { LockIcon, Modal } from './panels';
+import { HOW_TO_UNLOCK, LockIcon, Modal } from './panels';
 import { useDefinitions } from './definitions';
 
 /*
@@ -214,18 +214,18 @@ function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
             <div class="choice"><span class="choice-label">Practice</span></div>
             <div class="choice done locked">
               <LockIcon />
-              <span class="choice-label">Two player <span class="tag">Locked</span></span>
-              <span class="choice-detail choice-extra">Win a Practice game to unlock.</span>
+              <span class="choice-label">Word Sets <span class="tag">Locked</span></span>
+              <span class="choice-detail choice-extra">{HOW_TO_UNLOCK}</span>
             </div>
           </div>
-          <ol class="tut-modes">
-            <li><b>Win a Practice game</b> to open <b>Two player</b>.</li>
-            <li><b>Win a two player game</b> (against the computer or a friend) to open <b>Word Sets</b> and its <b>Solo</b> games.</li>
-            <li><b>Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word</b> to open <b>Daily Set</b>, <b>Daily Word</b>
-              {FEATURES.competitiveRush ? <>, Word Sets <b>With friends</b> and <b>Competitive</b></>
-                : <> and Word Sets <b>With friends</b></>}.</li>
-          </ol>
-          <p class="field-note">Each step earns a badge. A friend's invite link or join code always works, locked
+          <ul class="tut-modes">
+            <li><b>Practice</b>, the <b>Daily Word</b> and <b>Two player</b> against the computer are open from the start.</li>
+            <li><b>Win a Practice game, find the Daily Word or beat the computer</b> (a draw doesn't count) to open
+              everything else: <b>Two player</b> against a friend, the <b>Daily Set</b> and all of <b>Word Sets</b>{' '}
+              ({FEATURES.competitiveRush ? <><b>Solo</b>, <b>With friends</b> and <b>Competitive</b></>
+                : <><b>Solo</b> and <b>With friends</b></>}).</li>
+          </ul>
+          <p class="field-note">Unlocking earns a badge. A friend's invite link or join code always works, locked
             or not.</p>
         </>
       ),
