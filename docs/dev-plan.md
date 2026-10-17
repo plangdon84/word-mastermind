@@ -38,7 +38,45 @@ fixes players see, 18zb and 18zc, went first, and the server tidy-ups 18zd
 to 18zf after 18n; on 10 October 2026, 18zg went first: a player's online
 games stopped reaching their history; on 14 October 2026, the ownership
 notice 18zh went first, as the owner asked, then 18zc, then that day's
-small app fixes 18zi and the reminders 18zj ahead of 18m)
+small app fixes 18zi and the reminders 18zj ahead of 18m; on 17 October
+2026, after the Reddit posts of 5 October brought no lasting players, 18zn
+and 18zo went first, to make the game easier to get into)
+
+- [ ] **18zn. Tuning locks for new players** (from the owner on 17 October
+  2026; app only; updates README "Unlocking modes" and "Achievements" and the
+  tutorial). Release note (1.1.0): "Adjusted
+  requirements to unlock new modes of play"
+  - Decided with the owner on 17 October 2026: a new player starts with
+    Practice, the Daily Word and Two player vs. the computer open. Finding
+    the word in any one of them (a Practice win, a Daily Word found, not
+    given up, or a win vs. the computer; a draw doesn't count) opens
+    everything else in one step: Two player vs. a friend, all of Word Sets
+    (Solo, With friends, and Competitive when it's switched on) and the
+    Daily Set. Still a pure rule over saved games (`src/game/unlocks.ts`),
+    so anyone with such a game already has it all open; a friend's invite
+    link or join code still always works
+  - The three `unlock-*` badges become one: anyone who earned any of the
+    old ones has the new one as earned (it dates from their first such
+    win), and the old three are no longer shown or offered. Nobody loses
+    an Achievement Hunter level over it: a level reached counting the old
+    badges stays reached (as `HUNTED_BEFORE` does for badges added later)
+  - The title screen's locked cards, the Daily card and their "… to
+    unlock" texts, and the tutorial's "Unlock as you play" step
+    follow the new rule (re-run the title screen's and
+    tutorial's browser tests)
+- [ ] **18zo. Enhanced tutorial** (from the owner on 17 October 2026; app
+  only; updates README "Tutorial"). Release note (1.1.0): "Enhanced
+  tutorial"
+  - A sample game played out step by step after the current steps (whose
+    text stays): each guess comes in with its score, and the tutorial
+    talks through what that score tells you and which letters it rules in
+    or out, asking you to tap those letters to mark them (unmarked → in →
+    out) and saying why, until the word is found. Built from the real
+    board components with made-up sample guesses, like the tutorial's
+    mock-ups; nothing is saved or counted
+  - Skippable at any step, reachable again from How to play, and usable
+    with the keyboard alone and at every screen size (add it to
+    `e2e/screens.ts`)
 
 - [ ] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
   review gate)
