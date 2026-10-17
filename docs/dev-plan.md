@@ -42,20 +42,6 @@ small app fixes 18zi and the reminders 18zj ahead of 18m; on 17 October
 2026, after the Reddit posts of 5 October brought no lasting players, 18zn
 and 18zo went first, to make the game easier to get into)
 
-- [ ] **18zo. Enhanced tutorial** (from the owner on 17 October 2026; app
-  only; updates README "Tutorial"). Release note (1.1.0): "Enhanced
-  tutorial"
-  - A sample game played out step by step after the current steps (whose
-    text stays): each guess comes in with its score, and the tutorial
-    talks through what that score tells you and which letters it rules in
-    or out, asking you to tap those letters to mark them (unmarked → in →
-    out) and saying why, until the word is found. Built from the real
-    board components with made-up sample guesses, like the tutorial's
-    mock-ups; nothing is saved or counted
-  - Skippable at any step, reachable again from How to play, and usable
-    with the keyboard alone and at every screen size (add it to
-    `e2e/screens.ts`)
-
 - [ ] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
   review gate)
   - Signed in and opening another account's link, **Sign in** on "Sign in
@@ -174,6 +160,20 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
 ## Done, latest first
 
 **Phase D: after the launch**
+
+- [x] **18zo. Enhanced tutorial** (from the owner on 17 October 2026; app
+  only; updates README "Tutorial"). Release note (1.1.0): "Enhanced
+  tutorial"
+  - A sample game played out step by step after the current steps (whose
+    text stays): each guess comes in with its score, and the tutorial
+    talks through what that score tells you and which letters it rules in
+    or out, asking you to tap those letters to mark them (unmarked → in →
+    out) and saying why, until the word is found. Built from the real
+    board components with made-up sample guesses, like the tutorial's
+    mock-ups; nothing is saved or counted
+  - Skippable at any step, reachable again from How to play, and usable
+    with the keyboard alone and at every screen size (add it to
+    `e2e/screens.ts`)
 
 - [x] **18zn. Tuning locks for new players** (from the owner on 17 October
   2026; app only; updates README "Unlocking modes" and "Achievements" and the

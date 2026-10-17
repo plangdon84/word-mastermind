@@ -1,15 +1,17 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { evaluateGuess, FEATURES, type GuessResult, type Marks } from '../game';
 import { Bubble, History, InSet, Keyboard, MarkKey, ScoreHistory, Slots } from './components';
 import { GameMenuItems } from './gameHeader';
 import { HOW_TO_UNLOCK, LockIcon, Modal } from './panels';
 import { useDefinitions } from './definitions';
+import { StepDots, useArrowSteps, useSampleSteps, type Step } from './sampleGame';
 
 /*
  * The tutorial (README "Tutorial"): a walk through a sample game, one mocked-up
  * screen per step, with numbered rings on the parts worth knowing about. The
- * mock-ups are the game's own components with sample data, made inert.
+ * mock-ups are the game's own components with sample data, made inert. Then
+ * the sample game (sampleGame.tsx), played on a live board.
  */
 
 /** The sample game's secret word, and its guesses so far. */
@@ -49,11 +51,6 @@ const Notes = ({ notes }: { notes: ComponentChildren[] }) => (
     {notes.map((note, i) => <li key={i} data-n={i + 1}><div>{note}</div></li>)}
   </ol>
 );
-
-interface Step {
-  title: string;
-  body: ComponentChildren;
-}
 
 function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
   const history = (guesses: GuessResult[], marks?: Marks, openDef = -1) => (
@@ -249,19 +246,13 @@ export function Tutorial({ hidden, onClose, onPlay }: {
   const [hide, setHide] = useState(hidden);
   // The definitions file is big: loaded from the step before the one that shows one.
   const definitions = useDefinitions(index >= 3);
-  const all = steps(definitions);
+  const intro = steps(definitions);
+  const sample = useSampleSteps();
+  const all = [...intro, ...sample];
   const last = index === all.length;
   const step = all[index];
-
-  // The arrow keys step through too.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') setIndex((i) => Math.min(all.length, i + 1));
-      if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1));
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [all.length]);
+  const inSample = index >= intro.length;
+  useArrowSteps(setIndex, all.length);
 
   return (
     <Modal title={last ? "You're ready" : step.title} class="tutorial" onClose={() => onClose(last ? hide : undefined)}>
@@ -279,12 +270,12 @@ export function Tutorial({ hidden, onClose, onPlay }: {
         ) : step.body}
       </div>
       <div class="tut-nav">
-        <span class="tut-dots" hidden={last} role="img" aria-label={`Step ${index + 1} of ${all.length + 1}`}>
-          {Array.from({ length: all.length + 1 }, (_, i) => (
-            <span key={i} class={i === index ? 'dot current' : 'dot'} />
-          ))}
-        </span>
+        {/* Dots for each part, the tutorial's steps and the sample game's, so neither row runs off a phone. */}
+        {!last && (inSample
+          ? <StepDots index={index - intro.length} count={sample.length} label="Sample game, step " />
+          : <StepDots index={index} count={intro.length} label="Step " />)}
         <div class="row-btns">
+          {!last && <button type="button" class="link-btn tut-skip" onClick={() => setIndex(all.length)}>Skip</button>}
           {index > 0 && <button type="button" class="btn" onClick={() => setIndex(index - 1)}>Back</button>}
           {last ? (
             <>

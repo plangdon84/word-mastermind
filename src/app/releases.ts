@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.19.0',
+    notes: [
+      { text: 'Enhanced tutorial' },
+    ],
+  },
+  {
     version: '1.18.0',
     notes: [
       { text: 'Adjusted requirements to unlock new modes of play' },
