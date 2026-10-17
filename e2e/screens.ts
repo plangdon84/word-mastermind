@@ -75,6 +75,24 @@ export const SCREENS: Screen[] = [
   },
   { name: 'how-to-play', open: async (page) => { await profilePage(page, 'Help'); await button(page, 'How to play').click(); } },
   { name: 'tutorial', open: async (page) => { await unlockAll(page); await button(page, 'Tutorial').click(); } },
+  {
+    // The sample game (Dev Plan item 18zo), at its longest guess list before the win.
+    name: 'tutorial-sample',
+    open: async (page) => {
+      await unlockAll(page);
+      await button(page, 'Tutorial').click();
+      while (!(await page.getByRole('heading', { name: /^Guess 6:/ }).isVisible())) await button(page, 'Next').click();
+    },
+  },
+  {
+    name: 'how-to-play-sample',
+    open: async (page) => {
+      await profilePage(page, 'Help');
+      await button(page, 'How to play').click();
+      await button(page, 'Play a sample game').click();
+      await button(page, 'Next').click();
+    },
+  },
   { name: 'whats-new', open: async (page) => { await unlockAll(page); await button(page, /^Version .* What's new$/).click(); } },
   {
     // A device last here on an older version sees the new one's notes once.

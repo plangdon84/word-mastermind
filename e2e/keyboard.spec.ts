@@ -85,3 +85,25 @@ test('a Solo Rush with the keyboard alone', async ({ page }) => {
   for (const word of words) await typeWord(page, word);
   await expect(page.locator('.rush-result')).toBeVisible();
 });
+
+test("the tutorial's sample game with the keyboard alone", async ({ page }) => {
+  await title(page);
+  await tabTo(page, /^Tutorial$/);
+  await page.keyboard.press('Enter');
+  const heading = page.getByRole('dialog').getByRole('heading', { level: 2 });
+  // The arrow keys step through to the sample game's second guess.
+  while (!/^Guess 2:/.test(await heading.innerText())) await page.keyboard.press('ArrowRight');
+  const status = page.getByRole('dialog').getByRole('status');
+  await expect(status).toHaveText(/Still to mark: D out, M out, U out, Y out/);
+  // Enter on a letter cycles its mark: twice is out.
+  await tabTo(page, /^Letter D, unmarked/);
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await expect(status).toHaveText(/Still to mark: M out, U out, Y out/);
+  await tabTo(page, /^Mark them for me$/);
+  await page.keyboard.press('Enter');
+  await expect(status).toHaveText(/That's it/);
+  await tabTo(page, /^Skip$/);
+  await page.keyboard.press('Enter');
+  await expect(heading).toHaveText("You're ready");
+});

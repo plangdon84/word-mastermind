@@ -1,8 +1,9 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { FEATURES } from '../game';
 import type { Circle } from './leaderboardsApi';
 import { Bubble, MarkKey, type Mark } from './components';
+import { SampleGame } from './sampleGame';
 
 /** Panels and dialogs shared by the screens: How to play, confirmations, reviews and the board pages. */
 
@@ -150,10 +151,29 @@ const Word = ({ word, mark }: { word: string; mark?: Mark }) => (
   </span>
 );
 
-/** The rules, scoring, marking and difficulties, from the ☰ menu or the title screen. */
+/**
+ * The rules, scoring, marking and difficulties, from the ☰ menu or the title screen. Its
+ * sample game (the tutorial's, Dev Plan item 18zo) opens in the same box, and Done, ✕ or
+ * Escape there come back here.
+ */
 export function HowToPlay({ onClose }: { onClose: () => void }) {
+  const [sample, setSample] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
+  const played = useRef(false);
+  useEffect(() => {
+    if (sample) played.current = true;
+    else if (played.current) opener.current?.focus();
+  }, [sample]);
+  if (sample) {
+    return (
+      <Modal title="Sample game" class="tutorial" onClose={() => setSample(false)}>
+        <SampleGame onDone={() => setSample(false)} />
+      </Modal>
+    );
+  }
   return (
     <Modal title="How to play" onClose={onClose}>
+      <button type="button" class="btn" ref={opener} onClick={() => setSample(true)}>Play a sample game</button>
       <p>
         Find the secret word: 5 letters, no letter repeated. After each guess you're told
         <b> how many distinct letters</b> your guess shares with it, but not which ones.
