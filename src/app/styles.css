@@ -1189,6 +1189,15 @@ button.bubble:active { transform: scale(0.94); }
 .tut-pair .tut-phone .row .info, .tut-pair .tut-phone .row .dash, .tut-pair .tut-phone .row .row-no { display: none; }
 .tut-pair .tut-phone .letters { gap: 3px; }
 .tut-pair .tut-phone .bubble:not(.mini) { --bs: 26px; }
+/* The sample game's board is the real one, to tap, sized to fit a phone's dialog. */
+.tut-live { display: flex; flex-direction: column; gap: 8px; }
+.tut-live .history-wrap { flex: none; min-height: 0; padding: 6px 8px; }
+.tut-live .history .bubble:not(.mini) { --bs: clamp(28px, 9vw, 40px); }
+.tut-live .row { gap: 0 8px; }
+.tut-live .row .info { display: none; }
+.tut-task { font-weight: 600; }
+.tut-task.done { color: var(--in-text); }
+.tut-sub { margin: 0; font-size: 1rem; }
 .tut-menu { align-items: flex-end; }
 .tut-menu .menu { position: static; width: 100%; box-shadow: none; }
 
@@ -1232,6 +1241,8 @@ button.bubble:active { transform: scale(0.94); }
   background: var(--surface); border-top: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
+.tut-nav { flex-wrap: wrap; }
+.tut-skip { min-width: var(--tap); }
 .tut-dots { display: inline-flex; gap: 5px; }
 .tut-dots .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
 .tut-dots .dot.current { background: var(--accent); }

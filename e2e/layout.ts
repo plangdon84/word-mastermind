@@ -71,7 +71,12 @@ export function layoutProblems(page: Page): Promise<LayoutProblem[]> {
       const y = box.top + box.height / 2;
       if (y >= 0 && y < window.innerHeight) {
         const hit = document.elementFromPoint(x, y);
-        if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
+        // Under a sticky bar (the tutorial's Back and Next) isn't covered: scrolling brings it out.
+        const sticky = (n: Element | null) => {
+          for (; n && n !== layer; n = n.parentElement) if (getComputedStyle(n).position === 'sticky') return true;
+          return false;
+        };
+        if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !sticky(hit)) {
           problems.push({ kind: 'covered', what: describe(el), detail: `under ${describe(hit)}` });
         }
       }

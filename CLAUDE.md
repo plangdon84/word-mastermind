@@ -183,7 +183,9 @@ Run `npm test` and `npm run typecheck` before committing.
   from the real components with sample data; its title-screen card follows
   the `showTutorial` setting. Keep its steps in line when the game screen or
   ☰ menu changes (the menu step rings `.menu-difficulty`, `.menu-highlights`,
-  `.menu-report`, `.menu-give-up`).
+  `.menu-report`, `.menu-give-up`). Its sample game (Dev Plan item 18zo,
+  `src/app/sampleGame.tsx`, also from How to play) asks for exactly the marks
+  `deduceMarks` settles, which `sampleGame.test.ts` checks.
 - Daily Rush (Dev Plan item 7, README "Rush modes" and "Daily Rush"): the
   themes and calendar are every day's answers, so they live in the private
   repo `word-mastermind-daily` (with the calendar's generator), never in
