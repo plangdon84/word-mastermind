@@ -10,8 +10,8 @@ import { StepDots, useArrowSteps, useSampleSteps, type Step } from './sampleGame
 /*
  * The tutorial (README "Tutorial"): a walk through a sample game, one mocked-up
  * screen per step, with numbered rings on the parts worth knowing about. The
- * mock-ups are the game's own components with sample data, made inert. Then
- * the sample game (sampleGame.tsx), played on a live board.
+ * mock-ups are the game's own components with sample data, made inert. After
+ * "Mark what you know" comes the sample game (sampleGame.tsx), played on a live board.
  */
 
 /** The sample game's secret word, and its guesses so far. */
@@ -248,10 +248,12 @@ export function Tutorial({ hidden, onClose, onPlay }: {
   const definitions = useDefinitions(index >= 3);
   const intro = steps(definitions);
   const sample = useSampleSteps();
-  const all = [...intro, ...sample];
+  // The sample game follows marking, where it puts that step into practice.
+  const at = intro.findIndex((s) => s.title === 'Mark what you know') + 1;
+  const all = [...intro.slice(0, at), ...sample, ...intro.slice(at)];
   const last = index === all.length;
   const step = all[index];
-  const inSample = index >= intro.length;
+  const inSample = index >= at && index < at + sample.length;
   useArrowSteps(setIndex, all.length);
 
   return (
@@ -272,8 +274,8 @@ export function Tutorial({ hidden, onClose, onPlay }: {
       <div class="tut-nav">
         {/* Dots for each part, the tutorial's steps and the sample game's, so neither row runs off a phone. */}
         {!last && (inSample
-          ? <StepDots index={index - intro.length} count={sample.length} label="Sample game, step " />
-          : <StepDots index={index} count={intro.length} label="Step " />)}
+          ? <StepDots index={index - at} count={sample.length} label="Sample game, step " />
+          : <StepDots index={index < at ? index : index - sample.length} count={intro.length} label="Step " />)}
         <div class="row-btns">
           {!last && <button type="button" class="link-btn tut-skip" onClick={() => setIndex(all.length)}>Skip</button>}
           {index > 0 && <button type="button" class="btn" onClick={() => setIndex(index - 1)}>Back</button>}

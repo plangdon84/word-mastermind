@@ -1492,15 +1492,16 @@ with a mock-up of a locked choice (Dev Plan item 13, issue #28). **Next** and
 for every step, so they stay in place (Dev Plan item 14). **Skip**, on every
 step, goes straight to the last one.
 
-Then a sample game against BEACH is played out, a guess a step (Dev Plan item
+Right after marking letters on Medium, before ⓘ definitions, a sample game
+against BEACH is played out, a guess a step (Dev Plan item
 18zo, `src/app/sampleGame.tsx`): CRANE 3, DUMMY 0, CRANK 2, DRUNK 0, BATCH 4,
 TUMMY 0, then BEACH. Each step says what the new score tells you and which
 letters it rules in or out, and you tap them on a live guess list, as on
 Medium; the step says which marks are still to make, and **Mark them for me**
 makes them. A step left unfinished starts the next with its marks made. The
 marks asked for are exactly what Easy's letter logic settles from the scores
-(a unit test checks it). The tutorial's dots count each part on its own: its
-steps, then the sample game's. **How to play** opens the sample game on its
+(a unit test checks it). The tutorial's dots count each part on its own: the
+sample game's, and the tutorial's other steps around it. **How to play** opens the sample game on its
 own with **Play a sample game**, and Done, ✕ or Escape come back to How to
 play. Nothing in it is saved or counted.
 
