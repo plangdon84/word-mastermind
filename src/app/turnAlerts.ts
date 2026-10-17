@@ -18,23 +18,13 @@ export interface ReminderSwitches {
   comeBack: boolean;
 }
 
-/** The reminders `settings` want; never the dailies while they're locked (`dailiesOpen`, README "Unlocking modes"). */
-export const remindersOf = (settings: Settings, dailiesOpen = true): ReminderSwitches => ({
-  timeLow: settings.remindTimeLow, dailies: settings.remindDailies && dailiesOpen, comeBack: settings.remindComeBack,
+/** The reminders `settings` want. The Daily Word is open from the start, so the dailies are never locked (README "Unlocking modes"). */
+export const remindersOf = (settings: Settings): ReminderSwitches => ({
+  timeLow: settings.remindTimeLow, dailies: settings.remindDailies, comeBack: settings.remindComeBack,
 });
 
 /** The reminders the app last sent (`resyncAlerts`), which turning alerts on sends too. */
 let lastReminders: ReminderSwitches | null = null;
-
-/** Whether the dailies were unlocked when the app last knew, so a page that opens into a game can tell the server at once. */
-const DAILIES_OPEN_KEY = 'word-mastermind:alerts-dailies-open:v1';
-
-/** The dailies' lock as last known on this device: locked until the app has seen them open. */
-export const knownDailiesOpen = (): boolean => stored(DAILIES_OPEN_KEY);
-
-export function rememberDailiesOpen(open: boolean): void {
-  store(DAILIES_OPEN_KEY, open);
-}
 
 /** Where this device stands. */
 export type AlertsState =
@@ -131,7 +121,7 @@ function post(apiUrl: string, identity: ApiIdentity, path: string, body: unknown
  * straight from a tap), subscribes, and tells the server. Returns the new state.
  */
 export async function enableAlerts(apiUrl: string, identity: ApiIdentity): Promise<AlertsState> {
-  const reminders = lastReminders ?? remindersOf(loadSettings(), knownDailiesOpen());
+  const reminders = lastReminders ?? remindersOf(loadSettings());
   if (!hasPush()) return alertsState();
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';

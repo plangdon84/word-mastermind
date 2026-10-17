@@ -323,9 +323,10 @@ Notes that follow from the rules:
 Each mode can be played at any [difficulty level](#difficulty-levels). Your
 difficulty only affects your own guesses; the computer's strength is separate.
 
-New players start with single player and the tutorial; the other modes
-unlock as they win (see [Unlocking modes](#unlocking-modes), built in Dev
-Plan item 13).
+New players start with Practice, the Daily Word, two player against the
+computer and the tutorial; the other modes unlock with their first win (see
+[Unlocking modes](#unlocking-modes), built in Dev Plan item 13 and eased in
+item 18zn).
 
 ### Computer strength
 
@@ -787,8 +788,8 @@ the code keep the old names, so nothing already saved changes.
   going when the day changed says so. Once played or given up, the row is
   greyed, tagged **Played** (or **Given up**), but is still a button, with
   a line that isn't greyed, **Your place ›** (**Your result ›**), opening
-  that run's result, which links to its board. A new player sees both rows
-  locked, saying how to unlock them. Without the game server they're tagged
+  that run's result, which links to its board. A new player sees the Daily
+  Set's row locked, saying how to unlock it; the Daily Word is always open. Without the game server they're tagged
   coming later. Daily isn't in the Word Sets menu. Tapping the card's
   heading folds it to one line, or opens it again (issue 222, remembered on
   this device): folded, it says what's left today, **2 to play**, **1 to
@@ -854,46 +855,49 @@ search engines move the old address's ranking to the new one (item 18j).
 
 ### Unlocking modes
 
-Built in [Dev Plan](#dev-plan) item 13. A brand-new player, guest or account, starts
-with **Practice** and the **Tutorial** only, and unlocks the rest in
-three steps:
+Built in [Dev Plan](#dev-plan) item 13, and eased in item 18zn (17 October
+2026) to make the game easier to get into. A brand-new player, guest or
+account, starts with **Practice**, the **Daily Word**, **Two player**
+against the computer and the **Tutorial**, and unlocks everything else in
+one step:
 
-1. **Win a Practice game** → **Two player** (vs. the computer and vs. a
-   friend).
-2. **Win a two player game** (vs. the computer or a friend; a draw isn't a
-   win) → **Word Sets**, with Solo Rush and Solo Crush.
-3. **Finish a Solo Rush or Solo Crush (in Word Sets) without giving up a word** → the Daily card's
-   Daily Set and Daily Word, and the rest of Word Sets (Rush or Crush with Friends, Competitive
-   Rush or Crush).
+- **Win a Practice game, find the Daily Word (not given up) or beat the
+  computer** (a draw isn't a win) → **Two player** against a friend (and a
+  random opponent, when it's switched on), the Daily card's **Daily Set**
+  and all of **Word Sets** (Solo, With friends and, when it's switched on,
+  Competitive).
 
 Practice is single player renamed (Dev Plan item 18za): it counts toward
-stats, badges and this first unlock as before. A locked Daily Set, Daily
-Word or With friends says "Finish a Solo Rush or Solo Crush in Word Sets without giving
-up a word to unlock", naming where they are.
+stats, badges and this unlock as before. Every locked choice says "Win a
+Practice game, find the Daily Word or beat the computer to unlock". A win
+against a friend by invite link doesn't unlock anything.
 
-Each step needs the one before it: a win against a friend by invite link
-before any Practice win opens Word Sets only once two player is open.
+Before item 18zn there were three steps, each needing the one before: win a
+Practice game for Two player, then a two player game for Word Sets' Solo,
+then a Solo Rush or Crush with no word given up for the Daily Set, the
+Daily Word and With friends. Anyone who had opened any of them has
+everything open now, since the first step was a Practice win.
 
 - Unlocks are a pure rule over the saved game records, like
   [achievements](#achievements) (`src/game/unlocks.ts`), never a stored flag,
   so players who already have qualifying games start with them unlocked, and
   resetting the profile locks them again. Any difficulty counts.
-- Each step earns a badge (see [Achievements](#achievements)): a seal tagged
-  UNLOCKED with an open padlock, in bronze, silver and gold. Its toast says
-  what was unlocked ("Word Sets unlocked! Find it on the home screen").
+- Unlocking earns a badge (see [Achievements](#achievements)): a bronze seal
+  tagged UNLOCKED with an open padlock, labelled ALL MODES. Its toast says
+  so ("Every mode unlocked! Find it on the home screen").
 - On the title screen a locked choice is greyed out with a light grey
   padlock at its right, apart from the text (issue #94), and says how
-  to unlock it ("Win a Practice game to unlock") in place of its
+  to unlock it in place of its
   description, which comes back once it's open. How to play, the
   Tutorial and [Leaderboards](#leaderboards) are always open.
 - An invite link or join code from a friend still opens its game: the gate
-  is only on starting a mode from the title screen. A locked Rush with
-  Friends keeps a **Join with a code** link, and its step's **Open a lobby**
-  is the part that's locked. Games in progress can always be continued.
+  is only on starting a mode from the title screen. A locked Word Sets tile
+  keeps a **Join with a code** link, and on that step **Open a lobby** is
+  the part that's locked. Games in progress can always be continued.
 - While your games load, nothing shows locked, so a player with everything
   open never sees the locks flash.
 - Besides easing new players in, it makes a fresh guest ID made to take
-  another shot at [Daily Rush](#daily-rush) cost a few games first. The
+  another shot at [Daily Rush](#daily-rush) cost a won game first. The
   server can't yet check an unlock itself (see [Open
   Questions](#open-questions)).
 
@@ -1094,9 +1098,9 @@ reach only devices with turn alerts on.
   none, since you're both playing. Tapping it opens the game.
 - **The dailies:** at 8pm New York time, one notification if you haven't
   started the Daily Set or the Daily Word today, naming what's left
-  ("Today's Daily Word is waiting"); nothing once you've started both, and
-  nothing while they're still locked on that device (see
-  [Unlocking modes](#unlocking-modes)). Tapping it opens the first one left.
+  ("Today's Daily Word is waiting"); nothing once you've started both. The
+  Daily Word is open from the start (see [Unlocking modes](#unlocking-modes)),
+  so this is never held back for a lock. Tapping it opens the first one left.
 - **Coming back:** one notification after 7 days with no game the server
   knows of ("Ready for another game?"), then none until you play again. It
   knows your online games (against a friend, from starting or accepting one
@@ -1289,7 +1293,8 @@ takes 20 to 25 minutes.
   history, filters, stats (fewest guesses), CSV and friends' profiles (from
   the day after, like a Daily Set). It counts as a found word for the
   solve, few-guesses and Clairvoyant badges, and has its own streak; see
-  [Achievements](#achievements). It unlocks with the Daily Set.
+  [Achievements](#achievements). It's open from the start, and finding it
+  unlocks every other mode (item 18zn).
 - **The same known limit** as the Daily Set's: someone could play once as a
   throwaway guest, then again knowing the word.
 
@@ -1846,18 +1851,21 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   marked 1st) and a **Competitive Rush win** (first against at least one
   other person, since only people are rated; tagged COMPETITIVE; not
   offered while Competitive Rush is switched off).
-- **Unlocks (item 13):** one badge for each step in [Unlocking
-  modes](#unlocking-modes): **Two player unlocked** (win a Practice
-  game), **Word Sets unlocked** (win a two player game) and **Daily Set,
-  Daily Word and With friends unlocked** (finish a Solo Rush with every word solved, none
-  given up); item 18za renamed the last two, tagged WORD SETS and ALL SETS.
+- **Unlocked (item 18zn):** **Every mode unlocked** (win a Practice game,
+  find the Daily Word or beat the computer; see [Unlocking
+  modes](#unlocking-modes)), tagged UNLOCKED and labelled ALL MODES. It
+  replaced item 13's three, one per step (**Two player unlocked**, **Word
+  Sets unlocked** and **Daily Set, Daily Word and With friends unlocked**),
+  which are no longer shown or offered: anyone who earned any of them has
+  the new one, dated from their first such win.
 - **Achievement Hunter (item 13):** earn 25%, 50%, 75% and 100% of the
   other badges: a seal in bronze, silver, gold and ruby with the share,
   earned with the badge that takes you past it. It counts every badge
-  offered except its own, Easy's included: 53 with 1.0's switches since
-  item 18o, so 14, 27, 40 and 53. The 3 badges item 18o added count only
-  toward levels not yet reached: a level reached counting the 50 from
-  before them (13, 25, 38 and 50) stays reached. Badges
+  offered except its own, Easy's included: 58 with 1.0's switches since
+  item 18zn, so 15, 29, 44 and 58. The badges added since 1.0 (from item
+  18o on, the new unlock badge included) count only toward levels not yet
+  reached: a level reached counting the 50 from before them (13, 25, 38
+  and 50), the three old unlock badges among them, stays reached. Badges
   earned by the server's games (which have their own result screens) show
   the profile dot when they reach the history.
 - **Retired in item 13d:** Beat the Mastermind computer (now the

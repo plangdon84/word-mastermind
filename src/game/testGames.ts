@@ -158,18 +158,19 @@ export function dailyEntry(id: string, day: DailyDay, start: number, words: read
 export const daily = (id: string, day: DailyDay, start: number, words: readonly (readonly string[])[], options = {}) =>
   replayed(dailyEntry(id, day, start, words, options));
 
-/** A Daily Word: one word, `guesses` the last of which finds it (unless given up). */
+/** A Daily Word: one word, `guesses` the last of which finds it, unless it's `gaveUp` after them. */
 export function dailyWordEntry(id: string, day: DailyDay, start: number, guesses: readonly string[], options: {
-  secret?: string; difficulty?: Difficulty;
+  secret?: string; difficulty?: Difficulty; gaveUp?: boolean;
 } = {}): HistoryEntry {
-  const { secret = 'beach', difficulty = 'medium' } = options;
+  const { secret = 'beach', difficulty = 'medium', gaveUp = false } = options;
+  const moves = runMoves(start, gaveUp ? [guesses, 'give-up'] : [guesses], STEP, false);
   return {
     id, version: 1, mode: 'dailyWord', day, marks: [{}],
-    record: { words: [secret], startedAt: start, timeLimitMs: null, pausable: false, difficulty, moves: runMoves(start, [guesses], STEP, false) },
+    record: { words: [secret], startedAt: start, timeLimitMs: null, pausable: false, difficulty, moves },
   };
 }
 
-export const dailyWord = (id: string, day: DailyDay, start: number, guesses: readonly string[], options = {}) =>
+export const dailyWord = (id: string, day: DailyDay, start: number, guesses: readonly string[], options: Parameters<typeof dailyWordEntry>[4] = {}) =>
   replayed(dailyWordEntry(id, day, start, guesses, options));
 
 /**

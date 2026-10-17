@@ -300,35 +300,41 @@ describe('Achievement Hunter', () => {
     const added = BADGES.filter((b) => b.addedLater).map((b) => b.id);
     expect(added).toEqual([
       'rush-time-casual', 'rush-time-skilled', 'rush-time-expert', 'rush-time-mastermind', 'daily-word-streak-7', 'daily-word-streak-30',
-      'daily-word-streak-100', 'friend-harder', 'friend-harder-2', 'clairvoyant']);
-    const before = HUNTED_BADGES - added.length;
-    // Just enough badges for 25% of those from before: a slow vs. computer win and a slow friend win,
-    // then a Rush at Mastermind level at Hard, which the larger count needs one more than.
+      'daily-word-streak-100', 'friend-harder', 'friend-harder-2', 'clairvoyant', 'unlock-all']);
+    // From before them, the three old unlock badges (item 18zn) count too, though they're no longer offered.
+    const before = HUNTED_BADGES - added.length + 3;
+    // A slow Practice win, a slow vs. computer win and a Rush at Mastermind level: 12 badges, too few for 25%
+    // of them all, but 11 from before plus the three old unlocks reach 25% of those from before.
     const houses = [...Array(25)].map(() => 'house');
     const games = [
-      versus('w', T, { strength: 'casual', you: guesses(25), computer: houses }),
-      friend('f', T + 1_000_000, { you: guesses(25), them: houses }),
-      rush('r', T + DAY, [['crane', 'beach'], ['beach', 'crane'], ['crane', 'storm'], ['crane', 'house']], { difficulty: 'hard' }),
+      solo('s', T, guesses(25)),
+      versus('w', T + 1_000_000, { strength: 'casual', you: guesses(25), computer: houses }),
+      rush('r', T + DAY, [['crane', 'beach'], ['beach', 'crane'], ['crane', 'storm'], ['crane', 'house']]),
     ];
     const earned = computeAchievements(games, utcDay);
-    const others = earned.filter((b) => !b.id.startsWith('hunter-')).length;
-    expect(others).toBeGreaterThanOrEqual(Math.ceil(before / 4));
-    expect(others).toBeLessThan(Math.ceil(HUNTED_BADGES / 4));
+    const others = earned.filter((b) => !b.id.startsWith('hunter-'));
+    expect(others).toHaveLength(12);
+    expect(others.filter((b) => !BADGES.find((x) => x.id === b.id)?.addedLater).length + 3).toBeGreaterThanOrEqual(Math.ceil(before / 4));
+    expect(others.length).toBeLessThan(Math.ceil(HUNTED_BADGES / 4));
     expect(earned.find((b) => b.id === 'hunter-25')).toMatchObject({ gameId: 'r' });
+    // Without the old unlocks (no Practice win, so none of them), the same count falls short.
+    const noOld = computeAchievements(games.slice(1), utcDay);
+    expect(noOld.some((b) => b.id.startsWith('hunter-'))).toBe(false);
   });
 
   it("counts every badge but its own, Easy's included", () => {
     expect(HUNTED_BADGES).toBe(BADGES.length - 4);
     const easyOnly = computeAchievements([solo('s', T, guesses(25), { difficulty: 'easy' })], utcDay);
-    expect(easyOnly.map((b) => b.id)).toEqual(['solo-easy', 'unlock-two-player']);
+    expect(easyOnly.map((b) => b.id)).toEqual(['solo-easy', 'unlock-all']);
   });
 });
 
-describe('the unlock badges', () => {
-  it('are earned with each step of unlocking modes, by the game that opened it', () => {
-    const games = [solo('s', T, ['crane', 'beach']), win('w', T + DAY), rush('r', T + 2 * DAY, [['beach'], ['crane'], ['storm'], ['house']])];
+describe('the unlock badge', () => {
+  it('is earned by the game that opened every mode, and replaces the three old ones', () => {
+    const games = [win('w', T + DAY), solo('s', T + 2 * DAY, ['crane', 'beach']), rush('r', T + 3 * DAY, [['beach'], ['crane'], ['storm'], ['house']])];
     const unlocks = computeAchievements(games, utcDay).filter((b) => b.id.startsWith('unlock-')).map((b) => [b.id, b.gameId]);
-    expect(unlocks).toEqual([['unlock-two-player', 's'], ['unlock-solo-rush', 'w'], ['unlock-all-rush', 'r']]);
+    expect(unlocks).toEqual([['unlock-all', 'w']]);
+    expect(BADGES.filter((b) => b.id.startsWith('unlock-')).map((b) => b.id)).toEqual(['unlock-all']);
   });
 });
 

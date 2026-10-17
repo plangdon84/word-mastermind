@@ -283,6 +283,9 @@ export function BoardPage({ title, onBack, circle, onCircle, children }: {
   );
 }
 
+/** How to open every locked mode (README "Unlocking modes"): on its tile, and in the tutorial. */
+export const HOW_TO_UNLOCK = 'Win a Practice game, find the Daily Word or beat the computer to unlock.';
+
 /** The padlock on a locked mode's tile (README "Unlocking modes"). */
 export const LockIcon = () => (
   <svg class="lock-icon" viewBox="0 0 16 16" width="22" height="22" aria-hidden="true">

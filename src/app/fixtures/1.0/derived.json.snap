@@ -225,7 +225,7 @@
       "gameId": "fx-single-medium"
     },
     {
-      "id": "unlock-two-player",
+      "id": "unlock-all",
       "at": 1790769630000,
       "gameId": "fx-single-medium"
     },
@@ -281,11 +281,6 @@
     },
     {
       "id": "cpu-guesses-10",
-      "at": 1790773640000,
-      "gameId": "fx-computer-win"
-    },
-    {
-      "id": "unlock-solo-rush",
       "at": 1790773640000,
       "gameId": "fx-computer-win"
     },
@@ -372,14 +367,9 @@
   ],
   "unlocks": [
     {
-      "step": "two-player",
+      "step": "all",
       "at": 1790769630000,
       "gameId": "fx-single-medium"
-    },
-    {
-      "step": "solo-rush",
-      "at": 1790773640000,
-      "gameId": "fx-computer-win"
     }
   ]
 }
