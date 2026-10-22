@@ -2370,7 +2370,8 @@ the worked example in Glickman's paper; the worker applies it
   Lichess. All four are to tune once there's real data.
 - **Difficulty:** fixed for the whole of a rated game (☰ shows it greyed,
   "It's fixed in a rated game"; the server refuses a change), and never part
-  of the rating itself.
+  of the rating itself (decided with the owner on 22 October 2026: the
+  rating gap already sets how far each result moves a rating).
 - **Showing it:** a rated game shows the opponent's rating beside their name
   in the header (`You vs. Ann (1512?)`), and the result panel shows your
   change (`Rating 1500? → 1662? (+162)`). The profile's
@@ -2393,10 +2394,6 @@ numbered item is one PR. Items still to build come first, in build order
 
 - **Difficulty factors:** Easy ×1.2, Hard ×0.9 and Extreme ×0.8 are a
   starting guess, to tune from playtesting (see [Scoring](#scoring)).
-- **Difficulty in PvP:** each player can play at a different difficulty. It
-  never affects who wins. In a [rated](#rating) game it's fixed, and the
-  matchmaking queue pairs players at the same difficulty, so it stays out of
-  the rating itself; whether it should count after all is to discuss.
 - **Rush with Friends durations:** the defaults (Medium 30, Hard 40, Extreme
   50 minutes) and the range the host can pick from, to tune from play.
 - **Daily Rush after the last theme** (30 April 2028): start again from the
