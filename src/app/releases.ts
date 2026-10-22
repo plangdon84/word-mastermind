@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.19.1',
+    notes: [
+      { text: "Modes you've opened no longer show as locked when you come back to the app" },
+      { text: 'Finishing the Daily Set or Daily Word shows any badge you earned, as other modes do' },
+      { text: 'Your record against a friend fits on a phone screen' },
+    ],
+  },
+  {
     version: '1.19.0',
     notes: [
       { text: 'Enhanced tutorial' },

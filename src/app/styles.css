@@ -1300,7 +1300,12 @@ button.bubble:active { transform: scale(0.94); }
 /* A friend's name opens their profile (Dev Plan item 18c): a link, still cut short (…) when long. */
 .friend-list .friend-name { display: block; font: inherit; text-align: left; padding: 0; line-height: var(--tap); }
 .friend-profile .step-head h2 { min-width: 0; overflow-wrap: anywhere; }
-.head-to-head h4 { margin-top: 0; }
+.head-to-head h4 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.head-to-head-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.head-to-head-head .stat-aside { font-size: 0.88rem; white-space: nowrap; }
+/* The label gives way before the figures do, which never break at their dashes. */
+.head-to-head .stat-row dt { min-width: 0; }
+.head-to-head .stat-row dd { white-space: nowrap; }
 .friend-code { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 12px; }
 .friend-code .invite-link { width: 100%; }
 .lobby-friends { width: 100%; text-align: left; }
