@@ -413,30 +413,43 @@ export function App() {
 
   /**
    * Adds your finished games against friends, Daily Rushes and lobbies from
-   * the server to the history (README "Game history"). One pull at a time.
+   * the server to the history (README "Game history"), and resolves to the
+   * badges they earned that weren't announced before. One pull at a time: a
+   * pull asked for during one runs once more after it, for a game just
+   * finished.
    */
-  const pulling = useRef(false);
-  const pullPlayed = () => {
-    const { session: signedIn, profile: here, identity: who } = latest.current;
-    if (!API_URL || pulling.current) return;
-    pulling.current = true;
-    pullPlayedGames(API_URL, who, signedIn?.account.id ?? here.deviceId, historyStore)
-      .then(async (ids) => {
-        if (ids.length === 0) return;
-        setHistoryVersion((v) => v + 1);
-        // Their result screens were the server's, so badges they earned show as the profile dot.
-        const earned = await loadEarnedBadges();
-        announceBadges(earned.filter((b) => ids.includes(b.gameId)).map((b) => b.id));
-      })
-      .catch(() => {})
-      .finally(() => {
-        pulling.current = false;
+  const pulling = useRef<Promise<string[]> | null>(null);
+  const pullAgain = useRef<Promise<string[]> | null>(null);
+  const pullPlayed = (): Promise<string[]> => {
+    if (!API_URL) return Promise.resolve([]);
+    if (pulling.current) {
+      pullAgain.current ??= pulling.current.then(() => {
+        pullAgain.current = null;
+        return pullPlayed();
       });
+      return pullAgain.current;
+    }
+    const { session: signedIn, profile: here, identity: who } = latest.current;
+    pulling.current = pullPlayedGames(API_URL, who, signedIn?.account.id ?? here.deviceId, historyStore)
+      .then(async (ids) => {
+        if (ids.length === 0) return [];
+        setHistoryVersion((v) => v + 1);
+        // Announced here, so a result screen that isn't waiting for them still shows the profile dot.
+        const earned = await loadEarnedBadges();
+        return announceBadges(earned.filter((b) => ids.includes(b.gameId)).map((b) => b.id));
+      })
+      .catch((): string[] => [])
+      .finally(() => {
+        pulling.current = null;
+      });
+    return pulling.current;
   };
   // On opening the app and signing in or out, and on coming back to the title screen or the profile after a game.
-  useEffect(pullPlayed, [identity]);
   useEffect(() => {
-    if (screen.name === 'title' || screen.name === 'profile') pullPlayed();
+    void pullPlayed();
+  }, [identity]);
+  useEffect(() => {
+    if (screen.name === 'title' || screen.name === 'profile') void pullPlayed();
   }, [screen.name]);
 
   /** After switching this device to a new guest ID, a Google sign-in (tied to the old one) must start again. */
@@ -504,7 +517,7 @@ export function App() {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
       syncNow();
-      pullPlayed();
+      void pullPlayed();
       // A friend may have challenged you since, or (a guest too) asked for a rematch.
       if (latest.current.session || loadFriendGames().length > 0) pullFriendGames(latest.current.identity);
     };
@@ -784,7 +797,7 @@ export function App() {
     }
     if (screen.name === 'daily') {
       return <DailyScreen key={screen.mode} {...game} mode={screen.mode} identity={identity} start={screen.start}
-        onBoardRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} />;
+        onBoardRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} onFinished={pullPlayed} />;
     }
     if (screen.name === 'leaderboards') {
       return <LeaderboardsScreen identity={identity} difficulty={settings.difficulty} board={screen.board} onExit={exit}

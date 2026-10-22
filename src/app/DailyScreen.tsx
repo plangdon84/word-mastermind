@@ -2,8 +2,8 @@ import type { ComponentChildren } from 'preact';
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  addDays, betterThan, DAILY_BOARDS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow,
-  rankByName, validateGuess, type DailyDay, type DailyMode, type DailyView, type DailyWordView, type Difficulty, type Marks,
+  addDays, BADGE_BY_ID, betterThan, DAILY_BOARDS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow,
+  rankByName, validateGuess, type Badge, type DailyDay, type DailyMode, type DailyView, type DailyWordView, type Difficulty, type Marks,
   type RankBy,
 } from '../game';
 import { useCheckLimit } from './checkLimit';
@@ -15,6 +15,7 @@ import { API_URL } from './config';
 import { dailyApi, DailyApiError, type DailyApi, type DailyBoard, type DailyToday } from './dailyApi';
 import { PlayerName } from './friendLink';
 import type { Circle } from './leaderboardsApi';
+import { BadgeToast } from './Badge';
 import { receivePlacements } from './badges';
 import { loadDaily, saveDaily } from './dailyStorage';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
@@ -172,7 +173,7 @@ export function DailyBoardPanel({ mode = 'daily', api, today, day: firstDay, dif
  * word. With `start`, it starts today's run at your difficulty if you haven't
  * played yet. The Daily Set's Pause stops the clock, on the server too.
  */
-export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onExit, start }: {
+export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onExit, start, onFinished }: {
   mode?: DailyMode;
   settings: Settings;
   /** The board's Rush · fastest / Crush · fewest switch was flipped: it opens there next time. */
@@ -182,6 +183,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   onProfile: OpenProfile;
   onExit: () => void;
   start: boolean;
+  /** Brings the finished game into the history, resolving to the IDs of badges it newly earned. */
+  onFinished: () => Promise<string[]>;
 }) {
   const api = useMemo(() => dailyApi(API_URL ?? '', identity, fetch, mode), [identity, mode]);
   const name = DAILY_NAME[mode];
@@ -270,6 +273,17 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   useEffect(() => {
     if (today?.run) saveDaily({ day: today.run.day, playing: today.run.status === 'playing', marks }, mode);
   }, [today, marks]);
+
+  // A finished run joins the history now, not back on the title screen, so its badges show here (issue 231).
+  const [newBadges, setNewBadges] = useState<Badge[]>([]);
+  useEffect(() => {
+    if (run?.status !== 'finished') return;
+    let live = true;
+    void onFinished().then((ids) => live && setNewBadges(ids.map((id) => BADGE_BY_ID.get(id)!)));
+    return () => {
+      live = false;
+    };
+  }, [run?.day, run?.status]);
 
   // Once you've finished, your place so far on both boards (none for a run finished after its day).
   useEffect(() => {
@@ -655,6 +669,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
               Next {next} in {nextSet}.
             </p>
           )}
+          <BadgeToast badges={newBadges} onOpen={onProfile} />
           <div class="row-btns">
             {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's {name}</button>}
             <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
