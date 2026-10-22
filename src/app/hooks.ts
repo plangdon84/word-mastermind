@@ -68,9 +68,9 @@ export function usePhysicalKeyboard({ onLetter, onEnter, onBackspace }: {
 }
 
 /**
- * Every finished game in the history, newest first, or null while loading.
- * Loads again when `version` changes (after a restore, say). A history that
- * can't be read shows as empty. With `enabled` false, nothing loads.
+ * Every finished game in the history, newest first, or null while loading
+ * or if it can't be read. Loads again when `version` changes (after a
+ * restore, say). With `enabled` false, nothing loads.
  */
 export function useHistoryGames(version: number, enabled = true): HistoryGame[] | null {
   const [games, setGames] = useState<HistoryGame[] | null>(null);
@@ -78,7 +78,8 @@ export function useHistoryGames(version: number, enabled = true): HistoryGame[] 
     let live = true;
     setGames(null);
     if (!enabled) return;
-    loadAllMatching({}).then((g) => live && setGames(g), () => live && setGames([]));
+    // Unread is unknown, never empty: an empty history would lock the title screen's modes (issue 239).
+    loadAllMatching({}).then((g) => live && setGames(g), () => {});
     return () => {
       live = false;
     };

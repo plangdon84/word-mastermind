@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HistoryEntry } from '../game';
 import {
   deleteHistory, getAllGames, getAllIds, getGame, getGames, loadGamesPage, onGameSaved, putGame, putGames, saveFinishedGame,
@@ -49,6 +49,26 @@ describe('game history', () => {
     const more = await loadGamesPage({ search: 'cra' }, cranes.next!, 2);
     expect(more.games.map((g) => g.entry.id)).toEqual(['game-1']);
     expect(more.next).toBeNull();
+  });
+
+  describe('a connection that has gone bad (issue 239)', () => {
+    afterEach(() => vi.restoreAllMocks());
+    const closing = () => {
+      throw new DOMException('The database connection is closing.', 'InvalidStateError');
+    };
+
+    it('reads again with a fresh connection', async () => {
+      await putGames([game(1), game(2)]);
+      const transaction = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementationOnce(closing);
+      expect((await loadGamesPage({}, 0, Infinity)).games.map((g) => g.entry.id)).toEqual(['game-2', 'game-1']);
+      expect(transaction).toHaveBeenCalledTimes(2);
+      expect(transaction.mock.contexts[1]).not.toBe(transaction.mock.contexts[0]);
+    });
+
+    it('passes on a second failure', async () => {
+      vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(closing);
+      await expect(getAllGames()).rejects.toThrow('closing');
+    });
   });
 
   it('only saves games started since the profile was created', async () => {
