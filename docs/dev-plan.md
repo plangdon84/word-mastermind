@@ -1,47 +1,65 @@
 # Dev Plan
 
-Moved out of the [README](../README.md) so it's quick to reach. Game rules
-and decisions stay in the README, which this plan links to.
-
-Each numbered item is **one PR**, and its bullets are the commits. Items
-still to build come first, in build order, so "the next PR in the dev plan"
-means the first one under **To build**. Tick it in the same PR and move it
-to the top of **Done**, which lists finished items latest first. Item
-numbers never shift, since other sections refer to them: a new item takes a
-letter (like 13b). Every PR can ship on its own.
-
-Issues live in the private archive, `plangdon84/word-mastermind-archive`
-(issues are off in this public repo, since a report can hold game data).
-Items cite them in full, or as `Issue N` inside an item; a bare `#N`
-written before 8 October 2026 is an archive issue too. `/triage-issues`
-plans them here and closes the ones a merged PR fixed.
+Last triaged with the owner: 22 October 2026.
 
 ## To build
 
-Open GitHub issues were triaged with the owner on 2 October 2026, in two
-rounds, again on 4 October 2026, on 7 October 2026, and on 8 and 9 October
-2026 in the archive, and on 14 October 2026 (each issue has its severity and
-the decisions as a comment).
+**Next, in this order**
 
-**Next, in this order** (reordered with the owner on 3 October 2026:
-18h, 18i, 18b, 18o, 18c and 18d moved ahead of 18m, and 18h built
-before 18l; on 4 October 2026, 18q to 18t, from that day's issues, went
-first; on 7 October 2026, ordered by value in as few PRs as make sense:
-18u first, since CI is out of free minutes, then that day's issues folded
-into 18q, 18s and 18t where they fit, and new items 18v to 18z and 7b;
-later that day, 18ub went first, since the browser tests passed CI's 30-minute
-limit; on 8 October 2026, 18ud went first: small fixes players hit now,
-and 7b moved after 18d, ahead of 18m; then 18za, a new title screen agreed
-from a mock-up, went before 18z; and 18c was split, opening a friend's
-profile from games and boards becoming 18ca; on 9 October 2026, the small
-fixes players see, 18zb and 18zc, went first, and the server tidy-ups 18zd
-to 18zf after 18n; on 10 October 2026, 18zg went first: a player's online
-games stopped reaching their history; on 14 October 2026, the ownership
-notice 18zh went first, as the owner asked, then 18zc, then that day's
-small app fixes 18zi and the reminders 18zj ahead of 18m; on 17 October
-2026, after the Reddit posts of 5 October brought no lasting players, 18zn
-and 18zo went first, to make the game easier to get into)
-
+- [ ] **18zp. Title screen locks, Daily badges and a friend's stats row**
+  (issues plangdon84/word-mastermind-archive#239,
+  plangdon84/word-mastermind-archive#231 and
+  plangdon84/word-mastermind-archive#236; app only)
+  - Issue 239: coming back to the title screen, the Daily Set (and other
+    modes) can show as locked for a player who has opened them, until the
+    app is restarted. Likely cause: when reading the saved games fails
+    (as Safari's storage can after the app has been in the background), the
+    title screen treats it as no games at all. A failed read retries once
+    with a fresh connection, and if it still fails nothing shows as locked
+  - Issue 231: finishing a Daily Word or Daily Set that earns a badge shows
+    the same badge toast, with its icons, as Practice, two player and Solo
+    Rush do, on the result screen: the finished game is fetched into the
+    history when the run ends, not only back on the title screen
+  - Issue 236: on a phone, a friend's profile stats row with Word Sets with
+    friends no longer wraps the win–draw–loss figures onto two lines
+    (design choice: the row's columns shrink to fit before anything wraps)
+- [ ] **18zq. Word list fixes and the ESDB notice** (issues
+  plangdon84/word-mastermind-archive#241,
+  plangdon84/word-mastermind-archive#242,
+  plangdon84/word-mastermind-archive#243,
+  plangdon84/word-mastermind-archive#245,
+  plangdon84/word-mastermind-archive#237,
+  plangdon84/word-mastermind-archive#232 and
+  plangdon84/word-mastermind-archive#229; app only)
+  - Issues 241, 242, 243 and 245: decided with the owner on 22 October
+    2026, the four reported guess words (none with a definition) are
+    banned, so they can't be guessed anywhere; old games holding them still
+    replay. Later reports like these are handled the same way, one by one,
+    not by banning every word without a definition
+  - Issue 237: the reported offensive word is banned from both lists
+  - Issue 232: the reported common word is added to the secret list, with a
+    definition if Open English WordNet has none for it
+  - Issue 229: the ESDB copyright notice ships in the app's and the worker's
+    bundles as a kept legal comment beside the word lists (nothing players
+    see; check `npm run check:size`)
+- [ ] **18zr. See the words you've found in a Word Set** (issue
+  plangdon84/word-mastermind-archive#244; app only)
+  - Decided with the owner on 22 October 2026: in every Word Set (Solo,
+    the Daily Set, With friends and Competitive), a **Found so far** tap
+    shows the words you've found in this run, during play and in a review.
+    It shows only your own words, never anyone else's. Needs a release
+    note; updates README "Rush modes"
+- [ ] **18zs. A rematch at your current difficulty, and "You lost"** (issues
+  plangdon84/word-mastermind-archive#240 and
+  plangdon84/word-mastermind-archive#230; worker, review gate; updates
+  README "Rematch")
+  - Issue 240: decided with the owner on 22 October 2026, each player plays
+    a rematch at their **Start games on** difficulty at the moment they ask
+    for or accept it, not the one they ended the last game on; in a rated
+    rematch, an Easy setting plays at Medium, since Easy can't be rated
+  - Issue 230: the notification when your opponent finds your word ends
+    "You lost." instead of "You lose." (wording choice: the same past tense
+    the other texts use)
 - [ ] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
   review gate)
   - Signed in and opening another account's link, **Sign in** on "Sign in
@@ -118,7 +136,7 @@ and 18zo went first, to make the game easier to get into)
     computer's moves and the Rush clock's pauses run in each tab, so one
     tab has to lead
 
-**Later** (when their cost is worth it)
+**Later**
 
 - [ ] **18da. Friending your random opponent** (issue #78; split from
   18d on 9 October 2026; when Random opponent is switched back on)
@@ -149,17 +167,7 @@ and 18zo went first, to make the game easier to get into)
   leave each other's ratings alone, like a rated two player draw, and
   record it in README "Rating"
 
-Marketing that isn't a PR (agreed with the owner on 2 October 2026): once
-18j and 18k are live, the owner posts the game to Reddit (r/WebGames,
-r/wordgames, r/puzzles), Hacker News (Show HN), Product Hunt, IndieHackers
-and itch.io (a free page linking to the site), and tracks new players and
-Daily Rush entries per week from D1. Only if those bring players: a small
-paid test (about $50 of Reddit or Google ads) and a Google Play listing as
-a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
-
 ## Done, latest first
-
-**Phase D: after the launch**
 
 - [x] **18zo. Enhanced tutorial** (from the owner on 17 October 2026; app
   only; updates README "Tutorial"). Release note (1.1.0): "Enhanced
@@ -879,11 +887,6 @@ a Trusted Web Activity ($25 once); the iOS App Store ($99 a year) waits.
     Back and Close, the smaller secondary buttons), with the owner's eye on
     the look, then raise the test's minimum to 44
 
-**Phase C: 1.0 readiness** (after item 13, before the launch). Items 13c
-and 13d came first, so the reviews and the test plan covered Easy and the
-final achievement rules. Each review wrote up its findings and fixed what
-it could in its own PR; anything larger became a new Dev Plan item.
-
 - [x] **18. 1.0 launch**
   - Combine and close as many open GitHub issues as we can, those after
     launch moved to Phase D below:
@@ -1015,8 +1018,6 @@ it could in its own PR; anything larger became a new Dev Plan item.
   - After the A/B test: the losing method removed, the limit and the
     switch set as decided, and README updated, before the PR merges
 
-**Phase B: backend** (see [Backend plan](../README.md#backend-plan))
-
 - [x] **13b. 1.0 cleanup and launch scope** (from the retrospective of 29
   September; numbers no longer shift, so a new item takes a letter)
   - CI: a GitHub Actions workflow running `npm test`, `npm run typecheck`,
@@ -1133,8 +1134,6 @@ it could in its own PR; anything larger became a new Dev Plan item.
   - An admin script, outside the game, that wipes game history and
     leaderboards from D1 (it asks you to type the environment's name first).
     Each later PR that adds tables adds them to it
-
-**Phase A: static site, no backend**
 
 - [x] **3b. Stats and achievements**
   - `src/game/stats.ts`, timed at 1,000 and 10,000 games, and the analytics
