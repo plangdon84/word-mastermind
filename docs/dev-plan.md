@@ -6,28 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18zd. Fewer server reads for daily and online games** (issues
-  plangdon84/word-mastermind-archive#209,
-  plangdon84/word-mastermind-archive#213,
-  plangdon84/word-mastermind-archive#225,
-  plangdon84/word-mastermind-archive#214 and
-  plangdon84/word-mastermind-archive#212; worker, review gate)
-  - Issue 209: fetching your finished online games reads each of your IDs'
-    games in order from where the device got to, a page at a time, instead
-    of every game you've played (as indexing for friends already does)
-  - Issue 213: the title screen asks once for both daily games, through a
-    new combined route (the old ones stay for older apps)
-  - Issue 225: decided with the owner on 14 October 2026, the combined
-    route also gives today's place so far, and each played row on the
-    Daily card shows it ("12th of 340 so far ›") on your difficulty's
-    board, the Daily Set's by fewest guesses like the Daily Word's; it's
-    final after midnight New York time. Needs a release note
-  - Issue 214: the Daily Word's first day moves to the day it went live; a
-    past day with no Daily Word skips the late-finish check; a stray code
-    comment moves to the item it describes
-  - Issue 212: the Daily screen's start panel and result tally are shared by
-    the Daily Set and the Daily Word (re-run the Daily screens' browser
-    tests)
 - [ ] **18ze. Friends' profiles follow-ups** (issues
   plangdon84/word-mastermind-archive#199,
   plangdon84/word-mastermind-archive#200,
@@ -109,6 +87,32 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18zd. Fewer server reads for daily and online games** (issues
+  plangdon84/word-mastermind-archive#209,
+  plangdon84/word-mastermind-archive#213,
+  plangdon84/word-mastermind-archive#225,
+  plangdon84/word-mastermind-archive#214 and
+  plangdon84/word-mastermind-archive#212; worker, review gate)
+  - Issue 209: fetching your finished online games reads each of your IDs'
+    games in order from where the device got to, a page at a time, instead
+    of every game you've played (as indexing for friends already does):
+    each `game_players` row keeps its game's rowid (`game_seq`, migration
+    0025)
+  - Issue 213: the title screen asks once for both daily games, through a
+    new combined route (`GET /api/daily/games`; the old ones stay for older
+    apps, and the app falls back to them on an older server's 404)
+  - Issue 225: decided with the owner on 14 October 2026, the combined
+    route also gives today's place so far, and each played row on the
+    Daily card shows it ("12th of 340 so far ›") on your difficulty's
+    board, the Daily Set's by fewest guesses like the Daily Word's; it's
+    final after midnight New York time. Needs a release note
+  - Issue 214: the Daily Word's first day moves to the day it went live
+    (9 October 2026, already its first day, so it stays); a
+    past day with no Daily Word skips the late-finish check; a stray code
+    comment moves to the item it describes
+  - Issue 212: the Daily screen's start panel and result tally are shared by
+    the Daily Set and the Daily Word (re-run the Daily screens' browser
+    tests)
 - [x] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
   review gate)
   - Signed in and opening another account's link, **Sign in** on "Sign in
