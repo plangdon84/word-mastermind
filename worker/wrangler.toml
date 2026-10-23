@@ -47,7 +47,8 @@ class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
 # 30 a minute for what makes something new, 3 for reports and sign-in emails,
-# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
+# 60 for opening friends' profiles (Dev Plan item 18cb), and 60 for indexing your
+# games for friends, apart so a long first index can't block opening one (Issue 211).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[ratelimits]]
 name = "RATE_LIMIT"
@@ -62,6 +63,11 @@ simple = { limit = 3, period = 60 }
 [[ratelimits]]
 name = "RATE_LIMIT_PROFILE"
 namespace_id = "1003"
+simple = { limit = 60, period = 60 }
+
+[[ratelimits]]
+name = "RATE_LIMIT_INDEX"
+namespace_id = "1004"
 simple = { limit = 60, period = 60 }
 
 # Reminders (src/reminders.ts, README "Reminders"): every minute of the UTC
@@ -148,7 +154,8 @@ class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
 # 30 a minute for what makes something new, 3 for reports and sign-in emails,
-# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
+# 60 for opening friends' profiles (Dev Plan item 18cb), and 60 for indexing your
+# games for friends, apart so a long first index can't block opening one (Issue 211).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[env.staging.ratelimits]]
 name = "RATE_LIMIT"
@@ -163,6 +170,11 @@ simple = { limit = 3, period = 60 }
 [[env.staging.ratelimits]]
 name = "RATE_LIMIT_PROFILE"
 namespace_id = "2003"
+simple = { limit = 60, period = 60 }
+
+[[env.staging.ratelimits]]
+name = "RATE_LIMIT_INDEX"
+namespace_id = "2004"
 simple = { limit = 60, period = 60 }
 
 [env.production]
@@ -226,7 +238,8 @@ class_name = "Matchmaker"
 
 # Rate limits by address (src/limits.ts; security review, Dev Plan item 15):
 # 30 a minute for what makes something new, 3 for reports and sign-in emails,
-# and 60 for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb).
+# 60 for opening friends' profiles (Dev Plan item 18cb), and 60 for indexing your
+# games for friends, apart so a long first index can't block opening one (Issue 211).
 # Each namespace_id is any number unique within the Cloudflare account.
 [[env.production.ratelimits]]
 name = "RATE_LIMIT"
@@ -241,4 +254,9 @@ simple = { limit = 3, period = 60 }
 [[env.production.ratelimits]]
 name = "RATE_LIMIT_PROFILE"
 namespace_id = "3003"
+simple = { limit = 60, period = 60 }
+
+[[env.production.ratelimits]]
+name = "RATE_LIMIT_INDEX"
+namespace_id = "3004"
 simple = { limit = 60, period = 60 }

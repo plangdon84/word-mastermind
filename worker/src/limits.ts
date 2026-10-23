@@ -14,15 +14,19 @@ import type { Env } from './index';
  * limited.
  */
 
-/** Which limit a request counts against: `general` (30 a minute), `strict` (3 a minute) or `profile` (60 a minute). */
-export type Limit = 'general' | 'strict' | 'profile';
+/**
+ * Which limit a request counts against: `general` (30 a minute), `strict`
+ * (3 a minute), `profile` (60 a minute) or `index` (60 a minute).
+ */
+export type Limit = 'general' | 'strict' | 'profile' | 'index';
 
 /** What each limited request counts against; anything else isn't limited. */
 export function limitOf(method: string, pathname: string): Limit | null {
-  // Friends' profiles (item 18cb) have a limit of their own, so they never use up the general one: opening one,
-  // and indexing your games for friends, which looks up game rooms. A page of their history is one query.
+  // Friends' profiles (item 18cb) have a limit of their own, so they never use up the general one. A page of
+  // their history is one query. Indexing your games for friends looks up game rooms, and has a limit apart
+  // from opening a profile, so a long first index can't block opening one (Issue 211).
   if (method === 'GET' && pathname === '/api/friends/profile') return 'profile';
-  if (method === 'POST' && pathname === '/api/profile/index') return 'profile';
+  if (method === 'POST' && pathname === '/api/profile/index') return 'index';
   // Searching players by name (item 18d) is a query, but limited so nobody can list every name quickly.
   if (method === 'GET' && pathname === '/api/friends/search') return 'general';
   if (method !== 'POST') return null;
@@ -67,7 +71,9 @@ export function addressKey(address: string): string {
 export async function overLimit(request: Request, env: Env, pathname: string): Promise<Response | null> {
   const limit = limitOf(request.method, pathname);
   if (!limit) return null;
-  const binding = { general: env.RATE_LIMIT, strict: env.RATE_LIMIT_STRICT, profile: env.RATE_LIMIT_PROFILE }[limit];
+  const binding = {
+    general: env.RATE_LIMIT, strict: env.RATE_LIMIT_STRICT, profile: env.RATE_LIMIT_PROFILE, index: env.RATE_LIMIT_INDEX,
+  }[limit];
   const address = addressOf(request);
   if (!binding || !address) return null;
   const { success } = await binding.limit({ key: address });

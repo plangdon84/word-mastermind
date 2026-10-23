@@ -52,7 +52,7 @@ describe('rate limits by address', () => {
     expect(limitOf('GET', '/api/games')).toBeNull();
     // Friends' profiles (item 18cb): opening one and indexing your games; a page of their history is one query.
     expect(limitOf('GET', '/api/friends/profile')).toBe('profile');
-    expect(limitOf('POST', '/api/profile/index')).toBe('profile');
+    expect(limitOf('POST', '/api/profile/index')).toBe('index');
     expect(limitOf('POST', '/api/profile/shared')).toBeNull();
     expect(limitOf('GET', '/api/friends/profile/games')).toBeNull();
   });
@@ -67,6 +67,18 @@ describe('rate limits by address', () => {
     expect((await open()).status).not.toBe(429);
     expect((await open()).status).toBe(429);
     expect(general.counts.size).toBe(0);
+  });
+
+  it("count indexing your games apart from opening a friend's profile (Issue 211)", async () => {
+    const profile = fakeLimit(1);
+    const index = fakeLimit(1);
+    const env = { ...setup().env, RATE_LIMIT_PROFILE: profile.binding, RATE_LIMIT_INDEX: index.binding };
+    const send = (path: string, method: string) => handle(new Request(`${API}${path}`, {
+      method, headers: { 'cf-connecting-ip': '203.0.113.7' },
+    }), env, 0);
+    expect((await send('/api/profile/index', 'POST')).status).not.toBe(429);
+    expect((await send('/api/profile/index', 'POST')).status).toBe(429);
+    expect((await send('/api/friends/profile?code=ABCDEFGH', 'GET')).status).not.toBe(429);
   });
 
   it('refuse an address over its limit with 429, whatever guest IDs it uses', async () => {

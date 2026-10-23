@@ -2204,10 +2204,14 @@ history**.
   the next time they open Word Mastermind. Badges that count days in a row
   count their own local days, as on their device. It's loaded once and kept
   for five minutes, so going back from one of their games doesn't load it
-  again; opening your friends list or signing out forgets it. Opening a
-  profile and indexing your games share a limit of 60 requests a minute
-  from one internet address; a long first index waits a minute when it
-  reaches it, then carries on.
+  again, as long as they're still on your friends list (if they aren't,
+  you're taken back out of their profile); opening your friends list or
+  signing out forgets it. Their game history loads 20 at a time from the
+  last game shown, so a game they finish while you scroll doesn't show
+  twice. Opening profiles and indexing your games each have a limit of 60
+  requests a minute from one internet address, apart, so a long first
+  index never stops you opening a profile; it waits a minute when it
+  reaches its own limit, then carries on.
 - **A Daily Set is left out** until the day after it is over (one started
   before midnight can still be finished the next day), so its words can't
   be read off a friend before you've played it. Their Daily Rush places

@@ -60,8 +60,10 @@ export interface Env {
   /** Rate limits by address (`limits.ts`): 30 a minute, and 3 a minute for reports and sign-in emails. Without them, nothing is limited. */
   RATE_LIMIT?: RateLimit;
   RATE_LIMIT_STRICT?: RateLimit;
-  /** 60 a minute for friends' profiles: opening one, and indexing your games (Dev Plan item 18cb). */
+  /** 60 a minute for opening friends' profiles (Dev Plan item 18cb). */
   RATE_LIMIT_PROFILE?: RateLimit;
+  /** 60 a minute for indexing your games for friends, apart from opening their profiles (Issue 211). */
+  RATE_LIMIT_INDEX?: RateLimit;
   /**
    * The usage dashboard (`admin.ts`, Dev Plan item 18m): the Cloudflare
    * Access team's domain (`TEAM.cloudflareaccess.com`) and the dashboard
