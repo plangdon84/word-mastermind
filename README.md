@@ -2204,8 +2204,8 @@ history**.
   the next time they open Word Mastermind. Badges that count days in a row
   count their own local days, as on their device. It's loaded once and kept
   for five minutes, so going back from one of their games doesn't load it
-  again, as long as they're still on your friends list (if they aren't,
-  you're taken back out of their profile); opening your friends list or
+  again, as long as they're still on your friends list (if they aren't, it
+  says they're no longer on your friends list); opening your friends list or
   signing out forgets it. Their game history loads 20 at a time from the
   last game shown, so a game they finish while you scroll doesn't show
   twice. Opening profiles and indexing your games each have a limit of 60

@@ -56,13 +56,16 @@ const loaded = new Map<string, { at: number; friend: LoadedFriend }>();
 /** Forgets every friend's profile: the friends list calls it, as a friend may have been removed. */
 export const forgetFriendProfiles = () => loaded.clear();
 
+/** What their profile says once they're no longer your friend. */
+const GONE = "They're no longer on your friends list.";
+
 /**
  * A friend's profile, loaded once and kept for a few minutes. `attempt`
- * changes to try again. A kept one is shown only while they're still on
- * your friends list (Issue 200): if they aren't, it's dropped and `onGone`
- * leaves their profile.
+ * changes to try again. A kept one is shown only while they're still your
+ * friend (Issue 200): if they aren't, it's dropped and says so, as a fresh
+ * load does.
  */
-function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number, onGone: () => void): Loading {
+function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number): Loading {
   const key = `${identity.token ?? ''}:${code}`;
   const [state, setState] = useState<Loading>(() => {
     const kept = loaded.get(key);
@@ -72,12 +75,13 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
     let live = true;
     const api = friendsApi(apiUrl, identity);
     if (state.status === 'ready') {
-      // Kept: the friends list is one query, unlike the profile. If it can't be read, the kept one stays.
-      void api.list().then((list) => {
-        if (list.friends.some((f) => f.code === code)) return;
+      // Kept: one game of their history is one query, refused for anyone who isn't your friend, unlike the
+      // profile or your friends list. Only that refusal drops it: offline, the kept one stays.
+      api.profileGames(code, { filter: {}, after: null, limit: 1 }).catch((e: unknown) => {
+        if (!(e instanceof FriendsApiError && e.code === 'not-found')) return;
         loaded.delete(key);
-        if (live) onGone();
-      }, () => {});
+        if (live) setState({ status: 'error', text: GONE });
+      });
       return () => {
         live = false;
       };
@@ -92,7 +96,7 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
       if (!live) return;
       setState({
         status: 'error',
-        text: error === 'not-found' ? "They're no longer on your friends list." : friendsErrorMessage(error),
+        text: error === 'not-found' ? GONE : friendsErrorMessage(error),
       });
     });
     return () => {
@@ -180,7 +184,7 @@ export function FriendProfileScreen({
   useEffect(() => {
     if (backTo === 'back') backButton.current?.focus({ preventScroll: true });
   }, []);
-  const state = useFriendProfile(apiUrl, identity, friend.code, attempt, onBack);
+  const state = useFriendProfile(apiUrl, identity, friend.code, attempt);
   const ready = state.status === 'ready' ? state : null;
   // Their current name, once loaded: the list's may be older.
   const name = ready?.profile.name ?? friend.name;

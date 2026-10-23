@@ -310,11 +310,11 @@ export async function friendGamesPage(
      WHERE g.account_id = ?1 AND (g.daily_day IS NULL OR g.daily_day < ?2)
        AND (?3 IS NULL OR g.mode = ?3) AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
        AND instr(g.words, ' ' || ?6) > 0
-       AND (?8 IS NULL OR g.started_at < ?8 OR (g.started_at = ?8 AND g.id > ?9))
+       ${from === null ? '' : 'AND g.started_at <= ?8 AND (g.started_at < ?8 OR g.id > ?9)'}
      ORDER BY g.started_at DESC, g.id LIMIT ?7`,
   ).bind(
     friendId, shownBefore(now), filter.mode ?? null, filter.result ?? null, filter.difficulty ?? null,
-    filter.search ?? '', limit + 1, from?.startedAt ?? null, from?.id ?? '',
+    filter.search ?? '', limit + 1, ...(from === null ? [] : [from.startedAt, from.id]),
   ).all<{ started_at: number; id: string; entry: string | null }>();
   // The next page starts after the last row, even one left out of the games because it doesn't read.
   const last = results.length > limit ? results[limit - 1] : null;
