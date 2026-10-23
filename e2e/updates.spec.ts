@@ -51,6 +51,8 @@ test('mid-game a bar offers the new version, and Update comes back into the game
   const miss = secret === 'crane' ? 'storm' : 'crane';
   await guess(page, miss);
   await expect(shown(page, miss)).toBeVisible();
+  // The save lands just after the guess shows: a reload before it would lose the guess.
+  await expect.poll(async () => ((await getStorage(page, 'solo')) as { record: { moves: unknown[] } }).record.moves.length).toBe(1);
 
   await newerBuildOut(page);
   await page.reload();
