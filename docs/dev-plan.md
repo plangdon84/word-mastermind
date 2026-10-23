@@ -6,24 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18ze. Friends' profiles follow-ups** (issues
-  plangdon84/word-mastermind-archive#199,
-  plangdon84/word-mastermind-archive#200,
-  plangdon84/word-mastermind-archive#206,
-  plangdon84/word-mastermind-archive#210 and
-  plangdon84/word-mastermind-archive#211; worker, review gate)
-  - Issue 199: your game history reads your Daily places once, and again
-    only when a new place arrives, not on every redraw
-  - Issue 200: a kept friend's profile is shown only while they're still on
-    your friends list; otherwise it's dropped and you go back to the list
-  - Issue 206: a friend's history pages by "older than the last game shown"
-    (the game's ID breaks ties), so a game they finish while you scroll
-    doesn't show twice
-  - Issue 210: indexing keeps a bookmark per guest ID, so a newly linked
-    device's games start from the beginning on their own
-  - Issue 211: indexing gets its own rate limit, apart from opening a
-    friend's profile, and loads only as many synced games as the size cap
-    keeps
 - [ ] **18zf. Email friend requests after a decline** (issue
   plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
   updates README "Friends" and the privacy page)
@@ -87,6 +69,25 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18ze. Friends' profiles follow-ups** (issues
+  plangdon84/word-mastermind-archive#199,
+  plangdon84/word-mastermind-archive#200,
+  plangdon84/word-mastermind-archive#206,
+  plangdon84/word-mastermind-archive#210 and
+  plangdon84/word-mastermind-archive#211; worker, review gate)
+  - Issue 199: your game history reads your Daily places once, and again
+    only when a new place arrives, not on every redraw
+  - Issue 200: a kept friend's profile is shown only while they're still on
+    your friends list; otherwise it's dropped and you go back to the list
+  - Issue 206: a friend's history pages by "older than the last game shown"
+    (the game's ID breaks ties), so a game they finish while you scroll
+    doesn't show twice
+  - Issue 210: indexing keeps a bookmark per guest ID, so a newly linked
+    device's games start from the beginning on their own (already built in
+    round 2 of PR #16, with its test; closed by this item)
+  - Issue 211: indexing gets its own rate limit, apart from opening a
+    friend's profile, and loads only as many synced games as the size cap
+    keeps
 - [x] **18zd. Fewer server reads for daily and online games** (issues
   plangdon84/word-mastermind-archive#209,
   plangdon84/word-mastermind-archive#213,
