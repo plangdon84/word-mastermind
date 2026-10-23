@@ -255,7 +255,8 @@ export function RushSummary({ tiers }: { tiers: readonly (readonly [string, Comp
 
 /**
  * The Rush bar's **Found so far** button (Dev Plan item 18zr), once you've
- * found a word: it opens `FoundSoFar` in place of the board.
+ * found a word: it opens `FoundSoFar` in place of the board. Its label takes
+ * two lines, so it's about Pause's size and the bar fits one line.
  */
 export function FoundButton({ open, onToggle, disabled = false }: {
   open: boolean;
@@ -263,8 +264,8 @@ export function FoundButton({ open, onToggle, disabled = false }: {
   disabled?: boolean;
 }) {
   return (
-    <button type="button" class="btn small" aria-pressed={open} disabled={disabled} onClick={onToggle}>
-      Found so far
+    <button type="button" class="btn small found-so-far" aria-pressed={open} disabled={disabled} onClick={onToggle}>
+      Found<br />so far
     </button>
   );
 }

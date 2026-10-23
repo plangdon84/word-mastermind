@@ -810,6 +810,7 @@ button.bubble:active { transform: scale(0.94); }
 .rush-progress .dot.gave-up { background: var(--out-bg); box-shadow: none; }
 .rush-clock { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 .btn.small { padding: 4px 10px; font-size: 0.8rem; }
+.btn.small.found-so-far { line-height: 1.1; }
 .suggest-left { color: var(--muted); font-weight: normal; }
 .stopwatch.paused { color: var(--muted); }
 .panel.warning { border-color: var(--err); }
