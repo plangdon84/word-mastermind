@@ -238,8 +238,10 @@ describe('computer players', () => {
   it('wake the lobby when one finishes, before the time is up', () => {
     const lobby = ok(startLobby(
       ok(configureLobby(createLobby('ABCDEF', ANN, 'medium', T), 'ann', { ...SETTINGS, minutes: 90, computers: 1, strength: 'mastermind' }, T)),
-      'ann', WORDS, T, seeded(1)));
+      // A seed where the computer finds all 4 words in time (it depends on the word lists).
+      'ann', WORDS, T, seeded(3)));
     const game = lobby.game!;
+    expect(seatRun(game, 1, T + 90 * MINUTE).results.every((r) => r.outcome === 'solved')).toBe(true);
     const last = game.seats[1].moves[game.seats[1].moves.length - 1].at;
     expect(lobbyWakeAt(lobby, T)).toBe(last);
     expect(lobbyWakeAt(lobby, last)).toBe(T + 90 * MINUTE);

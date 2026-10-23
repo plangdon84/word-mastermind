@@ -18,6 +18,7 @@ until | adverb | up to the time that
 whose | adverb | belonging to whom or to which
 women | = woman
 would | verb | past tense of will; also used for polite requests and imagined situations
+hyper | adjective | very excited, nervous or full of energy
 
 # WordNet's first sense is the unusual one.
 bunny | noun | a child's word for a rabbit, especially a young one
