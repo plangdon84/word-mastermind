@@ -195,11 +195,13 @@ export function dayEndingStartText(ms: number): string | null {
   return `Only ${minutesLeft(ms)} of today left: a run not finished by then won't go on the board.`;
 }
 
-/** What to tell the player when the server refuses a Daily Rush request. */
 /** The daily games' names, as shown and shared. */
 export const DAILY_NAME: Record<DailyMode, string> = { daily: 'Daily Set', dailyWord: 'Daily Word' };
 
-/** A daily game's refusal, naming the game (`mode`): the Daily Set's, or the Daily Word's. */
+/**
+ * What to tell the player when the server refuses a daily game's request,
+ * naming the game (`mode`): the Daily Set, or the Daily Word.
+ */
 export function dailyErrorMessage(error: DailyError | 'unreachable', word = '', mode: DailyMode = 'daily'): string {
   const name = DAILY_NAME[mode];
   const next = mode === 'daily' ? 'set' : 'word';

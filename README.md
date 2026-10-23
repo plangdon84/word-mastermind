@@ -798,8 +798,11 @@ the code keep the old names, so nothing already saved changes.
   difficulty, then **Start Daily Word**. A run in progress shows **Continue**, and yesterday's run still
   going when the day changed says so. Once played or given up, the row is
   greyed, tagged **Played** (or **Given up**), but is still a button, with
-  a line that isn't greyed, **Your place ›** (**Your result ›**), opening
-  that run's result, which links to its board. A new player sees the Daily
+  a line that isn't greyed, opening that run's result, which links to its
+  board: your place so far on today's board for your difficulty, by fewest
+  guesses for both games (**12th of 340 so far ›**, Issue 225; final after
+  midnight New York time), or **Your result ›** for a run given up. Both
+  rows come from one request to the server (Issue 213). A new player sees the Daily
   Set's row locked, saying how to unlock it; the Daily Word is always open. Without the game server they're tagged
   coming later. Daily isn't in the Word Sets menu. Tapping the card's
   heading folds it to one line, or opens it again (issue 222, remembered on

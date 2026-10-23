@@ -117,7 +117,7 @@ describe("today's Daily Rush", () => {
     const { as } = setup();
     const today = await as(ANN).today();
     expect(today).toEqual({
-      day: DAY, theme: 'Test set A', runTheme: 'Test set A', nextAt: END, now: NOON, run: null, placements: [],
+      day: DAY, theme: 'Test set A', runTheme: 'Test set A', nextAt: END, now: NOON, run: null, placements: [], place: null,
     });
     expect(JSON.stringify(today)).not.toMatch(/\b(brick|jumpy|solve|night)\b/);
     expect(END).toBe(Date.UTC(2026, 10, 1, 4));

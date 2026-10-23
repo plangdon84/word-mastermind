@@ -1,5 +1,5 @@
 import {
-  isCount, isDailyDay, isDifficulty, isObject, isRankBy, isTime, type DailyDay, type DailyPlacement, type DailyView,
+  DAILY_MODES, isCount, isDailyDay, isDifficulty, isObject, isRankBy, isTime, type DailyDay, type DailyPlacement, type DailyView,
   type DailyMode, type DailyWordView, type Difficulty, type GuessResult, type RankBy,
 } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
@@ -30,7 +30,17 @@ export interface DailyToday {
   run: DailyView | null;
   /** Your places on past days' leaderboards, which are final once the day is over. */
   placements: DailyPlacement[];
+  /**
+   * Your place so far on today's board for your run's difficulty (by fewest
+   * guesses), once you've finished today's run; final after midnight New
+   * York time. Only from `dailyGames`, the title screen's request; null
+   * otherwise.
+   */
+  place?: DailyPlacement | null;
 }
+
+/** Both of today's daily games, from `GET /api/daily/games`. */
+export type DailyGames = Record<DailyMode, DailyToday>;
 
 /** One row of a leaderboard. */
 export interface DailyBoardRow {
@@ -123,7 +133,15 @@ export function parseDailyToday(value: unknown): DailyToday | null {
   const placements = value.placements.map(parsePlacement).filter((p): p is DailyPlacement => p !== null);
   // An older server only sends today's run.
   const runTheme = typeof value.runTheme === 'string' ? value.runTheme : theme;
-  return { day, theme, runTheme, nextAt, now, run, placements };
+  const place = value.place === undefined || value.place === null ? null : parsePlacement(value.place);
+  return { day, theme, runTheme, nextAt, now, run, placements, place };
+}
+
+export function parseDailyGames(value: unknown): DailyGames | null {
+  if (!isObject(value)) return null;
+  const daily = parseDailyToday(value.daily);
+  const dailyWord = parseDailyToday(value.dailyWord);
+  return daily && dailyWord ? { daily, dailyWord } : null;
 }
 
 export function parseDailyBoard(value: unknown): DailyBoard | null {
@@ -176,6 +194,24 @@ export interface DailyApi {
    * friends'. Crush (fewest guesses) unless `rankBy` is Rush (fastest).
    */
   board(day: DailyDay, difficulty: Difficulty, circle?: Circle, rankBy?: RankBy): Promise<DailyBoard>;
+}
+
+/**
+ * Both of today's daily games for the title screen in one request (Issue
+ * 213), each with your place so far. If that fails (a server from before
+ * it, or one game's day failing), the app asks for each game on its own
+ * instead, without the place, so one failing leaves the other: null for a
+ * game that didn't come.
+ */
+export async function dailyGames(
+  apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch,
+): Promise<Record<DailyMode, DailyToday | null>> {
+  const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new DailyApiError(code as DailyError, status));
+  const games = await request('GET', '/api/daily/games').then(parseDailyGames, () => null);
+  if (games) return games;
+  const [daily, dailyWord] = await Promise.all(DAILY_MODES.map((mode) => dailyApi(apiUrl, identity, fetchFn, mode).today()
+    .catch(() => null)));
+  return { daily, dailyWord };
 }
 
 /**

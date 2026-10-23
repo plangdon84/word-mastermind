@@ -48,6 +48,9 @@ function unpausedSeconds(w: DailyWordView): number | null {
   return seconds === null ? null : Math.max(0, seconds - w.pausedMs / 1000);
 }
 
+/** How the Daily Set's two boards rank, after your place on each. */
+const BOARD_HOW: Record<RankBy, string> = { crush: 'by fewest guesses (Crush)', rush: 'by fastest time (Rush)' };
+
 /** Your place: "12th of 340 · better than 96%". */
 export function placeText(p: { rank: number; total: number; behind: number }): string {
   const better = betterThan(p);
@@ -448,6 +451,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     missed: w.outcome === 'solved' ? null : 'Not found',
     seconds: unpausedSeconds(w),
   })) : [];
+  /** The boards you have a place on so far, Crush first. */
+  const placed = DAILY_BOARDS[mode].filter((rankBy) => placements[rankBy]);
   // Not while paused or asking to give up: the board stays hidden then.
   const found = set && showFound && !paused && !confirming && run !== null && someFound(run.words);
 
@@ -526,30 +531,18 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
 
       {!run && (
         <section class="panel">
-          {!set ? (
+          {!set || today.theme ? (
             <>
-              <h2>Today's word</h2>
+              <h2>{set ? `Today: ${today.theme}` : "Today's word"}</h2>
               <p>
-                One secret word, the same for everyone, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>,
-                which can't change once you start. Fewest guesses wins, and time breaks ties. Next word in {nextSet}.
+                {set ? "4 words on today's theme, once." : 'One secret word, the same for everyone, once.'} You'll play
+                at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which can't change once you start.{' '}
+                {set ? <><b>Pause</b> stops your clock and hides the board, twice a run.</> : 'Fewest guesses wins, and time breaks ties.'}
+                {' '}Next {next} in {nextSet}.
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
               <div class="row-btns">
-                <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start Daily Word</button>
-                <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
-                <button class="btn" type="button" onClick={onExit}>Main menu</button>
-              </div>
-            </>
-          ) : today.theme ? (
-            <>
-              <h2>Today: {today.theme}</h2>
-              <p>
-                4 words on today's theme, once. You'll play at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which
-                can't change once you start. <b>Pause</b> stops your clock and hides the board, twice a run. Next set in {nextSet}.
-              </p>
-              {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
-              <div class="row-btns">
-                <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start Daily Set</button>
+                <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start {name}</button>
                 <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
                 <button class="btn" type="button" onClick={onExit}>Main menu</button>
               </div>
@@ -662,22 +655,16 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
                   </button>
                 )]),
               ]} />
-              {set ? (
-                <p class="tally">
-                  {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
-                  {placements.crush && <>{placeText(placements.crush)} by fewest guesses (Crush)</>}
-                  {placements.crush && placements.rush && ', and '}
-                  {placements.rush && <>{placeText(placements.rush)} by fastest time (Rush)</>}
-                  {(placements.crush || placements.rush) && <> on today's {DIFFICULTY_LABEL[run.difficulty]} boards. </>}
-                  Places are final at midnight New York time. Next set in {nextSet}.
-                </p>
-              ) : (
-                <p class="tally">
-                  {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
-                  {placements.crush && <>{placeText(placements.crush)} on today's {DIFFICULTY_LABEL[run.difficulty]} board. </>}
-                  Places are final at midnight New York time. Next word in {nextSet}.
-                </p>
-              )}
+              <p class="tally">
+                {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
+                {placed.length > 0 && (
+                  <>
+                    {placed.map((rankBy) => `${placeText(placements[rankBy]!)}${set ? ` ${BOARD_HOW[rankBy]}` : ''}`).join(', and ')}
+                    {' '}on today's {DIFFICULTY_LABEL[run.difficulty]} {set ? 'boards' : 'board'}.{' '}
+                  </>
+                )}
+                Places are final at midnight New York time. Next {next} in {nextSet}.
+              </p>
             </>
           ) : (
             <p class="tally">
