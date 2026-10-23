@@ -108,7 +108,11 @@ function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
   const played = HEAD_TO_HEAD_MODES.filter((m) => record[m].wins + record[m].draws + record[m].losses > 0);
   return (
     <div class="stat-block head-to-head">
-      <h4>You vs. {name}</h4>
+      {/* "won–drawn–lost" heads the figures once, so a long mode name and its figures fit a phone's width (issue 236). */}
+      <div class="head-to-head-head">
+        <h4>You vs. {name}</h4>
+        {played.length > 0 && <span class="stat-aside" aria-hidden="true">won–drawn–lost</span>}
+      </div>
       {played.length === 0 ? (
         <p class="field-note">You haven't played {name} yet. Your games against them appear here.</p>
       ) : (
@@ -118,7 +122,7 @@ function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
               <dt>{HEAD_TO_HEAD_LABEL[m]}</dt>
               <dd>
                 {record[m].wins}–{record[m].draws}–{record[m].losses}
-                <span class="stat-aside"> won–drawn–lost</span>
+                <span class="visually-hidden"> won–drawn–lost</span>
               </dd>
             </div>
           ))}

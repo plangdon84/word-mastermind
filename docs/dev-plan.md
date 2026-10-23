@@ -6,23 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18zp. Title screen locks, Daily badges and a friend's stats row**
-  (issues plangdon84/word-mastermind-archive#239,
-  plangdon84/word-mastermind-archive#231 and
-  plangdon84/word-mastermind-archive#236; app only)
-  - Issue 239: coming back to the title screen, the Daily Set (and other
-    modes) can show as locked for a player who has opened them, until the
-    app is restarted. Likely cause: when reading the saved games fails
-    (as Safari's storage can after the app has been in the background), the
-    title screen treats it as no games at all. A failed read retries once
-    with a fresh connection, and if it still fails nothing shows as locked
-  - Issue 231: finishing a Daily Word or Daily Set that earns a badge shows
-    the same badge toast, with its icons, as Practice, two player and Solo
-    Rush do, on the result screen: the finished game is fetched into the
-    history when the run ends, not only back on the title screen
-  - Issue 236: on a phone, a friend's profile stats row with Word Sets with
-    friends no longer wraps the win–draw–loss figures onto two lines
-    (design choice: the row's columns shrink to fit before anything wraps)
 - [ ] **18zq. Word list fixes and the ESDB notice** (issues
   plangdon84/word-mastermind-archive#241,
   plangdon84/word-mastermind-archive#242,
@@ -169,6 +152,28 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18zp. Title screen locks, Daily badges and a friend's stats row**
+  (issues plangdon84/word-mastermind-archive#239,
+  plangdon84/word-mastermind-archive#231 and
+  plangdon84/word-mastermind-archive#236; app only). Release note
+  (1.19.1): "Modes you've opened no longer show as locked when you come
+  back to the app", "Finishing the Daily Set or Daily Word shows any badge
+  you earned, as other modes do", "Your record against a friend fits on a
+  phone screen"
+  - Issue 239: coming back to the title screen, the Daily Set (and other
+    modes) can show as locked for a player who has opened them, until the
+    app is restarted. Likely cause: when reading the saved games fails
+    (as Safari's storage can after the app has been in the background), the
+    title screen treats it as no games at all. A failed read retries once
+    with a fresh connection, and if it still fails nothing shows as locked
+  - Issue 231: finishing a Daily Word or Daily Set that earns a badge shows
+    the same badge toast, with its icons, as Practice, two player and Solo
+    Rush do, on the result screen: the finished game is fetched into the
+    history when the run ends, not only back on the title screen
+  - Issue 236: on a phone, a friend's profile stats row with Word Sets with
+    friends no longer wraps the win–draw–loss figures onto two lines
+    (design choice: the row's columns shrink to fit before anything wraps;
+    built as "won–drawn–lost" heading the figures once, beside "You vs.")
 - [x] **18zo. Enhanced tutorial** (from the owner on 17 October 2026; app
   only; updates README "Tutorial"). Release note (1.1.0): "Enhanced
   tutorial"

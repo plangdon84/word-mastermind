@@ -104,6 +104,8 @@ test("Daily Set: today's words, once a day", async ({ page }) => {
     if (run.words.some((w) => w.guesses.some((g) => g.isWin && g.guess === word))) remaining.splice(remaining.indexOf(word), 1);
   }
   await expect(result).toBeVisible();
+  // Its badges (Daily Set on Medium, at least) show here, as other modes' do (issue 231).
+  await expect(result.locator('.badge-toast')).toContainText(/badges? earned/);
   // Your place: other browsers' runs share the local server's board, so not always 1st.
   await expect(page.getByText(/\b\d+(st|nd|rd|th)\b/).first()).toBeVisible();
   await expectAccessible(page);
