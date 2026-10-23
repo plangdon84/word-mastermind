@@ -12,7 +12,7 @@ import {
   friendsApi, FriendsApiError, friendsErrorMessage, type Friend, type FriendProfile, type SharedSummary,
 } from './friendsApi';
 import { GameHistory } from './GameHistory';
-import { toHistoryGame, type HistoryGame, type HistoryPage } from './historyDb';
+import { toHistoryGame, type HistoryCursor, type HistoryGame, type HistoryPage } from './historyDb';
 import { plural } from './messages';
 import { BackIcon } from './panels';
 
@@ -56,18 +56,34 @@ const loaded = new Map<string, { at: number; friend: LoadedFriend }>();
 /** Forgets every friend's profile: the friends list calls it, as a friend may have been removed. */
 export const forgetFriendProfiles = () => loaded.clear();
 
-/** A friend's profile, loaded once and kept for a few minutes. `attempt` changes to try again. */
-function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number): Loading {
+/**
+ * A friend's profile, loaded once and kept for a few minutes. `attempt`
+ * changes to try again. A kept one is shown only while they're still on
+ * your friends list (Issue 200): if they aren't, it's dropped and `onGone`
+ * leaves their profile.
+ */
+function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number, onGone: () => void): Loading {
   const key = `${identity.token ?? ''}:${code}`;
   const [state, setState] = useState<Loading>(() => {
     const kept = loaded.get(key);
     return kept && Date.now() - kept.at < FRESH_MS ? { status: 'ready', ...kept.friend } : { status: 'loading' };
   });
   useEffect(() => {
-    if (state.status === 'ready') return;
-    setState({ status: 'loading' });
     let live = true;
-    friendsApi(apiUrl, identity).profile(code).then(({ profile, summary, versus }) => {
+    const api = friendsApi(apiUrl, identity);
+    if (state.status === 'ready') {
+      // Kept: the friends list is one query, unlike the profile. If it can't be read, the kept one stays.
+      void api.list().then((list) => {
+        if (list.friends.some((f) => f.code === code)) return;
+        loaded.delete(key);
+        if (live) onGone();
+      }, () => {});
+      return () => {
+        live = false;
+      };
+    }
+    setState({ status: 'loading' });
+    api.profile(code).then(({ profile, summary, versus }) => {
       const friend = { profile, summary, versus, featured: toHistoryGames(summary?.featured ?? []) };
       loaded.set(key, { at: Date.now(), friend });
       if (live) setState({ status: 'ready', ...friend });
@@ -164,14 +180,14 @@ export function FriendProfileScreen({
   useEffect(() => {
     if (backTo === 'back') backButton.current?.focus({ preventScroll: true });
   }, []);
-  const state = useFriendProfile(apiUrl, identity, friend.code, attempt);
+  const state = useFriendProfile(apiUrl, identity, friend.code, attempt, onBack);
   const ready = state.status === 'ready' ? state : null;
   // Their current name, once loaded: the list's may be older.
   const name = ready?.profile.name ?? friend.name;
   const load = useMemo(() => {
     const api = friendsApi(apiUrl, identity);
-    return async (filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage> => {
-      const page = await api.profileGames(friend.code, { filter, offset, limit });
+    return async (filter: HistoryFilter, from: HistoryCursor | null, limit: number): Promise<HistoryPage> => {
+      const page = await api.profileGames(friend.code, { filter, after: typeof from === 'string' ? from : null, limit });
       return { games: toHistoryGames(page.games), next: page.next };
     };
   }, [apiUrl, identity, friend.code]);
