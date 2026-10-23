@@ -170,6 +170,22 @@ async function tryPlayed(
   }
 }
 
+/**
+ * The next page of games after `?1` (a `games` rowid) for the player `?2`
+ * and every guest ID of their account, and one more to say there are more.
+ * Each ID's next few are read in order through `game_players_by_guest_seq`
+ * from the cursor and stop at the page's size (Issue 209), so a long
+ * history costs no more than a short one; the earliest of them all are the
+ * page, as none of any ID's comes between.
+ */
+export const NEXT_PLAYED_SQL = `SELECT g.rowid AS seq, g.id, g.mode, g.record, g.finished_at FROM games g
+  WHERE g.finished_at IS NOT NULL AND g.rowid IN (
+    SELECT next.value FROM (SELECT ?2 AS id UNION SELECT id FROM guests WHERE account_id = ?2) ids,
+      json_each((SELECT json_group_array(game_seq) FROM (
+        SELECT gp.game_seq FROM game_players gp WHERE gp.guest_id = ids.id AND gp.game_seq > ?1
+        ORDER BY gp.game_seq LIMIT ${PLAYED_PAGE + 1}))) next)
+  ORDER BY g.rowid LIMIT ${PLAYED_PAGE + 1}`;
+
 /** The player's finished server games after `after`, a page at a time, in the order they finished. */
 export async function playedPage(
   env: Env, player: Player, after: number, { retry = [], skip = 0 }: PlayedRetries = {},
@@ -182,12 +198,7 @@ export async function playedPage(
        AND id IN (SELECT game_id FROM game_players WHERE ${isPlayers('guest_id', '?2')})
      ORDER BY rowid LIMIT ${PLAYED_RETRIES}`,
   ).bind(JSON.stringify(retry), player.id).all<GameRow>()).results;
-  const { results } = await env.DB.prepare(
-    `SELECT rowid AS seq, id, mode, record, finished_at FROM games
-     WHERE finished_at IS NOT NULL AND rowid > ?1
-       AND id IN (SELECT game_id FROM game_players WHERE ${isPlayers('guest_id', '?2')})
-     ORDER BY rowid LIMIT ${PLAYED_PAGE + 1}`,
-  ).bind(after, player.id).all<GameRow>();
+  const { results } = await env.DB.prepare(NEXT_PLAYED_SQL).bind(after, player.id).all<GameRow>();
   const page = results.slice(0, PLAYED_PAGE);
   // A room lookup each for the rest, at most PLAYED_PAGE + PLAYED_RETRIES: within a request's calls. If the
   // database fails here, the request does, and the app asks again with its place unchanged.

@@ -4,12 +4,13 @@ import { dailyApi } from '../../src/app/dailyApi';
 import { friendApi } from '../../src/app/friendApi';
 import { lobbyApi } from '../../src/app/lobbyApi';
 import { fetchPlayed, type PlayedRetries } from '../../src/app/playedApi';
-import { replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
+import { addDays, replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { fakeDaily } from './fakeDaily';
 import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
+import { NEXT_PLAYED_SQL } from './played';
 
 const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
@@ -249,6 +250,40 @@ describe('your games the server refereed', () => {
     expect(laptop).toHaveLength(1);
     expect(laptop[0].entry.mode).toBe('daily');
     expect(JSON.stringify(laptop)).not.toContain(BOB);
+  });
+
+  it("page through a long history on several devices in order, reading only each device's games after the cursor (Issue 209)", async () => {
+    const s = setup();
+    await s.daily(ANN).start(DAY, 'medium', 'Ann');
+    for (const word of ['brick', 'jumpy', 'solve', 'night']) await s.daily(ANN).guess(DAY, word);
+    await s.signIn(ANN, 'ann@example.com');
+    await s.signIn(CAT, 'ann@example.com');
+    // 60 more days of Daily Rush, Ann's phone and laptop by turns, with Bob's between.
+    const record = s.sqlite.prepare('SELECT record FROM games').get()!.record as string;
+    const insert = (day: string, who: string) => {
+      s.sqlite.prepare("INSERT INTO games (id, mode, version, record, started_at, finished_at) VALUES (?, 'daily', 1, ?, 0, 0)")
+        .run(`daily:${day}:${who}`, record);
+      s.sqlite.prepare('INSERT INTO game_players (game_id, guest_id) VALUES (?, ?)').run(`daily:${day}:${who}`, who);
+    };
+    s.sqlite.prepare('INSERT INTO guests (id, created_at, last_seen_at) VALUES (?, 0, 0)').run(BOB);
+    const days = Array.from({ length: 60 }, (_, i) => addDays('2026-01-01', i));
+    days.forEach((day, i) => {
+      insert(day, i % 2 ? CAT : ANN);
+      insert(day, BOB);
+    });
+    const seen: string[] = [];
+    let after = 0;
+    for (let pages = 0; ; pages += 1) {
+      expect(pages).toBeLessThan(10);
+      const page = await s.played(CAT, after);
+      seen.push(...page.games.map((g) => (g.entry.mode === 'daily' ? g.entry.day : '')));
+      after = page.cursor;
+      if (page.next === null) break;
+    }
+    expect(seen).toEqual([DAY, ...days]);
+    // Through the index, from the cursor: never a scan of every game the player has played.
+    const plan = s.sqlite.prepare(`EXPLAIN QUERY PLAN ${NEXT_PLAYED_SQL}`).all().map((r) => r.detail as string);
+    expect(plan.some((d) => /SEARCH gp USING COVERING INDEX game_players_by_guest_seq \(guest_id=\? AND game_seq>\?\)/.test(d))).toBe(true);
   });
 
   it('work for an account with more device IDs than D1 can bind', async () => {
