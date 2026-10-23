@@ -203,7 +203,8 @@ async function board(
   ).bind(day, difficulty, player.id, ...circleArgs).first<PlaceRow>();
   // The words stay secret until the day is over, and from you while you finish that day's run late.
   let shown = now >= dayEnd(day);
-  if (shown && now < dayEnd(addDays(day, 1))) {
+  // A day without a Daily Word had no runs to finish (Issue 214).
+  if (shown && theme.words && now < dayEnd(addDays(day, 1))) {
     const yours = await toDay(env, { action: 'get', mode, day, playerId: player.id, aliases: player.aliases });
     shown = !('run' in yours.body && yours.body.run?.status === 'playing');
   }

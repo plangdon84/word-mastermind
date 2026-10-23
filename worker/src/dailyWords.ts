@@ -8,7 +8,7 @@ import { themeFor } from './dailyThemes';
  * be, and keeps it so the day's word never changes.
  */
 
-/** The first day of the Daily Word (Dev Plan item 7b): a day before it has no board. */
+/** The first day of the Daily Word (Dev Plan item 7b), the day it went live: a day before it has no board. */
 export const DAILY_WORD_FROM: DailyDay = '2026-10-09';
 
 /** A word isn't the Daily Word again within this many days. */

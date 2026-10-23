@@ -22,8 +22,14 @@ function setup(random?: () => number) {
   const { db, sqlite } = fakeD1({ dailyThemes: true });
   let clock = NOON;
   const { namespace } = fakeDaily({ db, now: () => clock, random });
+  /** How many times the day's referee was asked. */
+  const referee = { calls: 0 };
+  const daily = { ...namespace, get: (id: Parameters<typeof namespace.get>[0]) => {
+    referee.calls += 1;
+    return namespace.get(id);
+  } } as unknown as DurableObjectNamespace;
   const env: Env = {
-    DB: db, GAMES: undefined as unknown as DurableObjectNamespace, DAILY: namespace, LOBBIES: undefined as unknown as DurableObjectNamespace,
+    DB: db, GAMES: undefined as unknown as DurableObjectNamespace, DAILY: daily, LOBBIES: undefined as unknown as DurableObjectNamespace,
     QUEUES: undefined as unknown as DurableObjectNamespace, ALLOWED_ORIGINS: '',
   };
   const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) => handle(new Request(input, init), env, clock)) as typeof fetch;
@@ -32,6 +38,7 @@ function setup(random?: () => number) {
     db,
     sqlite,
     fetchFn,
+    referee,
     word: (guestId: string): DailyApi => dailyApi('https://api.example', identity(guestId), fetchFn, 'dailyWord'),
     set: (guestId: string): DailyApi => dailyApi('https://api.example', identity(guestId), fetchFn),
     played: (guestId: string) => fetchPlayed('https://api.example', identity(guestId), 0, fetchFn),
@@ -268,5 +275,14 @@ describe('both daily games at once (Issues 213 and 225)', () => {
     const both = await dailyGames('https://api.example', { guestId: ANN, token: null }, older);
     expect(both.daily).toEqual(await s.set(ANN).today());
     expect(both.dailyWord).toEqual(await s.word(ANN).today());
+  });
+});
+
+describe('a past day with no Daily Word', () => {
+  it("shows an empty board without asking that day's referee whether you're finishing it late (Issue 214)", async () => {
+    const s = setup();
+    const before = s.referee.calls;
+    expect(await s.word(ANN).board(addDays(DAY, -1), 'medium')).toMatchObject({ total: 0, words: null, you: null });
+    expect(s.referee.calls).toBe(before);
   });
 });
