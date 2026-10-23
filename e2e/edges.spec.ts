@@ -9,6 +9,18 @@ import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, ne
  * back after a long time away.
  */
 
+/** The test worker (playwright.config.ts). */
+const API = 'http://localhost:8787';
+
+/** What the server says of a saved session (`/api/auth/me`), asked as this page's guest. */
+async function me(page: Page, session: Record<string, unknown> | null): Promise<{ account?: { email?: string } | null; error?: string }> {
+  const profile = await getStorage(page, 'profile');
+  const answer = await page.request.get(`${API}/api/auth/me`, {
+    headers: { 'x-guest-id': String(profile?.deviceId), authorization: `Bearer ${String(session?.token)}` },
+  });
+  return answer.json();
+}
+
 const button = (page: Page, name: string | RegExp) => page.getByRole('button', { name, exact: typeof name === 'string' });
 
 /** A guess in the list on screen (each has a definition button). */
@@ -270,11 +282,43 @@ test("signed in, a link for another account says you'll be signed out of yours, 
   const before = loginLinkCount(theirs);
   await button(sender, 'Email me a link').click();
 
+  const old = await getStorage(page, 'session');
   await page.goto(await loginLink(theirs, before));
   await expect(page.getByRole('heading', { name: `Sign in as ${theirs}?` })).toBeVisible();
   await expect(page.getByText(`You'll be signed out of ${mine} on this device.`)).toBeVisible();
   await button(page, 'Sign in').click();
   await expect(page.locator('section[aria-label="Account"]')).toContainText(`Signed in as ${theirs}`);
+  // The old account's session is ended on the server too, as Sign out does.
+  await expect.poll(async () => (await me(page, old)).error).toBe('signed-out');
+});
+
+test("signed in, a link for another account that fails leaves you signed in to yours", async ({ page, browser, context }) => {
+  const theirs = `theirs-${Date.now()}@example.com`;
+  await unlockAll(page);
+  const mine = await signIn(page, `mine-${Date.now()}@example.com`);
+  const sender = await newPlayer(browser, page);
+  await unlockAll(sender);
+  await sender.getByRole('button', { name: /^Profile/ }).click();
+  await button(sender, /^Account/).click();
+  await sender.getByLabel('Email address').fill(theirs);
+  const before = loginLinkCount(theirs);
+  await button(sender, 'Email me a link').click();
+
+  const link = await loginLink(theirs, before);
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: `Sign in as ${theirs}?` })).toBeVisible();
+  // The connection drops before Sign in: the link can't be used, and this device keeps its account.
+  await context.setOffline(true);
+  await button(page, 'Sign in').click();
+  await expect(page.getByText("Can't reach the game server.")).toBeVisible();
+  await expect(page.locator('section[aria-label="Account"]')).toContainText(`Signed in as ${mine}`);
+  await context.setOffline(false);
+  // The link is still unused (it asks again), and the server still knows this device as yours.
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: `Sign in as ${theirs}?` })).toBeVisible();
+  await expect(page.getByText(`You'll be signed out of ${mine} on this device.`)).toBeVisible();
+  const session = await getStorage(page, 'session');
+  expect((await me(page, session)).account?.email).toBe(mine);
 });
 
 test("a refused secret word never turns up as a guess, nor letters typed while waiting for a friend", async ({ page, browser }) => {

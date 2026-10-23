@@ -377,16 +377,16 @@ export function App() {
   /**
    * The session ended. With `newGuest` (signing out, or this device's guest
    * ID is an account's it's no longer signed in to), the device plays as a
-   * new guest from now on, and the account's games leave its list.
+   * new guest (`deviceId`, else a new one) from now on, and the account's
+   * games leave its list.
    */
-  const signedOut = (newGuest: boolean): string | null => {
+  const signedOut = (newGuest: boolean, deviceId = newId()): string | null => {
     setSession(null);
     clearSyncState();
     clearSharedState();
     if (!newGuest) return null;
     clearFriendGames();
     setFriendGamesVersion((v) => v + 1);
-    const deviceId = newId();
     setProfile((p) => ({ ...p, deviceId }));
     return deviceId;
   };
@@ -467,22 +467,31 @@ export function App() {
     // Signed in to accept a friend's invite: the friends list accepts it.
     setScreen({ name: 'profile', from: { name: 'title' }, page: !notice.error && loadPendingInvite() ? 'friends' : 'account' });
   };
-  /** Trades the sign-in link for a session on this device (as `deviceId`, if it just changed), then shows the profile. */
-  const tradeLoginLink = (token: string, deviceId = latest.current.profile.deviceId) => {
+  /**
+   * Trades the sign-in link for a session on this device, then shows the
+   * profile. Switching from the account `from`, it signs in as a new guest
+   * and signs `from` out (on the server too) only once that works, so a link
+   * that fails (expired, or offline) leaves this device signed in to `from`.
+   */
+  const tradeLoginLink = (token: string, from: Session | null = null) => {
     if (!API_URL) return;
     const apiUrl = API_URL;
     const trade = (deviceId: string, retry: boolean): Promise<void> => authApi(apiUrl, deviceId).signIn(token).then((signedIn) => {
+      if (from) {
+        void authApi(apiUrl, latest.current.profile.deviceId).signOut(from.token).catch(() => {});
+        signedOut(true, deviceId);
+      }
       setSession(signedIn);
       showLoginNotice({ text: "You're signed in.", error: false });
       pullFriendGames({ guestId: deviceId, token: signedIn.token });
     }, (e: unknown): Promise<void> | void => {
       // This device's guest ID is another account's (its session lapsed): sign in as a new guest. An emailed
       // link works for that; a Google one belongs to the old guest ID, so it asks for sign-in again instead.
-      if (retry && e instanceof AuthError && e.code === 'sign-in-needed') return trade(signedOut(true)!, false);
+      if (retry && !from && e instanceof AuthError && e.code === 'sign-in-needed') return trade(signedOut(true)!, false);
       const code = e instanceof AuthError ? e.code : 'unreachable';
       showLoginNotice({ text: !retry && code === 'bad-login' ? SIGN_IN_AGAIN : authErrorMessage(code), error: true });
     });
-    void trade(deviceId, true);
+    void trade(from ? newId() : latest.current.profile.deviceId, true);
   };
   // A sign-in link (emailed, or the end of Google's round trip) signs this browser in, then shows the profile.
   useEffect(() => {
@@ -666,15 +675,9 @@ export function App() {
                   const token = loginLink.token;
                   if (yes && token && loginAsk && API_URL) {
                     setLoginAsk({ ...loginAsk, signingIn: true });
-                    // Signed in to another account: sign out of it properly first (the question said so),
-                    // on the server too, then sign in as a new guest, as signing out does.
-                    const old = latest.current.session;
-                    if (!old) {
-                      tradeLoginLink(token);
-                      return;
-                    }
-                    void authApi(API_URL, profile.deviceId).signOut(old.token).catch(() => {})
-                      .then(() => tradeLoginLink(token, signedOut(true)!));
+                    // Signed in to another account, it signs out of it properly (the question said so) once
+                    // the link works.
+                    tradeLoginLink(token, latest.current.session);
                     return;
                   }
                   setLoginAsk(null);

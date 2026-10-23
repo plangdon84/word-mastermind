@@ -6,12 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
-  review gate)
-  - Signed in and opening another account's link, **Sign in** on "Sign in
-    as …?" uses the link first, as a new guest, and signs the old account
-    out only once that works; if the link fails (expired or offline), you
-    stay signed in to the old account and see why
 - [ ] **18zd. Fewer server reads for daily and online games** (issues
   plangdon84/word-mastermind-archive#209,
   plangdon84/word-mastermind-archive#213,
@@ -115,6 +109,12 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
+  review gate)
+  - Signed in and opening another account's link, **Sign in** on "Sign in
+    as …?" uses the link first, as a new guest, and signs the old account
+    out only once that works; if the link fails (expired or offline), you
+    stay signed in to the old account and see why
 - [x] **18zs. A rematch at your current difficulty, and "You lost"** (issues
   plangdon84/word-mastermind-archive#240 and
   plangdon84/word-mastermind-archive#230; worker, review gate; updates
