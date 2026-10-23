@@ -517,10 +517,20 @@ describe('challenging a friend', () => {
     await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
     await bob.games.concede(id);
     pushed();
-    const rematch = await bob.games.rematch(id, { name: 'Bob', secret: 'crane' });
+    const rematch = await bob.games.rematch(id, { name: 'Bob', secret: 'crane', difficulty: 'hard' });
     expect(rematch).toMatchObject({ rated: true, inviteeName: 'Ann', rematchOf: id });
     expect(pushed()).toEqual([['Ann', await topicOf(rematch.id)]]);
     expect(await ann.games.get(rematch.id)).toMatchObject({ seat: null, invitedYou: true, rated: true });
+  });
+
+  it('plays a rated rematch asked or accepted at Easy at Medium, since Easy is never rated', async () => {
+    const { ann, bob, bobCode } = await friends();
+    const { id } = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'hard' });
+    await bob.games.concede(id);
+    const rematch = await bob.games.rematch(id, { name: 'Bob', secret: 'crane', difficulty: 'easy' });
+    const accepted = await ann.games.rematch(id, { name: 'Ann', secret: 'storm', difficulty: 'easy' });
+    expect(accepted).toMatchObject({ id: rematch.id, state: 'playing', view: { difficulty: 'medium', theirDifficulty: 'medium' } });
   });
 
   it('refuses Easy in a rated game, from either player, but not in an unrated one', async () => {

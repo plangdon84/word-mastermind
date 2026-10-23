@@ -89,7 +89,8 @@ Run `npm test` and `npm run typecheck` before committing.
   `nextGame.ts` (your next game waiting on your turn). A rematch (Dev Plan
   item 18h, README "Rematch") is `POST /api/games/ID/rematch`: the old
   room keeps one (`rematch`), and the new room is a challenge to the other
-  seat (`invitee`, `rematchOf`, `inviteeDifficulty`); any challenge to one
+  seat (`invitee`, `rematchOf`; each side at the difficulty they ask or
+  accept with, `rematchDifficulty`); any challenge to one
   player can be declined (`decline`). The
   server's address is `VITE_API_URL` (`.env.development` for `npm run dev`).
   Turn notifications are Web Push with WebCrypto only (`worker/src/push.ts`,

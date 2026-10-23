@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.20.1',
+    notes: [
+      { text: 'Rematches use your current difficulty preference instead of defaulting to the previous game’s difficulty.' },
+      { text: 'Minor changes to wording of push notifications.' },
+    ],
+  },
+  {
     version: '1.20.0',
     notes: [
       { text: 'In a word set game, tap “Found so far” to see the words you’ve found.' },

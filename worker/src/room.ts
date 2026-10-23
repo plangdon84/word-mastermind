@@ -1,5 +1,5 @@
 import {
-  concedePvp, createPvpGame, otherSeat, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, ratingPool, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
+  concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, ratingPool, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
   isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
   type Marks, type Rating, type TimeControl, type TurnDays,
 } from '../../src/game';
@@ -44,8 +44,6 @@ export interface Room {
   rematch?: { id: string; by: Seat };
   /** This room is a rematch of that game. */
   rematchOf?: string;
-  /** A rematch: the difficulty the invitee plays at, the one they ended the last game on. */
-  inviteeDifficulty?: Difficulty;
   /** A rated game (README "Rating"): both players are accounts, and difficulty is fixed. */
   rated?: boolean;
   /** Started by the matchmaking queue (`queue.ts`), not an invite. */
@@ -128,7 +126,7 @@ interface Asker {
 export type RoomRequest =
   | {
     action: 'create'; id: string; guestId: string; name: string; secret: string; difficulty: Difficulty; timeControl: TimeControl;
-    invitee?: Player | null; rated?: boolean; matched?: boolean; rematchOf?: string; inviteeDifficulty?: Difficulty;
+    invitee?: Player | null; rated?: boolean; matched?: boolean; rematchOf?: string;
   }
   | Asker & (
     | { action: 'get' }
@@ -143,21 +141,18 @@ export type RoomRequest =
      * recorded before it exists. `replacing` is an earlier rematch that was
      * declined or expired, which a new one may replace.
      */
-    | { action: 'rematch'; newId: string; record: boolean; replacing?: string }
+    | { action: 'rematch'; newId: string; record: boolean; replacing?: string; difficulty?: Difficulty }
     | { action: 'difficulty'; difficulty: Difficulty });
 
 /**
  * The old room's answer to `rematch`: a new rematch to create (the other
  * player, as the invitee, with this game's settings) or, once recorded, the
  * one created; or the one already recorded, and whether you asked for it.
+ * Either way, `difficulty` is the one you play it at (`rematchDifficulty`).
  */
 export type RematchPlan =
-  | {
-    kind: 'new'; id: string; invitee: Player; timeControl: TimeControl; rated: boolean;
-    /** Each side's difficulty as the last game ended. */
-    difficulty: Difficulty; inviteeDifficulty: Difficulty;
-  }
-  | { kind: 'existing'; id: string; byYou: boolean };
+  | { kind: 'new'; id: string; invitee: Player; timeControl: TimeControl; rated: boolean; difficulty: Difficulty }
+  | { kind: 'existing'; id: string; byYou: boolean; difficulty: Difficulty };
 
 export type RoomResponse = { status: number; body: FriendGame | RematchPlan | { error: FriendError } };
 
@@ -213,7 +208,6 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
     opponentCode: null,
     inviteeName: room.invitee?.name ?? null,
     invitedYou: !seat && isOpenInvite(room) && !!room.invitee && ids.includes(room.invitee.guestId),
-    inviteeDifficulty: room.inviteeDifficulty ?? null,
     rematchOf: room.rematchOf ?? null,
     rematch: room.rematch && seat ? { id: room.rematch.id, byYou: room.rematch.by === seat } : null,
     timeControl: roomTimeControl(room),
@@ -346,6 +340,16 @@ async function withCurrentNames(
   };
 }
 
+/**
+ * The difficulty you play a rematch at (issue 240): the one you asked or
+ * accepted it with (your Start games on setting; an older app sends none,
+ * so the one you ended the last game on), but Medium for Easy when it's
+ * rated, since Easy can't be.
+ */
+export function rematchDifficulty(difficulty: Difficulty, rated: boolean): Difficulty {
+  return rated && !isRatedDifficulty(difficulty) ? 'medium' : difficulty;
+}
+
 async function answerRoom(
   storage: RoomStorage, deps: RoomDeps, request: RoomRequest, now: number,
 ): Promise<RoomResponse> {
@@ -369,7 +373,6 @@ async function answerRoom(
       ...(request.rated && request.invitee ? { rated: true } : {}),
       ...(request.matched ? { matched: true } : {}),
       ...(request.rematchOf ? { rematchOf: request.rematchOf } : {}),
-      ...(request.inviteeDifficulty ? { inviteeDifficulty: request.inviteeDifficulty } : {}),
     };
     await storage.put(ROOM_KEY, room);
     await storage.setAlarm(inviteEnds(room));
@@ -389,11 +392,9 @@ async function answerRoom(
     if (room.cancelled || room.declined) return refuse(409, 'invite-closed');
     if (room.expired) return refuse(409, 'invite-expired');
     if (room.invitee && !ids.includes(room.invitee.guestId)) return refuse(403, 'not-invited');
-    // A rematch keeps the invitee's difficulty from the last game.
-    const guestDifficulty = room.inviteeDifficulty ?? request.difficulty;
     const created = createPvpGame(
       { host: room.host.secret, guest: request.secret }, pickFirstSeat(deps.random), now, roomTimeControl(room),
-      { host: room.host.difficulty, guest: guestDifficulty }, room.rated === true,
+      { host: room.host.difficulty, guest: request.difficulty }, room.rated === true,
     );
     if (!created.ok) return refuse(400, created.error);
     const ratings = room.rated
@@ -426,8 +427,9 @@ async function answerRoom(
     // One open rematch per game, once it's over: whoever asks second is answered with the first.
     if (game?.status !== 'over' || !room.guest) return refuse(409, 'not-over');
     if (room.matched) return refuse(409, 'bad-request');
+    const difficulty = rematchDifficulty(request.difficulty ?? game.playingDifficulty[seat], room.rated === true);
     if (room.rematch && room.rematch.id !== request.replacing) {
-      return { status: 200, body: { kind: 'existing', id: room.rematch.id, byYou: room.rematch.by === seat } };
+      return { status: 200, body: { kind: 'existing', id: room.rematch.id, byYou: room.rematch.by === seat, difficulty } };
     }
     const other = seat === 'host' ? room.guest : room.host;
     if (request.record) await storage.put(ROOM_KEY, { ...room, rematch: { id: request.newId, by: seat } });
@@ -435,8 +437,7 @@ async function answerRoom(
       status: 200,
       body: {
         kind: 'new', id: request.newId, invitee: { guestId: other.guestId, name: other.name },
-        timeControl: roomTimeControl(room), rated: room.rated === true,
-        difficulty: game.playingDifficulty[seat], inviteeDifficulty: game.playingDifficulty[otherSeat(seat)],
+        timeControl: roomTimeControl(room), rated: room.rated === true, difficulty,
       },
     };
   }

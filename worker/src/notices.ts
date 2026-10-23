@@ -112,7 +112,7 @@ export function moveNotices(room: Room, game: PvpGame): Notice[] {
       return [notice(other, `You beat ${name[mover]}`, `Their last guess, ${upper(guess.guess)}, missed. You win!`)];
     }
     return [notice(other, `${name[mover]} found your word`,
-      `${name[mover]} found ${yourWord} in ${count(game.guesses[mover].length)}. You lose.`)];
+      `${name[mover]} found ${yourWord} in ${count(game.guesses[mover].length)}. You lost.`)];
   }
   if (view.status === 'final-guess') {
     return [notice(other, `Last chance against ${name[mover]}`,

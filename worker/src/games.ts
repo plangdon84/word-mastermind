@@ -145,9 +145,10 @@ export async function startMatchedGame(
 
 /**
  * A rematch of a finished game (README "Rematch"): a challenge to the other
- * player only, with the same clock, each side's difficulty from the end of
- * the game, and rated if it was. The old game's room keeps one rematch: if
- * the other player asked first, this accepts theirs with your word instead.
+ * player only, with the same clock, rated if it was, and each side at the
+ * difficulty they ask or accept it with (`rematchDifficulty`). The old
+ * game's room keeps one rematch: if the other player asked first, this
+ * accepts theirs with your word instead.
  */
 async function rematch(
   env: Env, oldId: DurableObjectId, player: Player, body: unknown, now: number, fetchFn: typeof fetch,
@@ -155,26 +156,30 @@ async function rematch(
   if (!isObject(body)) return errorResponse(400, 'bad-request');
   const name = nameOf(body.name);
   if (!name || !isShortString(body.secret)) return errorResponse(400, 'bad-request');
+  // An older app sends no difficulty: it then plays at the one it ended the last game on.
+  if (body.difficulty !== undefined && !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
+  const difficulty = isDifficulty(body.difficulty) ? body.difficulty : undefined;
   // Checked before the old room notes the rematch, so creating it can't fail on the word.
   const secret = validateSecretWord(body.secret);
   if (!secret.ok) return errorResponse(400, secret.error);
-  const first = await askForRematch(env, oldId, player, name, secret.word, now, fetchFn);
+  const first = await askForRematch(env, oldId, player, name, secret.word, difficulty, now, fetchFn);
   if (first.status !== 409) return first;
   // The rematch it found closed (declined or expired) after it looked: that one gives way now (issue #119).
   const { error } = await first.clone().json<{ error?: string }>().catch(() => ({ error: undefined }));
   return error === 'invite-closed' || error === 'invite-expired'
-    ? askForRematch(env, oldId, player, name, secret.word, now, fetchFn) : first;
+    ? askForRematch(env, oldId, player, name, secret.word, difficulty, now, fetchFn) : first;
 }
 
 /** One go at a rematch: a new one, the one you sent, or theirs accepted with your word. */
 async function askForRematch(
-  env: Env, oldId: DurableObjectId, player: Player, name: string, word: string, now: number, fetchFn: typeof fetch,
+  env: Env, oldId: DurableObjectId, player: Player, name: string, word: string, difficulty: Difficulty | undefined,
+  now: number, fetchFn: typeof fetch,
 ): Promise<Response> {
   const { id: guestId, aliases } = player;
   const newId = env.GAMES.newUniqueId();
   let replacing: string | undefined;
   const ask = async (record: boolean): Promise<Response | RematchPlan> => {
-    const asked = await toRoom(env, oldId, { action: 'rematch', guestId, aliases, newId: newId.toString(), record, replacing });
+    const asked = await toRoom(env, oldId, { action: 'rematch', guestId, aliases, newId: newId.toString(), record, replacing, difficulty });
     return asked.ok ? asked.json<RematchPlan>() : asked;
   };
   /** Accepts the rematch the other player asked for, with your word; or shows yours. */
@@ -182,8 +187,7 @@ async function askForRematch(
     const id = env.GAMES.idFromString(existing.id);
     if (existing.byYou) return toRoom(env, id, { action: 'get', guestId, aliases });
     await registerGuest(env.DB, guestId, now);
-    // Joining keeps your seat's difficulty from the last game, which the room holds.
-    const joined = await toRoom(env, id, { action: 'join', guestId, aliases, name, secret: word, difficulty: 'medium' });
+    const joined = await toRoom(env, id, { action: 'join', guestId, aliases, name, secret: word, difficulty: existing.difficulty });
     if (joined.ok) await addPlayer(env.DB, existing.id, guestId, now);
     return joined;
   };
@@ -206,7 +210,7 @@ async function askForRematch(
   await registerGuest(env.DB, guestId, now);
   const response = await toRoom(env, newId, {
     action: 'create', id: plan.id, guestId, name, secret: word, difficulty: plan.difficulty, timeControl: plan.timeControl,
-    invitee: plan.invitee, rated: plan.rated, rematchOf: oldId.toString(), inviteeDifficulty: plan.inviteeDifficulty,
+    invitee: plan.invitee, rated: plan.rated, rematchOf: oldId.toString(),
   });
   if (!response.ok) return response;
   const recorded = await ask(true);

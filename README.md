@@ -1136,7 +1136,10 @@ issues #96 and #78), **Rematch** is the result's main button (after
 
 - It asks for your new secret word, then sends a challenge to that player
   only, signed in or a guest, with the same clock, rated if the last game
-  was. Each of you plays at the difficulty you ended the last game on.
+  was. Each of you plays at your current difficulty (the one new games
+  start on) when you ask for or accept it, not the one you ended the last
+  game on (issue 240); in a rated rematch, Easy plays at Medium, since
+  Easy can't be rated.
   Who goes first is a new coin toss.
 - They're told by turn alert ("Ann wants a rematch"), it's in their
   **Online games** on the title screen ("Ann wants a rematch"), and if

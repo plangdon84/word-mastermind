@@ -6,17 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18zs. A rematch at your current difficulty, and "You lost"** (issues
-  plangdon84/word-mastermind-archive#240 and
-  plangdon84/word-mastermind-archive#230; worker, review gate; updates
-  README "Rematch")
-  - Issue 240: decided with the owner on 22 October 2026, each player plays
-    a rematch at their **Start games on** difficulty at the moment they ask
-    for or accept it, not the one they ended the last game on; in a rated
-    rematch, an Easy setting plays at Medium, since Easy can't be rated
-  - Issue 230: the notification when your opponent finds your word ends
-    "You lost." instead of "You lose." (wording choice: the same past tense
-    the other texts use)
 - [ ] **18n. Switching accounts by an emailed link** (issue #109; sign-in,
   review gate)
   - Signed in and opening another account's link, **Sign in** on "Sign in
@@ -126,6 +115,17 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18zs. A rematch at your current difficulty, and "You lost"** (issues
+  plangdon84/word-mastermind-archive#240 and
+  plangdon84/word-mastermind-archive#230; worker, review gate; updates
+  README "Rematch")
+  - Issue 240: decided with the owner on 22 October 2026, each player plays
+    a rematch at their **Start games on** difficulty at the moment they ask
+    for or accept it, not the one they ended the last game on; in a rated
+    rematch, an Easy setting plays at Medium, since Easy can't be rated
+  - Issue 230: the notification when your opponent finds your word ends
+    "You lost." instead of "You lose." (wording choice: the same past tense
+    the other texts use)
 - [x] **18zr. See the words you've found in a Word Set** (issue
   plangdon84/word-mastermind-archive#244; app only)
   - Decided with the owner on 22 October 2026: in every Word Set (Solo,
