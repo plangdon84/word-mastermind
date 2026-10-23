@@ -145,10 +145,13 @@ export function toHistoryGame(entry: HistoryEntry): HistoryGame | null {
   return replayed ? { entry, replayed, summary: summarizeGame(replayed) } : null;
 }
 
-export interface HistoryPage {
+/** Where a page of history starts: an offset into this browser's, or a friend's `FriendGamesQuery.after`. */
+export type HistoryCursor = number | string;
+
+export interface HistoryPage<C extends HistoryCursor = HistoryCursor> {
   games: HistoryGame[];
   /** Where the next page starts, or null at the end. */
-  next: number | null;
+  next: C | null;
 }
 
 /**
@@ -156,7 +159,7 @@ export interface HistoryPage {
  * entries in. Filtering needs each game replayed, so it happens here as the
  * cursor walks, and `next` counts entries walked, not games matched.
  */
-export async function loadGamesPage(filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage> {
+export async function loadGamesPage(filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage<number>> {
   return withDb(async (db) => {
     const tx = db.transaction(STORE);
     const games: HistoryGame[] = [];

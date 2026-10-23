@@ -656,7 +656,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     await bob.friends.add((await ann.friends.list()).code);
     return { ...s, ann, bob, cat, bobCode };
   }
-  const everything = { filter: {}, offset: 0, limit: 50 };
+  const everything = { filter: {}, after: null, limit: 50 };
   const dayOf = (ms: number) => Math.floor(ms / 86_400_000);
   type Player = Awaited<ReturnType<typeof friends>>['ann'];
 
@@ -827,19 +827,53 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
       }));
     await bob.sync.upload(entries);
     await index(bob);
-    const first = await ann.friends.profileGames(bobCode, { filter: {}, offset: 0, limit: 20 });
+    const first = await ann.friends.profileGames(bobCode, { filter: {}, after: null, limit: 20 });
     expect(first.games.map((g) => g.id)).toEqual(entries.slice(5).reverse().map((e) => e.id));
-    expect(first.next).toBe(20);
-    const second = await ann.friends.profileGames(bobCode, { filter: {}, offset: 20, limit: 20 });
+    expect(first.next).not.toBeNull();
+    const second = await ann.friends.profileGames(bobCode, { filter: {}, after: first.next, limit: 20 });
     expect(second.games.map((g) => g.id)).toEqual(entries.slice(0, 5).reverse().map((e) => e.id));
     expect(second.next).toBeNull();
-    const count = async (filter: HistoryFilter) => (await ann.friends.profileGames(bobCode, { filter, offset: 0, limit: 50 })).games.length;
+    const count = async (filter: HistoryFilter) => (await ann.friends.profileGames(bobCode, { filter, after: null, limit: 50 })).games.length;
     expect(await count({ difficulty: 'hard' })).toBe(5);
     expect(await count({ result: 'lost' })).toBe(1);
     expect(await count({ mode: 'friend' })).toBe(0);
     expect(await count({ search: 'cra' })).toBe(13);
     expect(await count({ search: 'BEACH ' })).toBe(25);
     expect(await count({ search: 'nope!' })).toBe(0);
+  });
+
+  it('loads only the synced games the size cap keeps, and always the first however long (Issue 211)', async () => {
+    const { bob, sqlite, now } = await friends();
+    const accountId = (sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string }).account_id;
+    const insert = sqlite.prepare(`INSERT INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at)
+      VALUES (?, ?, 'single', 1, ?, ?, ?)`);
+    // Each too big to be a game, so none is indexed: only how far each request gets counts.
+    for (const [i, chars] of [250_000, 90_000, 90_000, 90_000].entries()) insert.run(accountId, `big-${i}`, 'x'.repeat(chars), now(), now());
+    const seqs = (sqlite.prepare('SELECT seq FROM history_entries WHERE account_id = ? ORDER BY seq').all(accountId) as { seq: number }[])
+      .map((r) => r.seq);
+    const through = () => (sqlite.prepare('SELECT synced_through FROM shared_profiles WHERE account_id = ?')
+      .get(accountId) as { synced_through: number }).synced_through;
+    await bob.friends.indexStep();
+    expect(through()).toBe(seqs[0]);
+    await bob.friends.indexStep();
+    expect(through()).toBe(seqs[2]);
+    await bob.friends.indexStep();
+    expect(through()).toBe(seqs[3]);
+  });
+
+  it('pages from the last game shown, so one finished in between or started at the same moment shows once (Issue 206)', async () => {
+    const { ann, bob, bobCode, now } = await friends();
+    // Pairs of games started at the same moment: the history ID breaks the tie.
+    const entries = Array.from({ length: 6 }, (_, i) => soloEntry(`bob-tie-${i}`, now() - (10 - Math.floor(i / 2)) * 60_000, ['crane', 'beach']));
+    await bob.sync.upload(entries);
+    await index(bob);
+    const first = await ann.friends.profileGames(bobCode, { filter: {}, after: null, limit: 3 });
+    await bob.sync.upload([soloEntry('bob-new', now() - 60_000, ['crane', 'beach'])]);
+    await index(bob);
+    const second = await ann.friends.profileGames(bobCode, { filter: {}, after: first.next, limit: 3 });
+    const shown = [...first.games, ...second.games].map((g) => g.id);
+    expect(shown).toEqual(['bob-tie-4', 'bob-tie-5', 'bob-tie-2', 'bob-tie-3', 'bob-tie-0', 'bob-tie-1']);
+    expect(second.next).toBeNull();
   });
 
   it("leaves out a Daily Set until the day after it is over, and gives the places of days that are over", async () => {
@@ -925,10 +959,11 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     const { fetchFn, ann, bobCode } = await friends();
     const headers = { 'x-guest-id': ANN, authorization: `Bearer ${ann.session.token}` };
     for (const path of [
-      'profile?code=nope', 'profile/games?code=nope&offset=0&limit=20', `profile/games?code=${bobCode}&offset=-1&limit=20`,
-      `profile/games?code=${bobCode}&offset=0&limit=51`, `profile/games?code=${bobCode}&offset=0`,
-      `profile/games?code=${bobCode}&offset=0&limit=20&mode=chess`, `profile/games?code=${bobCode}&offset=0&limit=20&result=won!`,
-      `profile/games?code=${bobCode}&offset=0&limit=20&difficulty=easyish`,
+      'profile?code=nope', 'profile/games?code=nope&limit=20', `profile/games?code=${bobCode}&after=-1:x&limit=20`,
+      `profile/games?code=${bobCode}&after=12&limit=20`, `profile/games?code=${bobCode}&after=12:${'x'.repeat(120)}&limit=20`,
+      `profile/games?code=${bobCode}&limit=51`, `profile/games?code=${bobCode}`,
+      `profile/games?code=${bobCode}&limit=20&mode=chess`, `profile/games?code=${bobCode}&limit=20&result=won!`,
+      `profile/games?code=${bobCode}&limit=20&difficulty=easyish`,
     ]) {
       const response = await fetchFn(`https://api.example/api/friends/${path}`, { headers });
       expect(response.status, path).toBe(400);

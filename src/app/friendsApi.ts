@@ -209,25 +209,48 @@ export interface FriendProfileAnswer {
   versus: HeadToHead;
 }
 
-/** A page of a friend's game history, newest first; `next` is the offset of the next page, or null at the end. */
+/**
+ * A page of a friend's game history, newest first; `next` is where the next
+ * page starts (`FriendGamesQuery.after`), or null at the end.
+ */
 export interface FriendGamesPage {
   games: HistoryEntry[];
-  next: number | null;
+  next: string | null;
 }
 
 /** The most games one page of a friend's history has. */
 export const FRIEND_GAMES_PAGE_MAX = 50;
 
-/** Which page of a friend's history to load (`GET /api/friends/profile/games`). */
+/**
+ * Which page of a friend's history to load (`GET /api/friends/profile/games`):
+ * the games older than `after`, the last game of the page before, or the
+ * newest with null. Not a count of games, so a game they finish while you
+ * scroll doesn't show twice (Issue 206).
+ */
 export interface FriendGamesQuery {
   filter: HistoryFilter;
-  offset: number;
+  after: string | null;
   limit: number;
 }
 
+/** The longest `after` the server reads: a start time and a history ID. */
+const AFTER_MAX = 120;
+
+/** Where the page after a game starts: its start time and history ID, which breaks ties. */
+export const friendGamesAfter = (startedAt: number, id: string): string => `${startedAt}:${id}`;
+
+/** An `after` read back, or null if it's no such thing. */
+export function parseFriendGamesAfter(after: string): { startedAt: number; id: string } | null {
+  const match = /^(\d{1,16}):(.+)$/.exec(after);
+  if (!match || after.length > AFTER_MAX) return null;
+  const startedAt = Number(match[1]);
+  return Number.isSafeInteger(startedAt) ? { startedAt, id: match[2] } : null;
+}
+
 /** A friend's history query, as `URLSearchParams`. The search is sent as `matchesFilter` reads it. */
-export function friendGamesParams(code: string, { filter, offset, limit }: FriendGamesQuery): URLSearchParams {
-  const params = new URLSearchParams({ code, offset: String(offset), limit: String(limit) });
+export function friendGamesParams(code: string, { filter, after, limit }: FriendGamesQuery): URLSearchParams {
+  const params = new URLSearchParams({ code, limit: String(limit) });
+  if (after !== null) params.set('after', after);
   if (filter.mode) params.set('mode', filter.mode);
   if (filter.result) params.set('result', filter.result);
   if (filter.difficulty) params.set('difficulty', filter.difficulty);
@@ -238,9 +261,9 @@ export function friendGamesParams(code: string, { filter, offset, limit }: Frien
 
 /** The server's reading of `friendGamesParams`, or null if it's no such query. */
 export function parseFriendGamesParams(params: URLSearchParams): FriendGamesQuery | null {
-  const offset = Number(params.get('offset'));
+  const after = params.get('after');
   const limit = Number(params.get('limit'));
-  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > FRIEND_GAMES_PAGE_MAX) {
+  if ((after !== null && !parseFriendGamesAfter(after)) || !Number.isSafeInteger(limit) || limit < 1 || limit > FRIEND_GAMES_PAGE_MAX) {
     return null;
   }
   const [mode, result, difficulty, search] = ['mode', 'result', 'difficulty', 'search'].map((k) => params.get(k));
@@ -253,7 +276,7 @@ export function parseFriendGamesParams(params: URLSearchParams): FriendGamesQuer
   if (result !== null) filter.result = result as HistoryResult;
   if (difficulty !== null) filter.difficulty = difficulty as Difficulty;
   if (search !== null) filter.search = search;
-  return { filter, offset, limit };
+  return { filter, after, limit };
 }
 
 const parseEntries = (value: unknown[]) =>
@@ -310,8 +333,8 @@ export function parseFriendProfileAnswer(value: unknown): FriendProfileAnswer | 
 }
 
 export function parseFriendGamesPage(value: unknown): FriendGamesPage | null {
-  if (!isObject(value) || !Array.isArray(value.games) || !(value.next === null || Number.isSafeInteger(value.next))) return null;
-  return { games: parseEntries(value.games), next: value.next as number | null };
+  if (!isObject(value) || !Array.isArray(value.games) || !(value.next === null || typeof value.next === 'string')) return null;
+  return { games: parseEntries(value.games), next: value.next };
 }
 
 /** The server's reasons for refusing. */
