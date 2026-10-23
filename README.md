@@ -423,8 +423,9 @@ the words you've found in this run, in place of the board, each with its
 definition, guesses and time, then **Back to your word**. It shows only
 your own words, never anyone else's. The clock keeps running while it's
 open (it's off while paused, when the board is hidden too), and it's there
-in a finished run and a review as well. The Daily Word, a single word, has
-none.
+in a finished run and a review as well, unless every word was found, since
+the result then lists them all. On the narrowest phones it reads **Found…**.
+The Daily Word, a single word, has none.
 
 - **Solo Rush** (built, no backend): *"Practice solving multiple secret
   words in a timed trial."* **4 random secret words** against a stopwatch

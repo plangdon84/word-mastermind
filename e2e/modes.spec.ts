@@ -80,6 +80,8 @@ test('Solo Crush: four words in a row, then the result', async ({ page }) => {
   // Found so far shows only the words found, in place of the board, until Back (Dev Plan item 18zr).
   await expect(button(page, 'Found so far')).toHaveCount(0);
   await guess(page, words[0]);
+  // A no-break space: the button's flex layout drops a plain one at the start of the span ("Foundso far").
+  await expect(button(page, 'Found so far').locator('.found-rest')).toHaveJSProperty('textContent', '\u00a0so far');
   await button(page, 'Found so far').click();
   const found = page.locator('.panel', { has: page.getByRole('heading', { name: 'Found so far' }) });
   await expect(found.locator('.rush-words li')).toHaveCount(1);
@@ -90,6 +92,8 @@ test('Solo Crush: four words in a row, then the result', async ({ page }) => {
   await expect(page.getByText(/Word 2: no guesses yet/)).toBeVisible();
   for (const word of words.slice(1)) await guess(page, word);
   await expect(page.locator('.rush-result')).toBeVisible();
+  // Every word found: the result lists them all, so there's no Found so far.
+  await expect(button(page, 'Found so far')).toHaveCount(0);
 });
 
 test("Daily Set: today's words, once a day", async ({ page }) => {

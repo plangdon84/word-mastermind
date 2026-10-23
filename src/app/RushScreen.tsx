@@ -13,7 +13,7 @@ import { HowToPlay, ReplaceGamePanel, type Review } from './panels';
 import { ShareResult } from './ShareResult';
 import { soloRushShareText } from './shareText';
 import {
-  anyFound, formatClock, formatClockUp, FoundButton, FoundSoFar, rushScoreText, RushBar, RushBoard, RushDots, RushSummary, RushWords,
+  formatClock, formatClockUp, FoundButton, FoundSoFar, rushScoreText, RushBar, RushBoard, RushDots, RushSummary, RushWords, someFound,
   type RushWordRow,
 } from './rushParts';
 import { BadgeToast } from './Badge';
@@ -317,7 +317,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     seconds: wordSeconds(r),
   }));
   // Not while paused: the board stays hidden then.
-  const found = showFound && !paused && confirming === null;
+  const found = showFound && !paused && confirming === null && someFound(run.results);
 
   return (
     <div class="app">
@@ -351,7 +351,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         <RushBar clock={clock} clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}
           dots={<RushDots words={run.results.map((r) => ({ outcome: r.outcome === 'unsolved' ? null : r.outcome }))}
             current={run.current} />}
-          found={anyFound(run.results) && (
+          found={someFound(run.results) && (
             <FoundButton open={found} disabled={paused || !!confirming} onToggle={() => setShowFound(!showFound)} />
           )}>
           {!over && (

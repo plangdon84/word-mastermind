@@ -26,7 +26,7 @@ import { countdownText, DAILY_NAME, dailyErrorMessage, dayEndingStartText, dayEn
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
 import {
-  anyFound, formatClock, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds,
+  formatClock, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, someFound, spentSeconds,
   type RushWordRow,
 } from './rushParts';
 import type { Settings } from './settings';
@@ -449,7 +449,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     seconds: unpausedSeconds(w),
   })) : [];
   // Not while paused or asking to give up: the board stays hidden then.
-  const found = set && showFound && !paused && !confirming && rows.some((r) => r.missed === null);
+  const found = set && showFound && !paused && !confirming && run !== null && someFound(run.words);
 
   const header = (
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
@@ -476,7 +476,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
       {run && (
         <RushBar dots={<RushDots words={run.words} current={playing ? run.current : null} />} clock={clock}
           clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}
-          found={set && anyFound(run.words) && (
+          found={set && someFound(run.words) && (
             <FoundButton open={found} disabled={paused || confirming} onToggle={() => setShowFound(!showFound)} />
           )}>
           {playing && run.pausable && (paused || run.pausesLeft > 0) && (

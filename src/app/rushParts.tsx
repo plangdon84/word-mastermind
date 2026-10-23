@@ -256,7 +256,9 @@ export function RushSummary({ tiers }: { tiers: readonly (readonly [string, Comp
 /**
  * The Rush bar's **Found so far** button (Dev Plan item 18zr), once you've
  * found a word: it opens `FoundSoFar` in place of the board. The narrowest
- * phones show "Found…", so the bar fits one line.
+ * phones show "Found…", so the bar fits one line. The button lays out as a
+ * flex box, which drops a plain space at the start of a span: hence the
+ * no-break space.
  */
 export function FoundButton({ open, onToggle, disabled = false }: {
   open: boolean;
@@ -265,13 +267,17 @@ export function FoundButton({ open, onToggle, disabled = false }: {
 }) {
   return (
     <button type="button" class="btn small" aria-label="Found so far" aria-pressed={open} disabled={disabled} onClick={onToggle}>
-      Found<span class="found-rest"> so far</span><span class="found-cut">…</span>
+      Found<span class="found-rest">{'\u00a0'}so far</span><span class="found-cut">…</span>
     </button>
   );
 }
 
-/** Whether a run has a word found yet, so the bar offers Found so far. */
-export const anyFound = (words: readonly { outcome: string | null }[]) => words.some((w) => w.outcome === 'solved');
+/**
+ * Whether the bar offers Found so far: once a word is found, and not once
+ * all of them are, when the result lists them all.
+ */
+export const someFound = (words: readonly { outcome: string | null }[]) =>
+  words.some((w) => w.outcome === 'solved') && !words.every((w) => w.outcome === 'solved');
 
 /**
  * Found so far: the words you've found in this run, with their guesses and

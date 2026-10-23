@@ -26,8 +26,8 @@ import {
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
 import {
-  anyFound, formatClock, formatClockUp, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords,
-  spentSeconds, type RushWordRow,
+  formatClock, formatClockUp, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords,
+  someFound, spentSeconds, type RushWordRow,
 } from './rushParts';
 import type { Settings } from './settings';
 import { TurnAlertsPrompt } from './TurnAlerts';
@@ -317,7 +317,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     seconds: spentSeconds(w),
     setBy: run.setBy?.[i],
   })) : [];
-  const hasFound = run !== null && lobby?.state !== 'open' && anyFound(run.words);
+  const hasFound = run !== null && lobby?.state !== 'open' && someFound(run.words);
   // Not while asking to give up; the Players panel and Found so far take turns.
   const foundOpen = showFound && hasFound && confirming === null;
 
