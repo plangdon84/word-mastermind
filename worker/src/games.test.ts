@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { friendApi, FriendApiError, type FriendApi } from '../../src/app/friendApi';
+import { friendApi, FriendApiError, type FriendApi, type FriendGame } from '../../src/app/friendApi';
 import { DAY_MS, MINUTE_MS, replayPvp, type PvpRecord, type TimeControl } from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { fakeRooms } from './fakeRooms';
@@ -380,7 +380,7 @@ describe('turn notifications', () => {
     const { as, id, sent } = await started(() => 0);
     await as(HOST).guess(id, 'crane');
     await as(GUEST).guess(id, 'storm');
-    expect(sent().at(-1)).toEqual(['host', 'Bob found your word', 'Bob found STORM in 1 guess. You lose.']);
+    expect(sent().at(-1)).toEqual(['host', 'Bob found your word', 'Bob found STORM in 1 guess. You lost.']);
   });
 
   it('tell the winner of a final guess that missed', async () => {
@@ -424,24 +424,41 @@ describe('rematch', () => {
     s.sent();
     return { ...s, id };
   }
-  const again = { name: 'Bob', secret: 'crane' };
+  const again = { name: 'Bob', secret: 'crane', difficulty: 'hard' } as const;
 
-  it('challenges the other player only, with the same clock and each side keeping their difficulty', async () => {
+  it('challenges the other player only, with the same clock, each side at the difficulty they ask or accept with', async () => {
     const { as, id, sqlite } = await finished();
-    const rematch = await as(GUEST).rematch(id, again);
+    // Bob ended the last game on Hard and Ann on Medium (issue 240).
+    const rematch = await as(GUEST).rematch(id, { ...again, difficulty: 'extreme' });
     expect(rematch).toMatchObject({
       seat: 'host', state: 'waiting', hostName: 'Bob', inviteeName: 'Ann', timeControl: '1d', rematchOf: id, rated: false,
     });
-    expect(await as(HOST).get(rematch.id)).toMatchObject({ seat: null, invitedYou: true, inviteeDifficulty: 'medium' });
+    expect(await as(HOST).get(rematch.id)).toMatchObject({ seat: null, invitedYou: true });
     expect(await as(STRANGER).get(rematch.id)).toMatchObject({ invitedYou: false });
     expect(await refusal(as(STRANGER).join(rematch.id, { ...answer, name: 'Cat' }))).toBe('not-invited');
     // It's in Ann's list of games at once.
     expect((await as(HOST).list()).map((g) => g.id)).toContain(rematch.id);
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM friend_game_players WHERE game_id = ?').get(rematch.id)).toEqual({ n: 2 });
-    // Ann accepts at Hard on this device, but keeps her Medium from the last game.
-    const joined = await as(HOST).join(rematch.id, { name: 'Ann', secret: 'storm', difficulty: 'hard' });
-    expect(joined).toMatchObject({ seat: 'guest', state: 'playing', view: { difficulty: 'medium' } });
-    expect((await as(GUEST).get(rematch.id)).view).toMatchObject({ difficulty: 'hard', yourSecret: 'crane' });
+    const joined = await as(HOST).join(rematch.id, { name: 'Ann', secret: 'storm', difficulty: 'easy' });
+    expect(joined).toMatchObject({ seat: 'guest', state: 'playing', view: { difficulty: 'easy' } });
+    expect((await as(GUEST).get(rematch.id)).view).toMatchObject({ difficulty: 'extreme', yourSecret: 'crane' });
+  });
+
+  it('plays at the difficulty you accept with when you ask second', async () => {
+    const { as, id } = await finished();
+    const rematch = await as(GUEST).rematch(id, again);
+    const accepted = await as(HOST).rematch(id, { name: 'Ann', secret: 'storm', difficulty: 'extreme' });
+    expect(accepted).toMatchObject({ id: rematch.id, seat: 'guest', state: 'playing', view: { difficulty: 'extreme' } });
+  });
+
+  it('plays at the difficulty you ended the last game on when an older app sends none', async () => {
+    const { id, env } = await finished();
+    const post = async (guestId: string, body: object) => (await handle(new Request(`https://api.example/api/games/${id}/rematch`, {
+      method: 'POST', headers: { 'x-guest-id': guestId }, body: JSON.stringify(body),
+    }), env, NOW)).json<FriendGame>();
+    const rematch = await post(GUEST, { name: 'Bob', secret: 'crane' });
+    const accepted = await post(HOST, { name: 'Ann', secret: 'storm' });
+    expect(accepted).toMatchObject({ id: rematch.id, state: 'playing', view: { difficulty: 'medium', theirDifficulty: 'hard' } });
   });
 
   it('shows on the old game to both players', async () => {
@@ -456,7 +473,7 @@ describe('rematch', () => {
     const { as, id } = await finished();
     const rematch = await as(GUEST).rematch(id, again);
     expect((await as(GUEST).rematch(id, again)).id).toBe(rematch.id);
-    const accepted = await as(HOST).rematch(id, { name: 'Ann', secret: 'storm' });
+    const accepted = await as(HOST).rematch(id, { name: 'Ann', secret: 'storm', difficulty: 'medium' });
     expect(accepted).toMatchObject({ id: rematch.id, seat: 'guest', state: 'playing' });
   });
 
@@ -474,7 +491,7 @@ describe('rematch', () => {
           const body = JSON.parse(String(init.body)) as { action: string; rematchOf?: string };
           if (body.action === 'create' && body.rematchOf && !raced) {
             raced = true;
-            await s.as(HOST).rematch(s.id, { name: 'Ann', secret: 'storm' });
+            await s.as(HOST).rematch(s.id, { name: 'Ann', secret: 'storm', difficulty: 'medium' });
           }
           return games.get(id).fetch(url, init);
         },
@@ -510,7 +527,7 @@ describe('rematch', () => {
         },
       }),
     } as unknown as DurableObjectNamespace;
-    const mine = await s.as(HOST).rematch(s.id, { name: 'Ann', secret: 'storm' });
+    const mine = await s.as(HOST).rematch(s.id, { name: 'Ann', secret: 'storm', difficulty: 'medium' });
     expect(raced).toBe(true);
     expect(mine).toMatchObject({ seat: 'host', state: 'waiting', inviteeName: 'Bob' });
     expect(mine.id).not.toBe(theirs.id);
@@ -526,7 +543,7 @@ describe('rematch', () => {
     expect(await planned.json()).toMatchObject({ kind: 'new', id: 'f'.repeat(64) });
     // Planning alone (say the new game then failed to start) leaves the game free to rematch.
     expect((await as(HOST).get(id)).rematch).toBeNull();
-    expect((await as(HOST).rematch(id, { name: 'Ann', secret: 'storm' })).state).toBe('waiting');
+    expect((await as(HOST).rematch(id, { name: 'Ann', secret: 'storm', difficulty: 'medium' })).state).toBe('waiting');
   });
 
   it('can be declined by the friend it is for, telling the sender', async () => {
@@ -541,7 +558,7 @@ describe('rematch', () => {
     expect(await refusal(as(HOST).join(rematch.id, { ...answer, name: 'Ann' }))).toBe('invite-closed');
     expect(await refusal(as(HOST).decline(rematch.id))).toBe('invite-closed');
     // Once declined, either player can ask for a new rematch.
-    const another = await as(HOST).rematch(id, { name: 'Ann', secret: 'storm' });
+    const another = await as(HOST).rematch(id, { name: 'Ann', secret: 'storm', difficulty: 'medium' });
     expect(another).toMatchObject({ seat: 'host', state: 'waiting', inviteeName: 'Bob' });
     expect(another.id).not.toBe(rematch.id);
     expect((await as(GUEST).get(id)).rematch).toEqual({ id: another.id, byYou: false });
@@ -565,7 +582,7 @@ describe('rematch', () => {
     const rematch = await as(GUEST).rematch(id, again);
     expect((await as(GUEST).concede(rematch.id)).state).toBe('cancelled');
     expect((await as(GUEST).rematch(id, again))).toMatchObject({ id: rematch.id, state: 'cancelled' });
-    expect(await refusal(as(HOST).rematch(id, { name: 'Ann', secret: 'storm' }))).toBe('invite-closed');
+    expect(await refusal(as(HOST).rematch(id, { name: 'Ann', secret: 'storm', difficulty: 'medium' }))).toBe('invite-closed');
   });
 
   it("isn't open before the game is over, to strangers, or with a word the rules refuse", async () => {

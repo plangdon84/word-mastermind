@@ -323,7 +323,7 @@ export function FriendScreen({
     if (!api || !gameId) return;
     const word = draftRef.current;
     // Another game: it's opened on its own screen, never shown under this game's ID.
-    const sent = await send(() => api.rematch(gameId, { name: displayName(profile), secret: word }), word, true, false);
+    const sent = await send(() => api.rematch(gameId, { name: displayName(profile), secret: word, difficulty: joinDifficulty }), word, true, false);
     if (!sent) return;
     addFriendGame(sent.id, Date.now());
     rememberSecret(word);
@@ -513,9 +513,9 @@ export function FriendScreen({
           note={`Choose your secret word; ${game.hostName} will try to guess it. 5 letters, no repeated letters. `
             + timingNote(game.timeControl)
             + (isLive(game.timeControl) ? ' The clocks start as soon as you accept.' : '')
-            + (game.inviteeDifficulty ? ` You play at ${DIFFICULTY_LABEL[game.inviteeDifficulty]}, as you ended the last game.` : '')
+            + (rematchOf && (canRate || !game.rated) ? ` You play at ${DIFFICULTY_LABEL[joinDifficulty]}.` : '')
             + (game.rated ? " It's rated: your difficulty is fixed once you accept"
-              + (canRate || game.inviteeDifficulty ? '.' : ", and you'll play at Medium, since a rated game can't be Easy.") : '')}
+              + (canRate ? '.' : ", and you'll play at Medium, since a rated game can't be Easy.") : '')}
           message={message} busy={busy} onDraft={setDraft} onBack={onExit} keyboard={keyboard}
           extra={game.invitedYou && (
             <div class="row-btns">
@@ -622,6 +622,7 @@ export function FriendScreen({
       <SecretStep title={`Rematch ${opponent}`} draft={draft} shake={shake} onShakeEnd={() => setShake(false)}
         note={`Choose your secret word; ${opponent} will try to guess it. 5 letters, no repeated letters. `
           + `${timingNote(game.timeControl)}${game.rated ? ' Rated, like the last game.' : ''} `
+          + `You play at ${DIFFICULTY_LABEL[joinDifficulty]}${joinDifficulty !== settings.difficulty ? ', since a rated game can\'t be Easy' : ''}. `
           + `Only ${opponent} can accept it, and who goes first is random.`}
         message={message} busy={busy} onDraft={setDraft} onBack={() => {
           setRematching(false);

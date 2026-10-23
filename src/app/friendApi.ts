@@ -34,8 +34,6 @@ export interface FriendGame {
   inviteeName: string | null;
   /** A challenge you may accept or decline: you're the friend it's for, and haven't answered. */
   invitedYou: boolean;
-  /** A rematch: the difficulty its invitee plays at (the one they ended the last game on); null otherwise. */
-  inviteeDifficulty: Difficulty | null;
   /** A rematch (README "Rematch"): the game it follows. */
   rematchOf: string | null;
   /** A finished game's rematch, once either player has asked for one, and whether you did. */
@@ -153,12 +151,11 @@ export function parseFriendGame(value: unknown): FriendGame | null {
   const rematchOf = typeof value.rematchOf === 'string' && GAME_ID.test(value.rematchOf) ? value.rematchOf : null;
   const r = value.rematch;
   const rematch = isObject(r) && typeof r.id === 'string' && GAME_ID.test(r.id) ? { id: r.id, byYou: r.byYou === true } : null;
-  const inviteeDifficulty = isDifficulty(value.inviteeDifficulty) ? value.inviteeDifficulty : null;
   // An older server sends none.
   const opponentCode = typeof value.opponentCode === 'string' ? value.opponentCode : null;
   return {
     id, seat, state: state as FriendGameState, hostName, guestName, opponentCode, inviteeName, invitedYou: value.invitedYou === true,
-    inviteeDifficulty, rematchOf, rematch, timeControl, createdAt, expiresAt, serverNow,
+    rematchOf, rematch, timeControl, createdAt, expiresAt, serverNow,
     rated: value.rated === true, matched: value.matched === true, ratings, view,
   };
 }
@@ -217,9 +214,10 @@ export interface FriendApi {
   suggest(id: string, word: string): Promise<FriendGame>;
   /**
    * Asks the other player of finished game `id` for a rematch, with your
-   * word: the new game. If they asked first, it accepts theirs instead.
+   * word, playing at `difficulty`: the new game. If they asked first, it
+   * accepts theirs instead.
    */
-  rematch(id: string, answer: { name: string; secret: string }): Promise<FriendGame>;
+  rematch(id: string, answer: { name: string; secret: string; difficulty: Difficulty }): Promise<FriendGame>;
   /** Turns down a challenge or rematch sent to you. */
   decline(id: string): Promise<FriendGame>;
 }
