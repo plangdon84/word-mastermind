@@ -12,7 +12,10 @@ import { GameHeader, GameMenuItems } from './gameHeader';
 import { HowToPlay, ReplaceGamePanel, type Review } from './panels';
 import { ShareResult } from './ShareResult';
 import { soloRushShareText } from './shareText';
-import { formatClock, formatClockUp, rushScoreText, RushBar, RushBoard, RushDots, RushSummary, RushWords } from './rushParts';
+import {
+  formatClock, formatClockUp, FoundButton, FoundSoFar, rushScoreText, RushBar, RushBoard, RushDots, RushSummary, RushWords, someFound,
+  type RushWordRow,
+} from './rushParts';
 import { BadgeToast } from './Badge';
 import { useBadgesEarnedBy } from './badges';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
@@ -88,6 +91,8 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const [confirming, setConfirming] = useState<'give-up' | 'move-on' | 'new-game' | 'replace' | null>(null);
   const [openDef, setOpenDef] = useState(-1);
   const [howTo, setHowTo] = useState(false);
+  /** Found so far is open in place of the board (or the result). */
+  const [showFound, setShowFound] = useState(false);
   const [now, setNow] = useState(Date.now);
   /** Paused because the page was hidden, so showing it again resumes. A Pause press waits for Resume. */
   const autoPaused = useRef(false);
@@ -106,7 +111,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const wordMarks = marks[run.current] ?? {};
   const checks = useCheckLimit(`rush:${id}:${run.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
-  const definitions = useDefinitions(openDef >= 0 || over);
+  const definitions = useDefinitions(openDef >= 0 || over || showFound);
 
   // A reviewed Rush is already saved, and must not replace the Rush in progress.
   useEffect(() => {
@@ -181,7 +186,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     setShake(true);
   };
 
-  const playing = () => runRef.current.status === 'playing' && runRef.current.pausedAt === null && !confirming;
+  const playing = () => runRef.current.status === 'playing' && runRef.current.pausedAt === null && !confirming && !showFound;
   const typeLetter = (letter: string) => {
     if (playing() && draftRef.current.length < 5) setDraft(draftRef.current + letter);
   };
@@ -192,6 +197,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   /** After a word ends: say what happened. The next word has its own marks. */
   const nextWord = (next: RunGame, text: string) => {
     setOpenDef(-1);
+    setShowFound(false);
     setDraft('');
     setMessage(next.status === 'playing'
       ? { text: `${text} Word ${next.current + 1} of ${next.words.length}.`, error: false }
@@ -256,6 +262,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     setDraft('');
     setOpenDef(-1);
     setConfirming(null);
+    setShowFound(false);
     setMessage({ text: `New ${wordSetName('solo', runRankBy(next))}: find ${RUSH_WORDS} words. The clock is running.`, error: false });
   };
 
@@ -280,6 +287,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     if (result.ok) {
       setRun(result.game);
       setOpenDef(-1);
+      setShowFound(false);
     }
     setConfirming(null);
   };
@@ -300,6 +308,16 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const givenUp = run.results.filter((r) => r.outcome === 'gave-up').length;
   const ended = run.results.some((r) => r.outcome === 'unsolved');
   const clock = formatClock(runElapsedMs(run, now) / 1000);
+  const rows: RushWordRow[] = run.results.map((r) => ({
+    word: r.word,
+    lit: r.outcome === 'solved',
+    guesses: r.guesses,
+    reached: r.startedAt !== null,
+    missed: r.outcome === 'solved' ? null : r.outcome === 'gave-up' ? 'Gave up' : 'Not found',
+    seconds: wordSeconds(r),
+  }));
+  // Not while paused: the board stays hidden then.
+  const found = showFound && !paused && confirming === null && someFound(run.results);
 
   return (
     <div class="app">
@@ -332,7 +350,10 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         {/* A word left when the Rush was given up stays an empty dot. */}
         <RushBar clock={clock} clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}
           dots={<RushDots words={run.results.map((r) => ({ outcome: r.outcome === 'unsolved' ? null : r.outcome }))}
-            current={run.current} />}>
+            current={run.current} />}
+          found={someFound(run.results) && (
+            <FoundButton open={found} disabled={paused || !!confirming} onToggle={() => setShowFound(!showFound)} />
+          )}>
           {!over && (
             <button type="button" class="btn small" disabled={!!confirming}
               onClick={() => (paused ? resumeClock() : pause(false))}>
@@ -355,7 +376,12 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         </section>
       )}
 
-      {!over && !paused && (
+      {found && (
+        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+          playing={!over} onBack={() => setShowFound(false)} />
+      )}
+
+      {!over && !paused && !found && (
         <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
           label={`Your guesses at word ${run.current + 1}`}
           emptyText={run.current === 0
@@ -409,22 +435,14 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         <ReplaceGamePanel what={`a ${rankByName(rankBy)}`} onConfirm={startNewRun} onCancel={() => setConfirming(null)} />
       )}
 
-      {over && confirming !== 'replace' && (
+      {over && confirming !== 'replace' && !found && (
         <section class="panel rush-result">
           <h2>
             {ended ? 'The words were'
               : givenUp === 0 ? `All ${run.words.length} words in ${clock}.`
                 : `${rankByName(rankBy)} done in ${clock}.`}
           </h2>
-          <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-            rows={run.results.map((r) => ({
-              word: r.word,
-              lit: r.outcome === 'solved',
-              guesses: r.guesses,
-              reached: r.startedAt !== null,
-              missed: r.outcome === 'solved' ? null : r.outcome === 'gave-up' ? 'Gave up' : 'Not found',
-              seconds: wordSeconds(r),
-            }))} />
+          <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions} rows={rows} />
           {review?.heading ? review.result : summary && (
             <RushSummary tiers={[
               ['Score', rankBy === 'rush' ? rushScoreText(summary.score) : summary.score.toFixed(1)],

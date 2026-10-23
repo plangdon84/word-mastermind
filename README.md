@@ -416,6 +416,17 @@ a Daily Rush run's words are in its order, and each lobby seat keeps an
 penalty still compares results word by word (`seatKeys` in
 `src/game/lobby.ts`). Lobbies from before play in the words' order.
 
+**Found so far** (Dev Plan item 18zr, Issue 244 in the archive): in every
+Word Set (Solo, the Daily Set, With friends and Competitive), once you've
+found a word a **Found so far** button sits beside your dots. A tap shows
+the words you've found in this run, in place of the board, each with its
+definition, guesses and time, then **Back to your word**. It shows only
+your own words, never anyone else's. The clock keeps running while it's
+open (it's off while paused, when the board is hidden too), and it's there
+in a finished run and a review as well, unless every word was found, since
+the result then lists them all. On the narrowest phones it reads **Found…**.
+The Daily Word, a single word, has none.
+
 - **Solo Rush** (built, no backend): *"Practice solving multiple secret
   words in a timed trial."* **4 random secret words** against a stopwatch
   (5 felt too long in playtesting).

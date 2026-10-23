@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.20.0',
+    notes: [
+      { text: 'In a word set game, tap “Found so far” to see the words you’ve found.' },
+    ],
+  },
+  {
     version: '1.19.2',
     notes: [
       { text: "Five words that don't belong are no longer accepted as guesses" },

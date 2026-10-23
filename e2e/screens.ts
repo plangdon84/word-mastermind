@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { guess, loginLink, loginLinkCount, modeButton, startSolo, unlockAll } from './helpers';
+import { guess, loginLink, loginLinkCount, modeButton, savedGame, startSolo, unlockAll } from './helpers';
 
 /*
  * Every screen a player can reach on their own (docs/test-plan.md
@@ -208,6 +208,21 @@ export const SCREENS: Screen[] = [
       await button(page, /^Medium/).click();
       await button(page, 'Start game').click();
       await guess(page, 'crane');
+    },
+  },
+  {
+    // Found so far, open after the first word (Dev Plan item 18zr).
+    name: 'solo-rush-found',
+    open: async (page) => {
+      await unlockAll(page);
+      await modeButton(page, 'Word Sets').click();
+      await modeButton(page, 'Solo').click();
+      await button(page, /^Medium/).click();
+      await button(page, 'Start game').click();
+      await page.getByText(/No guesses yet/).waitFor();
+      await guess(page, ((await savedGame(page, 'rush')).words as string[])[0]);
+      await button(page, 'Found so far').click();
+      await page.getByRole('heading', { name: 'Found so far' }).waitFor();
     },
   },
   {

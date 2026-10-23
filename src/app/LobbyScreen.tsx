@@ -25,7 +25,10 @@ import {
 } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
-import { formatClock, formatClockUp, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
+import {
+  formatClock, formatClockUp, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords,
+  someFound, spentSeconds, type RushWordRow,
+} from './rushParts';
 import type { Settings } from './settings';
 import { TurnAlertsPrompt } from './TurnAlerts';
 import { ShareResult } from './ShareResult';
@@ -77,6 +80,8 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   const [shake, setShake] = useState(false);
   const [confirming, setConfirming] = useState<'move-on' | 'give-up' | 'close' | null>(null);
   const [showPlayers, setShowPlayers] = useState(false);
+  /** Found so far is open in place of the board or the result. */
+  const [showFound, setShowFound] = useState(false);
   const [openDef, setOpenDef] = useState(-1);
   const [howTo, setHowTo] = useState(false);
   /** Choosing your Competitive Rush word: to open the lobby, join it, or change it. */
@@ -105,7 +110,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   const wordMarks = (run && marks[run.current]) ?? {};
   const checks = useCheckLimit(`lobby:${lobby?.code}:${run?.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
-  const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing));
+  const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing) || showFound);
 
   const setAnswer = (a: LobbyAnswer) => {
     answerRef.current = a;
@@ -220,7 +225,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   };
   const canType = () => {
     const l = answerRef.current?.lobby;
-    return l?.state === 'playing' && l.run?.status === 'playing' && !confirming && !showPlayers;
+    return l?.state === 'playing' && l.run?.status === 'playing' && !confirming && !showPlayers && !showFound;
   };
   const typeLetter = (letter: string) => {
     if (canType() && draftRef.current.length < 5) setDraft(draftRef.current + letter);
@@ -303,6 +308,19 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   const timeLeft = lobby?.endsAt != null ? formatClock(Math.max(0, lobby.endsAt - now) / 1000) : '';
   const yourTime = lobby?.startedAt != null ? formatClock((lastEnd - lobby.startedAt) / 1000) : '0:00';
 
+  const rows: RushWordRow[] = run ? run.words.map((w, i) => ({
+    word: w.word,
+    lit: w.outcome === 'solved',
+    guesses: w.guesses,
+    reached: w.startedAt !== null,
+    missed: w.outcome === 'solved' ? null : w.outcome === 'gave-up' ? 'Gave up' : 'Not found',
+    seconds: spentSeconds(w),
+    setBy: run.setBy?.[i],
+  })) : [];
+  const hasFound = run !== null && lobby?.state !== 'open' && someFound(run.words);
+  // Not while asking to give up; the Players panel and Found so far take turns.
+  const foundOpen = showFound && hasFound && confirming === null;
+
   const header = (
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
       matchup={<span><b>{modeName}</b>{lobby && lobby.state !== 'open' && <> · {lobby.players.length} {lobby.players.length === 1 ? 'player' : 'players'}</>}</span>}
@@ -322,9 +340,18 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
       )}>
       {run && lobby?.state !== 'open' && (
         <RushBar dots={<RushDots words={run.words} current={playing ? run.current : null} label="You" />}
-          clock={playing ? timeLeft : yourTime} clockLabel={playing ? 'Time left' : 'Your time'}>
+          clock={playing ? timeLeft : yourTime} clockLabel={playing ? 'Time left' : 'Your time'}
+          found={hasFound && (
+            <FoundButton open={foundOpen} disabled={confirming !== null} onToggle={() => {
+              setShowFound(!foundOpen);
+              setShowPlayers(false);
+            }} />
+          )}>
           {playing && (
-            <button type="button" class="btn small" aria-pressed={showPlayers} onClick={() => setShowPlayers(!showPlayers)}>
+            <button type="button" class="btn small" aria-pressed={showPlayers && !foundOpen} onClick={() => {
+              setShowPlayers(!showPlayers || foundOpen);
+              setShowFound(false);
+            }}>
               Players
             </button>
           )}
@@ -542,6 +569,16 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     );
   }
 
+  if (foundOpen) {
+    return (
+      <div class="app">
+        {header}
+        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+          playing={playing} onBack={() => setShowFound(false)} />
+      </div>
+    );
+  }
+
   if (showPlayers && playing) {
     return (
       <div class="app">
@@ -625,15 +662,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
           <h2>{heading}</h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
             hiddenLabel={`Hidden until the ${rush} is over`}
-            rows={run.words.map((w, i) => ({
-              word: w.word,
-              lit: w.outcome === 'solved',
-              guesses: w.guesses,
-              reached: w.startedAt !== null,
-              missed: w.outcome === 'solved' ? null : w.outcome === 'gave-up' ? 'Gave up' : 'Not found',
-              seconds: spentSeconds(w),
-              setBy: run.setBy?.[i],
-            }))} />
+            rows={rows} />
           {mine?.score != null && (
             <RushSummary tiers={[
               [rankBy === 'rush' ? 'Time' : 'Score', rankedText(rankBy, mine)],
