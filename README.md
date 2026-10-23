@@ -2004,8 +2004,10 @@ friends list ([Friends](#friends)).
   their own account and sent you can't sign your device in to it unnoticed.
   It doesn't ask if this device is already signed in to that account. Signed
   in to another account, it adds "You'll be signed out of you@example.com on
-  this device", and **Sign in** signs that account out (on the server too)
-  before using the link, as **Sign out** does. While
+  this device", and **Sign in** uses the link first, as a new guest, then
+  signs that account out (on the server too), as **Sign out** does. If the
+  link fails (it expired, or you're offline), the device stays signed in to
+  that account and says why. While
   the server has no Resend key, the app hides the email box and offers
   Google only.
 - **Google:** **Continue with Google** goes to Google's own sign-in page and

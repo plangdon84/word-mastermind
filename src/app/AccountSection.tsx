@@ -45,8 +45,8 @@ export function AccountSection({ apiUrl, guestId, session, onAccount, onSignedOu
   useEffect(() => setMessage((shown) => (notice?.quiet && shown?.error ? shown : notice)), [notice]);
 
   // The ways to sign in, and whether this session still stands. Not while a link signs in: switching
-  // accounts leaves this device briefly signed out, and the guest ID the link then claims would read as
-  // signed out of an account, ending the new session. It checks again once signing in is done.
+  // accounts swaps the session and guest ID together once the link works, and a check of the old pair
+  // still on its way would end the new session. It checks again once signing in is done.
   const signingIn = loginAsk?.signingIn === true;
   useEffect(() => {
     if (signingIn) return;

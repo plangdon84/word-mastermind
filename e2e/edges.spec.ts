@@ -277,6 +277,32 @@ test("signed in, a link for another account says you'll be signed out of yours, 
   await expect(page.locator('section[aria-label="Account"]')).toContainText(`Signed in as ${theirs}`);
 });
 
+test("signed in, a link for another account that fails leaves you signed in to yours", async ({ page, browser, context }) => {
+  const theirs = `theirs-${Date.now()}@example.com`;
+  await unlockAll(page);
+  const mine = await signIn(page, `mine-${Date.now()}@example.com`);
+  const sender = await newPlayer(browser, page);
+  await unlockAll(sender);
+  await sender.getByRole('button', { name: /^Profile/ }).click();
+  await button(sender, /^Account/).click();
+  await sender.getByLabel('Email address').fill(theirs);
+  const before = loginLinkCount(theirs);
+  await button(sender, 'Email me a link').click();
+
+  await page.goto(await loginLink(theirs, before));
+  await expect(page.getByRole('heading', { name: `Sign in as ${theirs}?` })).toBeVisible();
+  // The connection drops before Sign in: the link can't be used, and this device keeps its account.
+  await context.setOffline(true);
+  await button(page, 'Sign in').click();
+  await expect(page.getByText("Can't reach the game server.")).toBeVisible();
+  await expect(page.locator('section[aria-label="Account"]')).toContainText(`Signed in as ${mine}`);
+  await context.setOffline(false);
+  await page.reload();
+  await page.getByRole('button', { name: /^Profile/ }).click();
+  await button(page, /^Account/).click();
+  await expect(page.locator('section[aria-label="Account"]')).toContainText(`Signed in as ${mine}`);
+});
+
 test("a refused secret word never turns up as a guess, nor letters typed while waiting for a friend", async ({ page, browser }) => {
   const empty = (p: Page) => p.getByRole('img', { name: 'Current guess: empty' });
   await unlockAll(page);
