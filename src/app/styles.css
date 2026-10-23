@@ -792,7 +792,8 @@ button.bubble:active { transform: scale(0.94); }
 .letters.inline { gap: 3px; }
 
 /* Rush */
-.rush-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rush-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.rush-found { display: inline-flex; align-items: center; gap: 10px; }
 .rush-progress { display: inline-flex; gap: 6px; }
 .rush-progress .dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line); }
 .rush-progress .dot.current { box-shadow: inset 0 0 0 2.5px var(--accent); }
@@ -807,7 +808,7 @@ button.bubble:active { transform: scale(0.94); }
 /* Competitive Rush: whose word it was, under the word, lined up with its letters. */
 .rush-words .rush-setter { flex-basis: 100%; margin: -6px 0 0 34px; font-size: 0.75rem; color: var(--muted); text-align: left; }
 .rush-progress .dot.gave-up { background: var(--out-bg); box-shadow: none; }
-.rush-clock { display: inline-flex; align-items: center; gap: 10px; }
+.rush-clock { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 .btn.small { padding: 4px 10px; font-size: 0.8rem; }
 .suggest-left { color: var(--muted); font-weight: normal; }
 .stopwatch.paused { color: var(--muted); }

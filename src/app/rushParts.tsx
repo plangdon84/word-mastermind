@@ -77,9 +77,14 @@ export function RushDots({ words, current, label }: {
   );
 }
 
-/** The header's Rush bar: your dots, then any button (Pause, Players) and the clock. */
-export function RushBar({ dots, clock, clockLabel, paused = false, children }: {
+/**
+ * The header's Rush bar: your dots and Found so far (`found`), then any
+ * button (Pause, Players) and the clock. On the narrowest phones the clock
+ * wraps to a second line.
+ */
+export function RushBar({ dots, found, clock, clockLabel, paused = false, children }: {
   dots: ComponentChildren;
+  found?: ComponentChildren;
   clock: string;
   clockLabel: string;
   paused?: boolean;
@@ -87,7 +92,10 @@ export function RushBar({ dots, clock, clockLabel, paused = false, children }: {
 }) {
   return (
     <div class="rush-bar">
-      {dots}
+      <span class="rush-found">
+        {dots}
+        {found}
+      </span>
       <span class="rush-clock">
         {children}
         <span class={paused ? 'stopwatch paused' : 'stopwatch'} role="timer" aria-label={clockLabel}>{clock}</span>
@@ -170,6 +178,8 @@ export interface RushWordRow {
   seconds: number | null;
   /** Whose word it is, in Competitive Rush. */
   setBy?: string;
+  /** Its place in the Rush, from 1, where the list leaves words out (Found so far); else its row's. */
+  position?: number;
 }
 
 /**
@@ -220,7 +230,7 @@ export function RushWords({ rows, marks, newestFirst, definitions, hiddenLabel }
           {openDef === i && r.word && <DefinitionBox word={r.word} state={definitions} />}
           {openWord === i && (
             <History guesses={r.guesses} newestFirst={newestFirst} openDef={openGuessDef}
-              label={`Your guesses at word ${i + 1}`} emptyText="No guesses." marks={marks[i]}
+              label={`Your guesses at word ${r.position ?? i + 1}`} emptyText="No guesses." marks={marks[i]}
               onToggleDef={(g) => setOpenGuessDef(openGuessDef === g ? -1 : g)} definitions={definitions} />
           )}
         </li>
@@ -240,5 +250,54 @@ export function RushSummary({ tiers }: { tiers: readonly (readonly [string, Comp
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * The Rush bar's **Found so far** button (Dev Plan item 18zr), once you've
+ * found a word: it opens `FoundSoFar` in place of the board.
+ */
+export function FoundButton({ open, onToggle, disabled = false }: {
+  open: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button type="button" class="btn small" aria-pressed={open} disabled={disabled} onClick={onToggle}>
+      Found so far
+    </button>
+  );
+}
+
+/** Whether a run has a word found yet, so the bar offers Found so far. */
+export const anyFound = (words: readonly { outcome: string | null }[]) => words.some((w) => w.outcome === 'solved');
+
+/**
+ * Found so far: the words you've found in this run, with their guesses and
+ * times, as `RushWords` shows them. Only your own, and only those found.
+ * While playing, the clock keeps running.
+ */
+export function FoundSoFar({ rows, marks, newestFirst, definitions, playing, onBack }: {
+  /** Every word of the run, in order: those not found are left out here. */
+  rows: readonly RushWordRow[];
+  marks: readonly Marks[];
+  newestFirst: boolean;
+  definitions: DefinitionsState;
+  playing: boolean;
+  onBack: () => void;
+}) {
+  const found = rows.flatMap((r, i) => (r.missed === null && r.word ? [{ row: { ...r, position: i + 1 }, i }] : []));
+  return (
+    <section class="panel rush-result">
+      <h2>Found so far</h2>
+      <RushWords rows={found.map((f) => f.row)} marks={found.map((f) => marks[f.i] ?? {})} newestFirst={newestFirst}
+        definitions={definitions} />
+      <p class="board-note">
+        {found.length} of {rows.length} words found{playing ? '. The clock keeps running.' : '.'}
+      </p>
+      <div class="row-btns">
+        <button class="btn" type="button" onClick={onBack}>{playing ? 'Back to your word' : 'Back'}</button>
+      </div>
+    </section>
   );
 }

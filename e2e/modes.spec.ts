@@ -77,7 +77,18 @@ test('Solo Crush: four words in a row, then the result', async ({ page }) => {
   await button(page, 'Start game').click();
   await expect(page.getByText(/No guesses yet/)).toBeVisible();
   const words = (await savedGame(page, 'rush')).words as string[];
-  for (const word of words) await guess(page, word);
+  // Found so far shows only the words found, in place of the board, until Back (Dev Plan item 18zr).
+  await expect(button(page, 'Found so far')).toHaveCount(0);
+  await guess(page, words[0]);
+  await button(page, 'Found so far').click();
+  const found = page.locator('.panel', { has: page.getByRole('heading', { name: 'Found so far' }) });
+  await expect(found.locator('.rush-words li')).toHaveCount(1);
+  await expect(found.getByRole('button', { name: `Definition of ${words[0]}` })).toBeVisible();
+  await expect(page.getByText(/Word 2: no guesses yet/)).toBeHidden();
+  await expectAccessible(page);
+  await button(page, 'Back to your word').click();
+  await expect(page.getByText(/Word 2: no guesses yet/)).toBeVisible();
+  for (const word of words.slice(1)) await guess(page, word);
   await expect(page.locator('.rush-result')).toBeVisible();
 });
 

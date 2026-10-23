@@ -25,7 +25,10 @@ import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { countdownText, DAILY_NAME, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { openReport } from './reportIssue';
-import { formatClock, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds } from './rushParts';
+import {
+  anyFound, formatClock, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, spentSeconds,
+  type RushWordRow,
+} from './rushParts';
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
@@ -204,6 +207,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   const [shake, setShake] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
+  /** Found so far (the Daily Set only) is open in place of the board or the result. */
+  const [showFound, setShowFound] = useState(false);
   const [circle, setCircle] = useState<Circle>('everyone');
   /** Your place so far on each of today's boards: Crush and (the Daily Set) Rush. */
   const [placements, setPlacements] = useState<Partial<Record<RankBy, NonNullable<DailyBoard['you']>>>>({});
@@ -240,7 +245,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   const wordMarks = (run && marks[run.current]) ?? {};
   const checks = useCheckLimit(`${mode}:${run?.day}:${run?.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
-  const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing));
+  const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing) || showFound);
 
   const setToday = (t: DailyToday) => {
     todayRef.current = t;
@@ -306,7 +311,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   };
   const canType = () => {
     const current = todayRef.current?.run;
-    return current?.status === 'playing' && current.pausedAt === null && !confirming && !showBoard;
+    return current?.status === 'playing' && current.pausedAt === null && !confirming && !showBoard && !showFound;
   };
   const typeLetter = (letter: string) => {
     if (canType() && draftRef.current.length < 5) setDraft(draftRef.current + letter);
@@ -435,6 +440,16 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   const dayEnding = today && run && !late ? dayEndingText(today.nextAt - now) : null;
   const dayEndingStart = today && !run ? dayEndingStartText(today.nextAt - now) : null;
   const totalGuesses = run ? run.words.reduce((sum, w) => sum + w.guesses.length, 0) : 0;
+  const rows: RushWordRow[] = run ? run.words.map((w) => ({
+    word: w.word,
+    lit: w.word !== null,
+    guesses: w.guesses,
+    reached: w.startedAt !== null,
+    missed: w.outcome === 'solved' ? null : 'Not found',
+    seconds: unpausedSeconds(w),
+  })) : [];
+  // Not while paused or asking to give up: the board stays hidden then.
+  const found = set && showFound && !paused && !confirming && rows.some((r) => r.missed === null);
 
   const header = (
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
@@ -460,7 +475,10 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
       )}>
       {run && (
         <RushBar dots={<RushDots words={run.words} current={playing ? run.current : null} />} clock={clock}
-          clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}>
+          clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}
+          found={set && anyFound(run.words) && (
+            <FoundButton open={found} disabled={paused || confirming} onToggle={() => setShowFound(!showFound)} />
+          )}>
           {playing && run.pausable && (paused || run.pausesLeft > 0) && (
             <button type="button" class="btn small" disabled={confirming} onClick={() => void togglePause()}>
               {paused ? 'Resume' : 'Pause'}
@@ -569,7 +587,12 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
         </section>
       )}
 
-      {run && word && !paused && (
+      {run && found && (
+        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+          playing={playing} onBack={() => setShowFound(false)} />
+      )}
+
+      {run && word && !paused && !found && (
         <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
           label={set ? `Your guesses at word ${run.current + 1}` : 'Your guesses'}
           emptyText={!set
@@ -607,7 +630,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
         </section>
       )}
 
-      {run && !playing && (
+      {run && !playing && !found && (
         <section class="panel rush-result">
           <h2>
             {run.status === 'finished' ? (set ? `All 4 words in ${clock}.` : `Found in ${guessCount(totalGuesses)}, ${clock}.`)
@@ -615,14 +638,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
           </h2>
           <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
             hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
-            rows={run.words.map((w) => ({
-              word: w.word,
-              lit: w.word !== null,
-              guesses: w.guesses,
-              reached: w.startedAt !== null,
-              missed: w.outcome === 'solved' ? null : 'Not found',
-              seconds: unpausedSeconds(w),
-            }))} />
+            rows={rows} />
           {late ? (
             <>
               {run.status === 'finished' && <RushSummary tiers={[['Guesses', totalGuesses]]} />}

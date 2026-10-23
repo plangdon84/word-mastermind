@@ -6,13 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18zr. See the words you've found in a Word Set** (issue
-  plangdon84/word-mastermind-archive#244; app only)
-  - Decided with the owner on 22 October 2026: in every Word Set (Solo,
-    the Daily Set, With friends and Competitive), a **Found so far** tap
-    shows the words you've found in this run, during play and in a review.
-    It shows only your own words, never anyone else's. Needs a release
-    note; updates README "Rush modes"
 - [ ] **18zs. A rematch at your current difficulty, and "You lost"** (issues
   plangdon84/word-mastermind-archive#240 and
   plangdon84/word-mastermind-archive#230; worker, review gate; updates
@@ -133,6 +126,13 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18zr. See the words you've found in a Word Set** (issue
+  plangdon84/word-mastermind-archive#244; app only)
+  - Decided with the owner on 22 October 2026: in every Word Set (Solo,
+    the Daily Set, With friends and Competitive), a **Found so far** tap
+    shows the words you've found in this run, during play and in a review.
+    It shows only your own words, never anyone else's. Needs a release
+    note; updates README "Rush modes"
 - [x] **18zq. Word list fixes and the ESDB notice** (issues
   plangdon84/word-mastermind-archive#241,
   plangdon84/word-mastermind-archive#242,
