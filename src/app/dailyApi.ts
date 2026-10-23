@@ -198,20 +198,20 @@ export interface DailyApi {
 
 /**
  * Both of today's daily games for the title screen in one request (Issue
- * 213), each with your place so far. A server from before it answers 404,
- * so the app asks for each game on its own instead, without the place.
+ * 213), each with your place so far. If that fails (a server from before
+ * it, or one game's day failing), the app asks for each game on its own
+ * instead, without the place, so one failing leaves the other: null for a
+ * game that didn't come.
  */
-export async function dailyGames(apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch): Promise<DailyGames> {
+export async function dailyGames(
+  apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch,
+): Promise<Record<DailyMode, DailyToday | null>> {
   const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new DailyApiError(code as DailyError, status));
-  try {
-    const games = parseDailyGames(await request('GET', '/api/daily/games'));
-    if (!games) throw new DailyApiError('bad-request', 200);
-    return games;
-  } catch (e) {
-    if (!(e instanceof DailyApiError && e.status === 404)) throw e;
-    const [daily, dailyWord] = await Promise.all(DAILY_MODES.map((mode) => dailyApi(apiUrl, identity, fetchFn, mode).today()));
-    return { daily, dailyWord };
-  }
+  const games = await request('GET', '/api/daily/games').then(parseDailyGames, () => null);
+  if (games) return games;
+  const [daily, dailyWord] = await Promise.all(DAILY_MODES.map((mode) => dailyApi(apiUrl, identity, fetchFn, mode).today()
+    .catch(() => null)));
+  return { daily, dailyWord };
 }
 
 /**

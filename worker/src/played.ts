@@ -184,6 +184,8 @@ export const NEXT_PLAYED_SQL = `SELECT g.rowid AS seq, g.id, g.mode, g.record, g
       json_each((SELECT json_group_array(game_seq) FROM (
         SELECT gp.game_seq FROM game_players gp WHERE gp.guest_id = ids.id AND gp.game_seq > ?1
         ORDER BY gp.game_seq LIMIT ${PLAYED_PAGE + 1}))) next)
+    -- And by the game's own ID, so a renumbered table could never hand over someone else's game.
+    AND EXISTS (SELECT 1 FROM game_players p WHERE p.game_id = g.id AND p.game_seq = g.rowid AND ${isPlayers('p.guest_id', '?2')})
   ORDER BY g.rowid LIMIT ${PLAYED_PAGE + 1}`;
 
 /** The player's finished server games after `after`, a page at a time, in the order they finished. */

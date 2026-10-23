@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyApi, DailyApiError, dailyGames, type DailyApi } from '../../src/app/dailyApi';
+import { dailyApi, DailyApiError, dailyGames, parseDailyGames, type DailyApi } from '../../src/app/dailyApi';
 import { fetchPlayed } from '../../src/app/playedApi';
 import { addDays, dayEnd, replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
 import { DAILY_WORD_FROM, DAILY_WORD_REPEAT_DAYS, pickWordFor } from './dailyWords';
@@ -226,7 +226,12 @@ describe("the Daily Word's board", () => {
 });
 
 describe('both daily games at once (Issues 213 and 225)', () => {
-  const games = (s: ReturnType<typeof setup>, guestId: string) => dailyGames('https://api.example', { guestId, token: null }, s.fetchFn);
+  /** The combined route itself, never the app's fallback. */
+  const games = async (s: ReturnType<typeof setup>, guestId: string) => {
+    const response = await s.fetchFn('https://api.example/api/daily/games', { headers: { 'x-guest-id': guestId } });
+    expect(response.status).toBe(200);
+    return parseDailyGames(await response.json())!;
+  };
 
   it("come in one request, as each game's own route gives them, with no place before you've played", async () => {
     const s = setup();
@@ -275,6 +280,17 @@ describe('both daily games at once (Issues 213 and 225)', () => {
     const both = await dailyGames('https://api.example', { guestId: ANN, token: null }, older);
     expect(both.daily).toEqual(await s.set(ANN).today());
     expect(both.dailyWord).toEqual(await s.word(ANN).today());
+  });
+
+  it("leave the other game when one game's day fails, asking for each on its own", async () => {
+    const s = setup();
+    const failing = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      return path === '/api/daily/games' || path === '/api/daily/word'
+        ? Promise.resolve(Response.json({ error: 'bad-request' }, { status: 500 })) : s.fetchFn(input, init);
+    }) as typeof fetch;
+    const both = await dailyGames('https://api.example', { guestId: ANN, token: null }, failing);
+    expect(both).toEqual({ daily: await s.set(ANN).today(), dailyWord: null });
   });
 });
 

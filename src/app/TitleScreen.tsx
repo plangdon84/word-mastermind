@@ -476,9 +476,13 @@ export function TitleScreen({
     dailyGames(API_URL, identity).then((games) => {
       if (!live) return;
       setDaily(games);
-      setOffset(games.daily.now - Date.now());
-      for (const mode of DAILY_MODES) receivePlacements(games[mode].placements, mode);
-    }, () => {});
+      for (const mode of DAILY_MODES) {
+        const t = games[mode];
+        if (!t) continue;
+        setOffset(t.now - Date.now());
+        receivePlacements(t.placements, mode);
+      }
+    });
     return () => {
       live = false;
     };
