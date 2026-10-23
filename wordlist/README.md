@@ -151,3 +151,6 @@ The run fails if a word isn't on the guess list or mixes the three forms.
 ESDB's licence requires its notice to ship with the lists: see
 [`NOTICE-ESDB`](NOTICE-ESDB). Avoiding Australian spellings and regions and
 staying at size ≤ 80 keeps its extra AU and UKACD clauses out of scope.
+The lists also ship inside the app's and the worker's code, so the notice
+goes with them there as a kept `/*!` comment in `src/game/wordLists.ts`;
+`npm run check:size` fails if a build drops it.

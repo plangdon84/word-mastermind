@@ -31,7 +31,8 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       // The app, and the usage dashboard (Dev Plan item 18m) at /admin/, behind Cloudflare Access.
-      rollupOptions: { input: { main: 'index.html', admin: 'admin/index.html' } },
+      // Legal (/*!) comments stay: the word lists' ESDB notice ships with them (issue 229; npm run check:size checks).
+      rollupOptions: { input: { main: 'index.html', admin: 'admin/index.html' }, output: { comments: { legal: true } } },
       // The definitions chunk (~700 kB, ~210 kB gzipped) is deliberately one
       // lazy-loaded file; everything else stays well under the default limit.
       chunkSizeWarningLimit: 800,

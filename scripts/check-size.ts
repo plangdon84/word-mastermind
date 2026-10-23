@@ -1,7 +1,8 @@
 // Checks what a phone downloads before the app can start (Dev Plan item 17,
 // docs/test-plan.md "Performance"): the scripts and styles `dist/index.html`
 // loads, gzipped, against budgets, and that the word definitions aren't among
-// them (they load when ⓘ is first tapped). Run after `npm run build`.
+// them (they load when ⓘ is first tapped). Also that the ESDB notice ships
+// with the word lists (issue 229). Run after `npm run build`.
 // Usage: npm run check:size
 // Runs with Node's built-in TypeScript support (Node 22.18 or later).
 import { readFileSync } from 'node:fs';
@@ -32,6 +33,11 @@ for (const kind of ['script', 'style'] as const) {
   if (total[kind] > BUDGETS[kind]) problems.push(`over budget, ${line}`);
 }
 if (assets.some(({ path }) => path.includes('definitions'))) problems.push('the definitions load up front; they should wait for ⓘ');
+// The licence asks for its copyright line in every copy of the lists: the /*! comment in src/game/wordLists.ts.
+const esdb = readFileSync(join(import.meta.dirname, '..', 'wordlist', 'NOTICE-ESDB'), 'utf8').split('\n')[0];
+if (!assets.some(({ path, ext }) => ext === 'js' && readFileSync(join(dist, path), 'utf8').includes(esdb))) {
+  problems.push(`the word lists' notice ("${esdb}") is missing from the scripts`);
+}
 
 if (problems.length > 0) {
   for (const problem of problems) console.error(`✗ ${problem}`);
