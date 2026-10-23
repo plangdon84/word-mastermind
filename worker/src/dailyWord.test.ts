@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyApi, DailyApiError, type DailyApi } from '../../src/app/dailyApi';
+import { dailyApi, DailyApiError, dailyGames, type DailyApi } from '../../src/app/dailyApi';
 import { fetchPlayed } from '../../src/app/playedApi';
 import { addDays, dayEnd, replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
 import { DAILY_WORD_FROM, DAILY_WORD_REPEAT_DAYS, pickWordFor } from './dailyWords';
@@ -215,5 +215,58 @@ describe("the Daily Word's board", () => {
     ]);
     // The Daily Set's places leave the Daily Word's out.
     expect((await s.set(ANN).today()).placements).toEqual([]);
+  });
+});
+
+describe('both daily games at once (Issues 213 and 225)', () => {
+  const games = (s: ReturnType<typeof setup>, guestId: string) => dailyGames('https://api.example', { guestId, token: null }, s.fetchFn);
+
+  it("come in one request, as each game's own route gives them, with no place before you've played", async () => {
+    const s = setup();
+    await s.word(ANN).start(DAY, 'hard', 'Ann');
+    const both = await games(s, ANN);
+    expect(both.daily).toEqual({ ...(await s.set(ANN).today()), place: null });
+    expect(both.dailyWord).toEqual({ ...(await s.word(ANN).today()), place: null });
+    expect(both.dailyWord.run).toMatchObject({ status: 'playing' });
+  });
+
+  it("give your place so far on your difficulty's board, by fewest guesses, once you've finished today's", async () => {
+    const s = setup();
+    // Bob and Cat finish the Daily Set on Medium, Bob in fewer guesses; Ann on Hard, alone there.
+    for (const [who, name, extra] of [[BOB, 'Bob', 0], [CAT, 'Cat', 2]] as const) {
+      await s.set(who).start(DAY, 'medium', name);
+      for (const w of [...SET.slice(0, 1), ...Array(extra).fill(other('brick')), ...SET.slice(1)]) await s.set(who).guess(DAY, w);
+    }
+    await s.set(ANN).start(DAY, 'hard', 'Ann');
+    for (const w of SET) await s.set(ANN).guess(DAY, w);
+    expect((await games(s, CAT)).daily.place).toMatchObject({ day: DAY, difficulty: 'medium', rank: 2, total: 2, behind: 0 });
+    expect((await games(s, BOB)).daily.place).toMatchObject({ rank: 1, total: 2, behind: 1 });
+    expect((await games(s, BOB)).daily.place?.rankBy).toBeUndefined();
+    expect((await games(s, ANN)).daily.place).toMatchObject({ difficulty: 'hard', rank: 1, total: 1 });
+    // The Daily Word's place is on its own board.
+    await s.word(ANN).start(DAY, 'medium', 'Ann');
+    await s.word(ANN).guess(DAY, s.wordOf()!);
+    expect((await games(s, ANN)).dailyWord.place).toMatchObject({ mode: 'dailyWord', rank: 1, total: 1 });
+    expect((await games(s, BOB)).dailyWord.place).toBeNull();
+  });
+
+  it('give no place for a run given up, or yesterday\'s finished late, off the board', async () => {
+    const s = setup();
+    await s.set(ANN).start(DAY, 'medium', 'Ann');
+    await s.set(ANN).giveUp(DAY);
+    expect((await games(s, ANN)).daily.place).toBeNull();
+    await s.word(BOB).start(DAY, 'medium', 'Bob');
+    s.setClock(END + HOUR);
+    await s.word(BOB).guess(DAY, s.wordOf()!);
+    expect((await games(s, BOB)).dailyWord).toMatchObject({ run: null, place: null });
+  });
+
+  it("are each game's own routes from a server without the combined one", async () => {
+    const s = setup();
+    const older = ((input: RequestInfo | URL, init?: RequestInit) => new URL(String(input)).pathname === '/api/daily/games'
+      ? Promise.resolve(Response.json({ error: 'not-found' }, { status: 404 })) : s.fetchFn(input, init)) as typeof fetch;
+    const both = await dailyGames('https://api.example', { guestId: ANN, token: null }, older);
+    expect(both.daily).toEqual(await s.set(ANN).today());
+    expect(both.dailyWord).toEqual(await s.word(ANN).today());
   });
 });

@@ -181,6 +181,7 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 | `POST /api/auth/logout` | `{}` | `{ ok: true }`, ending the session in `authorization` and that device's turn alerts |
 | `POST /api/auth/delete` | `{}` | `{ ok: true }`: deletes the account, signing out every device; 401 `signed-out` without a session |
 | `GET /api/daily` | | `DailyToday` (`src/app/dailyApi.ts`): today's day (the date in New York), theme (null without one), when the next set is out, the server's clock, your run (`DailyView`, unfound words hidden) and your final places on past days |
+| `GET /api/daily/games` | | `DailyGames`: `{ daily, dailyWord }`, each the `DailyToday` its own route gives, plus `place`: your place so far on today's board for your run's difficulty (fewest guesses), once you've finished today's run, else null. The title screen's one request for both (Issue 213); an older server's 404 sends the app to the two routes |
 | `POST /api/daily/start` | `{ day, difficulty, name }` | `DailyToday` with your run started; 409 `already-played`, 404 `no-theme`, 400 `offensive-name` |
 | `POST /api/daily/guess` | `{ day, word }` | `DailyToday`; 409 `not-started`, `game-over`, or `day-over` once `day` isn't today |
 | `POST /api/daily/give-up` | `{ day }` | `DailyToday`, given up: no leaderboard entry |

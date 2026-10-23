@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.21.0',
+    notes: [
+      { text: 'The Daily card on the title screen shows your place so far in each daily game you’ve played, like “12th of 340 so far”.' },
+    ],
+  },
+  {
     version: '1.20.1',
     notes: [
       { text: 'Rematches use your current difficulty preference instead of defaulting to the previous game’s difficulty.' },

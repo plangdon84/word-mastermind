@@ -1,8 +1,8 @@
 import {
-  addDays, DAILY_BOARDS, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, validateName, type DailyDay,
+  addDays, DAILY_BOARDS, DAILY_MODES, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, validateName, type DailyDay,
   type DailyMode, type DailyPlacement, type Difficulty, type RankBy,
 } from '../../src/game';
-import type { DailyBoard, DailyBoardRow, DailyToday } from '../../src/app/dailyApi';
+import type { DailyBoard, DailyBoardRow, DailyGames, DailyToday } from '../../src/app/dailyApi';
 import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
 import { identify, isPlayers, type Player } from './accounts';
 import { RESULTS_TABLE, type DailyRequest, type DailyResponse } from './dailyRoom';
@@ -102,14 +102,16 @@ async function currentRun(env: Env, mode: DailyMode, player: Player, day: DailyD
   return 'run' in yesterdays.body && yesterdays.body.run?.status === 'playing' ? yesterdays : todays;
 }
 
-/** Today's game from your side. The Daily Word has no theme, so its `theme` and `runTheme` are null. */
-async function today(env: Env, mode: DailyMode, player: Player, now: number, run: DailyResponse | null = null): Promise<Response> {
+/** Today's game from your side, or the referee's refusal. The Daily Word has no theme, so its `theme` and `runTheme` are null. */
+async function todayOf(
+  env: Env, mode: DailyMode, player: Player, now: number, run: DailyResponse | null = null,
+): Promise<DailyToday | DailyResponse> {
   const day = dailyDay(now);
   const answer = run ?? await currentRun(env, mode, player, day);
-  if ('error' in answer.body) return json(answer.body, answer.status);
+  if ('error' in answer.body) return answer;
   const theme = mode === 'daily' ? (await themeFor(env.DB, day))?.theme ?? null : null;
   const runDay = answer.body.run?.day;
-  const body: DailyToday = {
+  return {
     day,
     theme,
     runTheme: mode === 'daily' && runDay && runDay !== day ? (await themeFor(env.DB, runDay))?.theme ?? null : theme,
@@ -118,6 +120,45 @@ async function today(env: Env, mode: DailyMode, player: Player, now: number, run
     run: answer.body.run,
     placements: await pastPlacements(env.DB, player, day, mode),
   };
+}
+
+const refused = (t: DailyToday | DailyResponse): t is DailyResponse => 'status' in t;
+
+async function today(env: Env, mode: DailyMode, player: Player, now: number, run: DailyResponse | null = null): Promise<Response> {
+  const body = await todayOf(env, mode, player, now, run);
+  return refused(body) ? json(body.body, body.status) : json(body);
+}
+
+/**
+ * Your place so far on today's board for your run's difficulty, once you've
+ * finished today's run (a late finish of yesterday's is off the board): the
+ * Crush board, fewest guesses, for both games (Issue 225).
+ */
+async function placeSoFar(db: D1Database, mode: DailyMode, player: Player, today: DailyToday): Promise<DailyPlacement | null> {
+  const { run } = today;
+  if (run?.status !== 'finished' || run.day !== today.day) return null;
+  const table = RESULTS_TABLE[mode];
+  const row = await db.prepare(
+    `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(table, 'crush')}
+     FROM ${table} r WHERE r.day = ?1 AND r.difficulty = ?2 AND ${isPlayers('r.player_id', '?3')}`,
+  ).bind(run.day, run.difficulty, player.id).first<PlaceRow>();
+  return row ? toPlacement(row, 'crush', mode) : null;
+}
+
+/**
+ * `GET /api/daily/games`: both of today's daily games for the title screen
+ * in one request (Issue 213), each with your place so far once played.
+ */
+async function bothToday(env: Env, player: Player, now: number): Promise<Response> {
+  const games = await Promise.all(DAILY_MODES.map(async (mode) => {
+    const body = await todayOf(env, mode, player, now);
+    if (refused(body)) return body;
+    return { ...body, place: await placeSoFar(env.DB, mode, player, body) };
+  }));
+  const failed = games.find(refused);
+  if (failed) return json(failed.body, failed.status);
+  const [daily, dailyWord] = games as DailyToday[];
+  const body: DailyGames = { daily, dailyWord };
   return json(body);
 }
 
@@ -195,6 +236,7 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
   const { player } = who;
 
   if (pathname === '/api/daily') return method === 'GET' ? today(env, mode, player, now) : errorResponse(405, 'bad-request');
+  if (fullPath === '/api/daily/games') return method === 'GET' ? bothToday(env, player, now) : errorResponse(405, 'bad-request');
   if (pathname === '/api/daily/board') {
     if (method !== 'GET') return errorResponse(405, 'bad-request');
     const params = new URL(request.url).searchParams;

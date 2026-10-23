@@ -134,7 +134,7 @@ test("Daily Set: today's words, once a day", async ({ page }) => {
   await page.goto('/');
   const daily = page.getByRole('region', { name: 'Daily' });
   await expect(daily.getByText('Played')).toBeVisible();
-  await daily.getByRole('button', { name: /Your place ›/ }).click();
+  await daily.getByRole('button', { name: /\d+(st|nd|rd|th) of \d+ so far ›/ }).click();
   await expect(result).toBeVisible();
 });
 

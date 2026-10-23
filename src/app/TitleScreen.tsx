@@ -7,7 +7,7 @@ import { BackIcon, HOW_TO_UNLOCK, LockIcon } from './panels';
 import { RankBySwitch } from './rushParts';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
-import { dailyApi, type DailyToday } from './dailyApi';
+import { dailyGames, type DailyToday } from './dailyApi';
 import { useFriendsList } from './FriendsSection';
 import type { Friend } from './friendsApi';
 import { FriendGameButton, friendGameWaits, LobbyInviteButton, useFriendGames, useLobbyInvites } from './FriendGamesList';
@@ -21,7 +21,7 @@ import type { ApiIdentity } from './apiIdentity';
 import type { Profile } from './profileStorage';
 import type { Difficulty, Mode, Opponent, RushKind, Settings, Strength } from './settings';
 import {
-  DAILY_MODES, FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, runRankBy, wordSetName, type DailyMode,
+  DAILY_MODES, FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, ordinal, runRankBy, wordSetName, type DailyMode,
   type LobbyKind, type OpenModes, type TimeControl,
 } from '../game';
 import { loadRush } from './rushStorage';
@@ -247,7 +247,11 @@ function DailyRow({ mode, today, inProgress, onPlay, onResult }: {
       </span>
       <span class="daily-detail">{detail}</span>
       {!over && <span class="daily-play">{playing ? 'Continue' : 'Play'}</span>}
-      {over && <span class="daily-result">{run.status === 'finished' ? 'Your place ›' : 'Your result ›'}</span>}
+      {over && (
+        <span class="daily-result">
+          {run.status !== 'finished' ? 'Your result' : today?.place ? `${ordinal(today.place.rank)} of ${today.place.total} so far` : 'Your place'} ›
+        </span>
+      )}
     </button>
   );
 }
@@ -468,14 +472,13 @@ export function TitleScreen({
   useEffect(() => {
     if (!API_URL) return;
     let live = true;
-    for (const mode of DAILY_MODES) {
-      dailyApi(API_URL, identity, fetch, mode).today().then((t) => {
-        if (!live) return;
-        setDaily((d) => ({ ...d, [mode]: t }));
-        setOffset(t.now - Date.now());
-        receivePlacements(t.placements, mode);
-      }, () => {});
-    }
+    // One request for both (Issue 213).
+    dailyGames(API_URL, identity).then((games) => {
+      if (!live) return;
+      setDaily(games);
+      setOffset(games.daily.now - Date.now());
+      for (const mode of DAILY_MODES) receivePlacements(games[mode].placements, mode);
+    }, () => {});
     return () => {
       live = false;
     };
