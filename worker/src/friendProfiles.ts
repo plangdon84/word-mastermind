@@ -2,7 +2,7 @@ import {
   addDays, dailyDay, isServerMode, parseHistoryEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
-  MAX_SHARED_CHARS, parseSharedSummary, type FriendGamesQuery, type SharedSummary,
+  friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, parseSharedSummary, type FriendGamesQuery, type SharedSummary,
 } from '../../src/app/friendsApi';
 import { withoutRating } from '../../src/app/sharedSummary';
 import { identify, isPlayers, playerOfAccount, type Player } from './accounts';
@@ -142,20 +142,22 @@ export async function indexStep(env: Env, accountId: string): Promise<{ done: bo
     .bind(accountId).first<IndexRow>();
   if (!row) return { done: true };
 
-  const { results } = await db.prepare(
-    `SELECT seq, entry FROM history_entries WHERE account_id = ?1 AND seq > ?2 ORDER BY seq LIMIT ${INDEX_SYNCED}`,
+  // Only the games the size cap keeps are loaded (Issue 211), and always the first, however long.
+  const { results: synced } = await db.prepare(
+    `SELECT seq, entry FROM (
+       SELECT seq, entry, SUM(length(entry)) OVER (ORDER BY seq) AS total, ROW_NUMBER() OVER (ORDER BY seq) AS n
+       FROM (SELECT seq, entry FROM history_entries WHERE account_id = ?1 AND seq > ?2 ORDER BY seq LIMIT ${INDEX_SYNCED})
+     ) WHERE total <= ${INDEX_SYNCED_CHARS} OR n = 1 ORDER BY seq`,
   ).bind(accountId, row.synced_through).all<{ seq: number; entry: string }>();
-  if (results.length > 0) {
-    let chars = 0;
-    const page = results.filter((r) => (chars += r.entry.length) <= INDEX_SYNCED_CHARS || r === results[0]);
-    await insertRows(db, accountId, page.map((r) => {
+  if (synced.length > 0) {
+    await insertRows(db, accountId, synced.map((r) => {
       const entry = parseHistoryEntry(parse(r.entry));
       // Sync refuses the server's games, so an entry that is one, or looks like one, isn't the device's to add.
       if (!entry || isServerMode(entry.mode) || SERVER_ENTRY_ID.test(entry.id)) return null;
       return indexRow(entry, null);
     }));
     await db.prepare('UPDATE shared_profiles SET synced_through = MAX(synced_through, ?2) WHERE account_id = ?1')
-      .bind(accountId, page[page.length - 1].seq).run();
+      .bind(accountId, synced[synced.length - 1].seq).run();
     // One kind of work a request: the server games come next time.
     return { done: false };
   }
@@ -291,27 +293,32 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 
 /**
  * A page of a friend's game history, newest first, matching the history's
- * filters (as `matchesFilter` does). A Daily Set or Daily Word is left out
- * until the day after it is over.
+ * filters (as `matchesFilter` does), from the game after `after` (newer
+ * first, then by history ID). A Daily Set or Daily Word is left out until
+ * the day after it is over.
  */
 export async function friendGamesPage(
   db: D1Database, friendId: string, query: FriendGamesQuery, now: number,
-): Promise<{ games: HistoryEntry[]; next: number | null }> {
-  const { filter, offset, limit } = query;
+): Promise<{ games: HistoryEntry[]; next: string | null }> {
+  const { filter, after, limit } = query;
   // Words are letters only, so a search with anything else matches nothing, as on your own history.
   if (filter.search !== undefined && !/^[a-z]+$/.test(filter.search)) return { games: [], next: null };
+  const from = after === null ? null : parseFriendGamesAfter(after);
   const { results } = await db.prepare(
-    `SELECT COALESCE(g.entry, h.entry) AS entry FROM profile_games g
+    `SELECT g.started_at, g.id, COALESCE(g.entry, h.entry) AS entry FROM profile_games g
      LEFT JOIN history_entries h ON g.entry IS NULL AND h.account_id = g.account_id AND h.id = g.id
      WHERE g.account_id = ?1 AND (g.daily_day IS NULL OR g.daily_day < ?2)
        AND (?3 IS NULL OR g.mode = ?3) AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
        AND instr(g.words, ' ' || ?6) > 0
-     ORDER BY g.started_at DESC, g.id LIMIT ?7 OFFSET ?8`,
+       ${from === null ? '' : 'AND g.started_at <= ?8 AND (g.started_at < ?8 OR g.id > ?9)'}
+     ORDER BY g.started_at DESC, g.id LIMIT ?7`,
   ).bind(
     friendId, shownBefore(now), filter.mode ?? null, filter.result ?? null, filter.difficulty ?? null,
-    filter.search ?? '', limit + 1, offset,
-  ).all<{ entry: string | null }>();
-  return { games: entriesOf(results.slice(0, limit)), next: results.length > limit ? offset + limit : null };
+    filter.search ?? '', limit + 1, ...(from === null ? [] : [from.startedAt, from.id]),
+  ).all<{ started_at: number; id: string; entry: string | null }>();
+  // The next page starts after the last row, even one left out of the games because it doesn't read.
+  const last = results.length > limit ? results[limit - 1] : null;
+  return { games: entriesOf(results.slice(0, limit)), next: last && friendGamesAfter(last.started_at, last.id) };
 }
 
 /** Routes `/api/profile/shared` and `/api/profile/index` (an account's own), or returns null for any other path. */

@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.21.1',
+    notes: [
+      { text: 'A friend’s game history no longer shows a game twice if they finish one while you’re scrolling.' },
+      { text: 'A friend’s profile closes when they’re no longer on your friends list.' },
+      { text: 'Opening a friend’s profile no longer shows “too many requests” while your own long history is being set up for friends.' },
+    ],
+  },
+  {
     version: '1.21.0',
     notes: [
       { text: 'The Daily card on the title screen shows your place so far in each daily game you’ve played, like “12th of 340 so far”.' },

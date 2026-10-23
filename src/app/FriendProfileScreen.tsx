@@ -12,7 +12,7 @@ import {
   friendsApi, FriendsApiError, friendsErrorMessage, type Friend, type FriendProfile, type SharedSummary,
 } from './friendsApi';
 import { GameHistory } from './GameHistory';
-import { toHistoryGame, type HistoryGame, type HistoryPage } from './historyDb';
+import { toHistoryGame, type HistoryCursor, type HistoryGame, type HistoryPage } from './historyDb';
 import { plural } from './messages';
 import { BackIcon } from './panels';
 
@@ -56,7 +56,15 @@ const loaded = new Map<string, { at: number; friend: LoadedFriend }>();
 /** Forgets every friend's profile: the friends list calls it, as a friend may have been removed. */
 export const forgetFriendProfiles = () => loaded.clear();
 
-/** A friend's profile, loaded once and kept for a few minutes. `attempt` changes to try again. */
+/** What their profile says once they're no longer your friend. */
+const GONE = "They're no longer on your friends list.";
+
+/**
+ * A friend's profile, loaded once and kept for a few minutes. `attempt`
+ * changes to try again. A kept one is shown only while they're still your
+ * friend (Issue 200): if they aren't, it's dropped and says so, as a fresh
+ * load does.
+ */
 function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, attempt: number): Loading {
   const key = `${identity.token ?? ''}:${code}`;
   const [state, setState] = useState<Loading>(() => {
@@ -64,10 +72,22 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
     return kept && Date.now() - kept.at < FRESH_MS ? { status: 'ready', ...kept.friend } : { status: 'loading' };
   });
   useEffect(() => {
-    if (state.status === 'ready') return;
-    setState({ status: 'loading' });
     let live = true;
-    friendsApi(apiUrl, identity).profile(code).then(({ profile, summary, versus }) => {
+    const api = friendsApi(apiUrl, identity);
+    if (state.status === 'ready') {
+      // Kept: one game of their history is one query, refused for anyone who isn't your friend, unlike the
+      // profile or your friends list. Only that refusal drops it: offline, the kept one stays.
+      api.profileGames(code, { filter: {}, after: null, limit: 1 }).catch((e: unknown) => {
+        if (!(e instanceof FriendsApiError && e.code === 'not-found')) return;
+        loaded.delete(key);
+        if (live) setState({ status: 'error', text: GONE });
+      });
+      return () => {
+        live = false;
+      };
+    }
+    setState({ status: 'loading' });
+    api.profile(code).then(({ profile, summary, versus }) => {
       const friend = { profile, summary, versus, featured: toHistoryGames(summary?.featured ?? []) };
       loaded.set(key, { at: Date.now(), friend });
       if (live) setState({ status: 'ready', ...friend });
@@ -76,7 +96,7 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
       if (!live) return;
       setState({
         status: 'error',
-        text: error === 'not-found' ? "They're no longer on your friends list." : friendsErrorMessage(error),
+        text: error === 'not-found' ? GONE : friendsErrorMessage(error),
       });
     });
     return () => {
@@ -170,8 +190,8 @@ export function FriendProfileScreen({
   const name = ready?.profile.name ?? friend.name;
   const load = useMemo(() => {
     const api = friendsApi(apiUrl, identity);
-    return async (filter: HistoryFilter, offset: number, limit: number): Promise<HistoryPage> => {
-      const page = await api.profileGames(friend.code, { filter, offset, limit });
+    return async (filter: HistoryFilter, from: HistoryCursor | null, limit: number): Promise<HistoryPage> => {
+      const page = await api.profileGames(friend.code, { filter, after: typeof from === 'string' ? from : null, limit });
       return { games: toHistoryGames(page.games), next: page.next };
     };
   }, [apiUrl, identity, friend.code]);
