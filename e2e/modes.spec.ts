@@ -14,6 +14,11 @@ const button = (page: Page, name: string | RegExp) => page.getByRole('button', {
 
 /** axe on a screen only reachable with other players (screens.spec.ts has the rest). */
 async function expectAccessible(page: Page) {
+  // Contrast is judged on what's drawn, so let anything fading in (a badge toast) finish first: a slow WebKit
+  // run can catch it part-way. Endless animations (spinners) aren't waited on.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity)
+    .map((a) => a.finished.catch(() => {}))));
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const serious = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => `${n.target.join(' ')} ${n.failureSummary ?? ''}`).join('; ')}`)).toEqual([]);
