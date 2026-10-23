@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'preact/hooks';
 import { addDays, isDailyDay, isObject, parseMarks, type DailyDay, type DailyMode, type DailyPlacement, type Marks } from '../game';
 import { parsePlacement } from './dailyApi';
 
@@ -81,10 +82,35 @@ export function loadPlacements(): DailyPlacement[] {
   return [...load('daily'), ...load('dailyWord').filter((p) => p.mode === 'dailyWord')];
 }
 
+/** Who `usePlacements` tells when this tab saves new places. */
+const placementListeners = new Set<() => void>();
+
 export function savePlacements(placements: readonly DailyPlacement[], mode: DailyMode = 'daily'): void {
   try {
     localStorage.setItem(PLACEMENTS_KEY[mode], JSON.stringify(placements));
   } catch {
     // The badges wait until the server can be asked again.
   }
+  placementListeners.forEach((update) => update());
+}
+
+/**
+ * Your places (`loadPlacements`), read once and again only when new ones
+ * are saved, here or in another tab (Issue 199), not on every redraw.
+ */
+export function usePlacements(): DailyPlacement[] {
+  const [placements, setPlacements] = useState(loadPlacements);
+  useEffect(() => {
+    const update = () => setPlacements(loadPlacements());
+    const fromTab = (e: StorageEvent) => {
+      if (e.key === null || Object.values(PLACEMENTS_KEY).includes(e.key)) update();
+    };
+    placementListeners.add(update);
+    window.addEventListener('storage', fromTab);
+    return () => {
+      placementListeners.delete(update);
+      window.removeEventListener('storage', fromTab);
+    };
+  }, []);
+  return placements;
 }

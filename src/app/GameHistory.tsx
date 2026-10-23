@@ -4,11 +4,11 @@ import {
   type DailyPlacement, type HistoryMode, type HistoryResult, type RatingChange,
 } from '../game';
 import { API_URL } from './config';
-import { loadPlacements } from './dailyStorage';
+import { usePlacements } from './dailyStorage';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
 import { downloadFile } from './backup';
 import { formatClockUp, rushScoreText } from './rushParts';
-import { loadAllMatching, loadGamesPage, type HistoryGame, type HistoryPage } from './historyDb';
+import { loadAllMatching, loadGamesPage, type HistoryCursor, type HistoryGame, type HistoryPage } from './historyDb';
 import { CSV_ROW_LIMIT, csvRowCount, historyCsv } from './historyCsv';
 import { guessCount } from './messages';
 
@@ -141,9 +141,13 @@ function Filter<T extends string>({ label, value, options, onChange }: {
   );
 }
 
+/** This browser's games, by offset. */
+const loadYours = (filter: HistoryFilter, from: HistoryCursor | null, limit: number) =>
+  loadGamesPage(filter, typeof from === 'number' ? from : 0, limit);
+
 interface Loaded {
   games: HistoryGame[];
-  next: number | null;
+  next: HistoryCursor | null;
   status: 'loading' | 'ready' | 'error';
 }
 
@@ -153,28 +157,30 @@ interface Loaded {
  * By default it's this browser's games; a friend's profile passes `load`
  * with theirs, and their list has no export or search (theirs is searched on the server, which reads words).
  */
-export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGamesPage, friend, placements: theirPlaces }: {
+export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadYours, friend, placements: theirPlaces }: {
   filter: HistoryFilter;
   onFilter: (filter: HistoryFilter) => void;
   onOpen: (game: HistoryGame) => void;
-  load?: (filter: HistoryFilter, offset: number, limit: number) => Promise<HistoryPage>;
+  /** A page from `from` (null for the first): a friend's games. */
+  load?: (filter: HistoryFilter, from: HistoryCursor | null, limit: number) => Promise<HistoryPage>;
   /** Their name, for a friend's games. */
   friend?: string;
   /** A friend's Daily Rush places; yours are this browser's. */
   placements?: readonly DailyPlacement[];
 }) {
-  // Yours are read each time, so a place the server sends while the list is open shows.
-  const placements = theirPlaces ?? loadPlacements();
+  // Yours are read again when the server sends a place, so it shows while the list is open.
+  const mine = usePlacements();
+  const placements = theirPlaces ?? mine;
   const [loaded, setLoaded] = useState<Loaded>({ games: [], next: null, status: 'loading' });
   const [csvMessage, setCsvMessage] = useState<string | null>(null);
   const [search, setSearch] = useState(filter.name ?? '');
   /** Only the latest request's result is shown. */
   const request = useRef(0);
 
-  const load = (offset: number, append: boolean) => {
+  const load = (from: HistoryCursor | null, append: boolean) => {
     const id = ++request.current;
     setLoaded((l) => ({ ...l, status: 'loading' }));
-    loadPage(filter, offset, PAGE_SIZE).then(
+    loadPage(filter, from, PAGE_SIZE).then(
       (page) => {
         if (id !== request.current) return;
         setLoaded((l) => ({ games: append ? [...l.games, ...page.games] : page.games, next: page.next, status: 'ready' }));
@@ -185,7 +191,7 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadGam
 
   useEffect(() => {
     setCsvMessage(null);
-    load(0, false);
+    load(null, false);
   }, [filter.mode, filter.result, filter.difficulty, filter.search, filter.name]);
 
   /** Exports every game the filters match, not just the pages loaded. */
