@@ -29,6 +29,7 @@ spics
 boner
 boobs
 dildo
+milfs
 skank
 sluts
 titty
@@ -40,3 +41,10 @@ whore
 # Slang, reported from the app (Dev Plan item 18s)
 babby
 bints
+
+# Not words in everyday English, with no definition, reported from the app
+# (Dev Plan item 18zq). Each report like these is judged on its own.
+livre
+metis
+stime
+trone

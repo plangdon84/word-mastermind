@@ -4744,7 +4744,7 @@ hymns	secret		35	ms	_
 hynde	rejected	size 85 > 80	85	n0	_		[ukacd]	
 hyoid	guess	size 70 > 35	70	aj0,n0	_		[moby]	
 hyped	guess	size 40 > 35	40	vd	_			
-hyper	guess	size 40 > 35	40	aj0,n0,pre	_		[moby],[ukacd]	
+hyper	secret	secret-include.txt	40	aj0,n0,pre	_		[moby],[ukacd]	
 hypes	guess	size 40 > 35	40	ns,vs	_			ns~
 hypha	guess	repeated letters	70	n0	_		[moby]	
 hypno	rejected	excluded spelling, variant, region, category or part of speech	80	pre	_		[moby]	
@@ -5722,7 +5722,7 @@ liver	secret		35	a1,n0,v0	_
 lives	secret		35	ns,vs	_			
 livid	guess	repeated letters	35	aj0	_			
 livor	rejected	size 85 > 80	85	n0	_		[ukacd]	
-livre	guess	size 70 > 35	70	n0	_		[5d+2a],[moby]	
+livre	banned	ban.txt	70	n0	_		[5d+2a],[moby]	
 llama	guess	repeated letters	35	n0	_			
 llano	guess	repeated letters	50	n0	_			
 loach	guess	size 70 > 35	70	n0	_		[moby]	
@@ -6183,7 +6183,7 @@ metho	rejected	size 85 > 80	85	n0	_		[ukacd]
 meths	guess	size 60 > 35	60	ns	_		[3of6],[5d+2a],[brif]	
 metic	guess	size 70 > 35	70	n0	_		[moby],[ukacd]	
 metif	rejected	size 85 > 80	85	n0	_		[ukacd]	
-metis	guess	size 70 > 35	70	n0	_		[5d+2a]	
+metis	banned	ban.txt	70	n0	_		[5d+2a]	
 metol	guess	size 80 > 35	80	n0	_			
 metoo	guess	repeated letters	70	n0	_		[3of6]	
 metre	guess	repeated letters	35	n0,v0	A,B,C,D,Z,_		[3of6]	
@@ -6226,7 +6226,7 @@ milch	guess	size 50 > 35	50	aj0	_
 milds	guess	size 80 > 35	80	ns,vs	_			ns~
 miler	guess	size 50 > 35	50	n0	_			
 miles	secret		35	?,ns	_			
-milfs	guess	size 50 > 35	50	ns	_		[+],[3of6]	
+milfs	banned	ban.txt	50	ns	_		[+],[3of6]	
 milia	guess	repeated letters	70	ns	_		[moby]	
 milko	rejected	size 85 > 80	85	n0	_		[ukacd]	
 milks	secret		35	ms	_			
@@ -9669,7 +9669,7 @@ stilb	rejected	size 85 > 80	85	n0	_		[ukacd]
 stile	guess	size 50 > 35	50	n0,v0	_		[ukacd]	
 still	guess	repeated letters	35	a0,m0	_			
 stilt	guess	repeated letters	40	n0,v0	_		[ukacd]	
-stime	guess	size 80 > 35	80	n0,v0	_		[ukacd]	
+stime	banned	ban.txt	80	n0,v0	_		[ukacd]	
 stims	guess	repeated letters	60	ms	_		[+]	
 stimy	guess	size 80 > 35	80	v0	_			
 sting	secret		35	m0	_			
@@ -10522,7 +10522,7 @@ troll	guess	repeated letters	35	m0	_
 tromp	guess	size 40 > 35	40	v0	_			
 trona	guess	size 70 > 35	70	n0	_		[moby]	
 tronc	rejected	size 85 > 80	85	n0	_		[ukacd]	
-trone	guess	size 80 > 35	80	n0	_			
+trone	banned	ban.txt	80	n0	_			
 trons	rejected	size 85 > 80	85	ns	_		[ukacd]	
 troop	guess	repeated letters	35	m0	_			
 trooz	rejected	size 85 > 80	85	?	_		[stale]	
