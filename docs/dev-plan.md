@@ -6,25 +6,6 @@ Last triaged with the owner: 22 October 2026.
 
 **Next, in this order**
 
-- [ ] **18zq. Word list fixes and the ESDB notice** (issues
-  plangdon84/word-mastermind-archive#241,
-  plangdon84/word-mastermind-archive#242,
-  plangdon84/word-mastermind-archive#243,
-  plangdon84/word-mastermind-archive#245,
-  plangdon84/word-mastermind-archive#237,
-  plangdon84/word-mastermind-archive#232 and
-  plangdon84/word-mastermind-archive#229; app only)
-  - Issues 241, 242, 243 and 245: decided with the owner on 22 October
-    2026, the four reported guess words (none with a definition) are
-    banned, so they can't be guessed anywhere; old games holding them still
-    replay. Later reports like these are handled the same way, one by one,
-    not by banning every word without a definition
-  - Issue 237: the reported offensive word is banned from both lists
-  - Issue 232: the reported common word is added to the secret list, with a
-    definition if Open English WordNet has none for it
-  - Issue 229: the ESDB copyright notice ships in the app's and the worker's
-    bundles as a kept legal comment beside the word lists (nothing players
-    see; check `npm run check:size`)
 - [ ] **18zr. See the words you've found in a Word Set** (issue
   plangdon84/word-mastermind-archive#244; app only)
   - Decided with the owner on 22 October 2026: in every Word Set (Solo,
@@ -152,6 +133,28 @@ Last triaged with the owner: 22 October 2026.
 
 ## Done, latest first
 
+- [x] **18zq. Word list fixes and the ESDB notice** (issues
+  plangdon84/word-mastermind-archive#241,
+  plangdon84/word-mastermind-archive#242,
+  plangdon84/word-mastermind-archive#243,
+  plangdon84/word-mastermind-archive#245,
+  plangdon84/word-mastermind-archive#237,
+  plangdon84/word-mastermind-archive#232 and
+  plangdon84/word-mastermind-archive#229; app only). Release note
+  (1.19.2): "Five words that don't belong are no longer accepted as
+  guesses" and '"Hyper" can now be a secret word'
+  - Issues 241, 242, 243 and 245: decided with the owner on 22 October
+    2026, the four reported guess words (none with a definition) are
+    banned, so they can't be guessed anywhere; old games holding them still
+    replay. Later reports like these are handled the same way, one by one,
+    not by banning every word without a definition
+  - Issue 237: the reported offensive word is banned from both lists
+  - Issue 232: the reported common word is added to the secret list, with a
+    definition if Open English WordNet has none for it
+  - Issue 229: the ESDB copyright notice ships in the app's and the worker's
+    bundles as a kept legal comment beside the word lists (nothing players
+    see; check `npm run check:size`, which now also fails if the notice is
+    missing)
 - [x] **18zp. Title screen locks, Daily badges and a friend's stats row**
   (issues plangdon84/word-mastermind-archive#239,
   plangdon84/word-mastermind-archive#231 and

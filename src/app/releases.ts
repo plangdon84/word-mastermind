@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.19.2',
+    notes: [
+      { text: "Five words that don't belong are no longer accepted as guesses" },
+      { text: '"Hyper" can now be a secret word' },
+    ],
+  },
+  {
     version: '1.19.1',
     notes: [
       { text: "Modes you've opened no longer show as locked when you come back to the app" },
