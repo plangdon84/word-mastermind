@@ -489,7 +489,7 @@ export function App() {
       // link works for that; a Google one belongs to the old guest ID, so it asks for sign-in again instead.
       if (retry && !from && e instanceof AuthError && e.code === 'sign-in-needed') return trade(signedOut(true)!, false);
       const code = e instanceof AuthError ? e.code : 'unreachable';
-      showLoginNotice({ text: !retry && !from && code === 'bad-login' ? SIGN_IN_AGAIN : authErrorMessage(code), error: true });
+      showLoginNotice({ text: !retry && code === 'bad-login' ? SIGN_IN_AGAIN : authErrorMessage(code), error: true });
     });
     void trade(from ? newId() : latest.current.profile.deviceId, true);
   };
