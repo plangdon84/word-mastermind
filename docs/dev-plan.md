@@ -6,21 +6,6 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
-- [ ] **18zz. Your Google name on first sign-in** (from the owner, 1
-  November 2026; sign-in, review gate; updates README "Accounts" and
-  "Synced profile" and the privacy page)
-  - On a new account's first sign-in with Google, the worker also asks
-    Google for the name (the `profile` scope beside `openid email` in
-    `worker/src/google.ts`) and the app asks "Use <name> as your name?"
-    with **Use it** or **Choose another** (a name of their own, for anyone
-    who'd rather stay anonymous), passing `validateName` either way
-  - Decided with the owner on 1 November 2026: it asks only while the
-    player's name is still a Guest one, so a name already chosen as a
-    guest is kept. The server never stores Google's name: it's passed to
-    the app once, and only the chosen name is kept, in the synced profile
-  - The choice is remembered with the account (the synced name), so a
-    later sign-in on any device never asks again; the name can still be
-    changed at any time from the profile, as today
 - [ ] **18zt. Title screen shows where your games really are** (issues
   plangdon84/word-mastermind-archive#250 and
   plangdon84/word-mastermind-archive#252; app, and the worker if the
@@ -143,6 +128,21 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zz. Your Google name on first sign-in** (from the owner, 1
+  November 2026; sign-in, review gate; updates README "Accounts" and
+  "Synced profile" and the privacy page)
+  - On a new account's first sign-in with Google, the worker also asks
+    Google for the name (the `profile` scope beside `openid email` in
+    `worker/src/google.ts`) and the app asks "Use <name> as your name?"
+    with **Use it** or **Choose another** (a name of their own, for anyone
+    who'd rather stay anonymous), passing `validateName` either way
+  - Decided with the owner on 1 November 2026: it asks only while the
+    player's name is still a Guest one, so a name already chosen as a
+    guest is kept. The server never stores Google's name: it's passed to
+    the app once, and only the chosen name is kept, in the synced profile
+  - The choice is remembered with the account (the synced name), so a
+    later sign-in on any device never asks again; the name can still be
+    changed at any time from the profile, as today
 - [x] **18zw. Your current name on every leaderboard** (issues
   plangdon84/word-mastermind-archive#254 and
   plangdon84/word-mastermind-archive#255; worker, review gate; updates

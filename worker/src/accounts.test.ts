@@ -219,7 +219,7 @@ describe('signing in with Google', () => {
     expect(url.origin + url.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth');
     expect(url.searchParams.get('client_id')).toBe(CLIENT_ID);
     expect(url.searchParams.get('redirect_uri')).toBe(`${API}/api/auth/google/callback`);
-    expect(url.searchParams.get('scope')).toBe('openid email');
+    expect(url.searchParams.get('scope')).toBe('openid email profile');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
 
     const back = await server.call('GET', `/api/auth/google/callback?state=${url.searchParams.get('state')}&code=abc`);
@@ -232,6 +232,34 @@ describe('signing in with Google', () => {
     const token = new URL(back.headers.get('location')!).searchParams.get('login')!;
     const signedIn = await (await server.signIn(token, guest)).json() as { account: unknown };
     expect(signedIn.account).toEqual({ id: guest, email: 'ann@example.com', google: true, createdAt: NOW });
+  });
+
+  // Dev Plan item 18zz: offered once, after `#`, to a new account only, and never kept.
+  it("passes a new account Google's name once, after the #, and stores it nowhere", async () => {
+    const server = setup();
+    server.setClaims(googleClaims({ name: 'Ann Lee', given_name: 'Ann' }));
+    const guest = newId();
+    const first = await googleSignIn(server, guest);
+    const back = new URL(first.location);
+    expect(back.search).toMatch(/^\?login=[\w-]{43}$/);
+    expect(Object.fromEntries(new URLSearchParams(back.hash.slice(1)))).toEqual({ 'google-name': 'Ann Lee', 'google-given': 'Ann' });
+    const tables = server.sqlite.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[];
+    for (const { name } of tables) {
+      expect(JSON.stringify(server.sqlite.prepare(`SELECT * FROM "${name}"`).all())).not.toContain('Ann Lee');
+    }
+    // The account exists now: a later sign-in, on any device, isn't offered it.
+    expect(new URL((await googleSignIn(server, newId())).location).hash).toBe('');
+  });
+
+  it("doesn't offer the name to an account already made by email, or pass one that's missing or too long", async () => {
+    const server = setup();
+    await emailSignIn(server, 'ann@example.com', newId());
+    server.setClaims(googleClaims({ name: 'Ann Lee' }));
+    expect(new URL((await googleSignIn(server, newId())).location).hash).toBe('');
+    server.setClaims(googleClaims({ sub: 'g-2', email: 'bo@example.com', name: 'x'.repeat(101), given_name: 'Bo' }));
+    expect(new URL((await googleSignIn(server, newId())).location).hash).toBe('#google-given=Bo');
+    server.setClaims(googleClaims({ sub: 'g-3', email: 'cy@example.com' }));
+    expect(new URL((await googleSignIn(server, newId())).location).hash).toBe('');
   });
 
   it('joins the account already made by email for the same address', async () => {

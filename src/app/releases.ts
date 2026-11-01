@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.23.0',
+    notes: [
+      { text: 'Signing in with Google for the first time? You can use your Google name as your player name, or pick another.' },
+    ],
+  },
+  {
     version: '1.22.0',
     notes: [
       { text: 'Finished a Daily Set or Daily Word as a guest? You can choose your leaderboard name right on the result.' },

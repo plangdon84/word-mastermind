@@ -245,6 +245,23 @@ test('two devices on one account: a game finished on one reaches the other', asy
   await expect(other.getByRole('button', { name: /^Game history/ })).toContainText(/4 games/, { timeout: 20_000 });
 });
 
+// Dev Plan item 18zz: only Google's own round trip offers its name; one added to an emailed link isn't.
+test("an emailed link with a Google name added never offers it, and the name leaves the address bar", async ({ page }) => {
+  await unlockAll(page);
+  const email = `named-${test.info().project.name}-${Date.now()}@example.com`;
+  await page.getByRole('button', { name: /^Profile/ }).click();
+  await button(page, /^Account/).click();
+  await page.getByLabel('Email address').fill(email);
+  const before = loginLinkCount(email);
+  await button(page, 'Email me a link').click();
+  await page.goto(`${await loginLink(email, before)}#google-name=Mallory`);
+  await expect(page).toHaveURL((url) => url.search === '' && url.hash === '');
+  await button(page, 'Sign in').click();
+  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /as your name\?/ })).toHaveCount(0);
+  expect((await getStorage(page, 'profile'))?.name).toBeNull();
+});
+
 test("a sign-in link someone else sent you asks first, and Not me leaves you signed out", async ({ page, browser }) => {
   const email = `sender-${Date.now()}@example.com`;
   const sender = await newPlayer(browser, page);

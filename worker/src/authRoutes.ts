@@ -1,9 +1,9 @@
 import { isObject } from '../../src/game';
 import {
-  bearerToken, createLoginLink, deleteAccount, endSessionAndAlerts, findAccount, identify, isToken, mayEmail,
+  bearerToken, createLoginLink, deleteAccount, endSessionAndAlerts, existingAccountId, findAccount, identify, isToken, mayEmail,
   normalizeEmail, peekLoginLink, signIn,
 } from './accounts';
-import { finishGoogle, googleConfigOf, redirectUriOf, startGoogle } from './google';
+import { finishGoogle, googleConfigOf, googleNameHash, redirectUriOf, startGoogle } from './google';
 import { isGuestId } from './guests';
 import { errorResponse, isAllowedOrigin, json, readJson } from './http';
 import type { Env } from './index';
@@ -85,7 +85,10 @@ export async function routeAuth(
     }
     const { returnTo, guestId, identity } = finished;
     if (!identity) return redirect(`${returnTo}/?login-error=google`);
-    return redirect(loginUrl(returnTo, await createLoginLink(env.DB, identity.email, identity.sub, now, guestId)));
+    // A new account's app offers Google's name once as the player's name (Dev Plan item 18zz); it's never stored.
+    const isNew = await existingAccountId(env.DB, identity.email, identity.sub) === null;
+    const link = loginUrl(returnTo, await createLoginLink(env.DB, identity.email, identity.sub, now, guestId));
+    return redirect(isNew ? link + googleNameHash(identity) : link);
   }
 
   // Who a sign-in link is for, without using it: the app asks "Sign in as …?" before using an emailed one.

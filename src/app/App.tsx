@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  authApi, AuthError, authErrorMessage, checkSession, loadSession, loginFailedInUrl, loginTokenFromUrl, saveSession,
+  authApi, AuthError, authErrorMessage, checkSession, googleNameFromHash, googleNameInHash, loadSession, loginFailedInUrl,
+  loginTokenFromUrl, saveSession,
   type Session,
 } from './account';
 import { noteReloadFor, triedReloadFor, useLatestBuild } from './appUpdate';
 import { AccountSection, type AccountNotice, type LoginAsk } from './AccountSection';
+import { GoogleNamePrompt } from './GoogleNamePrompt';
 import { DIFFICULTY_LABEL } from './components';
 import { NoServerSection, UpdateBar } from './panels';
 import { forgetTappedLink, TAP_LOOKS_MS, takeTappedLink } from './notificationTaps';
@@ -208,6 +210,13 @@ export function App() {
   const [accountNotice, setAccountNotice] = useState<AccountNotice | null>(null);
   // Read before the address bar is cleared below.
   const [loginLink] = useState(() => ({ token: loginTokenFromUrl(location.search), failed: loginFailedInUrl(location.search) }));
+  /**
+   * Google's name, when its sign-in just made a new account (Dev Plan item
+   * 18zz), to offer once as your name; then the name being offered, after
+   * signing in, while your name is still a Guest one.
+   */
+  const googleName = useRef(googleNameFromHash(location.hash));
+  const [nameOffer, setNameOffer] = useState<string | null>(null);
   /** A friend's code from their link (`?friend=…`), for the profile's friends list to add. */
   const [friendCode] = useState(() => (API_URL ? friendCodeFromUrl(location.search) : null));
   /**
@@ -256,7 +265,9 @@ export function App() {
   const [openedFromLink] = useState(() => location.search !== '');
   // Once opened, the link's game ID leaves the address bar, so a reload doesn't reopen it over another screen.
   useEffect(() => {
-    if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+    // Google's name leaves it too: it's only kept if chosen.
+    const hash = googleNameInHash(location.hash) ? '' : location.hash;
+    if (location.search || hash !== location.hash) history.replaceState(null, '', location.pathname + hash);
   }, []);
   // A tapped notification, with the app already open, opens its game here (public/sw.js).
   useEffect(() => {
@@ -483,6 +494,9 @@ export function App() {
         signedOut(true, deviceId);
       }
       setSession(signedIn);
+      const offer = googleName.current;
+      googleName.current = null;
+      if (offer && !from && signedIn.account.google && latest.current.profile.name === null) setNameOffer(offer);
       showLoginNotice({ text: "You're signed in.", error: false });
       pullFriendGames({ guestId: deviceId, token: signedIn.token });
     }, (e: unknown): Promise<void> | void => {
@@ -503,6 +517,8 @@ export function App() {
       return;
     }
     authApi(API_URL, profile.deviceId).checkLink(token).then(({ email, confirm }) => {
+      // Only Google's own round trip offers its name, never an emailed link with one added.
+      if (confirm) googleName.current = null;
       // Asked only of an emailed link for an account other than the one this device is signed in to.
       if (!confirm || session?.account.email === email) {
         tradeLoginLink(token);
@@ -646,6 +662,8 @@ export function App() {
   // Going somewhere else (a notification, say) leaves the friend's profile too.
   useEffect(() => setFriendOver(null), [screen]);
 
+  // Google's name, offered on the page signing in opens (Account, or Friends to accept an invite).
+  const namePrompt = nameOffer && <GoogleNamePrompt name={nameOffer} profile={profile} onProfile={setProfile} />;
   // The screen, with the keyboard's layout (a setting) for every game on it.
   const view = (() => {
     if (screen.name === 'profile') {
@@ -655,15 +673,20 @@ export function App() {
           synced={!!API_URL && session !== null}
           page={screen.page}
           onPage={(page) => {
-            if (page === null) setAccountNotice(null);
+            if (page === null) {
+              setAccountNotice(null);
+              setNameOffer(null);
+            }
             setScreen({ ...screen, page });
           }}
           onBack={() => {
             setAccountNotice(null);
+            setNameOffer(null);
             setScreen(screen.from);
           }}
           onHome={() => {
             setAccountNotice(null);
+            setNameOffer(null);
             setScreen({ name: 'title' });
           }} onGamesChanged={() => {
             setHistoryVersion((v) => v + 1);
@@ -672,6 +695,8 @@ export function App() {
           summaries={profileSummaries({ games: historyGames, session: API_URL ? session : null, settings })}
           pages={{
             account: API_URL ? (
+              <>
+              {namePrompt}
               <AccountSection apiUrl={API_URL} guestId={profile.deviceId} session={session}
                 onAccount={(account) => setSession((s) => s && { ...s, account })} onSignedOut={(newGuest, deliberate) => {
                 // Signing out (or deleting the account) on purpose: a friend's invite opened on this
@@ -696,8 +721,10 @@ export function App() {
                   setAccountNotice({ text: "You didn't sign in. This device stays as it was.", error: false, quiet: true });
                   checkOnOpening();
                 }} />
-            ) : <NoServerSection label="Account" needs="Signing in" />,
+            </>) : <NoServerSection label="Account" needs="Signing in" />,
             friends: API_URL ? (
+              <>
+              {namePrompt}
               <FriendsSection apiUrl={API_URL} identity={identity} name={displayName(profile)} addCode={friendCode}
               onSignIn={() => setScreen({ name: 'profile', from: screen.from, page: 'account' })}
               findByName={settings.findByName} onFindByName={(findable) => setSettings({ ...settings, findByName: findable })}
@@ -713,7 +740,7 @@ export function App() {
                   setFriendFilter({});
                   setScreen({ name: 'friendProfile', friend, page: null, from: screen.from });
                 }} />
-            ) : <NoServerSection label="Friends" needs="Friends" />,
+            </>) : <NoServerSection label="Friends" needs="Friends" />,
             stats: <StatsPage games={historyGames} identity={identity} signedIn={session !== null} onOpen={openReview} />,
             achievements: <AchievementsPage games={historyGames} />,
             history: <GameHistory key={historyVersion} filter={historyFilter} onFilter={setHistoryFilter} onOpen={openReview} />,
