@@ -381,7 +381,11 @@ PvP needs the [backend](#backend-plan). Two kinds of game:
   player's guess). The game page shows the 2 minutes counting down, with
   your clock still. A player who misses them **cancels the game**: no
   winner, not rated, and no entry in either history; both players are told
-  it was cancelled, and it can still be rematched. A record keeps whether it
+  it was cancelled, neither word is shown, and it can still be rematched. A
+  **final guess is never a first guess** (decided with the owner in the
+  review of PR #53): if a first guess finds the word, the other's final
+  guess runs on their clock, and running out loses, so a lost game can't be
+  waited out. A record keeps whether it
   started under this rule (`firstGuessFree`), so live games from before it
   replay as they were played. Correspondence games are unchanged. The server keeps the official clock: the
   game's Durable Object ends the game when the player to move's clock runs
