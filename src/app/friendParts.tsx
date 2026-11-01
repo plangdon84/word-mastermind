@@ -229,6 +229,7 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
 }) {
   const lastTheirs = view.theirGuesses[view.theirGuesses.length - 1];
   const youFoundTheirs = view.yourGuesses.some((g) => g.isWin);
+  const cancelled = outcome === 'cancelled-you' || outcome === 'cancelled-them';
   return (
     <ResultCard outcome={outcome} word={choice ? null : view.theirSecret} whose={`${opponent}'s word`}>
       {outcome === 'clutch' && <Confetti />}
@@ -269,7 +270,8 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
         'cancelled-you': "You didn't make your first guess within 2 minutes, so there's no winner. It isn't kept in your history.",
         'cancelled-them': `${opponent} didn't make their first guess within 2 minutes, so there's no winner. It isn't kept in your history.`,
       }[outcome]}</p>
-      {choice ? choice : (
+      {/* A cancelled game (item 18zv) shows no words and no tally: it never got going. */}
+      {cancelled ? null : choice ? choice : (
         <>
           {!youFoundTheirs && <p>{opponent}'s word was</p>}
           <TheirWord word={view.theirSecret}
@@ -279,7 +281,7 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
         </>
       )}
       {/* Your count, where the line above didn't already give it. */}
-      {!['won', 'won-held', 'gave-up', 'they-gave-up'].includes(outcome) && <p class="tally">You: {guessCount(view.yourGuesses.length)}</p>}
+      {!cancelled && !['won', 'won-held', 'gave-up', 'they-gave-up'].includes(outcome) && <p class="tally">You: {guessCount(view.yourGuesses.length)}</p>}
       <SuggestNote found={youFoundTheirs} guesses={view.yourGuesses.length} suggested={view.suggested} />
       {rating && <RatingChange line={rating} />}
       <div class="row-btns">
