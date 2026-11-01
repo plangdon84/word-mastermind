@@ -42,7 +42,10 @@ export function joinedNotice(room: Room, game: PvpGame): Notice[] {
   const guest = names(room).guest;
   const control = timeControlOf(game);
   const body = game.first === 'host'
-    ? isLive(control) ? 'You go first, and your clock is running.' : `You go first. You have ${days(game.turnDays ?? 1)} to guess.`
+    ? isLive(control)
+      // Item 18zv: the first guess is untimed but due within 2 minutes; older games' clocks started at once.
+      ? game.firstGuessFree ? 'You go first: make your first guess within 2 minutes.' : 'You go first, and your clock is running.'
+      : `You go first. You have ${days(game.turnDays ?? 1)} to guess.`
     : `${guest} goes first.`;
   const title = room.matched ? `Matched with ${guest}` : `${guest} accepted your invite`;
   return [{ guestId: room.host.guestId, message: { title, body, gameId: room.id } }];
@@ -93,6 +96,13 @@ export function moveNotices(room: Room, game: PvpGame): Notice[] {
   const other = otherSeat(mover);
 
   if (move.kind === 'concede') return [notice(other, `${name[mover]} gave up`, 'You win!')];
+  // Live (item 18zv): a first guess not made within 2 minutes cancels the game, and both are told.
+  if (move.kind === 'cancel') {
+    return [
+      notice(other, `Your game against ${name[mover]} was cancelled`, `${name[mover]} didn't make their first guess in time. No winner.`),
+      notice(mover, `Your game against ${name[other]} was cancelled`, "You didn't make your first guess in time. No winner."),
+    ];
+  }
   if (move.kind === 'timeout') {
     return [
       notice(other, `${name[mover]} ran out of time`, 'You win!'),
