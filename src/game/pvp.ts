@@ -30,6 +30,13 @@ export type ClockMinutes = (typeof CLOCK_MINUTES)[number];
 export const MINUTE_MS = 60 * 1000;
 
 /**
+ * Live, under item 18zv's rule (`firstGuessFree`): how long a player has to
+ * make their first guess once their turn starts, before the game is
+ * cancelled. Their first guess doesn't run their clock.
+ */
+export const FIRST_GUESS_MS = 2 * MINUTE_MS;
+
+/**
  * How a game is timed: a chess clock of 15, 10 or 5 minutes each (live), or
  * 1 or 3 days per guess (correspondence).
  */
@@ -69,6 +76,12 @@ export type PvpMove =
   | { seat: Seat; kind: 'concede'; at: number }
   /** The player whose turn it was ran out of time, which loses: `at` is the moment their time ran out. */
   | { seat: Seat; kind: 'timeout'; at: number }
+  /**
+   * Live, under `firstGuessFree`: the player whose turn it was didn't make
+   * their first guess in time, which cancels the game: no winner, not rated
+   * and no history entry. `at` is when their time ran out.
+   */
+  | { seat: Seat; kind: 'cancel'; at: number }
   /** A player changed difficulty. It never affects the result. */
   | { seat: Seat; kind: 'difficulty'; difficulty: Difficulty; at: number }
   /** Easy's Suggest filled a player's input with this word (README "Easy"). It isn't a guess, and any time. */
@@ -90,6 +103,13 @@ export interface PvpRecord {
   difficulty: Readonly<Record<Seat, Difficulty>>;
   /** A rated game (README "Rating"): difficulty can't change during it. Absent otherwise. */
   rated?: true;
+  /**
+   * Live games started under Dev Plan item 18zv: each player's first guess
+   * is untimed and must come within `FIRST_GUESS_MS` of their turn starting,
+   * or the game is cancelled. Absent on older records, which replay as
+   * they were played.
+   */
+  firstGuessFree?: true;
   moves: readonly PvpMove[];
 }
 
@@ -108,7 +128,7 @@ export type PvpStatus = 'playing' | 'final-guess' | 'over';
 /** How a finished game ended. `winner` is null for a draw. */
 export interface PvpOutcome {
   winner: Seat | null;
-  reason: 'found' | 'draw' | 'conceded' | 'timed-out';
+  reason: 'found' | 'draw' | 'conceded' | 'timed-out' | 'cancelled';
 }
 
 export interface PvpGame extends PvpRecord {
@@ -164,29 +184,44 @@ function turnStart(game: PvpRecord): number {
 /**
  * A live game's clocks: the time each player has left, not counting the
  * turn now running. A player's clock runs from the other's guess (the first
- * player's, from the start) to their own. Null for correspondence.
+ * player's, from the start) to their own, except, under `firstGuessFree`,
+ * for their first guess. Null for correspondence.
  */
 export function pvpClocks(game: PvpRecord): Record<Seat, number> | null {
   if (game.clockMinutes === undefined) return null;
   const left = { host: game.clockMinutes * MINUTE_MS, guest: game.clockMinutes * MINUTE_MS };
+  const guessed = { host: false, guest: false };
   let since = game.startedAt;
   for (const move of game.moves) {
     if (move.kind !== 'guess') continue;
-    left[move.seat] -= move.at - since;
+    if (guessed[move.seat] || !game.firstGuessFree) left[move.seat] -= move.at - since;
+    guessed[move.seat] = true;
     since = move.at;
   }
   return left;
 }
 
 /**
+ * Live, under `firstGuessFree`: the player to move still owes their first
+ * guess, so their turn has `FIRST_GUESS_MS` and their clock waits. False
+ * otherwise, and once the game is over.
+ */
+export function pvpFirstGuessDue(game: PvpGame): boolean {
+  const turn = pvpTurn(game);
+  return turn !== null && game.firstGuessFree === true && game.guesses[turn].length === 0;
+}
+
+/**
  * When the player to move runs out of time, or null once the game is over.
  * Correspondence: each player has `turnDays` from the other's last guess (the
  * first player, from the start). Live: what's left on their clock, from the
- * same moment. Changing difficulty doesn't reset either.
+ * same moment, or `FIRST_GUESS_MS` for a first guess under
+ * `firstGuessFree`. Changing difficulty doesn't reset either.
  */
 export function pvpDeadline(game: PvpGame): number | null {
   const turn = pvpTurn(game);
   if (turn === null) return null;
+  if (pvpFirstGuessDue(game)) return turnStart(game) + FIRST_GUESS_MS;
   const clocks = pvpClocks(game);
   return turnStart(game) + (clocks ? clocks[turn] : (game.turnDays ?? 1) * DAY_MS);
 }
@@ -218,6 +253,8 @@ export function createPvpGame(
   difficulty: Record<Seat, Difficulty>,
   rated = false,
   replaying = false,
+  /** A replayed record's own `firstGuessFree`; a new live game always has it. */
+  firstGuessFree = !replaying && clockMinutesOf(control) !== null,
 ): PvpResult {
   const host = validateSecretWord(secrets.host, replaying);
   if (!host.ok) return host;
@@ -233,6 +270,7 @@ export function createPvpGame(
       ...timingOf(control),
       difficulty,
       ...(rated ? { rated: true as const } : {}),
+      ...(firstGuessFree && clockMinutesOf(control) !== null ? { firstGuessFree: true as const } : {}),
       moves: [],
       guesses: { host: [], guest: [] },
       status: 'playing',
@@ -299,13 +337,25 @@ export function concedePvp(game: PvpGame, seat: Seat, now: number): PvpResult {
 /**
  * The player to move ran out of time and loses. The referee calls this once
  * the deadline has passed (`now` is the deadline, or any time after it); the
- * move records the deadline itself.
+ * move records the deadline itself. A live first guess not made in time
+ * (`pvpFirstGuessDue`) cancels the game instead: no winner.
  */
 export function timeOutPvp(game: PvpGame, now: number): PvpResult {
   const turn = pvpTurn(game);
   if (turn === null) return { ok: false, error: 'game-over' };
   const deadline = pvpDeadline(game)!;
   if (now < deadline) return { ok: false, error: 'time-left' };
+  if (pvpFirstGuessDue(game)) {
+    return {
+      ok: true,
+      game: {
+        ...game,
+        moves: [...game.moves, { seat: turn, kind: 'cancel', at: deadline }],
+        status: 'over',
+        outcome: { winner: null, reason: 'cancelled' },
+      },
+    };
+  }
   return {
     ok: true,
     game: {
@@ -360,21 +410,31 @@ export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
   switch (move.kind) {
     case 'guess': return submitPvpGuess(game, move.seat, move.word, move.at, move.marks, true);
     case 'concede': return concedePvp(game, move.seat, move.at);
-    case 'timeout': return pvpTurn(game) === move.seat ? timeOutPvp(game, move.at) : { ok: false, error: 'not-your-turn' };
+    case 'timeout':
+    case 'cancel': {
+      if (pvpTurn(game) !== move.seat) return { ok: false, error: 'not-your-turn' };
+      const result = timeOutPvp(game, move.at);
+      // A timeout replays as a timeout and a cancel as a cancel, or the record is refused.
+      return result.ok && result.game.moves.at(-1)?.kind !== move.kind ? { ok: false, error: 'time-left' } : result;
+    }
     case 'difficulty': return setPvpDifficulty(game, move.seat, move.difficulty, move.at, true);
     case 'suggest': return suggestPvp(game, move.seat, move.word, move.at, true);
   }
 }
 
 export function toPvpRecord(game: PvpGame): PvpRecord {
-  const { secrets, first, startedAt, difficulty, rated, moves } = game;
-  return { secrets, first, startedAt, ...timingOf(timeControlOf(game)), difficulty, ...(rated ? { rated } : {}), moves };
+  const { secrets, first, startedAt, difficulty, rated, firstGuessFree, moves } = game;
+  return {
+    secrets, first, startedAt, ...timingOf(timeControlOf(game)), difficulty, ...(rated ? { rated } : {}),
+    ...(firstGuessFree ? { firstGuessFree } : {}), moves,
+  };
 }
 
 /** Rebuilds a game from its record, taking its words as recorded, failing on the first move the rules refuse. */
 export function replayPvp(record: PvpRecord): PvpResult {
   let result = createPvpGame(
     record.secrets, record.first, record.startedAt, timeControlOf(record), record.difficulty, record.rated === true, true,
+    record.firstGuessFree === true,
   );
   for (const move of record.moves) {
     if (!result.ok) break;
@@ -401,6 +461,12 @@ export interface PvpView {
   timeControl: TimeControl;
   /** When the player to move runs out of time; null once the game is over. */
   deadline: number | null;
+  /**
+   * Live (item 18zv): the player to move still owes their first guess, so
+   * `deadline` is when the game is cancelled and their clock waits. Absent
+   * from an older server.
+   */
+  firstGuessDue?: boolean;
   /**
    * Live: the time each player has left, not counting the turn now running
    * (the player to move has until `deadline`). Null for correspondence.
@@ -445,6 +511,7 @@ export function pvpView(game: PvpGame, seat: Seat): PvpView {
     startedAt: game.startedAt,
     timeControl: timeControlOf(game),
     deadline: pvpDeadline(game),
+    firstGuessDue: pvpFirstGuessDue(game),
     clocks: clocks && { you: clocks[seat], opponent: clocks[other] },
     difficulty: game.playingDifficulty[seat],
     rated: game.rated === true,

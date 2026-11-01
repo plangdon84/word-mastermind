@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
-  clockMinutesOf, concedePvp, createPvpGame, DAY_MS, isTimeControl, MINUTE_MS, pickFirstSeat, pvpClocks, pvpDeadline,
+  clockMinutesOf, concedePvp, createPvpGame, DAY_MS, FIRST_GUESS_MS, isTimeControl, MINUTE_MS, pickFirstSeat, pvpClocks, pvpDeadline,
   pvpTurn, pvpView, replayPvp, setPvpDifficulty, submitPvpGuess, timeControlOf, timeControlText, timeOutPvp, toPvpRecord,
   turnDaysOf, type PvpGame, type Seat, type TimeControl,
 } from './pvp';
+import { parsePvpRecord } from './records';
 
 const T = 1_000;
 
-// The host's word is `storm`; the guest's is `beach`.
-function newGame(first: Seat, control: TimeControl = '1d'): PvpGame {
-  const result = createPvpGame({ host: 'storm', guest: 'beach' }, first, T, control, { host: 'medium', guest: 'hard' });
+// The host's word is `storm`; the guest's is `beach`. `older`: a live game from before item 18zv, every guess timed.
+function newGame(first: Seat, control: TimeControl = '1d', older = false): PvpGame {
+  const result = older
+    ? createPvpGame({ host: 'storm', guest: 'beach' }, first, T, control, { host: 'medium', guest: 'hard' }, false, true, false)
+    : createPvpGame({ host: 'storm', guest: 'beach' }, first, T, control, { host: 'medium', guest: 'hard' });
   if (!result.ok) throw new Error(`could not create game: ${result.error}`);
   return result.game;
 }
@@ -174,15 +177,15 @@ describe('time controls', () => {
   });
 
   it('are kept in the record, which old correspondence records already match', () => {
-    expect(toPvpRecord(newGame('host', '5m'))).toMatchObject({ clockMinutes: 5 });
-    expect(toPvpRecord(newGame('host', '5m'))).not.toHaveProperty('turnDays');
+    expect(toPvpRecord(newGame('host', '5m', true))).toMatchObject({ clockMinutes: 5 });
+    expect(toPvpRecord(newGame('host', '5m', true))).not.toHaveProperty('turnDays');
     expect(toPvpRecord(newGame('host', '3d'))).toMatchObject({ turnDays: 3 });
     expect(timeControlOf({ turnDays: 3 })).toBe('3d');
     expect(timeControlOf({ clockMinutes: 15 })).toBe('15m');
   });
 });
 
-describe('the chess clock', () => {
+describe('the chess clock in a game from before item 18zv', () => {
   const guessAt = (game: PvpGame, word: string, at: number) => {
     const result = submitPvpGuess(game, pvpTurn(game)!, word, at);
     if (!result.ok) throw new Error(result.error);
@@ -190,7 +193,7 @@ describe('the chess clock', () => {
   };
 
   it("runs only on each player's own turn", () => {
-    let game = newGame('host', '5m');
+    let game = newGame('host', '5m', true);
     expect(pvpClocks(game)).toEqual({ host: 5 * MINUTE_MS, guest: 5 * MINUTE_MS });
     expect(pvpDeadline(game)).toBe(T + 5 * MINUTE_MS);
     game = guessAt(game, 'crane', T + 20_000);
@@ -202,13 +205,13 @@ describe('the chess clock', () => {
   });
 
   it("isn't reset by a difficulty change", () => {
-    const game = guessAt(newGame('host', '10m'), 'crane', T + 60_000);
+    const game = guessAt(newGame('host', '10m', true), 'crane', T + 60_000);
     const changed = setPvpDifficulty(game, 'guest', 'extreme', T + 90_000);
     expect(changed.ok && pvpDeadline(changed.game)).toBe(T + 60_000 + 10 * MINUTE_MS);
   });
 
   it('loses the game for a player whose clock runs out, even on the final guess', () => {
-    let game = guessAt(newGame('host', '5m'), 'beach', T + 10_000);
+    let game = guessAt(newGame('host', '5m', true), 'beach', T + 10_000);
     expect(game.status).toBe('final-guess');
     const deadline = T + 10_000 + 5 * MINUTE_MS;
     expect(submitPvpGuess(game, 'guest', 'storm', deadline)).toEqual({ ok: false, error: 'time-up' });
@@ -221,11 +224,80 @@ describe('the chess clock', () => {
   });
 
   it('shows each player both clocks from their side', () => {
-    const game = guessAt(newGame('guest', '15m'), 'storm', T + 45_000);
+    const game = guessAt(newGame('guest', '15m', true), 'storm', T + 45_000);
     expect(pvpView(game, 'host')).toMatchObject({
       timeControl: '15m', clocks: { you: 15 * MINUTE_MS, opponent: 15 * MINUTE_MS - 45_000 }, deadline: T + 45_000 + 15 * MINUTE_MS,
     });
     expect(pvpView(newGame('host'), 'host')).toMatchObject({ timeControl: '1d', clocks: null });
+  });
+});
+
+describe('a live game, first guesses untimed (item 18zv)', () => {
+  const guessAt = (game: PvpGame, word: string, at: number) => {
+    const result = submitPvpGuess(game, pvpTurn(game)!, word, at);
+    if (!result.ok) throw new Error(result.error);
+    return result.game;
+  };
+
+  it("starts each player's clock after their first guess, which has 2 minutes", () => {
+    let game = newGame('host', '5m');
+    expect(toPvpRecord(game).firstGuessFree).toBe(true);
+    expect(pvpView(game, 'host')).toMatchObject({ firstGuessDue: true, deadline: T + FIRST_GUESS_MS });
+    // The host's first guess, a minute and a half in, costs their clock nothing.
+    game = guessAt(game, 'crane', T + 90_000);
+    expect(pvpClocks(game)).toEqual({ host: 5 * MINUTE_MS, guest: 5 * MINUTE_MS });
+    // The guest's first guess has 2 minutes from the host's.
+    expect(pvpView(game, 'guest')).toMatchObject({ firstGuessDue: true, deadline: T + 90_000 + FIRST_GUESS_MS });
+    game = guessAt(game, 'moist', T + 150_000);
+    expect(pvpClocks(game)).toEqual({ host: 5 * MINUTE_MS, guest: 5 * MINUTE_MS });
+    // From here the clocks run as before.
+    expect(pvpView(game, 'host')).toMatchObject({ firstGuessDue: false, deadline: T + 150_000 + 5 * MINUTE_MS });
+    game = guessAt(game, 'plant', T + 170_000);
+    expect(pvpClocks(game)).toEqual({ host: 5 * MINUTE_MS - 20_000, guest: 5 * MINUTE_MS });
+    expect(replayPvp(toPvpRecord(game))).toEqual({ ok: true, game });
+  });
+
+  it('cancels the game, with no winner, when a first guess takes over 2 minutes', () => {
+    const first = newGame('host', '10m');
+    expect(submitPvpGuess(first, 'host', 'crane', T + FIRST_GUESS_MS)).toEqual({ ok: false, error: 'time-up' });
+    expect(timeOutPvp(first, T + FIRST_GUESS_MS - 1)).toEqual({ ok: false, error: 'time-left' });
+    const cancelled = timeOutPvp(first, T + FIRST_GUESS_MS + 5_000);
+    if (!cancelled.ok) throw new Error(cancelled.error);
+    expect(cancelled.game.outcome).toEqual({ winner: null, reason: 'cancelled' });
+    expect(cancelled.game.moves.at(-1)).toEqual({ seat: 'host', kind: 'cancel', at: T + FIRST_GUESS_MS });
+    expect(pvpView(cancelled.game, 'guest').outcome).toEqual({ result: 'draw', reason: 'cancelled' });
+    expect(replayPvp(toPvpRecord(cancelled.game))).toEqual(cancelled);
+    // The second player too, counted from the first player's guess.
+    const second = guessAt(newGame('guest', '15m'), 'storm', T + 30_000);
+    const late = timeOutPvp(second, T + 30_000 + FIRST_GUESS_MS);
+    expect(late.ok && late.game.outcome).toEqual({ winner: null, reason: 'cancelled' });
+  });
+
+  it('keeps the rule through a saved record, so a slow first guess still replays', () => {
+    // A 5 minute game whose first guesses came at 1:50 and 3:40: under the old rule the host's 5 minutes
+    // would still stand, but the record must say which rule it was played under.
+    let game = guessAt(newGame('host', '5m'), 'crane', T + 110_000);
+    game = guessAt(game, 'moist', T + 220_000);
+    game = guessAt(game, 'plant', T + 220_000 + 4 * MINUTE_MS);
+    const saved = parsePvpRecord(JSON.parse(JSON.stringify(toPvpRecord(game))));
+    expect(saved?.firstGuessFree).toBe(true);
+    expect(replayPvp(saved!)).toEqual({ ok: true, game });
+    const cancelled = timeOutPvp(newGame('host', '5m'), T + FIRST_GUESS_MS);
+    if (!cancelled.ok) throw new Error(cancelled.error);
+    expect(parsePvpRecord(JSON.parse(JSON.stringify(toPvpRecord(cancelled.game))))?.moves).toEqual(cancelled.game.moves);
+  });
+
+  it('leaves correspondence and older live games as they were', () => {
+    expect(toPvpRecord(newGame('host', '1d'))).not.toHaveProperty('firstGuessFree');
+    const older = newGame('host', '5m', true);
+    expect(toPvpRecord(older)).not.toHaveProperty('firstGuessFree');
+    expect(pvpDeadline(older)).toBe(T + 5 * MINUTE_MS);
+    // A record can't replay a timeout as a cancel, or the other way round.
+    const out = timeOutPvp(older, T + 5 * MINUTE_MS);
+    if (!out.ok) throw new Error(out.error);
+    const record = toPvpRecord(out.game);
+    const forged = { ...record, moves: [{ ...record.moves[0], kind: 'cancel' as const }] };
+    expect(replayPvp(forged).ok).toBe(false);
   });
 });
 

@@ -127,7 +127,7 @@ export function parsePvpMoves(value: unknown): PvpMove[] | null {
       return { seat: m.seat, kind: 'guess', word: m.word, at: m.at, ...(m.marks ? { marks: parseMarks(m.marks) } : {}) };
     }
     if (m.kind === 'suggest' && typeof m.word === 'string') return { seat: m.seat, kind: 'suggest', word: m.word, at: m.at };
-    if (m.kind === 'concede' || m.kind === 'timeout') return { seat: m.seat, kind: m.kind, at: m.at };
+    if (m.kind === 'concede' || m.kind === 'timeout' || m.kind === 'cancel') return { seat: m.seat, kind: m.kind, at: m.at };
     if (m.kind === 'difficulty' && isDifficulty(m.difficulty)) {
       return { seat: m.seat, kind: 'difficulty', difficulty: m.difficulty, at: m.at };
     }
@@ -138,17 +138,20 @@ export function parsePvpMoves(value: unknown): PvpMove[] | null {
 /** A game against a friend, as the server keeps it. */
 export function parsePvpRecord(value: unknown): PvpRecord | null {
   if (!isObject(value)) return null;
-  const { secrets, first, startedAt, turnDays, clockMinutes, difficulty, rated } = value;
+  const { secrets, first, startedAt, turnDays, clockMinutes, difficulty, rated, firstGuessFree } = value;
   const moves = parsePvpMoves(value.moves);
   if (!isObject(secrets) || typeof secrets.host !== 'string' || typeof secrets.guest !== 'string') return null;
   if (!isObject(difficulty) || !isDifficulty(difficulty.host) || !isDifficulty(difficulty.guest)) return null;
   if (!isSeat(first) || !isTime(startedAt) || !moves || (rated !== undefined && rated !== true)) return null;
+  // Item 18zv's live rule: kept, so the game replays as it was played.
+  if (firstGuessFree !== undefined && (firstGuessFree !== true || clockMinutes === undefined)) return null;
   const timing = clockMinutes !== undefined
     ? (CLOCK_MINUTES.includes(clockMinutes as ClockMinutes) && turnDays === undefined ? { clockMinutes: clockMinutes as ClockMinutes } : null)
     : turnDays === undefined || TURN_DAYS.includes(turnDays as TurnDays) ? (turnDays === undefined ? {} : { turnDays: turnDays as TurnDays }) : null;
   if (!timing) return null;
   return {
     secrets: { host: secrets.host, guest: secrets.guest }, first, startedAt, ...timing,
-    difficulty: { host: difficulty.host, guest: difficulty.guest }, ...(rated ? { rated: true as const } : {}), moves,
+    difficulty: { host: difficulty.host, guest: difficulty.guest }, ...(rated ? { rated: true as const } : {}),
+    ...(firstGuessFree ? { firstGuessFree: true as const } : {}), moves,
   };
 }
