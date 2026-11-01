@@ -11,6 +11,7 @@ import { render } from 'preact';
 import { App } from './app/App';
 import { API_URL } from './app/config';
 import { preventDoubleTapZoom } from './app/doubleTap';
+import { trackInputKind } from './app/inputKind';
 import { ReportHost } from './app/ReportIssue';
 import { newAddress, redirectDue } from './app/moved';
 import { registerServiceWorker } from './app/turnAlerts';
@@ -32,6 +33,7 @@ render(
 );
 
 preventDoubleTapZoom(document);
+trackInputKind(document);
 
 // Turn alerts for games against a friend need the service worker.
 if (API_URL) registerServiceWorker();
