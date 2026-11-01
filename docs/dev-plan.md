@@ -6,6 +6,38 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
+- [ ] **18zy. Ask guests to name themselves for the leaderboard** (issue
+  plangdon84/word-mastermind-archive#253, moved here from 18zw, and the
+  owner, 1 November 2026; app; updates README "Leaderboards" and
+  "Profile")
+  - Fewer Guest names on the boards: when a game that goes on a
+    leaderboard ends (Daily Set, Daily Word) and the player's name is
+    still the default one (made by `guestName` in `src/game/profile.ts`),
+    the result says "You're on the leaderboard as Guest-1234" and offers
+    a name field right there, with a way to skip it. The name passes the
+    usual rule and profanity filter (`validateName`)
+  - Decided with the owner on 1 November 2026: it asks after every such
+    game while the name is still a Guest one (a skip isn't remembered);
+    the new name replaces the Guest name on the boards, past days too,
+    which 18zw builds (until then it shows from the next game)
+  - First step only: if guests still crowd the boards, a later item may
+    leave guests off them altogether, and this prompt's wording changes
+    to match
+- [ ] **18zz. Your Google name on first sign-in** (from the owner, 1
+  November 2026; sign-in, review gate; updates README "Accounts" and
+  "Synced profile" and the privacy page)
+  - On a new account's first sign-in with Google, the worker also asks
+    Google for the name (the `profile` scope beside `openid email` in
+    `worker/src/google.ts`) and the app asks "Use <name> as your name?"
+    with **Use it** or **Choose another** (a name of their own, for anyone
+    who'd rather stay anonymous), passing `validateName` either way
+  - Decided with the owner on 1 November 2026: it asks only while the
+    player's name is still a Guest one, so a name already chosen as a
+    guest is kept. The server never stores Google's name: it's passed to
+    the app once, and only the chosen name is kept, in the synced profile
+  - The choice is remembered with the account (the synced name), so a
+    later sign-in on any device never asks again; the name can still be
+    changed at any time from the profile, as today
 - [ ] **18zt. Title screen shows where your games really are** (issues
   plangdon84/word-mastermind-archive#250 and
   plangdon84/word-mastermind-archive#252; app, and the worker if the
@@ -58,20 +90,17 @@ Last triaged with the owner: 1 November 2026.
     started under the new rule); the room's alarm handles the 2 minute
     cancel
 - [ ] **18zw. Your current name on every leaderboard** (issues
-  plangdon84/word-mastermind-archive#254,
-  plangdon84/word-mastermind-archive#255 and
-  plangdon84/word-mastermind-archive#253; worker, review gate; updates
+  plangdon84/word-mastermind-archive#254 and
+  plangdon84/word-mastermind-archive#255; worker, review gate; updates
   README "Leaderboards" and "Daily Rush")
   - Issues 254 and 255: decided with the owner on 1 November 2026: the
     Daily boards show each player's current name on every day, past days
     included, so setting a name (or changing an old one) shows
     everywhere. Signed in, the name comes from the account's synced
     profile; a guest's past rows switch to their new name when they next
-    start a daily game. Names still pass the profanity filter
-  - Issue 253: a player who finishes a daily game still under a default
-    Guest name sees, on its result, "You're on the leaderboard as
-    Guest-1234. Set your name", which opens the name field; the note
-    says the new name shows on past days too
+    start a daily game. Names still pass the profanity filter (the
+    guests' prompt for a name, Issue 253, moved to 18zy on 1 November
+    2026)
 - [ ] **18zx. Pause in the Daily Word** (issue
   plangdon84/word-mastermind-archive#257; worker, review gate; updates
   README "Daily Word")
