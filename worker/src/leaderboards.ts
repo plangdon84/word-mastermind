@@ -1,4 +1,6 @@
-import { ageRating, FEATURES, gamesUntilListed, isProvisional, isRatingPool, NEW_RATING, PROVISIONAL_RD, type RatingPool } from '../../src/game';
+import {
+  ageRating, FEATURES, gamesUntilListed, isProvisional, isRatingPool, NEW_RATING, PROVISIONAL_RD, validateName, type RatingPool,
+} from '../../src/game';
 import {
   isCircle, RATING_BOARD_SIZE, type Circle, type RatingBoard, type RatingBoardRow, type YourRatingPlace,
 } from '../../src/app/leaderboardsApi';
@@ -59,8 +61,10 @@ export async function ratingBoard(
   listed.forEach((r, i) => {
     const rating = Math.round(r.rating);
     const rank = i > 0 && ranked[i - 1].rating === rating ? ranked[i - 1].rank : i + 1;
+    // A name the profanity filter now refuses shows as no name, as on the daily boards.
+    const shown = r.name === null ? null : validateName(r.name);
     ranked.push({
-      rank, name: r.name ?? NO_NAME, rating, games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
+      rank, name: shown?.ok ? shown.name : NO_NAME, rating, games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
     });
   });
   let you: YourRatingPlace | null = null;
