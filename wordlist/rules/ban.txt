@@ -48,3 +48,7 @@ livre
 metis
 stime
 trone
+
+# A poetic short form, decided with the owner on 1 November 2026 (Dev Plan
+# item 18zu); old games holding it still replay.
+neath
