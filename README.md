@@ -2040,7 +2040,9 @@ friends list ([Friends](#friends)).
   Google only.
 - **Google:** **Continue with Google** goes to Google's own sign-in page and
   comes back signed in. The app loads nothing from Google; the server does
-  the OpenID Connect exchange (with PKCE) and asks for your email and name.
+  the OpenID Connect exchange (with PKCE) and asks for your email and
+  Google's basic profile (your name; Google bundles your photo with it,
+  which the server never reads).
   The sign-in it ends in works only on the device that started it, so a
   link someone made for their own account can't sign your device in to it.
 - **Your Google name** (Dev Plan item 18zz): when signing in with Google
@@ -2050,10 +2052,11 @@ friends list ([Friends](#friends)).
   Guest-4821**). Either passes the usual name rules; if Google's full name
   doesn't (over 20 characters, say), it offers your first name, and if that
   doesn't either, it doesn't ask. A name you chose as a guest is kept, and
-  signing in to an account that already exists never asks. The server never
-  stores Google's name: it hands it to the app once, after the `#` of the
+  signing in to an account that already exists never asks. We never store
+  Google's name: the server hands it to the app once, after the `#` of the
   address it sends the browser back to (which never reaches a server), and
-  the app clears it from the address at once. Only the name you choose is
+  the app clears it from the address at once (the browser's own history
+  may still hold that address, as it does the one-use sign-in link). Only the name you choose is
   kept, as your profile's name, which syncs, so no later sign-in on any
   device asks again; you can change it on the profile at any time.
 - **One account per email:** signing in with Google and by email with the
