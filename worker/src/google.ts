@@ -52,7 +52,8 @@ export async function startGoogle(
     client_id: config.clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'openid email',
+    // `profile` for the name, which a new account's app offers once as the player's name (Dev Plan item 18zz).
+    scope: 'openid email profile',
     state,
     code_challenge: await challengeOf(verifier),
     code_challenge_method: 'S256',
@@ -64,6 +65,27 @@ export async function startGoogle(
 export interface GoogleIdentity {
   email: string;
   sub: string;
+  /** The person's name on Google, and their first name, if Google gave them: never stored, only offered. */
+  name?: string;
+  givenName?: string;
+}
+
+/** Longest name passed on: the app's names are at most 20 characters, so a longer one is no use to it. */
+const NAME_PASSED_MAX = 100;
+const nameClaim = (value: unknown) =>
+  typeof value === 'string' && value.trim() !== '' && value.length <= NAME_PASSED_MAX ? value : undefined;
+
+/**
+ * The end of the app's address that offers a new account Google's name
+ * (`src/app/account.ts` reads it): after `#`, so it never reaches a server
+ * or its logs, and the app clears it at once. Empty without a name.
+ */
+export function googleNameHash(identity: GoogleIdentity): string {
+  const params = new URLSearchParams();
+  if (identity.name) params.set('google-name', identity.name);
+  if (identity.givenName) params.set('google-given', identity.givenName);
+  const hash = params.toString();
+  return hash ? `#${hash}` : '';
 }
 
 /**
@@ -81,11 +103,14 @@ export function parseIdToken(idToken: unknown, clientId: string, now: number): G
     return null;
   }
   if (typeof claims !== 'object' || claims === null) return null;
-  const { iss, aud, exp, sub, email, email_verified: verified } = claims;
+  const { iss, aud, exp, sub, email, email_verified: verified, name, given_name: givenName } = claims;
   if (!GOOGLE_ISSUERS.includes(iss as string) || aud !== clientId) return null;
   if (typeof exp !== 'number' || exp * 1000 <= now) return null;
   if (typeof sub !== 'string' || sub === '' || typeof email !== 'string' || verified !== true) return null;
-  return { email: email.toLowerCase(), sub };
+  const identity: GoogleIdentity = { email: email.toLowerCase(), sub };
+  if (nameClaim(name)) identity.name = name as string;
+  if (nameClaim(givenName)) identity.givenName = givenName as string;
+  return identity;
 }
 
 /**

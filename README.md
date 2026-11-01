@@ -2040,9 +2040,22 @@ friends list ([Friends](#friends)).
   Google only.
 - **Google:** **Continue with Google** goes to Google's own sign-in page and
   comes back signed in. The app loads nothing from Google; the server does
-  the OpenID Connect exchange (with PKCE) and asks only for your email.
+  the OpenID Connect exchange (with PKCE) and asks for your email and name.
   The sign-in it ends in works only on the device that started it, so a
   link someone made for their own account can't sign your device in to it.
+- **Your Google name** (Dev Plan item 18zz): when signing in with Google
+  makes a new account and your name is still a Guest one, the app asks
+  **Use Ann Lee as your name?** with **Use it** or **Choose another** (a
+  name of your own, for anyone who'd rather stay anonymous, or **Stay
+  Guest-4821**). Either passes the usual name rules; if Google's full name
+  doesn't (over 20 characters, say), it offers your first name, and if that
+  doesn't either, it doesn't ask. A name you chose as a guest is kept, and
+  signing in to an account that already exists never asks. The server never
+  stores Google's name: it hands it to the app once, after the `#` of the
+  address it sends the browser back to (which never reaches a server), and
+  the app clears it from the address at once. Only the name you choose is
+  kept, as your profile's name, which syncs, so no later sign-in on any
+  device asks again; you can change it on the profile at any time.
 - **One account per email:** signing in with Google and by email with the
   same address reaches the same account.
 - **Upgrading a guest:** the first sign-in makes the account from this
@@ -2086,7 +2099,8 @@ device, as before.
   game goes up once (games are matched by their random ID, so none is
   duplicated), and the account's games from your other devices come down.
   Stats and achievements, worked out from the games, then match everywhere.
-- **What syncs:** your name, guest name, country, member-since date (the
+- **What syncs:** your name (Google's, if you chose it on signing in:
+  [Accounts](#accounts)), guest name, country, member-since date (the
   earliest of your devices') and the settings that are yours rather than the
   device's: default difficulty, guess order per difficulty, **Show the
   tutorial on the home page** and the [Reminders](#reminders) switches. The

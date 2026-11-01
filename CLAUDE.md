@@ -103,7 +103,10 @@ Run `npm test` and `npm run typecheck` before committing.
   worker runs OpenID Connect with PKCE; the app loads nothing from Google),
   both ending in a `?login=` token the app trades for a session
   (`worker/src/accounts.ts`, `authRoutes.ts`, `mail.ts`, `google.ts`;
-  `src/app/account.ts`, `AccountSection.tsx`). A new account takes the
+  `src/app/account.ts`, `AccountSection.tsx`). Google's name goes to the
+  app once, after the `#` of a new account's return address
+  (`googleNameHash`), for `GoogleNamePrompt.tsx` to offer (Dev Plan item
+  18zz); the server never stores it. A new account takes the
   guest ID of the device that made it, and each device that signs in links
   its guest ID; `identify` then refuses a linked guest ID without the
   account's session. A query for a player's games matches their IDs with

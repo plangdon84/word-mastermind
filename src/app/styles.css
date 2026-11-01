@@ -939,6 +939,7 @@ button.bubble:active { transform: scale(0.94); }
 .btn.danger-outline { color: var(--err); border-color: var(--err); align-self: flex-start; }
 .account-who { margin: 0; overflow-wrap: anywhere; }
 .account-ask { overflow-wrap: anywhere; }
+.google-name-saved { overflow-wrap: anywhere; }
 .account-form, .account-sent { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .btn.google { align-self: flex-start; }
 

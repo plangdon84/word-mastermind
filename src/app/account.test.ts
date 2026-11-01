@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { authApi, AuthError, checkSession, loginFailedInUrl, loginTokenFromUrl, parseSession, type AuthApi } from './account';
+import {
+  authApi, AuthError, checkSession, googleNameFromHash, googleNameInHash, loginFailedInUrl, loginTokenFromUrl, parseSession,
+  type AuthApi,
+} from './account';
 import { identityHeaders } from './apiIdentity';
 
 const TOKEN = 'a'.repeat(43);
@@ -32,6 +35,23 @@ describe('sign-in links', () => {
     expect(loginTokenFromUrl('')).toBeNull();
     expect(loginFailedInUrl('?login-error=google')).toBe(true);
     expect(loginFailedInUrl(`?login=${TOKEN}`)).toBe(false);
+  });
+});
+
+describe("Google's name for a new account", () => {
+  it('offers their name, else their first name, if the name rules allow it', () => {
+    expect(googleNameFromHash('#google-name=Ann%20%20Lee&google-given=Ann')).toBe('Ann Lee');
+    expect(googleNameFromHash(`#google-name=${'x'.repeat(21)}&google-given=Ann`)).toBe('Ann');
+    expect(googleNameFromHash('#google-given=Bo')).toBeNull();
+    expect(googleNameFromHash('#google-name=Shit%20Head')).toBeNull();
+    expect(googleNameFromHash('')).toBeNull();
+  });
+
+  it('knows when the address holds one, to clear it', () => {
+    expect(googleNameInHash('#google-name=Ann')).toBe(true);
+    expect(googleNameInHash('#google-given=Ann')).toBe(true);
+    expect(googleNameInHash('#top')).toBe(false);
+    expect(googleNameInHash('')).toBe(false);
   });
 });
 

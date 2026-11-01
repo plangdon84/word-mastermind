@@ -98,7 +98,7 @@ export async function findAccount(db: D1Database, id: string): Promise<Account |
 }
 
 /** The ID of the account a sign-in link would sign in to, if it exists yet. */
-async function existingAccountId(db: D1Database, email: string, googleSub: string | null): Promise<string | null> {
+export async function existingAccountId(db: D1Database, email: string, googleSub: string | null): Promise<string | null> {
   const byGoogle = googleSub
     ? await db.prepare('SELECT id FROM accounts WHERE google_sub = ?1').bind(googleSub).first<{ id: string }>() : null;
   const row = byGoogle ?? await db.prepare('SELECT id FROM accounts WHERE email = ?1').bind(email).first<{ id: string }>();

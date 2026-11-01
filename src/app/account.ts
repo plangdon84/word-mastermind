@@ -1,4 +1,4 @@
-import { isObject, isTime } from '../game';
+import { isObject, isTime, validateName } from '../game';
 import { apiRequester } from './apiIdentity';
 
 /*
@@ -82,6 +82,26 @@ export function loginTokenFromUrl(search: string): string | null {
 
 /** Google's round trip came back without a sign-in: cancelled, or refused. */
 export const loginFailedInUrl = (search: string) => new URLSearchParams(search).has('login-error');
+
+/** The address's end (after `#`) holds Google's name for a new account (`googleNameHash` in `worker/src/google.ts`). */
+export const googleNameInHash = (hash: string) => {
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  return params.has('google-name') || params.has('google-given');
+};
+
+/**
+ * The name to offer a new account from Google's (Dev Plan item 18zz): their
+ * name if it's one `validateName` allows, else their first name, else null.
+ * Only offered after a Google sign-in, and kept only if chosen.
+ */
+export function googleNameFromHash(hash: string): string | null {
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  for (const name of [params.get('google-name'), params.get('google-given')]) {
+    const valid = name === null ? null : validateName(name);
+    if (valid?.ok) return valid.name;
+  }
+  return null;
+}
 
 /** Who a sign-in link would sign this device in as. */
 export interface LinkCheck {
