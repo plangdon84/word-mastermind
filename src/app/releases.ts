@@ -30,6 +30,9 @@ export const RELEASES: Release[] = [
       { text: 'Coming back to the title screen no longer shows today\'s daily games as not played while they load.' },
       { text: 'Word Sets with friends: once you\'ve finished, Games in progress reads Waiting for others, then See results when everyone\'s done.' },
       { text: 'The notification that a Word Set with friends is over no longer waits until someone opens it.' },
+      { text: 'Setting up a game against a friend now lists the time choices shortest first.' },
+      { text: 'Tapping a difficulty on an iPhone no longer leaves a white outline around it.' },
+      { text: '"NEATH" is no longer accepted as a guess.' },
     ],
   },
   {

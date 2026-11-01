@@ -6,26 +6,6 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
-- [ ] **18zu. Small fixes** (issues
-  plangdon84/word-mastermind-archive#246,
-  plangdon84/word-mastermind-archive#249,
-  plangdon84/word-mastermind-archive#251 and
-  plangdon84/word-mastermind-archive#248; app only)
-  - Issue 246: setting up a game against a friend lists the time choices
-    shortest first: 5, 10 and 15 minutes, then 1 and 3 days (the title
-    screen's choices too)
-  - Issue 249: on the Daily Word's difficulty choice, Hard sometimes shows
-    a thin white border until anything is tapped. It's the keyboard focus
-    ring showing after a tap on an iPhone; show it only for keyboard use
-  - Issue 251: decided with the owner on 1 November 2026: of the two
-    reported guess words, the poetic short form is banned as a guess and
-    the real dictionary adjective stays. Through `wordlist/rules/`, never
-    the lists; old games holding it still replay
-  - Issue 248: when the title screen's one request for both daily games
-    is refused for too many requests or a bad sign-in, it no longer asks
-    for each game on its own (those would fail too); and with the two
-    loaded separately, the countdown's clock correction comes from the
-    Daily Set
 - [ ] **18zv. Live clocks start after your first guess** (issue
   plangdon84/word-mastermind-archive#258; worker, review gate; updates
   README "Two player vs. a friend")
@@ -110,6 +90,26 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zu. Small fixes** (issues
+  plangdon84/word-mastermind-archive#246,
+  plangdon84/word-mastermind-archive#249,
+  plangdon84/word-mastermind-archive#251 and
+  plangdon84/word-mastermind-archive#248; app only)
+  - Issue 246: setting up a game against a friend lists the time choices
+    shortest first: 5, 10 and 15 minutes, then 1 and 3 days (the title
+    screen's choices too)
+  - Issue 249: on the Daily Word's difficulty choice, Hard sometimes shows
+    a thin white border until anything is tapped. It's the keyboard focus
+    ring showing after a tap on an iPhone; show it only for keyboard use
+  - Issue 251: decided with the owner on 1 November 2026: of the two
+    reported guess words, the poetic short form is banned as a guess and
+    the real dictionary adjective stays. Through `wordlist/rules/`, never
+    the lists; old games holding it still replay
+  - Issue 248: when the title screen's one request for both daily games
+    is refused for too many requests or a bad sign-in, it no longer asks
+    for each game on its own (those would fail too); and with the two
+    loaded separately, the countdown's clock correction comes from the
+    Daily Set
 - [x] **18zt. Title screen shows where your games really are** (issues
   plangdon84/word-mastermind-archive#250 and
   plangdon84/word-mastermind-archive#252; app, and the worker if the
