@@ -231,7 +231,7 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
   const youFoundTheirs = view.yourGuesses.some((g) => g.isWin);
   const cancelled = outcome === 'cancelled-you' || outcome === 'cancelled-them';
   return (
-    <ResultCard outcome={outcome} word={choice ? null : view.theirSecret} whose={`${opponent}'s word`}>
+    <ResultCard outcome={outcome} word={choice || cancelled ? null : view.theirSecret} whose={`${opponent}'s word`}>
       {outcome === 'clutch' && <Confetti />}
       {outcome === 'clutch' ? (
         <>
