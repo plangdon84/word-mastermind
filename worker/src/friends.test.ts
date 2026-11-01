@@ -797,7 +797,10 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     // Each ID's games in order from the bookmark, stopping at the limit: no sort of everything after it.
     const next = plan(NEXT_LINKS_SQL);
     expect(next).toMatch(/game_players_by_guest \(guest_id=\? AND rowid>\?\)/);
-    expect(next).not.toMatch(/SCAN (gp|g|p)\b|TEMP B-TREE FOR ORDER BY/);
+    expect(next).not.toMatch(/SCAN (gp|g|p)\b/);
+    // Newer SQLite sorts the account's few IDs for the UNION; the games under each must not be sorted.
+    expect(next).toContain('CORRELATED SCALAR SUBQUERY');
+    expect(next.slice(next.indexOf('CORRELATED SCALAR SUBQUERY'))).not.toMatch(/TEMP B-TREE FOR ORDER BY/);
     const linked = plan(LINKED_GAMES_SQL);
     expect(linked).toMatch(/profile_games_by_game \(account_id=\? AND game_seq=\?\)/);
     expect(linked).not.toMatch(/SCAN (gp|g|p)\b/);
