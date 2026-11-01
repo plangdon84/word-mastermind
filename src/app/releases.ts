@@ -27,7 +27,7 @@ export const RELEASES: Release[] = [
   {
     version: '1.25.0',
     notes: [
-      { text: 'New rating leaderboard for ranked correspondence games.' },
+      { text: 'New leaderboard for players that compete in rated games.' },
     ],
   },
   {
