@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.24.0',
+    notes: [
+      { text: 'Coming back to the title screen no longer shows today\'s daily games as not played while they load.' },
+      { text: 'Word Sets with friends: once you\'ve finished, Games in progress reads Waiting for others, then See results when everyone\'s done.' },
+      { text: 'The notification that a Word Set with friends is over no longer waits until someone opens it.' },
+    ],
+  },
+  {
     version: '1.23.0',
     notes: [
       { text: 'Signing in with Google for the first time? You can use your Google name as your player name, or pick another.' },

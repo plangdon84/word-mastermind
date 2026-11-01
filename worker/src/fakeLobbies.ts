@@ -37,10 +37,14 @@ export function fakeLobbies({ db, now, random = () => 0 }: FakeLobbiesOptions) {
       },
     }),
   };
-  /** Runs every alarm that is due by the lobbies' clock, as Cloudflare would. */
-  const runAlarms = async () => {
+  /**
+   * Runs every alarm that is due by the lobbies' clock, as Cloudflare would;
+   * with `earlyMs`, also those due that much later, as an alarm waking a
+   * moment before its time would.
+   */
+  const runAlarms = async (earlyMs = 0) => {
     for (const storage of lobbies.values()) {
-      if (storage.alarm !== null && storage.alarm <= now()) {
+      if (storage.alarm !== null && storage.alarm <= now() + earlyMs) {
         storage.alarm = null;
         await handleLobbyAlarm(storage, deps, now());
       }
