@@ -71,6 +71,21 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
   switched back on): decide with the owner whether players sharing a place
   leave each other's ratings alone, like a rated two player draw, and
   record it in README "Rating"
+- [ ] **19k. Test and review follow-ups from 1.24.0** (from the owner, 1
+  November 2026, after PR #53; tests and small app fixes, no rule changes)
+  - Two browser tests pass and fail at random. The friends-list challenge
+    test (issue 191's) once waited out its minute for the friend's **Add**
+    button on CI, then passed on a re-run. The friend's profile test
+    (item 18c's) fails when run alongside the other friend tests, on
+    `main` too, and passes on its own. Find each one's cause and fix it
+  - The cancelled live game test waits out the real 2 minutes (about 2.5
+    minutes of CI a full run). If CI time matters, let the test server use
+    a shorter first-guess deadline, defaulting to 2 minutes everywhere else
+  - Lows accepted in 18zv's reviews: a cancelled game's folded result card
+    reads "…'s word: Hidden" (say "Game cancelled" instead); a cancelled
+    game still loads definitions it never shows; the cancelled game test
+    accepts either player's sentence for both and checks only the result
+    card for the words
 
 ## Done, latest first
 
