@@ -1,10 +1,84 @@
 # Dev Plan
 
-Last triaged with the owner: 22 October 2026.
+Last triaged with the owner: 1 November 2026.
 
 ## To build
 
 **Next, in this order**
+
+- [ ] **18zt. Title screen shows where your games really are** (issues
+  plangdon84/word-mastermind-archive#250 and
+  plangdon84/word-mastermind-archive#252; app, and the worker if the
+  missing notification is a server fault, then review gate)
+  - Issue 250: after finishing a game against a friend and sending a
+    rematch, the title screen showed both finished daily games as not
+    played, and the Daily Set's category was blank. Find why the title
+    screen's one request for both daily games came back empty or was
+    ignored on returning from another screen, fix it, and add a browser
+    test for that route back to the title screen
+  - Issue 252: in a Crush with friends, a player who had finished got no
+    notification when the last player finished and the results became
+    final. Find why `lobbyOverNotice` wasn't sent (or arrived and was
+    lost) and fix it, with a test
+  - Issue 252: the title screen's Games in progress still offered
+    **Continue** for a lobby game the player had finished. Once you've
+    finished, it reads **Waiting for others** (opening the results so
+    far); once everyone has, it reads **See results**
+- [ ] **18zu. Small fixes** (issues
+  plangdon84/word-mastermind-archive#246,
+  plangdon84/word-mastermind-archive#249,
+  plangdon84/word-mastermind-archive#251 and
+  plangdon84/word-mastermind-archive#248; app only)
+  - Issue 246: setting up a game against a friend lists the time choices
+    shortest first: 5, 10 and 15 minutes, then 1 and 3 days (the title
+    screen's choices too)
+  - Issue 249: on the Daily Word's difficulty choice, Hard sometimes shows
+    a thin white border until anything is tapped. It's the keyboard focus
+    ring showing after a tap on an iPhone; show it only for keyboard use
+  - Issue 251: decided with the owner on 1 November 2026: of the two
+    reported guess words, the poetic short form is banned as a guess and
+    the real dictionary adjective stays. Through `wordlist/rules/`, never
+    the lists; old games holding it still replay
+  - Issue 248: when the title screen's one request for both daily games
+    is refused for too many requests or a bad sign-in, it no longer asks
+    for each game on its own (those would fail too); and with the two
+    loaded separately, the countdown's clock correction comes from the
+    Daily Set
+- [ ] **18zv. Live clocks start after your first guess** (issue
+  plangdon84/word-mastermind-archive#258; worker, review gate; updates
+  README "Two player vs. a friend")
+  - Decided with the owner on 1 November 2026: in a live game (15, 10 or
+    5 minutes each) each player's first guess is untimed, as in online
+    chess: your clock starts once you've made it. A player who hasn't
+    made their first guess within 2 minutes of their turn starting
+    cancels the game: no winner, not rated, and no history entry; both
+    players are told it was cancelled. Correspondence games are unchanged
+  - The rule is in `src/game/pvp.ts` (`pvpClocks`, `pvpDeadline`), so
+    old records replay as they were played (a record keeps whether it
+    started under the new rule); the room's alarm handles the 2 minute
+    cancel
+- [ ] **18zw. Your current name on every leaderboard** (issues
+  plangdon84/word-mastermind-archive#254,
+  plangdon84/word-mastermind-archive#255 and
+  plangdon84/word-mastermind-archive#253; worker, review gate; updates
+  README "Leaderboards" and "Daily Rush")
+  - Issues 254 and 255: decided with the owner on 1 November 2026: the
+    Daily boards show each player's current name on every day, past days
+    included, so setting a name (or changing an old one) shows
+    everywhere. Signed in, the name comes from the account's synced
+    profile; a guest's past rows switch to their new name when they next
+    start a daily game. Names still pass the profanity filter
+  - Issue 253: a player who finishes a daily game still under a default
+    Guest name sees, on its result, "You're on the leaderboard as
+    Guest-1234. Set your name", which opens the name field; the note
+    says the new name shows on past days too
+- [ ] **18zx. Pause in the Daily Word** (issue
+  plangdon84/word-mastermind-archive#257; worker, review gate; updates
+  README "Daily Word")
+  - The owner's request: the Daily Word gets the Daily Set's Pause, with
+    the same 2 pauses a day, recorded as moves and refereed by the day's
+    Durable Object. A Daily Word started before this release keeps no
+    pauses (`pausable`), as Daily Rush did with item 18y
 
 - [ ] **18zf. Email friend requests after a decline** (issue
   plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
