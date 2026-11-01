@@ -238,6 +238,57 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
   await expect(second.getByText(/Your turn|Their turn/)).toBeVisible();
 });
 
+test("back from a rematch, the title screen still knows today's daily games (issue 250)", async ({ page, browser }) => {
+  await trackSockets(page.context());
+  await unlockAll(page);
+  // Play today's Daily Word first.
+  await modeButton(page, 'Daily Word').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start Daily Word').click();
+  await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
+  await guess(page, TEST_DAILY_WORD);
+  await expect(page.locator('.rush-result').getByRole('heading', { name: /^Found in 1 guess/ })).toBeVisible();
+  await page.goto('/');
+  const daily = page.getByRole('region', { name: 'Daily' });
+  await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
+
+  // A game against a friend, to the end, then a rematch, all without leaving the page.
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
+  await button(page, /1 day a guess/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Next: your word').click();
+  await guess(page, 'storm');
+  const link = await page.locator('#invite-link').inputValue();
+  await listening(page);
+  const friend = await newPlayer(browser, page);
+  await friend.goto(link);
+  await expect(friend.getByText(/challenges you/)).toBeVisible();
+  await guess(friend, 'beach');
+  await expect(friend.getByText(/Your turn|Their turn/)).toBeVisible();
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await listening(friend);
+  const hostFirst = await page.getByText('Your turn').isVisible();
+  const [first, second] = hostFirst ? [page, friend] : [friend, page];
+  await guess(first, hostFirst ? 'beach' : 'storm');
+  await expect(second.getByText(/final guess|last guess/i)).toBeVisible();
+  await guess(second, 'crane');
+  await expect(page.getByRole('heading', { name: /You win!|wins\.$/ })).toBeVisible();
+  await button(page, 'Rematch').click();
+  await guess(page, 'crane');
+  await expect(page.getByRole('heading', { name: /Rematch sent to/ })).toBeVisible();
+
+  // Back to the title screen while the server can't be reached for the daily games: what it knew stays,
+  // and nothing it doesn't know is offered as not played.
+  await page.route(/\/api\/daily(\/word)?(\/games)?$/, (route) => route.abort());
+  await button(page, 'Word Mastermind: main menu').click();
+  await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
+  await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('4 themed words · Today:');
+  await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('Play');
+  await page.unroute(/\/api\/daily(\/word)?(\/games)?$/);
+});
+
 test('Rush with Friends: the largest lobby, 5 players, ranked by time, plays to the end', async ({ page, browser }) => {
   test.setTimeout(120_000);
   await unlockAll(page);
