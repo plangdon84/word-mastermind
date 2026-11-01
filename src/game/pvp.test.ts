@@ -268,9 +268,27 @@ describe('a live game, first guesses untimed (item 18zv)', () => {
     expect(pvpView(cancelled.game, 'guest').outcome).toEqual({ result: 'draw', reason: 'cancelled' });
     expect(replayPvp(toPvpRecord(cancelled.game))).toEqual(cancelled);
     // The second player too, counted from the first player's guess.
-    const second = guessAt(newGame('guest', '15m'), 'storm', T + 30_000);
+    const second = guessAt(newGame('guest', '15m'), 'crane', T + 30_000);
     const late = timeOutPvp(second, T + 30_000 + FIRST_GUESS_MS);
     expect(late.ok && late.game.outcome).toEqual({ winner: null, reason: 'cancelled' });
+  });
+
+  it("times a final guess on the clock, even when it's that player's first (owner, PR #53)", () => {
+    // The host's first guess finds the guest's word: the guest's final guess runs on their 5 minutes.
+    const found = guessAt(newGame('host', '5m'), 'beach', T + 30_000);
+    expect(found.status).toBe('final-guess');
+    expect(pvpView(found, 'guest')).toMatchObject({ firstGuessDue: false, deadline: T + 30_000 + 5 * MINUTE_MS });
+    // Waiting it out loses on time; it doesn't cancel.
+    expect(timeOutPvp(found, T + 30_000 + FIRST_GUESS_MS).ok).toBe(false);
+    const out = timeOutPvp(found, T + 30_000 + 5 * MINUTE_MS);
+    expect(out.ok && out.game.outcome).toEqual({ winner: 'host', reason: 'timed-out' });
+  });
+
+  it('keeps both words hidden in a cancelled game (owner, PR #53)', () => {
+    const cancelled = timeOutPvp(newGame('host', '5m'), T + FIRST_GUESS_MS);
+    if (!cancelled.ok) throw new Error(cancelled.error);
+    expect(pvpView(cancelled.game, 'host').theirSecret).toBeNull();
+    expect(pvpView(cancelled.game, 'guest').theirSecret).toBeNull();
   });
 
   it('keeps the rule through a saved record, so a slow first guess still replays', () => {

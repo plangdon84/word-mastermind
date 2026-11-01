@@ -204,11 +204,14 @@ export function pvpClocks(game: PvpRecord): Record<Seat, number> | null {
 /**
  * Live, under `firstGuessFree`: the player to move still owes their first
  * guess, so their turn has `FIRST_GUESS_MS` and their clock waits. False
- * otherwise, and once the game is over.
+ * otherwise, once the game is over, and for a final guess (decided with the
+ * owner in the review of PR #53): after a first guess that found the word,
+ * the other's final guess runs on their clock, so it can't be waited out to
+ * cancel a lost game.
  */
 export function pvpFirstGuessDue(game: PvpGame): boolean {
   const turn = pvpTurn(game);
-  return turn !== null && game.firstGuessFree === true && game.guesses[turn].length === 0;
+  return turn !== null && game.status === 'playing' && game.firstGuessFree === true && game.guesses[turn].length === 0;
 }
 
 /**
@@ -494,7 +497,8 @@ const fromSide = (seat: Seat, who: Seat): 'you' | 'opponent' => (who === seat ? 
 export function pvpView(game: PvpGame, seat: Seat): PvpView {
   const other = otherSeat(seat);
   const turn = pvpTurn(game);
-  const reveal = game.status === 'over' || game.guesses[seat].some((g) => g.isWin);
+  // A cancelled game (item 18zv) never got going: its words stay hidden (decided with the owner, PR #53).
+  const reveal = (game.status === 'over' && game.outcome?.reason !== 'cancelled') || game.guesses[seat].some((g) => g.isWin);
   const { outcome } = game;
   const clocks = pvpClocks(game);
   return {
