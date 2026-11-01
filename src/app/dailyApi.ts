@@ -201,14 +201,20 @@ export interface DailyApi {
  * 213), each with your place so far. If that fails (a server from before
  * it, or one game's day failing), the app asks for each game on its own
  * instead, without the place, so one failing leaves the other: null for a
- * game that didn't come.
+ * game that didn't come. Refused for too many requests or a sign-in that
+ * didn't hold, it doesn't (issue 248): those would be refused too.
  */
 export async function dailyGames(
   apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch,
 ): Promise<Record<DailyMode, DailyToday | null>> {
   const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new DailyApiError(code as DailyError, status));
-  const games = await request('GET', '/api/daily/games').then(parseDailyGames, () => null);
+  let refused = false;
+  const games = await request('GET', '/api/daily/games').then(parseDailyGames, (e: unknown) => {
+    refused = e instanceof DailyApiError && (e.status === 429 || e.status === 401);
+    return null;
+  });
   if (games) return games;
+  if (refused) return { daily: null, dailyWord: null };
   const [daily, dailyWord] = await Promise.all(DAILY_MODES.map((mode) => dailyApi(apiUrl, identity, fetchFn, mode).today()
     .catch(() => null)));
   return { daily, dailyWord };

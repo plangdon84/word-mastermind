@@ -84,7 +84,8 @@ export function useDailyToday(identity: ApiIdentity, onAnswer: (games: DailyGame
         onAnswer(answer);
         const before = knownDailies(identity, Date.now());
         const games = mergeDailies(before, answer);
-        const heard = DAILY_MODES.map((m) => answer[m]).find((t) => t !== null);
+        // The countdown's clock comes from the Daily Set, else the Daily Word (issue 248).
+        const heard = answer.daily ?? answer.dailyWord;
         const offset = heard ? heard.now - Date.now() : cache?.who === who ? cache.offset : 0;
         cache = { who, games, offset };
         setKnown({ games, offset, failed: DAILY_MODES.some((m) => games[m] === null) });
