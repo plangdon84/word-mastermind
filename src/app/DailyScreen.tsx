@@ -33,6 +33,7 @@ import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
 import { GuestNamePrompt } from './GuestNamePrompt';
+import { noteBoardName } from './boardName';
 import { dailyShareText } from './shareText';
 
 
@@ -265,6 +266,13 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   };
 
   /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Set or Daily Word). */
+  /** Starts today's run under your name, which a guest's boards now show (`boardName.ts`). */
+  const startAs = async (day: DailyDay) => {
+    const shown = displayName(profile);
+    const started = await api.start(day, settings.difficulty, shown);
+    if (!identity.token) noteBoardName(profile.deviceId, shown);
+    return started;
+  };
   const load = (autoStart = start) => {
     setLoadError(null);
     api.today().then(async (t) => {
@@ -275,7 +283,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
         setToday(t);
         return;
       }
-      setToday(await api.start(t.day, settings.difficulty, displayName(profile)));
+      setToday(await startAs(t.day));
     }).catch((e: unknown) => setLoadError(dailyErrorMessage(codeOf(e), '', mode)));
   };
   useEffect(() => load(), []);
@@ -429,7 +437,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   const startRun = () => {
     if (!today || starting) return;
     setStarting(true);
-    api.start(today.day, settings.difficulty, displayName(profile))
+    startAs(today.day)
       .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e), '', mode), error: true }))
       .finally(() => setStarting(false));
   };

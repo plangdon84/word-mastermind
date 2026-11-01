@@ -8,6 +8,7 @@ import { fakeD1 } from './fakeD1';
 import { fakeDaily } from './fakeDaily';
 import { TEST_THEMES, testThemeDays } from './testThemes';
 import { handle, type Env } from './index';
+import { sendBoardName } from '../../src/app/boardName';
 
 const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
@@ -29,7 +30,7 @@ function setup(random?: () => number) {
   const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) =>
     handle(new Request(input, init), env, clock)) as typeof fetch;
   const as = (guestId: string): DailyApi => dailyApi('https://api.example', { guestId, token: null }, fetchFn);
-  return { env, sqlite, days, as, tick: (ms: number) => { clock += ms; }, setClock: (ms: number) => { clock = ms; } };
+  return { env, sqlite, days, as, fetchFn, tick: (ms: number) => { clock += ms; }, setClock: (ms: number) => { clock = ms; } };
 }
 
 /** The error a call rejects with. */
@@ -388,6 +389,56 @@ describe('the leaderboard', () => {
       { day: DAY, difficulty: 'medium', rank: 2, total: 2, behind: 0, finishedAt: expect.any(Number), rankBy: 'rush' },
     ]);
     expect((await as(CAT).today()).placements).toMatchObject([{ rank: 1, total: 1 }, { rank: 1, total: 1, rankBy: 'rush' }]);
+  });
+});
+
+describe("each player's name now (item 18zw)", () => {
+  async function played() {
+    const s = setup();
+    await s.as(ANN).start(DAY, 'medium', 'Ann');
+    await solve(s.as(ANN), s.tick, 1);
+    await s.as(BOB).start(DAY, 'medium', 'Guest-1234');
+    await solve(s.as(BOB), s.tick, 0);
+    const rename = (guestId: string, name: string) =>
+      sendBoardName('https://api.example', { guestId, token: null }, name, s.fetchFn);
+    const names = async () => (await s.as(CAT).board(DAY, 'medium')).top.map((r) => r.name);
+    return { ...s, rename, names };
+  }
+
+  it("shows a guest's new name on the boards at once, past days too", async () => {
+    const { rename, names, setClock } = await played();
+    expect(await names()).toEqual(['Guest-1234', 'Ann']);
+    await rename(BOB, '  Bob  the Builder ');
+    expect(await names()).toEqual(['Bob the Builder', 'Ann']);
+    setClock(END + 60 * 60 * 1000);
+    await rename(BOB, 'Bobby');
+    expect(await names()).toEqual(['Bobby', 'Ann']);
+  });
+
+  it('takes the name a guest starts a daily game with', async () => {
+    const { as, names, setClock } = await played();
+    setClock(END + 60 * 60 * 1000);
+    await as(ANN).start('2026-11-01', 'medium', 'Annie');
+    expect(await names()).toEqual(['Guest-1234', 'Annie']);
+  });
+
+  it("shows an account's synced name, on the days its guest ID played before signing in", async () => {
+    const { sqlite, names } = await played();
+    sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, 0)').run('acct-bob', 'bob@example.com');
+    sqlite.prepare(`INSERT INTO profiles (account_id, guest_name, name, country, member_since, settings, updated_at)
+      VALUES ('acct-bob', 'Guest-1234', 'Bea', NULL, 0, '{}', 0)`).run();
+    sqlite.prepare("UPDATE guests SET account_id = 'acct-bob' WHERE id = ?").run(BOB);
+    expect(await names()).toEqual(['Bea', 'Ann']);
+  });
+
+  it('refuses a name that breaks the rule or the filter, and makes nothing for a guest never seen', async () => {
+    const { rename, names, sqlite } = await played();
+    expect(await refusal(rename(BOB, 'ab'))).toBe('bad-request');
+    expect(await refusal(rename(BOB, 'x'.repeat(65)))).toBe('bad-request');
+    expect(await refusal(rename(BOB, 'shithead'))).toBe('offensive-name');
+    expect(await names()).toEqual(['Guest-1234', 'Ann']);
+    await rename(CAT, 'Cat');
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM guests WHERE id = ?').get(CAT)).toEqual({ n: 0 });
   });
 });
 

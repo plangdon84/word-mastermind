@@ -16,6 +16,7 @@ import { DAILY_NAME } from './messages';
 import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';
+import { boardNameStale, noteBoardName, sendBoardName } from './boardName';
 import { fetchRatings, type PoolRating } from './ratingsApi';
 import { Achievements } from './Badge';
 import { friendApi } from './friendApi';
@@ -545,6 +546,15 @@ export function App() {
     const timer = setTimeout(syncNow, PROFILE_SYNC_DELAY_MS);
     return () => clearTimeout(timer);
   }, [syncedKey]);
+
+  // A guest's new name goes on every Daily board they're on at once (item 18zw); an account's goes with its
+  // synced profile. Sent again on the next visit if the server couldn't be reached.
+  const shownName = displayName(profile);
+  useEffect(() => {
+    if (!API_URL || identity.token || !boardNameStale(profile.deviceId, shownName)) return;
+    const { deviceId } = profile;
+    sendBoardName(API_URL, identity, shownName).then(() => noteBoardName(deviceId, shownName), () => {});
+  }, [shownName, identity]);
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveProfile(profile), [profile]);

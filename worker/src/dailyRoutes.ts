@@ -9,10 +9,11 @@ import { RESULTS_TABLE, type DailyRequest, type DailyResponse } from './dailyRoo
 import { themeFor } from './dailyThemes';
 import { DAILY_WORD_FROM, wordFor } from './dailyWords';
 import { friendCodeSql } from './friends';
-import { registerGuest } from './guests';
+import { registerGuest, setGuestName } from './guests';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
 import { inCircle } from './leaderboards';
+import { boardNames } from './sync';
 
 /*
  * The daily games, the Daily Set (Daily Rush, `/api/daily…`) and the Daily
@@ -194,6 +195,8 @@ async function board(
      ORDER BY ${order}, finished_at LIMIT ${BOARD_SIZE}`,
   ).bind(day, difficulty, ...circleArgs)
     .all<{ name: string; guesses: number; ms: number; player_id: string; rank: number; friend_code: string | null }>();
+  // Each player's name now, not the one their run started with (item 18zw).
+  const names = await boardNames(env.DB, top.map((r) => r.player_id));
   const total = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM ${table} WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}`,
   ).bind(day, difficulty, ...circleArgs).first<number>('n');
@@ -217,7 +220,7 @@ async function board(
     total: total ?? 0,
     // Player IDs are credentials, so rows only say which one is yours, and (Friends) a friend's friend code.
     top: top.map((r): DailyBoardRow => ({
-      rank: r.rank, name: r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id), friendCode: r.friend_code,
+      rank: r.rank, name: names[r.player_id] ?? r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id), friendCode: r.friend_code,
     })),
     you: mine ? { ...toPlacement(mine, rankBy, mode), guesses: mine.guesses, ms: mine.ms } : null,
   };
@@ -238,6 +241,18 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
 
   if (pathname === '/api/daily') return method === 'GET' ? today(env, mode, player, now) : errorResponse(405, 'bad-request');
   if (fullPath === '/api/daily/games') return method === 'GET' ? bothToday(env, player, now) : errorResponse(405, 'bad-request');
+  // A guest's new name, shown on every Daily board at once (item 18zw). An account's comes from its synced profile.
+  if (fullPath === '/api/daily/name') {
+    if (method !== 'POST') return errorResponse(405, 'bad-request');
+    if (player.accountId) return errorResponse(409, 'signed-in');
+    const body = await readJson(request);
+    const name = isObject(body) && typeof body.name === 'string' && body.name.length <= 64 ? validateName(body.name) : null;
+    if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
+    if (!name?.ok) return errorResponse(400, 'bad-request');
+    // A guest who never started a daily game has no rows to rename, so nothing is made for them.
+    await setGuestName(env.DB, player.id, name.name);
+    return json({ name: name.name });
+  }
   if (pathname === '/api/daily/board') {
     if (method !== 'GET') return errorResponse(405, 'bad-request');
     const params = new URL(request.url).searchParams;
@@ -277,6 +292,8 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
     if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
     if (!name?.ok || !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
     await registerGuest(env.DB, player.id, now);
+    // A guest's name now, for every board they're on (item 18zw).
+    if (!player.accountId) await setGuestName(env.DB, player.id, name.name);
     dailyRequest = { ...asker, action, name: name.name, difficulty: body.difficulty };
   } else if (action === 'guess' || action === 'suggest') {
     if (typeof body.word !== 'string' || body.word.length > 64) return errorResponse(400, 'bad-request');

@@ -173,6 +173,8 @@ test('Daily Word: one word for everyone, once a day, on its own board', async ({
   expect((await getStorage(page, 'profile'))?.name).toBe('Wordy Wren');
   await result.getByRole('button', { name: 'Your place: open the board' }).click();
   await expect(page.getByRole('region', { name: 'Daily Word leaderboard' })).toBeVisible();
+  // Today's board shows the new name at once, not the Guest one the game started with (item 18zw).
+  await expect(page.getByRole('region', { name: 'Daily Word leaderboard' })).toContainText('Wordy Wren');
   await expect(page.getByRole('group', { name: 'Ranked by' })).toHaveCount(0);
 
   // Once a day, apart from the Daily Set, whose row still plays.

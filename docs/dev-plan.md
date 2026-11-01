@@ -6,26 +6,6 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
-- [ ] **18zw. Your current name on every leaderboard** (issues
-  plangdon84/word-mastermind-archive#254 and
-  plangdon84/word-mastermind-archive#255; worker, review gate; updates
-  README "Leaderboards" and "Daily Rush")
-  - Issues 254 and 255: decided with the owner on 1 November 2026: the
-    Daily boards show each player's current name on every day, past days
-    included, so setting a name (or changing an old one) shows
-    everywhere. Signed in, the name comes from the account's synced
-    profile; a guest's rows, today's and past days', switch to their new
-    name as soon as they save it (the owner, 1 November 2026: so 18zy's
-    "Saved. You'll be … on the leaderboards." is true at once). Names
-    still pass the profanity filter (the guests' prompt for a name, Issue
-    253, moved to 18zy on 1 November 2026)
-  - Released with 18zy as one version, 1.22.0 (the owner, 1 November
-    2026): 18zy adds no release, and this PR adds 1.22.0 with both notes,
-    "Finished a Daily Set or Daily Word as a guest? You can choose your
-    leaderboard name right on the result." and "Changing your name
-    updates current and historical leaderboards to match your current
-    name." Its branch starts from 18zy's, and 18zy is merged only just
-    before it. It also drops README's "until item 18zw" sentence
 - [ ] **18zz. Your Google name on first sign-in** (from the owner, 1
   November 2026; sign-in, review gate; updates README "Accounts" and
   "Synced profile" and the privacy page)
@@ -163,6 +143,26 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zw. Your current name on every leaderboard** (issues
+  plangdon84/word-mastermind-archive#254 and
+  plangdon84/word-mastermind-archive#255; worker, review gate; updates
+  README "Leaderboards" and "Daily Rush")
+  - Issues 254 and 255: decided with the owner on 1 November 2026: the
+    Daily boards show each player's current name on every day, past days
+    included, so setting a name (or changing an old one) shows
+    everywhere. Signed in, the name comes from the account's synced
+    profile; a guest's rows, today's and past days', switch to their new
+    name as soon as they save it (the owner, 1 November 2026: so 18zy's
+    "Saved. You'll be … on the leaderboards." is true at once). Names
+    still pass the profanity filter (the guests' prompt for a name, Issue
+    253, moved to 18zy on 1 November 2026)
+  - Released with 18zy as one version, 1.22.0 (the owner, 1 November
+    2026): 18zy adds no release, and this PR adds 1.22.0 with both notes,
+    "Finished a Daily Set or Daily Word as a guest? You can choose your
+    leaderboard name right on the result." and "Changing your name
+    updates current and historical leaderboards to match your current
+    name." Its branch starts from 18zy's, and 18zy is merged only just
+    before it. It also drops README's "until item 18zw" sentence
 - [x] **18zy. Ask guests to name themselves for the leaderboard** (issue
   plangdon84/word-mastermind-archive#253, moved here from 18zw, and the
   owner, 1 November 2026; app; updates README "Leaderboards" and
