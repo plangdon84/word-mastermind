@@ -32,7 +32,7 @@ export function limitOf(method: string, pathname: string): Limit | null {
   if (method !== 'POST') return null;
   // A friend request by email (item 18d) sends a notification, and each try could test whether an email plays.
   if (pathname === '/api/reports' || pathname === '/api/auth/email' || pathname === '/api/friends/email') return 'strict';
-  if (/^\/api\/(guests|games|lobbies|daily\/start|daily\/word\/start|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
+  if (/^\/api\/(guests|games|lobbies|daily\/start|daily\/word\/start|daily\/name|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
     return 'general';
   }
   // A rematch makes a game and a decline sends a notification, like a new invite.

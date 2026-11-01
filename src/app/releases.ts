@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.22.0',
+    notes: [
+      { text: 'Finished a Daily Set or Daily Word as a guest? You can choose your leaderboard name right on the result.' },
+      { text: 'Changing your name updates current and historical leaderboards to match your current name.' },
+    ],
+  },
+  {
     version: '1.21.1',
     notes: [
       { text: 'A friend’s game history no longer shows a game twice if they finish one while you’re scrolling.' },

@@ -16,6 +16,7 @@ import { DAILY_NAME } from './messages';
 import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';
+import { boardNameStale, noteBoardName, sendBoardName } from './boardName';
 import { fetchRatings, type PoolRating } from './ratingsApi';
 import { Achievements } from './Badge';
 import { friendApi } from './friendApi';
@@ -546,6 +547,17 @@ export function App() {
     return () => clearTimeout(timer);
   }, [syncedKey]);
 
+  // A guest's new name goes on every Daily board they're on at once (item 18zw); an account's goes with its
+  // synced profile. Sent again on the next visit if the server couldn't be reached (once it has had one).
+  const shownName = displayName(profile);
+  const openedName = useRef(shownName);
+  useEffect(() => {
+    if (!API_URL || identity.token) return;
+    if (!boardNameStale(profile.deviceId, shownName, shownName !== openedName.current)) return;
+    const { deviceId } = profile;
+    sendBoardName(API_URL, identity, shownName).then(() => noteBoardName(deviceId, shownName), () => {});
+  }, [shownName, identity]);
+
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => saveProfile(profile), [profile]);
   useEffect(() => saveSession(session), [session]);
@@ -799,7 +811,7 @@ export function App() {
       );
     }
     if (screen.name === 'daily') {
-      return <DailyScreen key={screen.mode} {...game} mode={screen.mode} identity={identity} start={screen.start}
+      return <DailyScreen key={screen.mode} {...game} mode={screen.mode} identity={identity} start={screen.start} onRename={setProfile}
         onBoardRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} onFinished={pullPlayed} />;
     }
     if (screen.name === 'leaderboards') {

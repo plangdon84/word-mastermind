@@ -30,3 +30,13 @@ export async function registerGuest(db: D1Database, id: string, now: number): Pr
   if (!row) throw new Error('Registering a guest returned no row');
   return { id, createdAt: row.created_at, lastSeenAt: row.last_seen_at };
 }
+
+/**
+ * A guest's name now, for the Daily boards (Dev Plan item 18zw): only a guest
+ * the server has seen and that no account has linked, so it makes nothing
+ * new. Returns whether there was such a guest.
+ */
+export async function setGuestName(db: D1Database, id: string, name: string): Promise<boolean> {
+  const { meta } = await db.prepare('UPDATE guests SET name = ?2 WHERE id = ?1 AND account_id IS NULL').bind(id, name).run();
+  return (meta.changes ?? 0) > 0;
+}

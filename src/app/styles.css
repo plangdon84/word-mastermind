@@ -909,6 +909,9 @@ button.bubble:active { transform: scale(0.94); }
 .profile-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .profile-name-text { font-size: 1.25rem; font-weight: 700; overflow-wrap: anywhere; }
 .profile-name-form { display: flex; flex-direction: column; gap: 8px; }
+.guest-name { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.guest-name p, .guest-name-saved { margin: 0; overflow-wrap: anywhere; }
+.guest-name-saved { margin-top: 12px; }
 .profile-country { display: flex; flex-direction: column; gap: 4px; }
 .text-input, .select {
   font: inherit; color: var(--ink); background: var(--surface);

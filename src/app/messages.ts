@@ -1,7 +1,16 @@
-import type { DailyMode, Difficulty, EarlierGuess, GuessResult, RunError, SoloGameError, TwoPlayerError, WordError } from '../game';
+import { NAME_MAX, NAME_MIN } from '../game';
+import type { DailyMode, Difficulty, EarlierGuess, GuessResult, NameError, RunError, SoloGameError, TwoPlayerError, WordError } from '../game';
 import type { DailyError } from './dailyApi';
 import type { FriendError } from './friendApi';
 import type { LobbyErrorCode } from './lobbyApi';
+
+/** Why a name can't be used (`validateName`), for the profile and the leaderboard's name prompt. */
+export const NAME_ERROR: Record<NameError, string> = {
+  'too-short': `Use at least ${NAME_MIN} characters.`,
+  'too-long': `Use at most ${NAME_MAX} characters.`,
+  'invalid-characters': 'Use letters, numbers, spaces and punctuation only.',
+  offensive: "Choose another name: this one can't be shown to other players.",
+};
 
 /** "1 game", "3 games". */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

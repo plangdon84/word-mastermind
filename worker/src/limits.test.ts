@@ -40,7 +40,7 @@ describe('rate limits by address', () => {
     expect(limitOf('POST', '/api/auth/email')).toBe('strict');
     expect(limitOf('POST', '/api/friends/email')).toBe('strict');
     expect(limitOf('GET', '/api/friends/search')).toBe('general');
-    for (const path of ['/api/guests', '/api/games', '/api/lobbies', '/api/daily/start', '/api/auth/google',
+    for (const path of ['/api/guests', '/api/games', '/api/lobbies', '/api/daily/start', '/api/daily/name', '/api/auth/google',
       '/api/auth/link', '/api/auth/session', '/api/friends/add', '/api/friends/invite/peek', '/api/friends/invite/accept', '/api/friends/invite/reset', '/api/push/subscribe']) {
       expect(limitOf('POST', path)).toBe('general');
     }

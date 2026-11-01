@@ -80,6 +80,28 @@ export async function currentNames(db: D1Database, ids: readonly string[]): Prom
 }
 
 /**
+ * The names the Daily boards show now for these player IDs (Dev Plan item
+ * 18zw), in one query: an account's, as `currentNames` gives it, else a
+ * guest's latest (`guests.name`, from starting a daily game or choosing a
+ * new name). IDs with neither are left out, and so is a name the profanity
+ * filter now refuses: the board keeps the row's own name for those.
+ */
+export async function boardNames(db: D1Database, ids: readonly string[]): Promise<Record<string, string>> {
+  if (ids.length === 0) return {};
+  const { results } = await db.prepare(
+    `SELECT ids.value AS id, COALESCE(p.name, p.guest_name, g.name) AS name FROM json_each(?1) AS ids
+     LEFT JOIN guests g ON g.id = ids.value
+     LEFT JOIN profiles p ON p.account_id = COALESCE(g.account_id, ids.value)`,
+  ).bind(JSON.stringify([...new Set(ids)])).all<{ id: string; name: string | null }>();
+  const names: Record<string, string> = {};
+  for (const row of results) {
+    const shown = row.name === null ? null : validateName(row.name);
+    if (shown?.ok) names[row.id] = shown.name;
+  }
+  return names;
+}
+
+/**
  * Adds the games the account doesn't have yet, while it has room
  * (`MAX_ACCOUNT_CHARS`). Returns how many were new. Each insert checks the
  * account's running total (`accounts.history_chars`, kept by triggers) in

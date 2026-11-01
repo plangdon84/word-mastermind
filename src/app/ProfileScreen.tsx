@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useRef, useState } from 'preact/hooks';
-import { DIFFICULTIES, NAME_MAX, NAME_MIN, validateName, type NameError } from '../game';
+import { DIFFICULTIES, NAME_MAX, NAME_MIN, validateName } from '../game';
 import {
   downloadFile, mergeProfile, mergeRecentSecrets, parseBackup, resetLocalData, serializeBackup, type ParsedBackup,
 } from './backup';
@@ -20,14 +20,7 @@ import { openReport } from './reportIssue';
 import type { Difficulty, Settings } from './settings';
 import { TurnAlertsSetting } from './TurnAlerts';
 import { Tutorial } from './Tutorial';
-import { plural } from './messages';
-
-const NAME_ERROR: Record<NameError, string> = {
-  'too-short': `Use at least ${NAME_MIN} characters.`,
-  'too-long': `Use at most ${NAME_MAX} characters.`,
-  'invalid-characters': 'Use letters, numbers, spaces and punctuation only.',
-  offensive: "Choose another name: this one can't be shown to other players.",
-};
+import { NAME_ERROR, plural } from './messages';
 
 const formatDate = (ms: number) =>
   new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });

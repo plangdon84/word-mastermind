@@ -227,7 +227,10 @@ Run `npm test` and `npm run typecheck` before committing.
   shapes in `src/app/leaderboardsApi.ts`): the top 100, provisional ratings
   (after aging) left out, your place or `gamesUntilListed`. `inCircle` is the
   SQL for "you and your friends" with one bound parameter (D1 allows 100).
-  Rows never carry a player's ID.
+  Rows never carry a player's ID. Daily board rows show each player's name
+  now (Dev Plan item 18zw, `boardNames` in `worker/src/sync.ts`): an
+  account's synced name, else a guest's `guests.name`, set on starting a
+  daily game and by `POST /api/daily/name` (`src/app/boardName.ts`).
 - Rush with Friends (Dev Plan item 8, README "Rush modes" and "Rush with
   Friends"): the rules are `src/game/lobby.ts` (a lobby record: players,
   the host's settings, and once started the words and each seat's run

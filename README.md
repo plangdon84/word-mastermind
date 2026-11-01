@@ -1247,7 +1247,8 @@ clocks only.
   of 340 · better than 96%" for each; places are final at midnight New York
   time. **Leaderboard** shows the day's top 10 for each difficulty (ties
   share a rank), your place below them if you're not in it, and earlier
-  days (‹ ›) with their words. A **Rush · fastest / Crush · fewest** switch
+  days (‹ ›) with their words, each player under their name now (see
+  [Leaderboards](#leaderboards)). A **Rush · fastest / Crush · fewest** switch
   flips between its two boards, keeping the day, difficulty and Everyone /
   Friends; it opens on Crush the first time, then on your last pick
   (`boardRankBy` in the settings). The Rush board shows each time before
@@ -1305,7 +1306,8 @@ takes 20 to 25 minutes.
   time breaking ties (owner's decision), with no Rush / Crush switch: the
   top 10 (ties share a rank), your place below them, earlier days (‹ ›)
   with their word, and Everyone / Friends signed in (D1
-  `daily_word_results`).
+  `daily_word_results`), each row under the player's name now (see
+  [Leaderboards](#leaderboards)).
 - **History and stats:** a Daily Word is its own mode (`dailyWord`) in the
   history, filters, stats (fewest guesses), CSV and friends' profiles (from
   the day after, like a Daily Set). It counts as a found word for the
@@ -1363,6 +1365,27 @@ until there are enough rated players (see [Launch switches](#launch-switches)).
   rows never carry a player's ID, only whether a row is yours, as on the
   Daily Rush board. Boards are read from D1 when opened (ratings in a
   `ratings` table updated when a rated game ends), never from a cached copy.
+- **Choosing a name for the board** (Dev Plan item 18zy): when a game that
+  goes on a leaderboard ends (a finished Daily Set or Daily Word, on its
+  day) and your name is still the guest one, the result says "You're on
+  the leaderboard as Guest-4821" and offers a name field there, with
+  **Save name** and **Skip** (`src/app/GuestNamePrompt.tsx`). The name
+  passes the usual rule and profanity filter and becomes your profile name.
+  It asks after every such game while your name is still a guest one: a
+  skip isn't remembered. The new name shows on the boards at once (below).
+- **Your current name on every Daily board** (Dev Plan item 18zw): the Daily
+  Set and Daily Word boards show each player's name now on every day, past
+  days included, not the name a run started with, so setting a name or
+  changing it shows everywhere at once. Signed in, it's the account's
+  synced name (or its guest name), for the days any of its guest IDs played
+  before signing in too, as the rating boards always did. A guest's is the
+  name their last daily game started with, or a new one they chose since:
+  the app sends it when it's chosen (`POST /api/daily/name`, guests only;
+  `src/app/boardName.ts`), only for a guest who has started a daily game on
+  that device, and the server keeps it with the guest ID (`guests.name`)
+  without making anything for a guest it hasn't seen. Each board reads them
+  in one query (`boardNames` in `worker/src/sync.ts`); a name the profanity
+  filter now refuses falls back to the row's own.
 
 ### Rush with Friends
 
@@ -1670,7 +1693,9 @@ device signed in to it (item 9a, see [Synced profile](#synced-profile)).
 - **Name:** a display name, 3 to 20 characters, not unique, defaulting to
   something like `Guest-4821`. Spaces are trimmed and collapsed; control and
   invisible characters are refused. The rule lives in `src/game/profile.ts` so
-  the server can reuse it. Clearing your name goes back to the guest name. Names
+  the server can reuse it. Clearing your name goes back to the guest name. A
+  guest finishing a Daily Set or Daily Word is also asked to choose one
+  there (see [Leaderboards](#leaderboards)). Names
   are shown to other players (the Daily Rush leaderboard, a friend's game),
   so a short profanity filter (`isOffensive`) refuses the obvious ones,
   including spelled out or with digits for letters.

@@ -32,6 +32,8 @@ import {
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
+import { GuestNamePrompt } from './GuestNamePrompt';
+import { noteBoardName } from './boardName';
 import { dailyShareText } from './shareText';
 
 
@@ -179,7 +181,7 @@ export function DailyBoardPanel({ mode = 'daily', api, today, day: firstDay, dif
  * word. With `start`, it starts today's run at your difficulty if you haven't
  * played yet. The Daily Set's Pause stops the clock, on the server too.
  */
-export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onExit, start, onFinished }: {
+export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onRename, onExit, start, onFinished }: {
   mode?: DailyMode;
   settings: Settings;
   /** The board's Rush · fastest / Crush · fewest switch was flipped: it opens there next time. */
@@ -187,6 +189,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   profile: Profile;
   identity: ApiIdentity;
   onProfile: OpenProfile;
+  /** Saves a name chosen on the result (`GuestNamePrompt`), as the profile's name field does. */
+  onRename: (profile: Profile) => void;
   onExit: () => void;
   start: boolean;
   /** Brings the finished game into the history, resolving to the IDs of badges it newly earned. */
@@ -261,6 +265,13 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     setDraftState(d);
   };
 
+  /** Starts today's run under your name, which a guest's boards now show (`boardName.ts`). */
+  const startAs = async (day: DailyDay) => {
+    const shown = displayName(profile);
+    const started = await api.start(day, settings.difficulty, shown);
+    if (!identity.token) noteBoardName(profile.deviceId, shown);
+    return started;
+  };
   /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Set or Daily Word). */
   const load = (autoStart = start) => {
     setLoadError(null);
@@ -272,7 +283,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
         setToday(t);
         return;
       }
-      setToday(await api.start(t.day, settings.difficulty, displayName(profile)));
+      setToday(await startAs(t.day));
     }).catch((e: unknown) => setLoadError(dailyErrorMessage(codeOf(e), '', mode)));
   };
   useEffect(() => load(), []);
@@ -426,7 +437,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   const startRun = () => {
     if (!today || starting) return;
     setStarting(true);
-    api.start(today.day, settings.difficulty, displayName(profile))
+    startAs(today.day)
       .then(setToday, (e: unknown) => setMessage({ text: dailyErrorMessage(codeOf(e), '', mode), error: true }))
       .finally(() => setStarting(false));
   };
@@ -665,6 +676,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
                 )}
                 Places are final at midnight New York time. Next {next} in {nextSet}.
               </p>
+              <GuestNamePrompt profile={profile} onProfile={onRename} />
             </>
           ) : (
             <p class="tally">
