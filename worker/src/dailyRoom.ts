@@ -99,8 +99,9 @@ export async function handleDaily(
       created = createRun(shuffled(theme.words, deps.random), now, { difficulty: request.difficulty, pausable: true });
       if (!created.ok) throw new Error(`${day}'s theme ${theme.id} isn't a valid run: ${created.error}`);
     } else {
-      // One word, with no time limit and no Pause (owner, 9 October 2026: time only breaks ties).
-      created = createRun([await deps.wordFor(day)], now, { difficulty: request.difficulty });
+      // One word, with no time limit (owner, 9 October 2026: time only breaks ties). Since item 18zx it has the
+      // Daily Set's Pause, twice a run; a run started before then keeps none (`pausable`).
+      created = createRun([await deps.wordFor(day)], now, { difficulty: request.difficulty, pausable: true });
       if (!created.ok) throw new Error(`${day}'s Daily Word isn't a valid run: ${created.error}`);
     }
     // Reading the day's words waits on D1, when another start from this player (a double tap) can get in:
@@ -115,7 +116,7 @@ export async function handleDaily(
   if (!entry) return refuse(409, 'not-started');
   // A run still going when the day changes can be finished (the worker allows a day late), off the board.
   const run = replay(entry);
-  // Two pauses a run (README "Daily Rush"); Solo Rush's engine has no limit.
+  // Two pauses a run, in either daily game (README "Daily Rush", "Daily Word"); Solo Rush's engine has no limit.
   if (request.action === 'pause' && run.pausable && run.status === 'playing' && run.pausedAt === null
     && pausesUsed(run) >= DAILY_PAUSES) return refuse(409, 'no-pauses-left');
   const result = request.action === 'guess' ? submitRunGuess(run, request.word, now)

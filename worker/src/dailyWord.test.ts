@@ -4,6 +4,7 @@ import { fetchPlayed } from '../../src/app/playedApi';
 import { addDays, dayEnd, replayEntry, SECRET_WORDS, summarizeGame } from '../../src/game';
 import { DAILY_WORD_FROM, DAILY_WORD_REPEAT_DAYS, pickWordFor } from './dailyWords';
 import { fakeD1 } from './fakeD1';
+import type { DailyEntry } from './dailyRoom';
 import { fakeDaily } from './fakeDaily';
 import { handle, type Env } from './index';
 
@@ -21,7 +22,7 @@ const HOUR = 60 * 60 * 1000;
 function setup(random?: () => number) {
   const { db, sqlite } = fakeD1({ dailyThemes: true });
   let clock = NOON;
-  const { namespace } = fakeDaily({ db, now: () => clock, random });
+  const { namespace, days } = fakeDaily({ db, now: () => clock, random });
   /** How many times the day's referee was asked. */
   const referee = { calls: 0 };
   const daily = { ...namespace, get: (id: Parameters<typeof namespace.get>[0]) => {
@@ -37,6 +38,7 @@ function setup(random?: () => number) {
   return {
     db,
     sqlite,
+    days,
     fetchFn,
     referee,
     word: (guestId: string): DailyApi => dailyApi('https://api.example', identity(guestId), fetchFn, 'dailyWord'),
@@ -71,7 +73,7 @@ describe("today's Daily Word", () => {
     const started = await s.word(ANN).start(DAY, 'hard', 'Ann');
     const word = s.wordOf()!;
     expect(SECRET_WORDS).toContain(word);
-    expect(started.run).toMatchObject({ difficulty: 'hard', status: 'playing', pausable: false, pausesLeft: 0 });
+    expect(started.run).toMatchObject({ difficulty: 'hard', status: 'playing', pausable: true, pausesLeft: 2 });
     expect(started.run?.words).toHaveLength(1);
     expect(JSON.stringify(started)).not.toContain(word);
   });
@@ -99,16 +101,46 @@ describe("today's Daily Word", () => {
     expect(await pickWordFor(db, DAY, () => 0.99)).toBe(first);
   });
 
-  it('is once a day, has no Pause, and is played apart from the Daily Set', async () => {
+  it('is once a day, and is played apart from the Daily Set', async () => {
     const s = setup();
     await s.set(ANN).start(DAY, 'medium', 'Ann');
     const started = await s.word(ANN).start(DAY, 'medium', 'Ann');
     expect(started.run?.words).toHaveLength(1);
     expect(await refusal(s.word(ANN).start(DAY, 'medium', 'Ann'))).toBe('already-played');
-    expect(await refusal(s.word(ANN).pause(DAY))).toBe('not-found');
     // Each keeps its own run.
     expect((await s.set(ANN).today()).run?.words).toHaveLength(4);
     expect((await s.word(ANN).today()).run?.words).toHaveLength(1);
+  });
+
+  it("pauses twice a run, like the Daily Set, with the paused time left off the board's time (item 18zx)", async () => {
+    const s = setup();
+    const started = await s.word(ANN).start(DAY, 'medium', 'Ann');
+    expect(started.run).toMatchObject({ pausable: true, pausesLeft: 2 });
+    const word = s.wordOf()!;
+    for (const _ of [1, 2]) {
+      s.tick(1000);
+      expect((await s.word(ANN).pause(DAY)).run?.pausedAt).not.toBeNull();
+      expect(await refusal(s.word(ANN).guess(DAY, other(word)))).toBe('paused');
+      s.tick(10 * 60_000);
+      await s.word(ANN).resume(DAY);
+    }
+    expect((await s.word(ANN).today()).run?.pausesLeft).toBe(0);
+    expect(await refusal(s.word(ANN).pause(DAY))).toBe('no-pauses-left');
+    s.tick(1000);
+    await s.word(ANN).guess(DAY, word);
+    // 20 minutes paused, all left out: only the 3 seconds of play. The Daily Set's runs are untouched.
+    expect(s.sqlite.prepare('SELECT ms FROM daily_word_results').get()).toEqual({ ms: 3000 });
+  });
+
+  it("can't pause a Daily Word started before Pause", async () => {
+    const s = setup();
+    await s.word(ANN).start(DAY, 'medium', 'Ann');
+    // As a run from before item 18zx was saved: not pausable.
+    const storage = s.days.get(DAY)!;
+    const entry = await storage.get<DailyEntry>(`word:${ANN}`);
+    await storage.put(`word:${ANN}`, { ...entry!, record: { ...entry!.record, pausable: false } });
+    expect((await s.word(ANN).today()).run?.pausable).toBe(false);
+    expect(await refusal(s.word(ANN).pause(DAY))).toBe('not-pausable');
   });
 
   it('starts once from two starts at the same moment, the second never replacing the first', async () => {

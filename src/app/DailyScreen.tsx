@@ -180,7 +180,7 @@ export function DailyBoardPanel({ mode = 'daily', api, today, day: firstDay, dif
  * A daily game, refereed by the server, once a day: the Daily Set (Daily
  * Rush), the day's themed set of 4 words, or (`mode`) the Daily Word, one
  * word. With `start`, it starts today's run at your difficulty if you haven't
- * played yet. The Daily Set's Pause stops the clock, on the server too.
+ * played yet. Pause stops the clock, on the server too (the Daily Word's since item 18zx).
  */
 export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onRename, onExit, start, onFinished }: {
   mode?: DailyMode;
@@ -554,7 +554,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
               <p>
                 {set ? "4 words on today's theme, once." : 'One secret word, the same for everyone, once.'} You'll play
                 at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which can't change once you start.{' '}
-                {set ? <><b>Pause</b> stops your clock and hides the board, twice a run.</> : 'Fewest guesses wins, and time breaks ties.'}
+                {set ? <><b>Pause</b> stops your clock and hides the board, twice a run.</>
+                  : <>Fewest guesses wins, and time breaks ties. <b>Pause</b> stops your clock and hides the board, twice.</>}
                 {' '}Next {next} in {nextSet}.
               </p>
               {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
