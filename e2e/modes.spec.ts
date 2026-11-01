@@ -238,6 +238,42 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
   await expect(second.getByText(/Your turn|Their turn/)).toBeVisible();
 });
 
+test('a live game against a friend: each first guess is untimed, due within 2 minutes (item 18zv)', async ({ page, browser }) => {
+  await trackSockets(page.context());
+  await unlockAll(page);
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
+  await button(page, /^5 min/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Next: your word').click();
+  await guess(page, 'storm');
+  const link = await page.locator('#invite-link').inputValue();
+  await listening(page);
+  const friend = await newPlayer(browser, page);
+  await friend.goto(link);
+  await expect(friend.getByText(/first guess is untimed but due within 2 minutes/)).toBeVisible();
+  await guess(friend, 'beach');
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await listening(friend);
+  const hostFirst = await page.getByText('Your turn').isVisible();
+  const [first, second] = hostFirst ? [page, friend] : [friend, page];
+  // The player to move sees their 2 minutes; their clock stands at 5:00 and isn't running.
+  await expect(first.getByRole('timer', { name: /^Make your first guess within [12]:\d\d, or the game is cancelled$/ })).toBeVisible();
+  await expect(second.getByRole('timer', { name: /has [12]:\d\d to make their first guess$/ })).toBeVisible();
+  await expect(first.locator('.clock.running')).toHaveCount(0);
+  await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
+  await expectAccessible(first);
+  // After it, the other player's 2 minutes start, and the first player's clock is still full.
+  await guess(first, 'crane');
+  await expect(second.getByRole('timer', { name: /^Make your first guess within/ })).toBeVisible();
+  await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
+  // Once both have guessed, the clocks run as before.
+  await guess(second, 'plant');
+  await expect(first.locator('.clock.running')).toHaveCount(1);
+  await expect(first.locator('.first-guess')).toHaveCount(0);
+});
+
 test("back from a rematch, the title screen still knows today's daily games (issue 250)", async ({ page, browser }) => {
   await trackSockets(page.context());
   await unlockAll(page);

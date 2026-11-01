@@ -512,7 +512,7 @@ export function FriendScreen({
           onShakeEnd={() => setShake(false)}
           note={`Choose your secret word; ${game.hostName} will try to guess it. 5 letters, no repeated letters. `
             + timingNote(game.timeControl)
-            + (isLive(game.timeControl) ? ' The clocks start as soon as you accept.' : '')
+            + (isLive(game.timeControl) ? ' Each first guess is untimed but due within 2 minutes; then the clocks run.' : '')
             + (rematchOf && (canRate || !game.rated) ? ` You play at ${DIFFICULTY_LABEL[joinDifficulty]}.` : '')
             + (game.rated ? " It's rated: your difficulty is fixed once you accept"
               + (canRate ? '.' : ", and you'll play at Medium, since a rated game can't be Easy.") : '')}
@@ -649,10 +649,12 @@ export function FriendScreen({
   const unseen = seen !== null && view.theirGuesses.length > seen;
   const newestFirst = settings.newestFirst[difficulty];
   const appClass = ['app', 'two', yourLastChance && !confirming ? 'last-chance' : ''].filter(Boolean).join(' ');
-  // A live game's clocks: the player to move's runs down to the deadline.
+  // A live game's clocks: the player to move's runs down to the deadline, unless their first guess is still due
+  // (item 18zv): then their clock waits, and the deadline is the 2 minutes they have to make it.
+  const firstDue = view.firstGuessDue === true && deadline !== null;
   const clocks = view.clocks && deadline !== null && {
-    you: view.turn === 'you' ? deadline - now : view.clocks.you,
-    opponent: view.turn === 'opponent' ? deadline - now : view.clocks.opponent,
+    you: view.turn === 'you' && !firstDue ? deadline - now : view.clocks.you,
+    opponent: view.turn === 'opponent' && !firstDue ? deadline - now : view.clocks.opponent,
   };
 
   return (
@@ -716,13 +718,22 @@ export function FriendScreen({
         <>
           {clocks && (
             <div class="clocks" role="timer" aria-label={`Your clock ${clockText(clocks.you)}, ${opponent}'s ${clockText(clocks.opponent)}`}>
-              <span class={['clock', view.turn === 'you' ? 'running' : '', clocks.you < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
+              <span class={['clock', view.turn === 'you' && !firstDue ? 'running' : '', clocks.you < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
                 <span class="clock-name">You</span> {clockText(clocks.you)}
               </span>
-              <span class={['clock', view.turn === 'opponent' ? 'running' : '', clocks.opponent < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
+              <span class={['clock', view.turn === 'opponent' && !firstDue ? 'running' : '', clocks.opponent < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
                 <span class="clock-name">{opponent}</span> {clockText(clocks.opponent)}
               </span>
             </div>
+          )}
+          {clocks && firstDue && (
+            // Item 18zv: the first guess is untimed, but due within 2 minutes, or the game is cancelled.
+            <p class={['first-guess', view.turn === 'you' && deadline - now < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')} role="timer"
+              aria-label={view.turn === 'you' ? `Make your first guess within ${clockText(deadline - now)}, or the game is cancelled`
+                : `${opponent} has ${clockText(deadline - now)} to make their first guess`}>
+              {view.turn === 'you' ? <>First guess within <b>{clockText(deadline - now)}</b>, or the game is cancelled. Your clock starts after it.</>
+                : <>{opponent} has <b>{clockText(deadline - now)}</b> for their first guess.</>}
+            </p>
           )}
           {yourLastChance ? (
             <section class="banner danger" role="alert">
