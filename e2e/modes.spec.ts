@@ -149,8 +149,11 @@ test('Daily Word: one word for everyone, once a day, on its own board', async ({
   await button(page, /^Medium/).click();
   await button(page, 'Start Daily Word').click();
   await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
-  // One word, and no Pause.
-  await expect(button(page, 'Pause')).toHaveCount(0);
+  // One word, with the Daily Set's Pause (item 18zx): it covers the board until Resume.
+  await button(page, 'Pause').click();
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await page.locator('section.panel').getByRole('button', { name: 'Resume' }).click();
+  await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
   // Each guess after the server's answer to the last, so none is typed while one is on its way.
   const reply = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/daily/word/guess');
   await guess(page, 'storm');
@@ -236,6 +239,173 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
   await guess(first, 'plant');
   await expect(first.getByText(/Your turn|Their turn/)).toBeVisible();
   await expect(second.getByText(/Your turn|Their turn/)).toBeVisible();
+});
+
+test('a live game against a friend: each first guess is untimed, due within 2 minutes (item 18zv)', async ({ page, browser }) => {
+  await trackSockets(page.context());
+  await unlockAll(page);
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
+  await button(page, /^5 min/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Next: your word').click();
+  await guess(page, 'storm');
+  const link = await page.locator('#invite-link').inputValue();
+  await listening(page);
+  const friend = await newPlayer(browser, page);
+  await friend.goto(link);
+  await expect(friend.getByText(/first guess is untimed but due within 2 minutes/)).toBeVisible();
+  await guess(friend, 'beach');
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await listening(friend);
+  const hostFirst = await page.getByText('Your turn').isVisible();
+  const [first, second] = hostFirst ? [page, friend] : [friend, page];
+  // The player to move sees their 2 minutes; their clock stands at 5:00 and isn't running.
+  await expect(first.getByRole('timer', { name: /^Make your first guess within [12]:\d\d, or the game is cancelled$/ })).toBeVisible();
+  await expect(second.getByRole('timer', { name: /has [12]:\d\d to make their first guess$/ })).toBeVisible();
+  await expect(first.locator('.clock.running')).toHaveCount(0);
+  await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
+  await expectAccessible(first);
+  // After it, the other player's 2 minutes start, and the first player's clock is still full.
+  await guess(first, 'crane');
+  await expect(second.getByRole('timer', { name: /^Make your first guess within/ })).toBeVisible();
+  await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
+  // Once both have guessed, the clocks run as before.
+  await guess(second, 'plant');
+  await expect(first.locator('.clock.running')).toHaveCount(1);
+  await expect(first.locator('.first-guess')).toHaveCount(0);
+});
+
+test('a live game cancelled for a missing first guess: no winner, no words, and Rematch (item 18zv)', async ({ page, browser }) => {
+  // The server keeps the time, so this waits out the real 2 minutes.
+  test.setTimeout(4 * 60_000);
+  await trackSockets(page.context());
+  await unlockAll(page);
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
+  await button(page, /^5 min/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Next: your word').click();
+  await guess(page, 'storm');
+  const link = await page.locator('#invite-link').inputValue();
+  await listening(page);
+  const friend = await newPlayer(browser, page);
+  await friend.goto(link);
+  await expect(friend.getByText(/challenges you/)).toBeVisible();
+  await guess(friend, 'beach');
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await listening(friend);
+  // Nobody guesses.
+  for (const player of [page, friend]) {
+    const result = player.locator('.result');
+    await expect(result.getByRole('heading', { name: 'Game cancelled.' })).toBeVisible({ timeout: 150_000 });
+    await expect(result).toContainText(/didn't make (your|their) first guess within 2 minutes, so there's no winner/);
+    // Neither word, nor a tally.
+    await expect(result).not.toContainText(/STORM|BEACH|word was|You: /i);
+    await expect(button(player, 'Rematch')).toBeVisible();
+  }
+  await expectAccessible(page);
+});
+
+test("back from a rematch, the title screen still knows today's daily games (issue 250)", async ({ page, browser }) => {
+  await trackSockets(page.context());
+  await unlockAll(page);
+  // Play today's Daily Word first.
+  await modeButton(page, 'Daily Word').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start Daily Word').click();
+  await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
+  await guess(page, TEST_DAILY_WORD);
+  await expect(page.locator('.rush-result').getByRole('heading', { name: /^Found in 1 guess/ })).toBeVisible();
+  // Straight back to the title screen, which heard "not played" before, with the server out of reach: it's played.
+  const dailyRequests = /\/api\/daily(\/word)?(\/games)?$/;
+  await page.route(dailyRequests, (route) => route.abort());
+  await button(page, 'Word Mastermind: main menu').click();
+  const daily = page.getByRole('region', { name: 'Daily' });
+  await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
+  await page.unroute(dailyRequests);
+
+  // A game against a friend, to the end, then a rematch, all without leaving the page.
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
+  await button(page, /1 day a guess/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Next: your word').click();
+  await guess(page, 'storm');
+  const link = await page.locator('#invite-link').inputValue();
+  await listening(page);
+  const friend = await newPlayer(browser, page);
+  await friend.goto(link);
+  await expect(friend.getByText(/challenges you/)).toBeVisible();
+  await guess(friend, 'beach');
+  await expect(friend.getByText(/Your turn|Their turn/)).toBeVisible();
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await listening(friend);
+  const hostFirst = await page.getByText('Your turn').isVisible();
+  const [first, second] = hostFirst ? [page, friend] : [friend, page];
+  await guess(first, hostFirst ? 'beach' : 'storm');
+  await expect(second.getByText(/final guess|last guess/i)).toBeVisible();
+  await guess(second, 'crane');
+  await expect(page.getByRole('heading', { name: /You win!|wins\.$/ })).toBeVisible();
+  await button(page, 'Rematch').click();
+  await guess(page, 'crane');
+  await expect(page.getByRole('heading', { name: /Rematch sent to/ })).toBeVisible();
+
+  // Back to the title screen while the server can't be reached for the daily games: what it knew stays,
+  // and nothing it doesn't know is offered as not played.
+  await page.route(dailyRequests, (route) => route.abort());
+  await button(page, 'Word Mastermind: main menu').click();
+  await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
+  await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('4 themed words · Today:');
+  await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('Play');
+  await page.unroute(dailyRequests);
+});
+
+test('Rush with Friends: finished first, Games in progress waits for the others, then shows the results (issue 252)', async ({ page, browser }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'With friends').click();
+  await button(page, 'Open a lobby').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Open lobby').click();
+  const code = (await page.locator('.lobby-code').textContent())!.trim();
+  const other = await newPlayer(browser, page);
+  await other.goto(`/?lobby=${code}`);
+  await button(other, 'Join').click();
+  await expect(button(other, 'Join')).toHaveCount(0);
+  await expect(page.locator('.lobby-seats li:not(.empty)')).toHaveCount(2);
+  await button(page, /^Start the/).click();
+  for (const player of [page, other]) await expect(player.getByRole('list', { name: 'Your guesses at word 1' })).toBeVisible();
+
+  const giveUp = async (player: Page) => {
+    await button(player, 'Menu').click();
+    await button(player, /^Give up the rest of this/).click();
+    await button(player, 'Give up the rest').click();
+    await expect(player.locator('.rush-result')).toBeVisible();
+  };
+  // You finish first: no Continue, just waiting on the other player.
+  await giveUp(page);
+  await button(page, 'Word Mastermind: main menu').click();
+  const games = page.getByRole('region', { name: 'Games in progress' });
+  if (await games.getByRole('button', { name: 'Games in progress' }).getAttribute('aria-expanded') === 'false') {
+    await games.getByRole('button', { name: 'Games in progress' }).click();
+  }
+  await expect(games.getByRole('button', { name: 'Waiting for others: Word Set with friends' })).toBeVisible();
+  await expect(games.getByRole('button', { name: /^Continue/ })).toHaveCount(0);
+
+  // Once they've finished too, coming back to the page offers the results.
+  await giveUp(other);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(games.getByRole('button', { name: 'See results: Word Set with friends' })).toBeVisible();
+  await games.getByRole('button', { name: 'See results: Word Set with friends' }).click();
+  await expect(page.locator('.rush-result')).toBeVisible();
+  // Seen, so it's gone, and a reload stays on the title screen.
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Daily' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Word Set with friends/ })).toHaveCount(0);
 });
 
 test('Rush with Friends: the largest lobby, 5 players, ranked by time, plays to the end', async ({ page, browser }) => {

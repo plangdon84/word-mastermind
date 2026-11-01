@@ -145,10 +145,19 @@ async function save(storage: RoomStorage, deps: LobbyDeps, room: LobbyRoom, now:
   return settle(storage, deps, room, now);
 }
 
-/** The lobby's alarm: a computer may have finished, or the time may be up. */
+/**
+ * The lobby's alarm: a computer may have finished, or the time may be up.
+ * The alarm that woke it is spent, so settling always sets the next one,
+ * even when it woke a moment early and the next is the same time (issue
+ * 252: otherwise the lobby slept until someone opened it, and the game's
+ * end and its notification waited for them).
+ */
 export async function handleLobbyAlarm(storage: RoomStorage, deps: LobbyDeps, now: number): Promise<void> {
   const room = await storage.get<LobbyRoom>(ROOM_KEY);
-  if (room) await settle(storage, deps, room, now);
+  if (!room) return;
+  const settled = await settle(storage, deps, { ...room, alarmAt: null }, now);
+  // Saved even when nothing else changed, so the stored alarm time is never one that has passed.
+  if (room.alarmAt !== null && settled.alarmAt === null) await storage.put(ROOM_KEY, settled);
 }
 
 /** Handles one request to the lobby. */

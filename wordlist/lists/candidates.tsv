@@ -6623,7 +6623,7 @@ neafe	rejected	size 85 > 80	85	n0	_		[ukacd]
 neals	rejected	size 85 > 80	85	vs	_		[ukacd]	
 neaps	guess	size 60 > 35	60	ns,vs	_		[ukacd]	
 nears	secret		35	vs	_			
-neath	guess	size 50 > 35	50	pp	_			
+neath	banned	ban.txt	50	pp	_			
 neats	guess	inflected form not allowed for secrets	80	?	_			
 nebek	rejected	size 85 > 80	85	n0	_		[ukacd]	
 nebel	rejected	size 85 > 80	85	n0	_		[ukacd]	

@@ -25,6 +25,20 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.24.0',
+    notes: [
+      { text: 'Coming back to the title screen no longer shows today\'s daily games as not played while they load.' },
+      { text: 'Word Sets with friends: once you\'ve finished, Games in progress reads Waiting for others, then See results when everyone\'s done.' },
+      { text: 'The notification that a Word Set with friends is over no longer waits until someone opens it.' },
+      { text: 'Setting up a game against a friend now lists the time choices shortest first.' },
+      { text: 'Tapping a difficulty on an iPhone no longer leaves a white outline around it.' },
+      { text: '"NEATH" is no longer accepted as a guess.' },
+      { text: 'Live games against a friend: your clock starts after your first guess.' },
+      { text: "If a player hasn't made their first guess within 2 minutes of their turn starting, the live game is cancelled, with no winner." },
+      { text: 'The Daily Word now has Pause, twice a day, like the Daily Set.' },
+    ],
+  },
+  {
     version: '1.23.0',
     notes: [
       { text: 'Signing in with Google for the first time? You can use your Google name as your player name, or pick another.' },

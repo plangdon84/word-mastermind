@@ -99,7 +99,7 @@ test('5,000 games: each profile page opens within a second on a slow phone, once
   Object.assign(times, {
     history: await timed('history', () => button(page, /^Game history/).click(), () => expect(page.locator('.history-row').first()).toBeVisible()),
   });
-  // About 2 s on a slow phone; this only guards against it getting much worse (Dev Plan item 17d speeds it up).
+  // About 2 s on a slow phone; this only guards against it getting much worse (Dev Plan item 19c speeds it up).
   expect(load, `loading took ${load} ms`).toBeLessThan(4_000);
   for (const [what, ms] of Object.entries(times)) expect(ms, `${what} took ${ms} ms`).toBeLessThan(1_000);
 });

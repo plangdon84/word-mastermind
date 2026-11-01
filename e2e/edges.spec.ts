@@ -256,6 +256,8 @@ test("an emailed link with a Google name added never offers it, and the name lea
   await button(page, 'Email me a link').click();
   await page.goto(`${await loginLink(email, before)}#google-name=Mallory`);
   await expect(page).toHaveURL((url) => url.search === '' && url.hash === '');
+  // Wait for the question: until the link is checked, the title screen's own Sign in card is the one on screen.
+  await expect(page.getByRole('heading', { name: `Sign in as ${email}?` })).toBeVisible();
   await button(page, 'Sign in').click();
   await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
   await expect(page.getByRole('heading', { name: /as your name\?/ })).toHaveCount(0);

@@ -88,6 +88,8 @@ body {
 *, *::before, *::after { box-sizing: inherit; }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* After a tap or click, no ring: iPhone Safari can ring a tapped button (issue 249, src/app/inputKind.ts). */
+[data-input="pointer"] :focus-visible { outline: none; }
 
 .app {
   max-width: 520px;
@@ -1325,6 +1327,9 @@ button.bubble:active { transform: scale(0.94); }
 
 /* A live game's chess clocks: the running one is filled, and turns red near the end. */
 .clocks { display: flex; justify-content: center; gap: 8px; font-size: 0.9rem; }
+/* A live first guess, untimed but due within 2 minutes (item 18zv). */
+.first-guess { margin: 4px 0 0; text-align: center; font-size: 0.85rem; color: var(--muted); }
+.first-guess.urgent { color: var(--err); font-weight: 600; }
 .clock { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--line); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .clock-name { font-family: var(--font); max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock.running { background: var(--ink); color: var(--bg); border-color: var(--ink); }

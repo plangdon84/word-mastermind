@@ -104,13 +104,15 @@ export function parsePvpView(value: unknown): PvpView | null {
   if (v.outcome !== null) {
     const o = v.outcome;
     if (!isObject(o) || !['won', 'lost', 'draw'].includes(o.result as string)) return null;
-    if (!['found', 'draw', 'conceded', 'timed-out'].includes(o.reason as string)) return null;
+    if (!['found', 'draw', 'conceded', 'timed-out', 'cancelled'].includes(o.reason as string)) return null;
     outcome = { result: o.result, reason: o.reason } as NonNullable<PvpView['outcome']>;
   }
   return {
     first: v.first, yourSecret: v.yourSecret, theirSecret: v.theirSecret,
     yourGuesses: v.yourGuesses, theirGuesses: v.theirGuesses, turn: v.turn, status: v.status, outcome,
     startedAt: v.startedAt, timeControl, deadline: v.deadline, clocks, difficulty: v.difficulty, rated: v.rated === true,
+    // Item 18zv: the player to move still owes their untimed first guess. Absent from an older server.
+    firstGuessDue: v.firstGuessDue === true,
     // An older server doesn't count suggestions, or say the opponent's difficulty and marks.
     suggested: typeof v.suggested === 'number' ? v.suggested : 0,
     theirDifficulty: isDifficulty(v.theirDifficulty) ? v.theirDifficulty : null,

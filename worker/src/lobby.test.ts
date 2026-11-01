@@ -262,6 +262,27 @@ describe('standings and notifications', () => {
     }
     expect(lobbies.notices.map((n) => [n.guestId, n.message.title])).toEqual([[ANN, 'Computer 1 finished the Crush']]);
   });
+
+  it('end the game when the time is up even if the alarm wakes a moment early (issue 252)', async () => {
+    const { ann, bob, code, lobbies, tick } = await opened();
+    await ann.start(code);
+    for (const word of WORDS) {
+      tick(1000);
+      await ann.guess(code, word);
+    }
+    lobbies.notices.length = 0;
+    // Nobody looks again. The alarm for the 30 minutes being up wakes the lobby 1 ms before they are.
+    tick(30 * 60_000 - 4001);
+    await lobbies.runAlarms(1);
+    expect(lobbies.notices).toEqual([]);
+    // It sets itself again, so the game still ends, and both hear, without anyone opening the lobby.
+    tick(1);
+    await lobbies.runAlarms();
+    expect(lobbies.notices.map((n) => [n.guestId, n.message.title])).toEqual([
+      [ANN, 'You won the Crush with Friends!'], [BOB, 'The Crush is over: you came 2nd of 2'],
+    ]);
+    expect((await bob.get(code)).lobby.state).toBe('over');
+  });
 });
 
 describe('a Rush, ranked by time', () => {

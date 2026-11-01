@@ -27,6 +27,8 @@ function describe(game: FriendGame, now: number): string {
   const view = game.view;
   if (!view) return '';
   if (game.state === 'over') {
+    // A live game cancelled for a missing first guess (item 18zv) has no winner, but isn't a draw.
+    if (view.outcome?.reason === 'cancelled') return `Cancelled: no first guess in time against ${opponent}.`;
     const result = view.outcome?.result;
     return result === 'won' ? `You beat ${opponent}.` : result === 'draw' ? `Draw with ${opponent}.` : `${opponent} won.`;
   }

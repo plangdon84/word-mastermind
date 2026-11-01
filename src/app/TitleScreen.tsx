@@ -7,7 +7,10 @@ import { BackIcon, HOW_TO_UNLOCK, LockIcon } from './panels';
 import { RankBySwitch } from './rushParts';
 import { API_URL } from './config';
 import { receivePlacements } from './badges';
-import { dailyGames, type DailyToday } from './dailyApi';
+import type { DailyToday } from './dailyApi';
+import { useDailyToday } from './dailyToday';
+import { lobbyApi } from './lobbyApi';
+import type { LobbyInProgress } from './lobbyStorage';
 import { useFriendsList } from './FriendsSection';
 import type { Friend } from './friendsApi';
 import { FriendGameButton, friendGameWaits, LobbyInviteButton, useFriendGames, useLobbyInvites } from './FriendGamesList';
@@ -91,6 +94,9 @@ const MODES: Choice<Mode>[] = [
   { value: 'rush', label: 'Word Sets', detail: 'Find 4 words in a row against the clock, on your own or with friends.' },
 ];
 
+/** A lobby's name on its Games in progress row once you've finished it. */
+const LOBBY_NAME = { lobby: 'Word Set with friends', competitive: 'Competitive Word Set' } as const;
+
 const CONTINUE_LABEL: Record<Mode | 'lobby' | 'competitive', string> = {
   single: 'Continue Practice', two: 'Continue two player', rush: 'Continue Solo Rush',
   lobby: 'Continue Word Set with friends', competitive: 'Continue Competitive Word Set',
@@ -123,7 +129,7 @@ const TIME_GROUPS: { label: string; note: string; choices: { value: TimeControl;
   {
     label: 'Live',
     note: 'Play now, together. Each player has a chess clock that runs only on their turn: run out and you lose.',
-    choices: [{ value: '15m', label: '15 min' }, { value: '10m', label: '10 min' }, { value: '5m', label: '5 min' }],
+    choices: [{ value: '5m', label: '5 min' }, { value: '10m', label: '10 min' }, { value: '15m', label: '15 min' }],
   },
   {
     label: 'Take turns over days',
@@ -213,10 +219,12 @@ function Choices<T>({ label, choices, selected, onPick, details, done }: {
 }
 
 /** One daily game's row on the Daily card. */
-function DailyRow({ mode, today, inProgress, onPlay, onResult }: {
+function DailyRow({ mode, today, failed, inProgress, onPlay, onResult }: {
   mode: DailyMode;
   /** Today's game from the server, or null while it loads. */
   today: DailyToday | null;
+  /** Asking the server failed, so a game still null is unknown. */
+  failed: boolean;
   /** Today's run was started on this device and isn't over. */
   inProgress: boolean;
   onPlay: () => void;
@@ -229,24 +237,29 @@ function DailyRow({ mode, today, inProgress, onPlay, onResult }: {
   const late = run?.status === 'playing' && run.day !== today?.day;
   const playing = run ? run.status === 'playing' : inProgress;
   const over = run !== null && run.status !== 'playing';
-  const detail = !set
-    ? (late ? "Yesterday's word · in progress" : `One word for everyone${playing ? ' · in progress' : ''}`)
-    : late ? `Yesterday's ${today?.runTheme ?? 'set'} · in progress`
-      : !today ? '4 themed words'
-        : !today.theme ? 'No set today'
-          : `4 themed words · Today: ${today.theme}${playing ? ' · in progress' : ''}`;
+  // Not known yet (issue 250): never offered as not played. If the server couldn't be reached, tapping opens the
+  // game, which looks for itself.
+  const unknown = !today && !inProgress;
+  const detail = unknown ? (failed ? "Couldn't check today's game · tap to open" : 'Loading…')
+    : !set
+      ? (late ? "Yesterday's word · in progress" : `One word for everyone${playing ? ' · in progress' : ''}`)
+      : late ? `Yesterday's ${today?.runTheme ?? 'set'} · in progress`
+        : !today ? '4 themed words · in progress'
+          : !today.theme ? 'No set today'
+            : `4 themed words · Today: ${today.theme}${playing ? ' · in progress' : ''}`;
   return (
     <button type="button" class={over ? 'daily-game done' : 'daily-game'}
       // The Daily Set needs a theme; the Daily Word is there every day.
-      disabled={set && !!today && !today.theme && !run && !inProgress}
-      onClick={run || inProgress ? onResult : onPlay}>
+      // While it loads, nothing to tap: Play would skip what the server knows, and the game would skip the difficulty.
+      disabled={(unknown && !failed) || (set && !!today && !today.theme && !run && !inProgress)}
+      onClick={run || inProgress || unknown ? onResult : onPlay}>
       <span class="daily-marker" aria-hidden="true">{set ? 4 : 1}</span>
       <span class="daily-name">
         {DAILY_NAME[mode]}
         {over && <span class="tag">{run.status === 'finished' ? 'Played' : 'Given up'}</span>}
       </span>
       <span class="daily-detail">{detail}</span>
-      {!over && <span class="daily-play">{playing ? 'Continue' : 'Play'}</span>}
+      {!over && !unknown && <span class="daily-play">{playing ? 'Continue' : 'Play'}</span>}
       {over && (
         <span class="daily-result">
           {run.status !== 'finished' ? 'Your result' : today?.place ? `${ordinal(today.place.rank)} of ${today.place.total} so far` : 'Your place'} ›
@@ -263,9 +276,11 @@ function DailyRow({ mode, today, inProgress, onPlay, onResult }: {
  * game's result, through a line that isn't. Tapping its heading folds it to
  * one line saying what's left (issue 222), remembered on this device.
  */
-function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
+function DailyCard({ today, failed, now, inProgress, lock, onPlay, onResult }: {
   /** Today's Daily Set and Daily Word from the server, each null while it loads. */
   today: Record<DailyMode, DailyToday | null>;
+  /** Asking the server failed, so a game still null is unknown. */
+  failed: boolean;
   now: number;
   /** Today's run of each was started on this device and isn't over. */
   inProgress: Record<DailyMode, boolean>;
@@ -308,7 +323,7 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
             {lock && <LockIcon />}
           </div>
         ) : (
-          <DailyRow key={mode} mode={mode} today={today[mode]} inProgress={inProgress[mode]}
+          <DailyRow key={mode} mode={mode} today={today[mode]} failed={failed} inProgress={inProgress[mode]}
             onPlay={() => onPlay(mode)} onResult={() => onResult(mode)} />
         ))}
       </div>
@@ -316,11 +331,42 @@ function DailyCard({ today, now, inProgress, lock, onPlay, onResult }: {
   );
 }
 
+/**
+ * Whether the lobby you've finished is over for everyone (issue 252): asked
+ * each time the title screen opens or the page comes back, while you're
+ * waiting on the others.
+ */
+function useLobbyOver(lobby: LobbyInProgress | null, identity: ApiIdentity): boolean {
+  const [over, setOver] = useState(false);
+  const code = lobby?.finished ? lobby.code : null;
+  useEffect(() => {
+    setOver(false);
+    if (!API_URL || !code) return;
+    let live = true;
+    const api = lobbyApi(API_URL, identity);
+    const ask = () => api.get(code).then((answer) => {
+      if (live) setOver(answer.lobby.state === 'over');
+    }, () => {});
+    void ask();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void ask();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      live = false;
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [code, identity.guestId, identity.token]);
+  return over;
+}
+
 /** One row of Games in progress: a game on this device to continue. */
 interface ContinueRow {
   key: Mode | 'lobby' | 'competitive';
   label: string;
   onOpen: () => void;
+  /** It waits on you, so it opens the list: all but a lobby you've finished while others play on. */
+  waits?: false;
 }
 
 /**
@@ -340,7 +386,7 @@ function GamesInProgress({ continues, identity, onOpenFriendGame, onLobby }: {
   // Your turn against a friend, or an invite; the tag counts these.
   const yourTurn = [...waitingGames.map((r) => r.id), ...invites.map((i) => `lobby:${i.code}`)];
   // Your own games here wait on your move too, so they open the list.
-  const waiting = [...yourTurn, ...continues.map((c) => `continue:${c.key}`)];
+  const waiting = [...yourTurn, ...continues.filter((c) => c.waits !== false).map((c) => `continue:${c.key}`)];
   const [choice, setChoice] = useState(loadListChoice);
   const total = continues.length + friendGames.length + invites.length;
   if (total === 0) return null;
@@ -446,8 +492,8 @@ export function TitleScreen({
   /** Opens the Leaderboards page, or one board on it (Back then returns here). */
   onLeaderboards: (board?: BoardId) => void;
   onStart: () => void;
-  /** You're in a Rush with Friends or Competitive Rush lobby that isn't over. */
-  lobbyInProgress: LobbyKind | null;
+  /** You're in a Rush with Friends or Competitive Rush lobby that isn't over, as far as this device knows. */
+  lobbyInProgress: LobbyInProgress | null;
   /** Opens a Rush with Friends lobby: yours in progress (no code), or one to join by its code. */
   onLobby: (code?: string) => void;
   /** Opens a game against a friend from the list of yours. */
@@ -457,36 +503,29 @@ export function TitleScreen({
   /** Which modes you've unlocked (README "Unlocking modes"); null while your games load, when nothing shows locked. */
   open: OpenModes | null;
 }) {
+  const lobbyOver = useLobbyOver(lobbyInProgress, identity);
   // A Daily Set in progress stays on the Daily card. A Solo game's label reads its saved run, once.
   const soloLabel = useMemo(() => continueLabel('rush'), [inProgress.rush]);
   const continues: ContinueRow[] = [
     ...(['single', 'two', 'rush'] as const).filter((m) => inProgress[m])
       .map((m) => ({ key: m, label: m === 'rush' ? soloLabel : CONTINUE_LABEL[m], onOpen: () => onContinue(m) })),
-    ...(lobbyInProgress ? [lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const]
-      .map((key) => ({ key, label: CONTINUE_LABEL[key], onOpen: () => onLobby() })) : []),
+    ...(lobbyInProgress ? [lobbyInProgress.kind === 'competitive' ? 'competitive' as const : 'lobby' as const]
+      .map((key): ContinueRow => ({
+        key, onOpen: () => onLobby(),
+        // Once you've finished: waiting for the others, then their results (issue 252).
+        ...(!lobbyInProgress.finished ? { label: CONTINUE_LABEL[key] }
+          : lobbyOver ? { label: `See results: ${LOBBY_NAME[key]}` }
+            : { label: `Waiting for others: ${LOBBY_NAME[key]}`, waits: false }),
+      })) : []),
   ];
-  // Today's Daily Set and Daily Word, for the theme and countdown, and whether you've played them.
-  const [daily, setDaily] = useState<Record<DailyMode, DailyToday | null>>({ daily: null, dailyWord: null });
-  /** The server's clock minus this device's, for the countdown. */
-  const [offset, setOffset] = useState(0);
-  useEffect(() => {
-    if (!API_URL) return;
-    let live = true;
-    // One request for both (Issue 213).
-    dailyGames(API_URL, identity).then((games) => {
-      if (!live) return;
-      setDaily(games);
-      for (const mode of DAILY_MODES) {
-        const t = games[mode];
-        if (!t) continue;
-        setOffset(t.now - Date.now());
-        receivePlacements(t.placements, mode);
-      }
-    });
-    return () => {
-      live = false;
-    };
-  }, [identity]);
+  // Today's Daily Set and Daily Word, for the theme and countdown, and whether you've played them: kept from the
+  // last visit to this screen while it asks again (issue 250).
+  const { games: daily, offset, failed: dailyFailed } = useDailyToday(identity, (games) => {
+    for (const mode of DAILY_MODES) {
+      const t = games[mode];
+      if (t) receivePlacements(t.placements, mode);
+    }
+  });
   const now = useNow(30_000) + offset;
   /** Today's Daily Set or Daily Word, its difficulty being picked. */
   const dailyChosen = settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord');
@@ -563,7 +602,7 @@ export function TitleScreen({
 
       {step === 'home' && (
         <>
-          <DailyCard today={daily} now={now} inProgress={dailyInProgress} lock={lock?.detail ?? null}
+          <DailyCard today={daily} failed={dailyFailed} now={now} inProgress={dailyInProgress} lock={lock?.detail ?? null}
             onResult={onDaily} onPlay={(mode) => {
               onSettings({ ...settings, mode: 'rush', rushKind: mode });
               setStep('difficulty');

@@ -25,13 +25,19 @@ const turnTime = (control: TimeControl) => {
 /** How the game ended, from your side. See README "Final guess and draws". */
 export type Outcome =
   | 'won' | 'won-held' | 'lost' | 'lost-final' | 'clutch' | 'tied' | 'they-gave-up' | 'gave-up'
-  | 'they-ran-out' | 'ran-out';
+  | 'they-ran-out' | 'ran-out' | 'cancelled-you' | 'cancelled-them';
 
 export function outcomeOf(view: PvpView): Outcome | null {
   const o = view.outcome;
   if (!o) return null;
   if (o.reason === 'conceded') return o.result === 'won' ? 'they-gave-up' : 'gave-up';
   if (o.reason === 'timed-out') return o.result === 'won' ? 'they-ran-out' : 'ran-out';
+  // Live (item 18zv): whoever owed the first guess that didn't come. You did if you hadn't guessed and it was your turn:
+  // you went first, or they had guessed.
+  if (o.reason === 'cancelled') {
+    const yours = view.yourGuesses.length === 0 && (view.first === 'you' || view.theirGuesses.length > 0);
+    return yours ? 'cancelled-you' : 'cancelled-them';
+  }
   if (o.result === 'draw') return view.first === 'opponent' ? 'clutch' : 'tied';
   if (o.result === 'won') return view.first === 'you' ? 'won-held' : 'won';
   return view.first === 'opponent' ? 'lost-final' : 'lost';
@@ -223,8 +229,9 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
 }) {
   const lastTheirs = view.theirGuesses[view.theirGuesses.length - 1];
   const youFoundTheirs = view.yourGuesses.some((g) => g.isWin);
+  const cancelled = outcome === 'cancelled-you' || outcome === 'cancelled-them';
   return (
-    <ResultCard outcome={outcome} word={choice ? null : view.theirSecret} whose={`${opponent}'s word`}>
+    <ResultCard outcome={outcome} word={choice || cancelled ? null : view.theirSecret} whose={`${opponent}'s word`}>
       {outcome === 'clutch' && <Confetti />}
       {outcome === 'clutch' ? (
         <>
@@ -243,6 +250,8 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
           'gave-up': `You gave up. ${opponent} wins.`,
           'they-ran-out': `${opponent} ran out of time. You win!`,
           'ran-out': `You ran out of time. ${opponent} wins.`,
+          'cancelled-you': 'Game cancelled.',
+          'cancelled-them': 'Game cancelled.',
         }[outcome]}</h2>
       )}
       <p>{{
@@ -258,8 +267,11 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
           : `${opponent} didn't guess within ${turnTime(view.timeControl)}, so the game is yours.`,
         'ran-out': live ? `Your clock ran out, so the game went to ${opponent}.`
           : `You didn't guess within ${turnTime(view.timeControl)}, so the game went to ${opponent}.`,
+        'cancelled-you': "You didn't make your first guess within 2 minutes, so there's no winner. It isn't kept in your history.",
+        'cancelled-them': `${opponent} didn't make their first guess within 2 minutes, so there's no winner. It isn't kept in your history.`,
       }[outcome]}</p>
-      {choice ? choice : (
+      {/* A cancelled game (item 18zv) shows no words and no tally: it never got going. */}
+      {cancelled ? null : choice ? choice : (
         <>
           {!youFoundTheirs && <p>{opponent}'s word was</p>}
           <TheirWord word={view.theirSecret}
@@ -269,7 +281,7 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
         </>
       )}
       {/* Your count, where the line above didn't already give it. */}
-      {!['won', 'won-held', 'gave-up', 'they-gave-up'].includes(outcome) && <p class="tally">You: {guessCount(view.yourGuesses.length)}</p>}
+      {!cancelled && !['won', 'won-held', 'gave-up', 'they-gave-up'].includes(outcome) && <p class="tally">You: {guessCount(view.yourGuesses.length)}</p>}
       <SuggestNote found={youFoundTheirs} guesses={view.yourGuesses.length} suggested={view.suggested} />
       {rating && <RatingChange line={rating} />}
       <div class="row-btns">

@@ -268,8 +268,8 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
     return board(env, mode, player, day, difficulty, circle, rankBy, now);
   }
 
-  // The Daily Word has no Pause.
-  const actions = mode === 'daily' ? /^\/api\/daily\/(start|guess|suggest|give-up|pause|resume)$/ : /^\/api\/daily\/(start|guess|suggest|give-up)$/;
+  // Both daily games pause (the Daily Word since item 18zx).
+  const actions = /^\/api\/daily\/(start|guess|suggest|give-up|pause|resume)$/;
   const action = actions.exec(pathname)?.[1];
   if (!action) return errorResponse(404, 'not-found');
   if (method !== 'POST') return errorResponse(405, 'bad-request');

@@ -473,6 +473,8 @@ async function answerRoom(
  */
 export async function saveFinishedGame(db: D1Database, room: Room, record: PvpRecord, now: number): Promise<Record<Seat, RatingChange> | null> {
   if (!room.guest) return null;
+  // A cancelled game (item 18zv) has no winner: it's neither kept in either history nor rated.
+  if (record.moves.at(-1)?.kind === 'cancel') return null;
   const { meta } = await db.prepare(
     `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, 'friend', ?2, ?3, ?4, ?5)`,
   ).bind(room.id, HISTORY_VERSION, JSON.stringify(record), record.startedAt, now).run();

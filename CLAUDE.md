@@ -78,8 +78,10 @@ Run `npm test` and `npm run typecheck` before committing.
   a guess carries the guesser's Medium marks (kept only at Medium; the
   synced `shareMarks` setting), `pvpView` gives `theirDifficulty` and
   `theirMarks`, and both two player screens mark the opponent's board and
-  your word with `useOpponentMarks` (the computer's at Easy). A game is live (a chess clock of 15, 10 or 5 minutes each,
-  `pvpClocks`) or correspondence (1 or 3 days per guess): its `TimeControl`.
+  your word with `useOpponentMarks` (the computer's at Easy). A game is live (a chess clock of 5, 10 or 15 minutes each,
+  `pvpClocks`; since item 18zv each first guess is untimed but due within 2 minutes, `pvpFirstGuessDue`, or the
+  game is cancelled with no winner, history or rating; records keep `firstGuessFree`) or correspondence (1 or 3
+  days per guess): its `TimeControl`.
   Each game is a Durable Object (`worker/src/gameRoom.ts`) running the
   referee in `worker/src/room.ts`, which keeps the record and never reads the
   clock; the room's alarm ends a game when the player to move's time
@@ -208,7 +210,7 @@ Run `npm test` and `npm run typecheck` before committing.
   `computeAchievements`. Names shown to others pass `validateName`'s
   profanity filter (`isOffensive`).
 - Daily Word (Dev Plan item 7b, README "Daily Word"): one word a day for
-  everyone, a run of one word with no Pause, refereed beside the Daily Set
+  everyone, a run of one word with the Daily Set's Pause (twice, since item 18zx), refereed beside the Daily Set
   by the same day's Durable Object (`DailyRequest.mode: 'dailyWord'`,
   storage `word:`) through `/api/daily/word…` (`routeDaily` strips the
   `/word`). The server picks each day's word at random from the secret
@@ -518,7 +520,9 @@ per commit. When asked for "the next PR in the dev plan", take the first
 unchecked item (the first under **To build**), follow its commit breakdown,
 tick its box in the same PR and move it to the top of **Done** (latest first).
 If the plan changes, update `docs/dev-plan.md` first. Item numbers never shift: a new item
-takes a letter (like 13b).
+takes a letter (like 13b). The one exception, on 1 November 2026: the
+owner renumbered the items left after 18zx as 19a onwards, in the same
+order (the map is at the top of the plan's **To build**).
 
 When the owner says "start the next dev item" (or names one), it always
 means this repository's (`plangdon84/word-mastermind`) `docs/dev-plan.md`,

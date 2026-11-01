@@ -369,11 +369,25 @@ PvP needs the [backend](#backend-plan). Two kinds of game:
   including for the final guess; changing difficulty doesn't reset it. The
   app tells you when it's your turn (Web Push; email may follow with
   accounts). This is the first PvP format to build.
-- **Live, chess clock** (built, against a friend): each player has **15, 10
-  or 5 minutes** in total, and a player's clock runs only on their turn, from
+- **Live, chess clock** (built, against a friend): each player has **5, 10
+  or 15 minutes** in total, and a player's clock runs only on their turn, from
   the other's guess (the first player's, from the start) to their own.
   Running out of time loses, as in correspondence, including on the final
-  guess. There is no increment. The server keeps the official clock: the
+  guess. There is no increment.
+  **First guesses are untimed** (Dev Plan item 18zv, decided with the owner
+  on 1 November 2026, as in online chess): your clock starts once you've
+  made your first guess, which must come within **2 minutes** of your turn
+  starting (the first player's, from the start; the second's, from the first
+  player's guess). The game page shows the 2 minutes counting down, with
+  your clock still. A player who misses them **cancels the game**: no
+  winner, not rated, and no entry in either history; both players are told
+  it was cancelled, neither word is shown, and it can still be rematched. A
+  **final guess is never a first guess** (decided with the owner in the
+  review of PR #53): if a first guess finds the word, the other's final
+  guess runs on their clock, and running out loses, so a lost game can't be
+  waited out. A record keeps whether it
+  started under this rule (`firstGuessFree`), so live games from before it
+  replay as they were played. Correspondence games are unchanged. The server keeps the official clock: the
   game's Durable Object ends the game when the player to move's clock runs
   out (`pvpDeadline`), and each answer carries the server's time, so the
   app's clocks allow for a device whose clock is off. Moves reach an open
@@ -802,7 +816,13 @@ the code keep the old names, so nothing already saved changes.
   board: your place so far on today's board for your difficulty, by fewest
   guesses for both games (**12th of 340 so far ›**, Issue 225; final after
   midnight New York time), or **Your result ›** for a run given up. Both
-  rows come from one request to the server (Issue 213). A new player sees the Daily
+  rows come from one request to the server (Issue 213), asked again on
+  coming back to the page. The app keeps the last answer while it's open,
+  so coming back to the title screen shows what it knew while it asks
+  again, and a failed answer keeps it (issue 250); a game it doesn't know
+  yet reads **Loading…** (or, if the server couldn't be reached, that it
+  couldn't check, tap to open) and opens the game itself, never offering
+  Play. A new player sees the Daily
   Set's row locked, saying how to unlock it; the Daily Word is always open. Without the game server they're tagged
   coming later. Daily isn't in the Word Sets menu. Tapping the card's
   heading folds it to one line, or opens it again (issue 222, remembered on
@@ -812,10 +832,15 @@ the code keep the old names, so nothing already saved changes.
   with a game in progress on this device, naming it: **Continue
   Practice**), games against a friend or a random opponent that you
   haven't seen finish (waiting on your turn first, tagged **Your turn**,
-  with the time left), friends' Rush invites and a lobby you're in. Its
+  with the time left), friends' Rush invites and a lobby you're in: once
+  you've finished it while others play on, it reads **Waiting for others**
+  (opening the results so far), then **See results** once everyone has
+  (checked when the title screen opens or the page comes back), until you
+  open the final results (issue 252). Its
   header counts the games, and how many are your turn against a friend or
   an invite, even when it's closed. It opens when something waits on you
-  (your turn, an invite, or your own game to continue), and is closed
+  (your turn, an invite, or your own game to continue, but not a lobby
+  waiting for others), and is closed
   otherwise; opening or closing it yourself holds until something new
   waits on you. It's hidden when there's nothing in it. A Daily Set or
   Daily Word in progress stays on the Daily card. Reloading the page mid-game goes
@@ -828,7 +853,8 @@ the code keep the old names, so nothing already saved changes.
   them a challenge, as Profile → Friends → Challenge does, while signed out
   a line asks you to sign in to challenge friends. For the invite link or
   a random opponent, then the time control: **Live**
-  with 15, 10 or 5 minutes each, or 1 or 3 days per guess; then your
+  with 5, 10 or 15 minutes each, or 1 or 3 days per guess (shortest first,
+  issue 246; the friend game's own time choice too); then your
   difficulty and **Start game** (against a person, **Next: your word**).
   **Word Sets** asks which: **Solo** (Solo Rush or Crush), **With friends** (Rush
   or Crush with Friends: **Open a lobby**, or a join code and **Join**) or
@@ -1008,7 +1034,8 @@ be played from the device that joined it, or, once you've signed in (see
   they're on). **Cancel invite** (in ☰ too) withdraws it before anyone
   joins. You can have any number of invites and games going at once.
 - **Accepting:** the link opens "Ann challenges you", with the time
-  control; in a live game, the clocks start as soon as you accept. You choose your secret word (with Pick for me and Recently used, as
+  control; in a live game, each first guess is due within 2 minutes, then the
+  clocks run (item 18zv). You choose your secret word (with Pick for me and Recently used, as
   against the computer), and the server tosses the coin for who goes first.
   You play at your default difficulty, changeable in ☰ as usual. A
   challenge or rematch sent to you alone (not a link anyone can use) also
@@ -1178,7 +1205,7 @@ clocks only.
   rating needs an account. Signed out, the screen says so, with **Open
   profile**.
 - **Choosing:** Two player → **Random opponent** → the time control (live
-  15, 10 or 5 minutes each) → your difficulty →
+  5, 10 or 15 minutes each) → your difficulty →
   **Next: your word**, then your secret word (with Pick for me and Recently
   used). There's one queue per time control and difficulty, so you only
   meet players on the same clock and difficulty, and difficulty is fixed for
@@ -1286,8 +1313,12 @@ takes 20 to 25 minutes.
 - **Daily card → Daily Word → Play** asks for your difficulty, once, then
   **Start Daily Word**. It plays like one word of a Daily Set: one dot and
   the clock, which follows the server's, and the ☰ menu's difficulty can't
-  change. **No Pause** (owner, 9 October 2026: one word is short, and time
-  only breaks ties). Each guess is refereed by the day's Durable Object,
+  change. **Pause** works as in the Daily Set (Dev Plan item 18zx, the
+  owner's request, 1 November 2026): it stops your clock and covers the
+  board until **Resume**, **twice a run**, recorded as moves and refereed by
+  the server, with paused time left off the board's time. A Daily Word
+  started before this release keeps no pauses (`pausable`), as Daily Rush
+  runs did with item 18y. Each guess is refereed by the day's Durable Object,
   the same one as the Daily Set's (`worker/src/dailyRoom.ts`, `mode:
   'dailyWord'`), through `/api/daily/word…`.
 - **Once a day:** giving up (☰ menu, asked first) leaves no board entry,
@@ -2089,7 +2120,7 @@ friends list ([Friends](#friends)).
   (served at `/privacy` and `/terms`, styled by `public/legal.css`), linked
   from the Account section. Google's consent screen needs both. Keep the
   privacy policy in step with what the server stores.
-- **Sign in with Apple** comes after the launch (Dev Plan item 12a).
+- **Sign in with Apple** comes after the launch (Dev Plan item 19i).
 
 ### Synced profile
 
@@ -2383,7 +2414,7 @@ Cloudflare:
 - **Sign-in** is the worker's own (see [Accounts](#accounts)): Google
   through OpenID Connect, and an emailed link sent by Resend. Sign in with
   Apple needs a paid Apple Developer Program membership ($99 a year) with any
-  backend, so it comes after the launch (Dev Plan item 12a).
+  backend, so it comes after the launch (Dev Plan item 19i).
 
 What needs the backend:
 

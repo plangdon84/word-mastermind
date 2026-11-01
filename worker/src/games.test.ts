@@ -264,16 +264,22 @@ describe('live games', () => {
     return { ...s, id };
   }
 
-  it("run each player's chess clock only on their turn, with the server's time to allow for the device's", async () => {
+  it("run each player's chess clock only on their turn, after their untimed first guess, with the server's time to allow for the device's", async () => {
     const { as, id, tick } = await started();
     expect(await as(GUEST).get(id)).toMatchObject({
-      timeControl: '5m', serverNow: NOW, view: { deadline: NOW + 5 * MINUTE_MS, clocks: { you: 5 * MINUTE_MS, opponent: 5 * MINUTE_MS } },
+      timeControl: '5m', serverNow: NOW,
+      view: { deadline: NOW + 2 * MINUTE_MS, firstGuessDue: true, clocks: { you: 5 * MINUTE_MS, opponent: 5 * MINUTE_MS } },
     });
     tick(40_000);
     await as(HOST).guess(id, 'crane');
     tick(10_000);
+    await as(GUEST).guess(id, 'plant');
+    tick(30_000);
+    await as(HOST).guess(id, 'moist');
+    // Only the host's second guess came off their clock.
     expect((await as(HOST).get(id)).view).toMatchObject({
-      turn: 'opponent', deadline: NOW + 40_000 + 5 * MINUTE_MS, clocks: { you: 5 * MINUTE_MS - 40_000, opponent: 5 * MINUTE_MS },
+      turn: 'opponent', firstGuessDue: false, deadline: NOW + 80_000 + 5 * MINUTE_MS,
+      clocks: { you: 5 * MINUTE_MS - 30_000, opponent: 5 * MINUTE_MS },
     });
   });
 
@@ -281,6 +287,8 @@ describe('live games', () => {
     const { as, id, tick, rooms, runAlarms, sent } = await started();
     sent();
     await as(HOST).guess(id, 'crane');
+    await as(GUEST).guess(id, 'plant');
+    await as(HOST).guess(id, 'moist');
     expect(rooms.get(id)?.alarm).toBe(NOW + 5 * MINUTE_MS);
     tick(5 * MINUTE_MS);
     await runAlarms();
@@ -289,8 +297,23 @@ describe('live games', () => {
     expect(sent()).toEqual([['host', 'Bob ran out of time', 'You win!'], ['guest', 'You ran out of time against Ann', 'Ann wins.']]);
   });
 
-  it('tell the host their clock is running when the invite is accepted', async () => {
-    expect((await started()).sent()).toEqual([['host', 'Bob accepted your invite', 'You go first, and your clock is running.']]);
+  it('cancel the game when a first guess takes over 2 minutes: no winner, no history, both told (item 18zv)', async () => {
+    const { as, id, tick, rooms, runAlarms, sent, sqlite } = await started();
+    sent();
+    await as(HOST).guess(id, 'crane');
+    expect(rooms.get(id)?.alarm).toBe(NOW + 2 * MINUTE_MS);
+    tick(2 * MINUTE_MS);
+    await runAlarms();
+    expect((await as(HOST).get(id)).view?.outcome).toEqual({ result: 'draw', reason: 'cancelled' });
+    expect(sent()).toEqual([
+      ['host', 'Your game against Bob was cancelled', "Bob didn't make their first guess in time. No winner."],
+      ['guest', 'Your game against Ann was cancelled', "You didn't make your first guess in time. No winner."],
+    ]);
+    expect(sqlite.prepare('SELECT id FROM games').all()).toEqual([]);
+  });
+
+  it('tell the host their first guess is due when the invite is accepted', async () => {
+    expect((await started()).sent()).toEqual([['host', 'Bob accepted your invite', 'You go first: make your first guess within 2 minutes.']]);
   });
 
   it('have invite links that expire after an hour', async () => {
