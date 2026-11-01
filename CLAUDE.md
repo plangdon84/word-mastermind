@@ -520,7 +520,9 @@ per commit. When asked for "the next PR in the dev plan", take the first
 unchecked item (the first under **To build**), follow its commit breakdown,
 tick its box in the same PR and move it to the top of **Done** (latest first).
 If the plan changes, update `docs/dev-plan.md` first. Item numbers never shift: a new item
-takes a letter (like 13b).
+takes a letter (like 13b). The one exception, on 1 November 2026: the
+owner renumbered the items left after 18zx as 19a onwards, in the same
+order (the map is at the top of the plan's **To build**).
 
 When the owner says "start the next dev item" (or names one), it always
 means this repository's (`plangdon84/word-mastermind`) `docs/dev-plan.md`,
