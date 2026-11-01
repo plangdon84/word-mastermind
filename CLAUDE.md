@@ -78,8 +78,10 @@ Run `npm test` and `npm run typecheck` before committing.
   a guess carries the guesser's Medium marks (kept only at Medium; the
   synced `shareMarks` setting), `pvpView` gives `theirDifficulty` and
   `theirMarks`, and both two player screens mark the opponent's board and
-  your word with `useOpponentMarks` (the computer's at Easy). A game is live (a chess clock of 15, 10 or 5 minutes each,
-  `pvpClocks`) or correspondence (1 or 3 days per guess): its `TimeControl`.
+  your word with `useOpponentMarks` (the computer's at Easy). A game is live (a chess clock of 5, 10 or 15 minutes each,
+  `pvpClocks`; since item 18zv each first guess is untimed but due within 2 minutes, `pvpFirstGuessDue`, or the
+  game is cancelled with no winner, history or rating; records keep `firstGuessFree`) or correspondence (1 or 3
+  days per guess): its `TimeControl`.
   Each game is a Durable Object (`worker/src/gameRoom.ts`) running the
   referee in `worker/src/room.ts`, which keeps the record and never reads the
   clock; the room's alarm ends a game when the player to move's time

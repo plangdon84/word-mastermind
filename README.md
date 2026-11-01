@@ -369,11 +369,21 @@ PvP needs the [backend](#backend-plan). Two kinds of game:
   including for the final guess; changing difficulty doesn't reset it. The
   app tells you when it's your turn (Web Push; email may follow with
   accounts). This is the first PvP format to build.
-- **Live, chess clock** (built, against a friend): each player has **15, 10
-  or 5 minutes** in total, and a player's clock runs only on their turn, from
+- **Live, chess clock** (built, against a friend): each player has **5, 10
+  or 15 minutes** in total, and a player's clock runs only on their turn, from
   the other's guess (the first player's, from the start) to their own.
   Running out of time loses, as in correspondence, including on the final
-  guess. There is no increment. The server keeps the official clock: the
+  guess. There is no increment.
+  **First guesses are untimed** (Dev Plan item 18zv, decided with the owner
+  on 1 November 2026, as in online chess): your clock starts once you've
+  made your first guess, which must come within **2 minutes** of your turn
+  starting (the first player's, from the start; the second's, from the first
+  player's guess). The game page shows the 2 minutes counting down, with
+  your clock still. A player who misses them **cancels the game**: no
+  winner, not rated, and no entry in either history; both players are told
+  it was cancelled, and it can still be rematched. A record keeps whether it
+  started under this rule (`firstGuessFree`), so live games from before it
+  replay as they were played. Correspondence games are unchanged. The server keeps the official clock: the
   game's Durable Object ends the game when the player to move's clock runs
   out (`pvpDeadline`), and each answer carries the server's time, so the
   app's clocks allow for a device whose clock is off. Moves reach an open
@@ -1020,7 +1030,8 @@ be played from the device that joined it, or, once you've signed in (see
   they're on). **Cancel invite** (in ☰ too) withdraws it before anyone
   joins. You can have any number of invites and games going at once.
 - **Accepting:** the link opens "Ann challenges you", with the time
-  control; in a live game, the clocks start as soon as you accept. You choose your secret word (with Pick for me and Recently used, as
+  control; in a live game, each first guess is due within 2 minutes, then the
+  clocks run (item 18zv). You choose your secret word (with Pick for me and Recently used, as
   against the computer), and the server tosses the coin for who goes first.
   You play at your default difficulty, changeable in ☰ as usual. A
   challenge or rematch sent to you alone (not a link anyone can use) also

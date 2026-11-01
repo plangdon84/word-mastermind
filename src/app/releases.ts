@@ -33,6 +33,8 @@ export const RELEASES: Release[] = [
       { text: 'Setting up a game against a friend now lists the time choices shortest first.' },
       { text: 'Tapping a difficulty on an iPhone no longer leaves a white outline around it.' },
       { text: '"NEATH" is no longer accepted as a guess.' },
+      { text: 'Live games against a friend: your clock starts after your first guess.' },
+      { text: "If a player hasn't made their first guess within 2 minutes of their turn starting, the live game is cancelled, with no winner." },
     ],
   },
   {

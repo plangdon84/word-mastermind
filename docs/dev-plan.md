@@ -6,19 +6,6 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
-- [ ] **18zv. Live clocks start after your first guess** (issue
-  plangdon84/word-mastermind-archive#258; worker, review gate; updates
-  README "Two player vs. a friend")
-  - Decided with the owner on 1 November 2026: in a live game (15, 10 or
-    5 minutes each) each player's first guess is untimed, as in online
-    chess: your clock starts once you've made it. A player who hasn't
-    made their first guess within 2 minutes of their turn starting
-    cancels the game: no winner, not rated, and no history entry; both
-    players are told it was cancelled. Correspondence games are unchanged
-  - The rule is in `src/game/pvp.ts` (`pvpClocks`, `pvpDeadline`), so
-    old records replay as they were played (a record keeps whether it
-    started under the new rule); the room's alarm handles the 2 minute
-    cancel
 - [ ] **18zx. Pause in the Daily Word** (issue
   plangdon84/word-mastermind-archive#257; worker, review gate; updates
   README "Daily Word")
@@ -90,6 +77,19 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zv. Live clocks start after your first guess** (issue
+  plangdon84/word-mastermind-archive#258; worker, review gate; updates
+  README "Two player vs. a friend")
+  - Decided with the owner on 1 November 2026: in a live game (15, 10 or
+    5 minutes each) each player's first guess is untimed, as in online
+    chess: your clock starts once you've made it. A player who hasn't
+    made their first guess within 2 minutes of their turn starting
+    cancels the game: no winner, not rated, and no history entry; both
+    players are told it was cancelled. Correspondence games are unchanged
+  - The rule is in `src/game/pvp.ts` (`pvpClocks`, `pvpDeadline`), so
+    old records replay as they were played (a record keeps whether it
+    started under the new rule); the room's alarm handles the 2 minute
+    cancel
 - [x] **18zu. Small fixes** (issues
   plangdon84/word-mastermind-archive#246,
   plangdon84/word-mastermind-archive#249,
