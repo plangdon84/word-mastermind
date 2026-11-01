@@ -85,7 +85,7 @@ catch it.
 | Case | Layer | Built |
 | --- | --- | --- |
 | Going offline mid-game and back | Browser | Single player carries on offline and keeps its guesses; a friend game that was offline (and hidden) catches up on the move made meanwhile. Lobbies and Daily Rush use the same refresh on return as friend games, so they aren't repeated. Reloading while offline isn't offered at 1.0 (the service worker only handles notifications) |
-| Two tabs on one device, same game | Browser | A friend game: a move in one tab shows in the other. Single player: **lost a guess** (the other tab saved over it); fixed, so the other tab now follows. Two player and Solo Rush have the same problem, which needs more than a small fix: Dev Plan item 17c |
+| Two tabs on one device, same game | Browser | A friend game: a move in one tab shows in the other. Single player: **lost a guess** (the other tab saved over it); fixed, so the other tab now follows. Two player and Solo Rush have the same problem, which needs more than a small fix: Dev Plan item 19d |
 | Two devices, one account | Browser | Two browsers signed in to one account: a game finished on one reaches the other's history |
 | Signing in and out mid-game | Browser | Signing in (the emailed link, which the local server prints) keeps a single player game and a friend game going; signing out gives a new guest ID |
 | A page returning after a long sleep | Browser + unit | The local server runs on the real clock, so a browser test can only move the page's clock: Solo Rush's stopwatch leaves out 3 hours away. What depends on the server's time (deadlines, the day flipping) is in the unit tests, where time is an argument |
@@ -97,7 +97,7 @@ catch it.
 | --- | --- | --- |
 | Download size | App script ≤ 140 KB gzipped (130 KB until Dev Plan item 18z, raised with the owner on 8 October 2026), styles ≤ 12 KB; definitions still load only on ⓘ | 112 KB and 8.5 KB at 1.0, 131.1 KB of script at 18z; `npm run check:size` in CI fails over budget |
 | First load on a slow phone | Lighthouse mobile performance ≥ 90 | 98 (accessibility 93, best practices 100); `npm run lighthouse` in CI warns under 90, and `--strict` fails |
-| A long history | 5,000 games on a slow phone's CPU: each profile page opens in under 1 second | Profile 0.35 s, stats 0.45 s, achievements 0.6–0.7 s, history 0.4–0.5 s. Opening the app reads and replays every game once first, which takes 2.1–2.2 s (the test fails past 4 s, a guard against it getting much worse); making it faster is Dev Plan item 17d. "A slow phone" is calibrated: the test times a fixed piece of work and slows the CPU until it takes 115 ms, so it means the same on a fast laptop (4×) and on GitHub's runners, which are about twice as slow (2×) |
+| A long history | 5,000 games on a slow phone's CPU: each profile page opens in under 1 second | Profile 0.35 s, stats 0.45 s, achievements 0.6–0.7 s, history 0.4–0.5 s. Opening the app reads and replays every game once first, which takes 2.1–2.2 s (the test fails past 4 s, a guard against it getting much worse); making it faster is Dev Plan item 19c. "A slow phone" is calibrated: the test times a fixed piece of work and slows the CPU until it takes 115 ms, so it means the same on a fast laptop (4×) and on GitHub's runners, which are about twice as slow (2×) |
 | The server under many players | 100 friend games, 20 full lobbies and 1,000 Daily Rush players at once: no errors, moves answered in under 300 ms | Locally (`wrangler dev`): 1,320 players and about 10,400 moves, no errors. Local times aren't Cloudflare's (it runs every Durable Object in one process, and drops connections with all 1,320 at once, so the script keeps 64 requests in flight), so the 300 ms target is for the staging run, which is in the manual checklist: this session's network can't reach staging |
 
 The rate limits count per internet address (30 new guests or games a
@@ -201,10 +201,10 @@ New Dev Plan items, in the post-launch backlog unless the owner moves them:
 
 - **17b. Tap targets of 44 px** (done): every button restyled to 44 px,
   and the test's minimum raised to match.
-- **17c. Two player and Solo Rush in two tabs**: the same lost-move problem
+- **19d. Two player and Solo Rush in two tabs**: the same lost-move problem
   single player had, harder there since the computer's moves and the Rush
   clock's pauses run in each tab.
-- **17d. Faster first load of a long history**: 2 s with 5,000 games on a
+- **19c. Faster first load of a long history**: 2 s with 5,000 games on a
   slow phone, by keeping each game's summary rather than replaying every
   game when the app opens.
 

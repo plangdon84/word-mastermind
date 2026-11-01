@@ -149,8 +149,11 @@ test('Daily Word: one word for everyone, once a day, on its own board', async ({
   await button(page, /^Medium/).click();
   await button(page, 'Start Daily Word').click();
   await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
-  // One word, and no Pause.
-  await expect(button(page, 'Pause')).toHaveCount(0);
+  // One word, with the Daily Set's Pause (item 18zx): it covers the board until Resume.
+  await button(page, 'Pause').click();
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await page.locator('section.panel').getByRole('button', { name: 'Resume' }).click();
+  await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
   // Each guess after the server's answer to the last, so none is typed while one is on its way.
   const reply = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/daily/word/guess');
   await guess(page, 'storm');

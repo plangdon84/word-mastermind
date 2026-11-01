@@ -35,6 +35,7 @@ export const RELEASES: Release[] = [
       { text: '"NEATH" is no longer accepted as a guess.' },
       { text: 'Live games against a friend: your clock starts after your first guess.' },
       { text: "If a player hasn't made their first guess within 2 minutes of their turn starting, the live game is cancelled, with no winner." },
+      { text: 'The Daily Word now has Pause, twice a day, like the Daily Set.' },
     ],
   },
   {

@@ -4,17 +4,14 @@ Last triaged with the owner: 1 November 2026.
 
 ## To build
 
+Renumbered with the owner on 1 November 2026: the items left after 18zx
+keep their order as 19a onwards (18zf → 19a, 18e → 19b, 17d → 19c, 17c →
+19d, 18da → 19e, 18zk → 19f, 18zl → 19g, 18zm → 19h, 12a → 19i, and
+Competitive Rush shared places → 19j). Done items keep their numbers.
+
 **Next, in this order**
 
-- [ ] **18zx. Pause in the Daily Word** (issue
-  plangdon84/word-mastermind-archive#257; worker, review gate; updates
-  README "Daily Word")
-  - The owner's request: the Daily Word gets the Daily Set's Pause, with
-    the same 2 pauses a day, recorded as moves and refereed by the day's
-    Durable Object. A Daily Word started before this release keeps no
-    pauses (`pausable`), as Daily Rush did with item 18y
-
-- [ ] **18zf. Email friend requests after a decline** (issue
+- [ ] **19a. Email friend requests after a decline** (issue
   plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
   updates README "Friends" and the privacy page)
   - Decided with the owner on 9 October 2026: once a player declines a
@@ -28,17 +25,17 @@ Last triaged with the owner: 1 November 2026.
     costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
     or `KEEP_TABLES`), cleared after 7 days and when either account is
     deleted
-- [ ] **18e. Test personas on preview builds** (issue #56; testing only,
+- [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
     everything unlocked, badge collector, a veteran with thousands of
     games), checked by a test, with a picker in preview builds' profiles,
     shown only when signed out
-- [ ] **17d. Faster first load of a long history** (from item 17)
+- [ ] **19c. Faster first load of a long history** (from item 17)
   - With 5,000 games, opening the app takes about 2 seconds on a slow phone
     to replay every game (each profile page is then under 1); keep each
     game's summary with it instead, so the history isn't replayed in full
-- [ ] **17c. Two player and Solo Rush in two tabs** (from item 17)
+- [ ] **19d. Two player and Solo Rush in two tabs** (from item 17)
   - With the same game open in two tabs, a move in one is lost when the
     other saves (item 17 fixed it for single player). Harder here: the
     computer's moves and the Rush clock's pauses run in each tab, so one
@@ -46,30 +43,30 @@ Last triaged with the owner: 1 November 2026.
 
 **Later**
 
-- [ ] **18da. Friending your random opponent** (issue #78; split from
+- [ ] **19e. Friending your random opponent** (issue #78; split from
   18d on 9 October 2026; when Random opponent is switched back on)
   - Add your opponent as a friend during or after the game
-- [ ] **18zk. Ways to earn from the game: a write-up** (issue
+- [ ] **19f. Ways to earn from the game: a write-up** (issue
   plangdon84/word-mastermind-archive#221; docs only)
   - Decided with the owner on 14 October 2026: a short written comparison
     to discuss before anything is built: ads, a paid no-ads tier, a tip
     jar, a supporter badge or cosmetic extras, each with what players see,
     the work and the fees. No code
-- [ ] **18zl. Android app** (issue
+- [ ] **19g. Android app** (issue
   plangdon84/word-mastermind-archive#226; $25 once for Google Play; after
   the review clean-ups, as the owner noted)
   - The web app wrapped with CapacitorJS for Google Play
-- [ ] **18zm. iPhone app and its extras** (issues
+- [ ] **19h. iPhone app and its extras** (issues
   plangdon84/word-mastermind-archive#226 and
   plangdon84/word-mastermind-archive#227; the $99-a-year Apple Developer
-  Program, shared with 12a; after 18zl)
+  Program, shared with 19i; after 19g)
   - The same Capacitor app on the App Store, then Game Center, the
     home-screen badge count and finding friends from contacts. Contacts is
     a privacy question (what leaves the phone and how it's matched),
     settled with the owner when it's built
-- [ ] **12a. Sign in with Apple** (needs the $99-a-year Apple Developer
+- [ ] **19i. Sign in with Apple** (needs the $99-a-year Apple Developer
   Program membership)
-- [ ] **Competitive Rush shared places** (issue
+- [ ] **19j. Competitive Rush shared places** (issue
   plangdon84/word-mastermind-archive#187; when Competitive Rush is
   switched back on): decide with the owner whether players sharing a place
   leave each other's ratings alone, like a rated two player draw, and
@@ -77,6 +74,13 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zx. Pause in the Daily Word** (issue
+  plangdon84/word-mastermind-archive#257; worker, review gate; updates
+  README "Daily Word")
+  - The owner's request: the Daily Word gets the Daily Set's Pause, with
+    the same 2 pauses a day, recorded as moves and refereed by the day's
+    Durable Object. A Daily Word started before this release keeps no
+    pauses (`pausable`), as Daily Rush did with item 18y
 - [x] **18zv. Live clocks start after your first guess** (issue
   plangdon84/word-mastermind-archive#258; worker, review gate; updates
   README "Two player vs. a friend")
@@ -481,7 +485,7 @@ Last triaged with the owner: 1 November 2026.
     (18g). A change players see, so it bumps the version (1.0.1) with its
     release note
 
-- [x] **18d. Finding friends** (issue #79, and #78 but its last part, now 18da; server and privacy,
+- [x] **18d. Finding friends** (issue #79, and #78 but its last part, now 19e; server and privacy,
   review gate)
   - Type a friend's email to send them a request, without ever saying
     whether they have an account ("If they play, they'll get your

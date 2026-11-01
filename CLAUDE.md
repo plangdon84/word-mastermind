@@ -210,7 +210,7 @@ Run `npm test` and `npm run typecheck` before committing.
   `computeAchievements`. Names shown to others pass `validateName`'s
   profanity filter (`isOffensive`).
 - Daily Word (Dev Plan item 7b, README "Daily Word"): one word a day for
-  everyone, a run of one word with no Pause, refereed beside the Daily Set
+  everyone, a run of one word with the Daily Set's Pause (twice, since item 18zx), refereed beside the Daily Set
   by the same day's Durable Object (`DailyRequest.mode: 'dailyWord'`,
   storage `word:`) through `/api/daily/word…` (`routeDaily` strips the
   `/word`). The server picks each day's word at random from the secret
@@ -520,7 +520,9 @@ per commit. When asked for "the next PR in the dev plan", take the first
 unchecked item (the first under **To build**), follow its commit breakdown,
 tick its box in the same PR and move it to the top of **Done** (latest first).
 If the plan changes, update `docs/dev-plan.md` first. Item numbers never shift: a new item
-takes a letter (like 13b).
+takes a letter (like 13b). The one exception, on 1 November 2026: the
+owner renumbered the items left after 18zx as 19a onwards, in the same
+order (the map is at the top of the plan's **To build**).
 
 When the owner says "start the next dev item" (or names one), it always
 means this repository's (`plangdon84/word-mastermind`) `docs/dev-plan.md`,
