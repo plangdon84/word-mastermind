@@ -129,7 +129,7 @@ const TIME_GROUPS: { label: string; note: string; choices: { value: TimeControl;
   {
     label: 'Live',
     note: 'Play now, together. Each player has a chess clock that runs only on their turn: run out and you lose.',
-    choices: [{ value: '15m', label: '15 min' }, { value: '10m', label: '10 min' }, { value: '5m', label: '5 min' }],
+    choices: [{ value: '5m', label: '5 min' }, { value: '10m', label: '10 min' }, { value: '15m', label: '15 min' }],
   },
   {
     label: 'Take turns over days',

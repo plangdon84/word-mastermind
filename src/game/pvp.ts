@@ -33,7 +33,8 @@ export const MINUTE_MS = 60 * 1000;
  * How a game is timed: a chess clock of 15, 10 or 5 minutes each (live), or
  * 1 or 3 days per guess (correspondence).
  */
-export const TIME_CONTROLS = ['15m', '10m', '5m', '1d', '3d'] as const;
+/** Shortest first (issue 246): the live clocks, then turns over days. */
+export const TIME_CONTROLS = ['5m', '10m', '15m', '1d', '3d'] as const;
 export type TimeControl = (typeof TIME_CONTROLS)[number];
 
 export const isTimeControl = (value: unknown): value is TimeControl => TIME_CONTROLS.includes(value as TimeControl);

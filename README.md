@@ -839,7 +839,8 @@ the code keep the old names, so nothing already saved changes.
   them a challenge, as Profile → Friends → Challenge does, while signed out
   a line asks you to sign in to challenge friends. For the invite link or
   a random opponent, then the time control: **Live**
-  with 15, 10 or 5 minutes each, or 1 or 3 days per guess; then your
+  with 5, 10 or 15 minutes each, or 1 or 3 days per guess (shortest first,
+  issue 246; the friend game's own time choice too); then your
   difficulty and **Start game** (against a person, **Next: your word**).
   **Word Sets** asks which: **Solo** (Solo Rush or Crush), **With friends** (Rush
   or Crush with Friends: **Open a lobby**, or a join code and **Join**) or
@@ -1189,7 +1190,7 @@ clocks only.
   rating needs an account. Signed out, the screen says so, with **Open
   profile**.
 - **Choosing:** Two player → **Random opponent** → the time control (live
-  15, 10 or 5 minutes each) → your difficulty →
+  5, 10 or 15 minutes each) → your difficulty →
   **Next: your word**, then your secret word (with Pick for me and Recently
   used). There's one queue per time control and difficulty, so you only
   meet players on the same clock and difficulty, and difficulty is fixed for
