@@ -1363,6 +1363,16 @@ until there are enough rated players (see [Launch switches](#launch-switches)).
   rows never carry a player's ID, only whether a row is yours, as on the
   Daily Rush board. Boards are read from D1 when opened (ratings in a
   `ratings` table updated when a rated game ends), never from a cached copy.
+- **Choosing a name for the board** (Dev Plan item 18zy): when a game that
+  goes on a leaderboard ends (a finished Daily Set or Daily Word, on its
+  day) and your name is still the guest one, the result says "You're on
+  the leaderboard as Guest-4821" and offers a name field there, with
+  **Save name** and **Skip** (`src/app/GuestNamePrompt.tsx`). The name
+  passes the usual rule and profanity filter and becomes your profile name.
+  It asks after every such game while your name is still a guest one: a
+  skip isn't remembered. The board keeps the name sent when the game
+  started, so the new one shows from your next game (until item 18zw puts
+  your current name on every day's board).
 
 ### Rush with Friends
 
@@ -1670,7 +1680,9 @@ device signed in to it (item 9a, see [Synced profile](#synced-profile)).
 - **Name:** a display name, 3 to 20 characters, not unique, defaulting to
   something like `Guest-4821`. Spaces are trimmed and collapsed; control and
   invisible characters are refused. The rule lives in `src/game/profile.ts` so
-  the server can reuse it. Clearing your name goes back to the guest name. Names
+  the server can reuse it. Clearing your name goes back to the guest name. A
+  guest finishing a Daily Set or Daily Word is also asked to choose one
+  there (see [Leaderboards](#leaderboards)). Names
   are shown to other players (the Daily Rush leaderboard, a friend's game),
   so a short profanity filter (`isOffensive`) refuses the obvious ones,
   including spelled out or with digits for letters.

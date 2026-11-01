@@ -32,6 +32,7 @@ import {
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
+import { GuestNamePrompt } from './GuestNamePrompt';
 import { dailyShareText } from './shareText';
 
 
@@ -179,7 +180,7 @@ export function DailyBoardPanel({ mode = 'daily', api, today, day: firstDay, dif
  * word. With `start`, it starts today's run at your difficulty if you haven't
  * played yet. The Daily Set's Pause stops the clock, on the server too.
  */
-export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onExit, start, onFinished }: {
+export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, identity, onProfile, onRename, onExit, start, onFinished }: {
   mode?: DailyMode;
   settings: Settings;
   /** The board's Rush · fastest / Crush · fewest switch was flipped: it opens there next time. */
@@ -187,6 +188,8 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   profile: Profile;
   identity: ApiIdentity;
   onProfile: OpenProfile;
+  /** Saves a name chosen on the result (`GuestNamePrompt`), as the profile's name field does. */
+  onRename: (profile: Profile) => void;
   onExit: () => void;
   start: boolean;
   /** Brings the finished game into the history, resolving to the IDs of badges it newly earned. */
@@ -665,6 +668,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
                 )}
                 Places are final at midnight New York time. Next {next} in {nextSet}.
               </p>
+              <GuestNamePrompt profile={profile} onProfile={onRename} />
             </>
           ) : (
             <p class="tally">

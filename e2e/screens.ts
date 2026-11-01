@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { TEST_DAILY_WORD } from '../worker/src/testThemes';
 import { guess, loginLink, loginLinkCount, modeButton, savedGame, startSolo, unlockAll } from './helpers';
 
 /*
@@ -251,6 +252,19 @@ export const SCREENS: Screen[] = [
       await button(page, /^Medium/).click();
       await button(page, 'Start Daily Word').click();
       await guess(page, 'storm');
+    },
+  },
+  {
+    // Found, as a guest: the result asks for a name for the board (item 18zy).
+    name: 'daily-word-result',
+    open: async (page) => {
+      await unlockAll(page);
+      await modeButton(page, 'Daily Word').click();
+      await button(page, /^Medium/).click();
+      await button(page, 'Start Daily Word').click();
+      await page.getByText(/word: type a 5-letter word/).waitFor();
+      await guess(page, TEST_DAILY_WORD);
+      await page.locator('form.guest-name').waitFor();
     },
   },
   {

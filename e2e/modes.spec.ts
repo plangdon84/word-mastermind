@@ -128,7 +128,12 @@ test("Daily Set: today's words, once a day", async ({ page }) => {
   await expect(result.locator('.badge-toast')).toContainText(/badges? earned/);
   // Your place: other browsers' runs share the local server's board, so not always 1st.
   await expect(page.getByText(/\b\d+(st|nd|rd|th)\b/).first()).toBeVisible();
+  // Still a guest: it offers a name for the board (item 18zy), and Skip hides it.
+  const ask = result.locator('form.guest-name');
+  await expect(ask).toContainText(/You're on the leaderboard as Guest-\d+/);
   await expectAccessible(page);
+  await ask.getByRole('button', { name: 'Skip' }).click();
+  await expect(ask).toHaveCount(0);
 
   // Once a day: the title screen's Daily card greys today's row, which opens your result, not a new run.
   await page.goto('/');
@@ -156,6 +161,16 @@ test('Daily Word: one word for everyone, once a day, on its own board', async ({
   await expect(result.getByRole('heading', { name: /^Found in 2 guesses/ })).toBeVisible();
   await expect(result.getByRole('button', { name: 'Your place: open the board' })).toHaveText(/\d+(st|nd|rd|th) ›/);
   await expectAccessible(page);
+  // Still a guest: choosing a name here passes the usual rule, then saves it to the profile (item 18zy).
+  const ask = result.locator('form.guest-name');
+  await expect(ask).toContainText(/You're on the leaderboard as Guest-\d+/);
+  await ask.getByLabel('Your name').fill('ab');
+  await ask.getByRole('button', { name: 'Save name' }).click();
+  await expect(ask.getByRole('alert')).toHaveText('Use at least 3 characters.');
+  await ask.getByLabel('Your name').fill('Wordy Wren');
+  await ask.getByRole('button', { name: 'Save name' }).click();
+  await expect(result.getByRole('status').filter({ hasText: 'Saved.' })).toContainText('Wordy Wren');
+  expect((await getStorage(page, 'profile'))?.name).toBe('Wordy Wren');
   await result.getByRole('button', { name: 'Your place: open the board' }).click();
   await expect(page.getByRole('region', { name: 'Daily Word leaderboard' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Ranked by' })).toHaveCount(0);
@@ -167,6 +182,8 @@ test('Daily Word: one word for everyone, once a day, on its own board', async ({
   await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('Play');
   await daily.getByRole('button', { name: /^Daily Word/ }).click();
   await expect(result).toBeVisible();
+  // Named now, so it doesn't ask again.
+  await expect(result.locator('form.guest-name')).toHaveCount(0);
 });
 
 test('two player vs. a friend: an invite link, live moves both ways, and the result on both screens', async ({ page, browser }) => {

@@ -799,7 +799,7 @@ export function App() {
       );
     }
     if (screen.name === 'daily') {
-      return <DailyScreen key={screen.mode} {...game} mode={screen.mode} identity={identity} start={screen.start}
+      return <DailyScreen key={screen.mode} {...game} mode={screen.mode} identity={identity} start={screen.start} onRename={setProfile}
         onBoardRankBy={(boardRankBy) => setSettings({ ...settings, boardRankBy })} onFinished={pullPlayed} />;
     }
     if (screen.name === 'leaderboards') {
