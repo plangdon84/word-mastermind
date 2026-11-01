@@ -46,7 +46,8 @@ export function joinedNotice(room: Room, game: PvpGame): Notice[] {
       // Item 18zv: the first guess is untimed but due within 2 minutes; older games' clocks started at once.
       ? game.firstGuessFree ? 'You go first: make your first guess within 2 minutes.' : 'You go first, and your clock is running.'
       : `You go first. You have ${days(game.turnDays ?? 1)} to guess.`
-    : `${guest} goes first.`;
+    // The host may have left the page, and live guesses aren't notified: say their first guess is due soon.
+    : game.firstGuessFree ? `${guest} goes first. Your first guess is due within 2 minutes of theirs.` : `${guest} goes first.`;
   const title = room.matched ? `Matched with ${guest}` : `${guest} accepted your invite`;
   return [{ guestId: room.host.guestId, message: { title, body, gameId: room.id } }];
 }

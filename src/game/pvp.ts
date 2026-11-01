@@ -414,7 +414,8 @@ export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
     case 'cancel': {
       if (pvpTurn(game) !== move.seat) return { ok: false, error: 'not-your-turn' };
       const result = timeOutPvp(game, move.at);
-      // A timeout replays as a timeout and a cancel as a cancel, or the record is refused.
+      // A timeout replays as a timeout and a cancel as a cancel, or the record is refused ('time-left': the
+      // move recorded isn't the one the rules give at that moment).
       return result.ok && result.game.moves.at(-1)?.kind !== move.kind ? { ok: false, error: 'time-left' } : result;
     }
     case 'difficulty': return setPvpDifficulty(game, move.seat, move.difficulty, move.at, true);
