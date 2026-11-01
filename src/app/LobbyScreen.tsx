@@ -164,8 +164,10 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   useEffect(() => {
     if (!lobby || (!lobby.joined && loadLobby()?.code !== lobby.code)) return;
     const active = lobby.joined && (lobby.state === 'open' || lobby.state === 'playing');
-    saveLobby({ code: lobby.code, kind: lobby.kind, active, marks });
-  }, [lobby?.code, lobby?.joined, lobby?.state, marks]);
+    // Finished while others play on: the title screen waits for them rather than offering Continue (issue 252).
+    const finished = active && lobby.state === 'playing' && lobby.run?.status === 'over';
+    saveLobby({ code: lobby.code, kind: lobby.kind, active, ...(finished ? { finished } : {}), marks });
+  }, [lobby?.code, lobby?.joined, lobby?.state, lobby?.run?.status, marks]);
 
   // Others join, start the game and play: look again every few seconds, and on coming back to the page.
   const live = lobby !== null && (lobby.state === 'open' || lobby.state === 'playing');

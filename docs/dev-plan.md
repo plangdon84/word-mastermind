@@ -6,24 +6,6 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
-- [ ] **18zt. Title screen shows where your games really are** (issues
-  plangdon84/word-mastermind-archive#250 and
-  plangdon84/word-mastermind-archive#252; app, and the worker if the
-  missing notification is a server fault, then review gate)
-  - Issue 250: after finishing a game against a friend and sending a
-    rematch, the title screen showed both finished daily games as not
-    played, and the Daily Set's category was blank. Find why the title
-    screen's one request for both daily games came back empty or was
-    ignored on returning from another screen, fix it, and add a browser
-    test for that route back to the title screen
-  - Issue 252: in a Crush with friends, a player who had finished got no
-    notification when the last player finished and the results became
-    final. Find why `lobbyOverNotice` wasn't sent (or arrived and was
-    lost) and fix it, with a test
-  - Issue 252: the title screen's Games in progress still offered
-    **Continue** for a lobby game the player had finished. Once you've
-    finished, it reads **Waiting for others** (opening the results so
-    far); once everyone has, it reads **See results**
 - [ ] **18zu. Small fixes** (issues
   plangdon84/word-mastermind-archive#246,
   plangdon84/word-mastermind-archive#249,
@@ -128,6 +110,28 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zt. Title screen shows where your games really are** (issues
+  plangdon84/word-mastermind-archive#250 and
+  plangdon84/word-mastermind-archive#252; app, and the worker if the
+  missing notification is a server fault, then review gate)
+  - Issue 250: after finishing a game against a friend and sending a
+    rematch, the title screen showed both finished daily games as not
+    played, and the Daily Set's category was blank. Find why the title
+    screen's one request for both daily games came back empty or was
+    ignored on returning from another screen, fix it, and add a browser
+    test for that route back to the title screen
+  - Issue 252: in a Crush with friends, a player who had finished got no
+    notification when the last player finished and the results became
+    final. Find why `lobbyOverNotice` wasn't sent (or arrived and was
+    lost) and fix it, with a test. Found: a lobby alarm that woke a
+    moment early never set another, so the end waited for someone to
+    open the lobby; it now always sets the next one. Issue 250's cause was
+    the title screen starting from nothing each visit, showing an unknown
+    daily game as not played; it now keeps the last answer
+  - Issue 252: the title screen's Games in progress still offered
+    **Continue** for a lobby game the player had finished. Once you've
+    finished, it reads **Waiting for others** (opening the results so
+    far); once everyone has, it reads **See results**
 - [x] **18zz. Your Google name on first sign-in** (from the owner, 1
   November 2026; sign-in, review gate; updates README "Accounts" and
   "Synced profile" and the privacy page)

@@ -9,6 +9,8 @@ import { API_URL } from './config';
 import { receivePlacements } from './badges';
 import type { DailyToday } from './dailyApi';
 import { useDailyToday } from './dailyToday';
+import { lobbyApi } from './lobbyApi';
+import type { LobbyInProgress } from './lobbyStorage';
 import { useFriendsList } from './FriendsSection';
 import type { Friend } from './friendsApi';
 import { FriendGameButton, friendGameWaits, LobbyInviteButton, useFriendGames, useLobbyInvites } from './FriendGamesList';
@@ -91,6 +93,9 @@ const MODES: Choice<Mode>[] = [
   { value: 'two', label: 'Two player', detail: "Race an opponent to find each other's word: the computer or a friend." },
   { value: 'rush', label: 'Word Sets', detail: 'Find 4 words in a row against the clock, on your own or with friends.' },
 ];
+
+/** A lobby's name on its Games in progress row once you've finished it. */
+const LOBBY_NAME = { lobby: 'Word Set with friends', competitive: 'Competitive Word Set' } as const;
 
 const CONTINUE_LABEL: Record<Mode | 'lobby' | 'competitive', string> = {
   single: 'Continue Practice', two: 'Continue two player', rush: 'Continue Solo Rush',
@@ -324,11 +329,42 @@ function DailyCard({ today, failed, now, inProgress, lock, onPlay, onResult }: {
   );
 }
 
+/**
+ * Whether the lobby you've finished is over for everyone (issue 252): asked
+ * each time the title screen opens or the page comes back, while you're
+ * waiting on the others.
+ */
+function useLobbyOver(lobby: LobbyInProgress | null, identity: ApiIdentity): boolean {
+  const [over, setOver] = useState(false);
+  const code = lobby?.finished ? lobby.code : null;
+  useEffect(() => {
+    setOver(false);
+    if (!API_URL || !code) return;
+    let live = true;
+    const api = lobbyApi(API_URL, identity);
+    const ask = () => api.get(code).then((answer) => {
+      if (live) setOver(answer.lobby.state === 'over');
+    }, () => {});
+    void ask();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void ask();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      live = false;
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [code, identity.guestId, identity.token]);
+  return over;
+}
+
 /** One row of Games in progress: a game on this device to continue. */
 interface ContinueRow {
   key: Mode | 'lobby' | 'competitive';
   label: string;
   onOpen: () => void;
+  /** It waits on you, so it opens the list: all but a lobby you've finished while others play on. */
+  waits?: false;
 }
 
 /**
@@ -348,7 +384,7 @@ function GamesInProgress({ continues, identity, onOpenFriendGame, onLobby }: {
   // Your turn against a friend, or an invite; the tag counts these.
   const yourTurn = [...waitingGames.map((r) => r.id), ...invites.map((i) => `lobby:${i.code}`)];
   // Your own games here wait on your move too, so they open the list.
-  const waiting = [...yourTurn, ...continues.map((c) => `continue:${c.key}`)];
+  const waiting = [...yourTurn, ...continues.filter((c) => c.waits !== false).map((c) => `continue:${c.key}`)];
   const [choice, setChoice] = useState(loadListChoice);
   const total = continues.length + friendGames.length + invites.length;
   if (total === 0) return null;
@@ -454,8 +490,8 @@ export function TitleScreen({
   /** Opens the Leaderboards page, or one board on it (Back then returns here). */
   onLeaderboards: (board?: BoardId) => void;
   onStart: () => void;
-  /** You're in a Rush with Friends or Competitive Rush lobby that isn't over. */
-  lobbyInProgress: LobbyKind | null;
+  /** You're in a Rush with Friends or Competitive Rush lobby that isn't over, as far as this device knows. */
+  lobbyInProgress: LobbyInProgress | null;
   /** Opens a Rush with Friends lobby: yours in progress (no code), or one to join by its code. */
   onLobby: (code?: string) => void;
   /** Opens a game against a friend from the list of yours. */
@@ -465,13 +501,20 @@ export function TitleScreen({
   /** Which modes you've unlocked (README "Unlocking modes"); null while your games load, when nothing shows locked. */
   open: OpenModes | null;
 }) {
+  const lobbyOver = useLobbyOver(lobbyInProgress, identity);
   // A Daily Set in progress stays on the Daily card. A Solo game's label reads its saved run, once.
   const soloLabel = useMemo(() => continueLabel('rush'), [inProgress.rush]);
   const continues: ContinueRow[] = [
     ...(['single', 'two', 'rush'] as const).filter((m) => inProgress[m])
       .map((m) => ({ key: m, label: m === 'rush' ? soloLabel : CONTINUE_LABEL[m], onOpen: () => onContinue(m) })),
-    ...(lobbyInProgress ? [lobbyInProgress === 'competitive' ? 'competitive' as const : 'lobby' as const]
-      .map((key) => ({ key, label: CONTINUE_LABEL[key], onOpen: () => onLobby() })) : []),
+    ...(lobbyInProgress ? [lobbyInProgress.kind === 'competitive' ? 'competitive' as const : 'lobby' as const]
+      .map((key): ContinueRow => ({
+        key, onOpen: () => onLobby(),
+        // Once you've finished: waiting for the others, then their results (issue 252).
+        ...(!lobbyInProgress.finished ? { label: CONTINUE_LABEL[key] }
+          : lobbyOver ? { label: `See results: ${LOBBY_NAME[key]}` }
+            : { label: `Waiting for others: ${LOBBY_NAME[key]}`, waits: false }),
+      })) : []),
   ];
   // Today's Daily Set and Daily Word, for the theme and countdown, and whether you've played them: kept from the
   // last visit to this screen while it asks again (issue 250).

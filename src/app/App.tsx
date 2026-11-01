@@ -34,7 +34,7 @@ import { dailyInProgress, loadPlacements } from './dailyStorage';
 import { announceBadges, loadBadgeNotices, loadEarnedBadges, localDay, markBadgesSeen } from './badges';
 import { LeaderboardsScreen, type BoardId } from './LeaderboardsScreen';
 import { LobbyScreen } from './LobbyScreen';
-import { activeLobby, activeLobbyKind, lobbyCodeFromUrl } from './lobbyStorage';
+import { activeLobby, activeLobbyKind, lobbyCodeFromUrl, lobbyInProgress } from './lobbyStorage';
 import { GameHistory } from './GameHistory';
 import { getAllIds, getGames, onGameSaved, putGames, type HistoryGame } from './historyDb';
 import { useHistoryGames } from './hooks';
@@ -862,7 +862,7 @@ export function App() {
           daily: !!API_URL && dailyInProgress(dailyDay(Date.now())),
           dailyWord: !!API_URL && dailyInProgress(dailyDay(Date.now()), 'dailyWord'),
         }}
-        lobbyInProgress={API_URL ? activeLobbyKind() : null}
+        lobbyInProgress={API_URL ? lobbyInProgress() : null}
         onLobby={(code) => {
           const open = code ?? activeLobby();
           if (!open) return;

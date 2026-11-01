@@ -289,6 +289,50 @@ test("back from a rematch, the title screen still knows today's daily games (iss
   await page.unroute(/\/api\/daily(\/word)?(\/games)?$/);
 });
 
+test('Rush with Friends: finished first, Games in progress waits for the others, then shows the results (issue 252)', async ({ page, browser }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'With friends').click();
+  await button(page, 'Open a lobby').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Open lobby').click();
+  const code = (await page.locator('.lobby-code').textContent())!.trim();
+  const other = await newPlayer(browser, page);
+  await other.goto(`/?lobby=${code}`);
+  await button(other, 'Join').click();
+  await expect(button(other, 'Join')).toHaveCount(0);
+  await expect(page.locator('.lobby-seats li:not(.empty)')).toHaveCount(2);
+  await button(page, /^Start the/).click();
+  for (const player of [page, other]) await expect(player.getByRole('list', { name: 'Your guesses at word 1' })).toBeVisible();
+
+  const giveUp = async (player: Page) => {
+    await button(player, 'Menu').click();
+    await button(player, /^Give up the rest of this/).click();
+    await button(player, 'Give up the rest').click();
+    await expect(player.locator('.rush-result')).toBeVisible();
+  };
+  // You finish first: no Continue, just waiting on the other player.
+  await giveUp(page);
+  await button(page, 'Word Mastermind: main menu').click();
+  const games = page.getByRole('region', { name: 'Games in progress' });
+  if (await games.getByRole('button', { name: 'Games in progress' }).getAttribute('aria-expanded') === 'false') {
+    await games.getByRole('button', { name: 'Games in progress' }).click();
+  }
+  await expect(games.getByRole('button', { name: 'Waiting for others: Word Set with friends' })).toBeVisible();
+  await expect(games.getByRole('button', { name: /^Continue/ })).toHaveCount(0);
+
+  // Once they've finished too, coming back to the page offers the results.
+  await giveUp(other);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(games.getByRole('button', { name: 'See results: Word Set with friends' })).toBeVisible();
+  await games.getByRole('button', { name: 'See results: Word Set with friends' }).click();
+  await expect(page.locator('.rush-result')).toBeVisible();
+  // Seen, so it's gone, and a reload stays on the title screen.
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Daily' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Word Set with friends/ })).toHaveCount(0);
+});
+
 test('Rush with Friends: the largest lobby, 5 players, ranked by time, plays to the end', async ({ page, browser }) => {
   test.setTimeout(120_000);
   await unlockAll(page);

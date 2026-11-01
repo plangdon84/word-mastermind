@@ -11,6 +11,8 @@ export interface LobbySaved {
   kind: LobbyKind;
   /** You're in the lobby and it isn't over (or closed) yet. */
   active: boolean;
+  /** Your own run is over (every word found or given up) while others play on (issue 252). */
+  finished?: boolean;
   /** Medium's in/out marks, one set per word. */
   marks: readonly Marks[];
 }
@@ -23,7 +25,7 @@ export function parseLobbySaved(raw: string | null): LobbySaved | null {
     if (!isObject(data) || !isLobbyCode(data.code) || !Array.isArray(data.marks)) return null;
     return {
       code: data.code, kind: data.kind === 'competitive' ? 'competitive' : 'friends', active: data.active === true,
-      marks: data.marks.map(parseMarks),
+      ...(data.finished === true ? { finished: true } : {}), marks: data.marks.map(parseMarks),
     };
   } catch {
     return null;
@@ -57,6 +59,18 @@ export const activeLobby = (): string | null => {
 export const activeLobbyKind = (): LobbyKind | null => {
   const saved = loadLobby();
   return saved?.active ? saved.kind : null;
+};
+
+/** The lobby Games in progress offers, if any: its code, kind and whether your own run is over. */
+export interface LobbyInProgress {
+  code: string;
+  kind: LobbyKind;
+  finished: boolean;
+}
+
+export const lobbyInProgress = (): LobbyInProgress | null => {
+  const saved = loadLobby();
+  return saved?.active ? { code: saved.code, kind: saved.kind, finished: saved.finished === true } : null;
 };
 
 /** The lobby a join link (`?lobby=…`) or a notification opens, if any. */
