@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '1.25.0',
+    notes: [
+      { text: 'New rating leaderboard for ranked correspondence games.' },
+    ],
+  },
+  {
     version: '1.24.0',
     notes: [
       { text: 'Coming back to the title screen no longer shows today\'s daily games as not played while they load.' },

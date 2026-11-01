@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, parseSettings } from './settings';
+import type { Features } from '../game';
 
 describe('parseSettings', () => {
   it('restores saved settings', () => {
@@ -32,7 +33,7 @@ describe('parseSettings', () => {
   it('defaults to Solo Rush, as before Rush had kinds', () => {
     expect(parseSettings(JSON.stringify({ mode: 'rush' })).rushKind).toBe('solo');
     expect(parseSettings(JSON.stringify({ rushKind: 'friends' })).rushKind).toBe('friends');
-    const allOn = { randomOpponent: true, ratingBoards: true, competitiveRush: true, suggest: true, dailyTopTenPercent: true };
+    const allOn: Features = { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true, suggest: true, dailyTopTenPercent: true };
     expect(parseSettings(JSON.stringify({ rushKind: 'competitive' }), null, allOn).rushKind).toBe('competitive');
     // Switched off for the launch: back to the defaults.
     expect(parseSettings(JSON.stringify({ rushKind: 'competitive' })).rushKind).toBe('solo');

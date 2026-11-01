@@ -89,6 +89,16 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19l. The Correspondence rating board** (the owner's request, 1
+  November 2026; worker, review gate; updates README "Leaderboards" and
+  "Launch switches")
+  - The owner's call: correspondence is the most played two player mode
+    (the usage dashboard) and several players already have established
+    correspondence ratings, so its rating board goes on. The live clocks'
+    boards and Competitive Rush's stay off, as do Random opponent,
+    Competitive Rush and the top 10% badge. `ratingBoards` becomes the list
+    of boards that are on, so another goes on with one word
+
 - [x] **18zx. Pause in the Daily Word** (issue
   plangdon84/word-mastermind-archive#257; worker, review gate; updates
   README "Daily Word")

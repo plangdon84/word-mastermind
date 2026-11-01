@@ -24,7 +24,7 @@ async function refusal(response: Response) {
   return { status: response.status, error: ((await response.json()) as { error: string }).error };
 }
 
-describe('switched off for 1.0', () => {
+describe('switched off', () => {
   it('the matchmaking queue', async () => {
     const { fetchFn } = setup();
     for (const path of ['/api/queue', '/api/queue/poll', '/api/queue/leave']) {
@@ -36,10 +36,15 @@ describe('switched off for 1.0', () => {
     }
   });
 
-  it('the rating boards', async () => {
+  it('the rating boards but Correspondence (item 19l)', async () => {
     const { fetchFn } = setup();
-    const response = await fetchFn('https://api.example/api/leaderboards/ratings?pool=live-10&circle=everyone', { headers: { 'x-guest-id': ANN } });
-    expect(await refusal(response)).toEqual({ status: 404, error: 'off' });
+    for (const pool of ['15m', '10m', '5m', 'rush']) {
+      const response = await fetchFn(`https://api.example/api/leaderboards/ratings?pool=${pool}&circle=everyone`, { headers: { 'x-guest-id': ANN } });
+      expect(await refusal(response)).toEqual({ status: 404, error: 'off' });
+    }
+    const board = await fetchFn('https://api.example/api/leaderboards/ratings?pool=correspondence&circle=everyone', { headers: { 'x-guest-id': ANN } });
+    expect(board.status).toBe(200);
+    expect(await board.json()).toMatchObject({ pool: 'correspondence', circle: 'everyone', total: 0, top: [] });
   });
 
   it('opening a Competitive Rush lobby, while Rush with Friends stays on', async () => {

@@ -719,3 +719,18 @@ test('finding a friend by name sends them a request, and by email says the same 
   await button(page, 'Find').click();
   await expect(page.getByText("If they have a wordmastermind.app account, they'll get your request.", { exact: false })).toBeVisible();
 });
+
+test('Leaderboards has the Correspondence rating board and no other (item 19l)', async ({ page }) => {
+  await page.goto('/');
+  await unlockAll(page);
+  await button(page, 'Leaderboards').click();
+  const tiles = page.getByRole('group', { name: 'Leaderboards' }).getByRole('button');
+  await expect(tiles).toHaveCount(3);
+  await expect(modeButton(page, 'Correspondence PvP')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Live PvP|^Competitive Rush/ })).toHaveCount(0);
+  await modeButton(page, 'Correspondence PvP').click();
+  await expect(page.getByRole('heading', { name: 'Correspondence PvP' })).toBeVisible();
+  await expect(page.getByText('Nobody is listed yet.')).toBeVisible();
+  await button(page, 'Back').click();
+  await expect(modeButton(page, 'Correspondence PvP')).toBeVisible();
+});

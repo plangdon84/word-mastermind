@@ -279,7 +279,9 @@ Run `npm test` and `npm run typecheck` before committing.
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:
   Random opponent, the rating boards, Competitive Rush and the Daily Rush
-  top 10% badge (`dailyTopTenPercent`); `suggest`, Easy's Suggest, is on. A mode that's off
+  top 10% badge (`dailyTopTenPercent`); `suggest`, Easy's Suggest, is on.
+  `ratingBoards` lists the boards that are on: Correspondence alone since
+  Dev Plan item 19l. A mode that's off
   is left off the title screen, Leaderboards page and tutorial, its badge
   isn't offered, and the worker refuses its routes (404 `off`). Tests of a
   switched-off mode turn it on with `vi.mock` of `features`.
