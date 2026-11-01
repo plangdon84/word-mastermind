@@ -6,14 +6,6 @@ Last triaged with the owner: 1 November 2026.
 
 **Next, in this order**
 
-- [ ] **18zx. Pause in the Daily Word** (issue
-  plangdon84/word-mastermind-archive#257; worker, review gate; updates
-  README "Daily Word")
-  - The owner's request: the Daily Word gets the Daily Set's Pause, with
-    the same 2 pauses a day, recorded as moves and refereed by the day's
-    Durable Object. A Daily Word started before this release keeps no
-    pauses (`pausable`), as Daily Rush did with item 18y
-
 - [ ] **18zf. Email friend requests after a decline** (issue
   plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
   updates README "Friends" and the privacy page)
@@ -77,6 +69,13 @@ Last triaged with the owner: 1 November 2026.
 
 ## Done, latest first
 
+- [x] **18zx. Pause in the Daily Word** (issue
+  plangdon84/word-mastermind-archive#257; worker, review gate; updates
+  README "Daily Word")
+  - The owner's request: the Daily Word gets the Daily Set's Pause, with
+    the same 2 pauses a day, recorded as moves and refereed by the day's
+    Durable Object. A Daily Word started before this release keeps no
+    pauses (`pausable`), as Daily Rush did with item 18y
 - [x] **18zv. Live clocks start after your first guess** (issue
   plangdon84/word-mastermind-archive#258; worker, review gate; updates
   README "Two player vs. a friend")

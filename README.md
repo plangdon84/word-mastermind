@@ -1309,8 +1309,12 @@ takes 20 to 25 minutes.
 - **Daily card → Daily Word → Play** asks for your difficulty, once, then
   **Start Daily Word**. It plays like one word of a Daily Set: one dot and
   the clock, which follows the server's, and the ☰ menu's difficulty can't
-  change. **No Pause** (owner, 9 October 2026: one word is short, and time
-  only breaks ties). Each guess is refereed by the day's Durable Object,
+  change. **Pause** works as in the Daily Set (Dev Plan item 18zx, the
+  owner's request, 1 November 2026): it stops your clock and covers the
+  board until **Resume**, **twice a run**, recorded as moves and refereed by
+  the server, with paused time left off the board's time. A Daily Word
+  started before this release keeps no pauses (`pausable`), as Daily Rush
+  runs did with item 18y. Each guess is refereed by the day's Durable Object,
   the same one as the Daily Set's (`worker/src/dailyRoom.ts`, `mode:
   'dailyWord'`), through `/api/daily/word…`.
 - **Once a day:** giving up (☰ menu, asked first) leaves no board entry,

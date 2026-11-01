@@ -210,7 +210,7 @@ Run `npm test` and `npm run typecheck` before committing.
   `computeAchievements`. Names shown to others pass `validateName`'s
   profanity filter (`isOffensive`).
 - Daily Word (Dev Plan item 7b, README "Daily Word"): one word a day for
-  everyone, a run of one word with no Pause, refereed beside the Daily Set
+  everyone, a run of one word with the Daily Set's Pause (twice, since item 18zx), refereed beside the Daily Set
   by the same day's Durable Object (`DailyRequest.mode: 'dailyWord'`,
   storage `word:`) through `/api/daily/word…` (`routeDaily` strips the
   `/word`). The server picks each day's word at random from the secret
