@@ -154,7 +154,10 @@ async function save(storage: RoomStorage, deps: LobbyDeps, room: LobbyRoom, now:
  */
 export async function handleLobbyAlarm(storage: RoomStorage, deps: LobbyDeps, now: number): Promise<void> {
   const room = await storage.get<LobbyRoom>(ROOM_KEY);
-  if (room) await settle(storage, deps, { ...room, alarmAt: null }, now);
+  if (!room) return;
+  const settled = await settle(storage, deps, { ...room, alarmAt: null }, now);
+  // Saved even when nothing else changed, so the stored alarm time is never one that has passed.
+  if (room.alarmAt !== null && settled.alarmAt === null) await storage.put(ROOM_KEY, settled);
 }
 
 /** Handles one request to the lobby. */

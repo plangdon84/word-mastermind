@@ -248,9 +248,13 @@ test("back from a rematch, the title screen still knows today's daily games (iss
   await expect(page.getByText(/word: type a 5-letter word/)).toBeVisible();
   await guess(page, TEST_DAILY_WORD);
   await expect(page.locator('.rush-result').getByRole('heading', { name: /^Found in 1 guess/ })).toBeVisible();
-  await page.goto('/');
+  // Straight back to the title screen, which heard "not played" before, with the server out of reach: it's played.
+  const dailyRequests = /\/api\/daily(\/word)?(\/games)?$/;
+  await page.route(dailyRequests, (route) => route.abort());
+  await button(page, 'Word Mastermind: main menu').click();
   const daily = page.getByRole('region', { name: 'Daily' });
   await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
+  await page.unroute(dailyRequests);
 
   // A game against a friend, to the end, then a rematch, all without leaving the page.
   await modeButton(page, 'Two player').click();
@@ -281,12 +285,12 @@ test("back from a rematch, the title screen still knows today's daily games (iss
 
   // Back to the title screen while the server can't be reached for the daily games: what it knew stays,
   // and nothing it doesn't know is offered as not played.
-  await page.route(/\/api\/daily(\/word)?(\/games)?$/, (route) => route.abort());
+  await page.route(dailyRequests, (route) => route.abort());
   await button(page, 'Word Mastermind: main menu').click();
   await expect(daily.getByRole('button', { name: /^Daily Word.*Played/ })).toBeVisible();
   await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('4 themed words · Today:');
   await expect(daily.getByRole('button', { name: /^Daily Set/ })).toContainText('Play');
-  await page.unroute(/\/api\/daily(\/word)?(\/games)?$/);
+  await page.unroute(dailyRequests);
 });
 
 test('Rush with Friends: finished first, Games in progress waits for the others, then shows the results (issue 252)', async ({ page, browser }) => {

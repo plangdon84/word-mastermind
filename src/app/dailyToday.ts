@@ -45,6 +45,18 @@ export function mergeDailies(before: DailyGamesToday, answer: DailyGamesToday): 
   return { daily: answer.daily ?? before.daily, dailyWord: answer.dailyWord ?? before.dailyWord };
 }
 
+/**
+ * What the Daily screen last heard about one game (review of PR #51): kept
+ * for the title screen, so coming back right after playing it shows it
+ * played rather than what the title screen heard before. Its place on the
+ * board comes with the title screen's next answer.
+ */
+export function noteDaily(identity: ApiIdentity, mode: DailyMode, today: DailyToday): void {
+  const who = whoOf(identity);
+  const before = cache?.who === who ? cache : { who, games: NONE, offset: today.now - Date.now() };
+  cache = { ...before, games: { ...before.games, [mode]: today } };
+}
+
 /** Forgets what this page heard (tests). */
 export function forgetDailies(): void {
   cache = null;

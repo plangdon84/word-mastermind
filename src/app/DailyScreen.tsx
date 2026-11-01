@@ -34,6 +34,7 @@ import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
 import { GuestNamePrompt } from './GuestNamePrompt';
 import { noteBoardName } from './boardName';
+import { noteDaily } from './dailyToday';
 import { dailyShareText } from './shareText';
 
 
@@ -287,6 +288,11 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     }).catch((e: unknown) => setLoadError(dailyErrorMessage(codeOf(e), '', mode)));
   };
   useEffect(() => load(), []);
+
+  // The title screen shows what this screen heard last, so going back to it right after playing shows it played.
+  useEffect(() => {
+    if (today) noteDaily(identity, mode, today);
+  }, [today]);
 
   // Medium's marks stay on this device, as does whether a reload should come back here.
   useEffect(() => {
