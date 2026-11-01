@@ -237,7 +237,8 @@ function DailyRow({ mode, today, failed, inProgress, onPlay, onResult }: {
   const late = run?.status === 'playing' && run.day !== today?.day;
   const playing = run ? run.status === 'playing' : inProgress;
   const over = run !== null && run.status !== 'playing';
-  // Not known yet (issue 250): never offered as not played; tapping opens the game, which looks for itself.
+  // Not known yet (issue 250): never offered as not played. If the server couldn't be reached, tapping opens the
+  // game, which looks for itself.
   const unknown = !today && !inProgress;
   const detail = unknown ? (failed ? "Couldn't check today's game · tap to open" : 'Loading…')
     : !set
@@ -249,7 +250,8 @@ function DailyRow({ mode, today, failed, inProgress, onPlay, onResult }: {
   return (
     <button type="button" class={over ? 'daily-game done' : 'daily-game'}
       // The Daily Set needs a theme; the Daily Word is there every day.
-      disabled={set && !!today && !today.theme && !run && !inProgress}
+      // While it loads, nothing to tap: Play would skip what the server knows, and the game would skip the difficulty.
+      disabled={(unknown && !failed) || (set && !!today && !today.theme && !run && !inProgress)}
       onClick={run || inProgress || unknown ? onResult : onPlay}>
       <span class="daily-marker" aria-hidden="true">{set ? 4 : 1}</span>
       <span class="daily-name">
