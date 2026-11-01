@@ -170,7 +170,8 @@ test('Daily Word: one word for everyone, once a day, on its own board', async ({
   await ask.getByLabel('Your name').fill('Wordy Wren');
   await ask.getByRole('button', { name: 'Save name' }).click();
   await expect(result.getByRole('status').filter({ hasText: 'Saved.' })).toContainText('Wordy Wren');
-  expect((await getStorage(page, 'profile'))?.name).toBe('Wordy Wren');
+  // The app writes the profile just after showing Saved, so wait for it rather than reading at once.
+  await expect.poll(async () => (await getStorage(page, 'profile'))?.name).toBe('Wordy Wren');
   await result.getByRole('button', { name: 'Your place: open the board' }).click();
   await expect(page.getByRole('region', { name: 'Daily Word leaderboard' })).toBeVisible();
   // Today's board shows the new name at once, not the Guest one the game started with (item 18zw).
