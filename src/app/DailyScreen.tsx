@@ -265,7 +265,6 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     setDraftState(d);
   };
 
-  /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Set or Daily Word). */
   /** Starts today's run under your name, which a guest's boards now show (`boardName.ts`). */
   const startAs = async (day: DailyDay) => {
     const shown = displayName(profile);
@@ -273,6 +272,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     if (!identity.token) noteBoardName(profile.deviceId, shown);
     return started;
   };
+  /** `autoStart`: start today's run straight away if there's nothing to show (Start Daily Set or Daily Word). */
   const load = (autoStart = start) => {
     setLoadError(null);
     api.today().then(async (t) => {

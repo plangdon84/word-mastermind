@@ -6,8 +6,12 @@ import { DailyApiError, type DailyError } from './dailyApi';
  * each player's name now on every day's board. An account's comes from its
  * synced profile; a guest's is the one their last daily game started with,
  * so a new name is sent as soon as it's chosen. This device remembers the
- * name the server has for its guest ID, and sends one only once that guest
- * has started a daily game, so a guest who never plays them sends nothing.
+ * name the server has for its guest ID once it's sent one (or started a
+ * daily game), and sends a new name when it's chosen. Opening the app sends
+ * nothing until then, so a guest who never renames or plays sends nothing;
+ * one who played before this device kept track (an older app) still gets
+ * their rename on the boards. The server changes nothing for a guest it
+ * hasn't seen.
  */
 
 const KEY = 'word-mastermind:board-name:v1';
@@ -38,10 +42,14 @@ export function noteBoardName(id: string, name: string): void {
   }
 }
 
-/** Whether this guest's boards show another name than `name`, so it needs sending. */
-export function boardNameStale(id: string, name: string): boolean {
+/**
+ * Whether this guest's boards may show another name than `name`, so it needs
+ * sending: a name the server was sent before, or (`renamed`, a name chosen
+ * since the app opened) one it may never have had.
+ */
+export function boardNameStale(id: string, name: string, renamed: boolean): boolean {
   const sent = load();
-  return sent !== null && sent.id === id && sent.name !== name;
+  return sent !== null && sent.id === id ? sent.name !== name : renamed;
 }
 
 /** Sends a guest's new name, for every Daily board they're on. */

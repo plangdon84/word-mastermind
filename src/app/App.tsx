@@ -548,10 +548,12 @@ export function App() {
   }, [syncedKey]);
 
   // A guest's new name goes on every Daily board they're on at once (item 18zw); an account's goes with its
-  // synced profile. Sent again on the next visit if the server couldn't be reached.
+  // synced profile. Sent again on the next visit if the server couldn't be reached (once it has had one).
   const shownName = displayName(profile);
+  const openedName = useRef(shownName);
   useEffect(() => {
-    if (!API_URL || identity.token || !boardNameStale(profile.deviceId, shownName)) return;
+    if (!API_URL || identity.token) return;
+    if (!boardNameStale(profile.deviceId, shownName, shownName !== openedName.current)) return;
     const { deviceId } = profile;
     sendBoardName(API_URL, identity, shownName).then(() => noteBoardName(deviceId, shownName), () => {});
   }, [shownName, identity]);
