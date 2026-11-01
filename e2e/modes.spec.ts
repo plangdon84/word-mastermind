@@ -277,6 +277,38 @@ test('a live game against a friend: each first guess is untimed, due within 2 mi
   await expect(first.locator('.first-guess')).toHaveCount(0);
 });
 
+test('a live game cancelled for a missing first guess: no winner, no words, and Rematch (item 18zv)', async ({ page, browser }) => {
+  // The server keeps the time, so this waits out the real 2 minutes.
+  test.setTimeout(4 * 60_000);
+  await trackSockets(page.context());
+  await unlockAll(page);
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'A friend').click();
+  await modeButton(page, 'Send an invite link').click();
+  await button(page, /^5 min/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Next: your word').click();
+  await guess(page, 'storm');
+  const link = await page.locator('#invite-link').inputValue();
+  await listening(page);
+  const friend = await newPlayer(browser, page);
+  await friend.goto(link);
+  await expect(friend.getByText(/challenges you/)).toBeVisible();
+  await guess(friend, 'beach');
+  await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
+  await listening(friend);
+  // Nobody guesses.
+  for (const player of [page, friend]) {
+    const result = player.locator('.result');
+    await expect(result.getByRole('heading', { name: 'Game cancelled.' })).toBeVisible({ timeout: 150_000 });
+    await expect(result).toContainText(/didn't make (your|their) first guess within 2 minutes, so there's no winner/);
+    // Neither word, nor a tally.
+    await expect(result).not.toContainText(/STORM|BEACH|word was|You: /i);
+    await expect(button(player, 'Rematch')).toBeVisible();
+  }
+  await expectAccessible(page);
+});
+
 test("back from a rematch, the title screen still knows today's daily games (issue 250)", async ({ page, browser }) => {
   await trackSockets(page.context());
   await unlockAll(page);

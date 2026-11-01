@@ -826,8 +826,9 @@ export function FriendScreen({
         </section>
       )}
 
-      {over && outcome && view.theirSecret && !practising && (
-        <FriendResult view={{ ...view, theirSecret: view.theirSecret }} outcome={outcome} opponent={opponent} live={live}
+      {/* A cancelled game (item 18zv) keeps both words hidden but still has its result, and Rematch. */}
+      {over && outcome && (view.theirSecret || outcome === 'cancelled-you' || outcome === 'cancelled-them') && !practising && (
+        <FriendResult view={{ ...view, theirSecret: view.theirSecret ?? '' }} outcome={outcome} opponent={opponent} live={live}
           definitions={definitions} rating={review ? review.rating : game.ratings?.you}
           choice={playOn.stage === 'choose' && (
             <PlayOnChoice whose={`${opponent}'s word`} onKeepGuessing={() => {
