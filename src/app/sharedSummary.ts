@@ -1,5 +1,6 @@
 import {
-  addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, type DailyPlacement, type HistoryEntry, type ReplayedGame,
+  addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, type DailyPlacement, type GameSummary, type HistoryEntry,
+  type ReplayedGame, type StatsGame,
 } from '../game';
 import { SHARED_FORMAT, type SharedSummary } from './friendsApi';
 
@@ -20,12 +21,12 @@ export const withoutRating = (entry: HistoryEntry): HistoryEntry =>
  * player's own local days (`localDay`).
  */
 export function sharedSummary(
-  games: readonly { entry: HistoryEntry; replayed: ReplayedGame }[], placements: readonly DailyPlacement[], now: number,
+  games: readonly { entry: HistoryEntry; replayed: ReplayedGame; summary?: GameSummary }[], placements: readonly DailyPlacement[], now: number,
   dayOf: (ms: number) => number,
 ): SharedSummary {
   const hiddenFrom = addDays(dailyDay(now), -1);
   const shown = games.filter((g) => (g.entry.mode !== 'daily' && g.entry.mode !== 'dailyWord') || g.entry.day < hiddenFrom);
-  const statsGames = shown.map((g) => ({ id: g.entry.id, replayed: g.replayed }));
+  const statsGames: StatsGame[] = shown.map((g) => ({ id: g.entry.id, replayed: g.replayed, summary: g.summary }));
   const stats = computeStats(statsGames, now);
   const featuredIds = new Set<string>();
   for (const mode of HISTORY_MODES) {

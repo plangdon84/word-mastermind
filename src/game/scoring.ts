@@ -20,9 +20,38 @@ export function intersection<T>(a: Set<T>, b: Set<T>): Set<T> {
   return shared;
 }
 
+/**
+ * A word's distinct letters as bits, a = 1 … z = 2^25, or -1 if it has
+ * anything but a–z once normalized. Scoring is the hottest path there is:
+ * every guess of every saved game is scored again whenever the history is
+ * replayed, and the computer scores whole word lists, so this makes no Set
+ * (Dev Plan item 19c).
+ */
+function scoringMask(word: string): number {
+  const w = normalizeWord(word);
+  let mask = 0;
+  for (let i = 0; i < w.length; i++) {
+    const bit = w.charCodeAt(i) - 97;
+    if (bit < 0 || bit > 25) return -1;
+    mask |= 1 << bit;
+  }
+  return mask;
+}
+
+/** How many bits are set in a letter mask. */
+function maskSize(mask: number): number {
+  let n = mask - ((mask >>> 1) & 0x55555555);
+  n = (n & 0x33333333) + ((n >>> 2) & 0x33333333);
+  return (((n + (n >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+}
+
 /** Count of distinct letters present in both words; position is ignored. */
 export function scoreGuess(guess: string, secret: string): number {
-  return intersection(letterSet(guess), letterSet(secret)).size;
+  const a = scoringMask(guess);
+  const b = scoringMask(secret);
+  // Anything but a–z (never a valid word) is still scored, as distinct characters.
+  if (a < 0 || b < 0) return intersection(letterSet(guess), letterSet(secret)).size;
+  return maskSize(a & b);
 }
 
 /** Only the exact word wins; an anagram scores 5 but does not win. */

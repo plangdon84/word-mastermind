@@ -17,10 +17,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     everything unlocked, badge collector, a veteran with thousands of
     games), checked by a test, with a picker in preview builds' profiles,
     shown only when signed out
-- [ ] **19c. Faster first load of a long history** (from item 17)
-  - With 5,000 games, opening the app takes about 2 seconds on a slow phone
-    to replay every game (each profile page is then under 1); keep each
-    game's summary with it instead, so the history isn't replayed in full
 - [ ] **19d. Two player and Solo Rush in two tabs** (from item 17)
   - With the same game open in two tabs, a move in one is lost when the
     other saves (item 17 fixed it for single player). Harder here: the
@@ -74,6 +70,20 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     card for the words
 
 ## Done, latest first
+
+- [x] **19c. Faster first load of a long history** (from item 17)
+  - With 5,000 games, opening the app takes about 2 seconds on a slow phone
+    to replay every game (each profile page is then under 1); keep each
+    game's summary with it instead, so the history isn't replayed in full
+  - Built differently, by measurement: keeping summaries in the browser's
+    database cost as much to read back as replaying (about 55 ms for 5,000
+    games), and the profile needs every game replayed for its badges
+    anyway. Instead the history is read in one request, not a step per
+    game; scoring a guess uses a letter mask, not sets; and badges, stats
+    and unlocks reuse the summary each game already has. Opening the app
+    then the profile with 5,000 games at 4× CPU slowdown: 3.0–3.4 s before,
+    1.5–1.8 s after. The script budget goes to 144 KB (the owner's OK, 2
+    November 2026)
 
 - [x] **19a. Email friend requests after a decline** (issue
   plangdon84/word-mastermind-archive#217; worker, privacy, review gate;

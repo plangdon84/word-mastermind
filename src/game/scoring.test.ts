@@ -96,3 +96,22 @@ describe('run scoring', () => {
     expect(averageWord([])).toEqual({ guesses: 0, seconds: 0 });
   });
 });
+
+describe('scoring by letter masks (Dev Plan item 19c)', () => {
+  it('matches counting shared letters with sets, for every pair of a sample of words', () => {
+    const words = ['beach', 'bunny', 'crane', 'Storm', ' house ', 'aaaaa', 'zzzzz', 'abcde', 'vwxyz', 'teach', 'cheap'];
+    for (const a of words) {
+      for (const b of words) expect(scoreGuess(a, b)).toBe(intersection(letterSet(a), letterSet(b)).size);
+    }
+  });
+
+  it('counts every letter a–z, z included', () => {
+    expect(scoreGuess('abcdefghijklmnopqrstuvwxyz', 'zyxwv')).toBe(5);
+    expect(scoreGuess('bunny', 'bunny')).toBe(4);
+  });
+
+  it('still scores words with other characters, as distinct characters', () => {
+    expect(scoreGuess('ab-cd', 'xa-yz')).toBe(2);
+    expect(scoreGuess('éclat', 'éclat')).toBe(5);
+  });
+});

@@ -36,7 +36,7 @@ import { LeaderboardsScreen, type BoardId } from './LeaderboardsScreen';
 import { LobbyScreen } from './LobbyScreen';
 import { activeLobby, activeLobbyKind, lobbyCodeFromUrl, lobbyInProgress } from './lobbyStorage';
 import { GameHistory } from './GameHistory';
-import { getAllIds, getGames, onGameSaved, putGames, type HistoryGame } from './historyDb';
+import { getAllIds, getGames, onGameSaved, putGames, statsGame, type HistoryGame } from './historyDb';
 import { useHistoryGames } from './hooks';
 import { newId } from './ids';
 import { syncFriendGames } from './nextGame';
@@ -137,7 +137,7 @@ function StatsPage({ games, identity, signedIn, onOpen }: {
     };
   }, [identity, signedIn]);
   const ratings: RatingsState | undefined = API_URL ? { signedIn, list: signedIn ? ratingList : null } : undefined;
-  const replayed = useMemo(() => games?.map((g) => ({ id: g.entry.id, replayed: g.replayed })) ?? null, [games]);
+  const replayed = useMemo(() => games?.map(statsGame) ?? null, [games]);
   const stats = useMemo(() => replayed && computeStats(replayed, Date.now()), [replayed]);
   return <Analytics stats={stats} games={games ?? []} onOpen={onOpen} ratings={ratings} />;
 }
@@ -145,7 +145,7 @@ function StatsPage({ games, identity, signedIn, onOpen }: {
 /** The profile's achievements subpage: every badge, earned or not, from every saved game. */
 function AchievementsPage({ games }: { games: HistoryGame[] | null }) {
   const earned = useMemo(
-    () => games && computeAchievements(games.map((g) => ({ id: g.entry.id, replayed: g.replayed })), localDay, loadPlacements()),
+    () => games && computeAchievements(games.map(statsGame), localDay, loadPlacements()),
     [games]);
   // Badges new since you last looked are marked as such here, and the profile dot goes.
   const [fresh] = useState(() => new Set(loadBadgeNotices().unseen));
@@ -160,7 +160,7 @@ function profileSummaries({ games, session, settings }: {
   session: Session | null;
   settings: Settings;
 }): Partial<Record<ProfilePage, string>> {
-  const earned = games && computeAchievements(games.map((g) => ({ id: g.entry.id, replayed: g.replayed })), localDay, loadPlacements());
+  const earned = games && computeAchievements(games.map(statsGame), localDay, loadPlacements());
   const unseen = loadBadgeNotices().unseen.length;
   return {
     account: session ? `Signed in as ${session.account.email}` : 'Sign in to play on any device and add friends',
@@ -582,7 +582,7 @@ export function App() {
   const historyGames = useHistoryGames(historyVersion,
     screen.name === 'profile' || screen.name === 'title' || screen.name === 'friendProfile' || friendOver !== null);
   const open = useMemo(
-    () => historyGames && openModes(computeUnlocks(historyGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })))),
+    () => historyGames && openModes(computeUnlocks(historyGames.map(statsGame))),
     [historyGames]);
 
   // The server keeps turn alerts under this device's guest ID, which signing out changes, with the reminders it

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { summarizeGame } from './history';
 import { DAY, dailyWord, friend, rush, solo, versus } from './testGames';
 import { computeOldUnlocks, computeUnlocks, openModes } from './unlocks';
 
@@ -53,5 +54,27 @@ describe('the steps before item 18zn', () => {
     const later = computeOldUnlocks([friendWin, soloWin('s', T + DAY)]);
     expect(later.map((u) => [u.step, u.gameId])).toEqual([['two-player', 's'], ['solo-rush', 's']]);
     expect(later[1].at).toBe(later[0].at);
+  });
+});
+
+describe('unlocks from summaries alone (Dev Plan item 19c)', () => {
+  it("come out the same from each game's summary, never reading the replayed game", () => {
+    const games = [
+      solo('s', T, ['crane'], { gaveUp: true }),
+      dailyWord('w', '2026-01-01', T + DAY, ['crane'], { gaveUp: true }),
+      dailyWord('w2', '2026-01-02', T + 2 * DAY, ['crane', 'beach']),
+      cleanRush('r', T + 3 * DAY),
+      soloWin('s2', T + 4 * DAY),
+    ];
+    const summarized = games.map((g) => ({
+      id: g.id,
+      summary: summarizeGame(g.replayed),
+      get replayed(): never {
+        throw new Error('replayed');
+      },
+    }));
+    expect(computeUnlocks(summarized)).toEqual(computeUnlocks(games));
+    expect(computeOldUnlocks(summarized)).toEqual(computeOldUnlocks(games));
+    expect(computeUnlocks(summarized).map((u) => u.gameId)).toEqual(['w2']);
   });
 });

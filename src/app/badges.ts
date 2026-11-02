@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { BADGE_BY_ID, computeAchievements, type Badge, type DailyMode, type DailyPlacement, type EarnedBadge } from '../game';
 import { loadPlacements, savePlacements } from './dailyStorage';
-import { loadAllMatching, whenSaved } from './historyDb';
+import { loadAllMatching, statsGame, whenSaved } from './historyDb';
 
 /*
  * Which earned badges you've been told about (README "Achievements"). Badges
@@ -93,7 +93,7 @@ export function localDay(ms: number): number {
 /** Every badge earned, from the whole history and your Daily Rush places. */
 export async function loadEarnedBadges(): Promise<EarnedBadge[]> {
   const games = await loadAllMatching({});
-  return computeAchievements(games.map((g) => ({ id: g.entry.id, replayed: g.replayed })), localDay, loadPlacements());
+  return computeAchievements(games.map(statsGame), localDay, loadPlacements());
 }
 
 /**

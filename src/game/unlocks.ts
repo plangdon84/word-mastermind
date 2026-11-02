@@ -1,5 +1,4 @@
-import { summarizeGame } from './history';
-import type { StatsGame } from './stats';
+import { summaryOf, type StatsGame } from './stats';
 
 /*
  * Unlocking modes (README "Unlocking modes"): a new player starts with
@@ -22,11 +21,10 @@ export interface Unlock<Step extends string = UnlockStep> {
   gameId: string;
 }
 
-/** A Practice win, the Daily Word found or a win against the computer; a draw isn't a win. */
+/** A Practice win, the Daily Word found or a win against the computer; a draw isn't a win. From the summary alone. */
 function opensAll(game: StatsGame): boolean {
-  const { replayed } = game;
-  if (replayed.mode === 'dailyWord') return replayed.game.results.every((r) => r.outcome === 'solved');
-  const summary = summarizeGame(replayed);
+  const summary = summaryOf(game);
+  if (summary.mode === 'dailyWord') return summary.allFound === true;
   return (summary.mode === 'single' || summary.mode === 'computer') && summary.result === 'won';
 }
 
@@ -36,14 +34,14 @@ export type OldUnlockStep = 'two-player' | 'solo-rush' | 'all-rush';
 export const OLD_UNLOCK_STEPS: readonly OldUnlockStep[] = ['two-player', 'solo-rush', 'all-rush'];
 
 function earnedOld(step: OldUnlockStep, game: StatsGame): boolean {
-  const summary = summarizeGame(game.replayed);
+  const summary = summaryOf(game);
   switch (step) {
     case 'two-player':
       return summary.mode === 'single' && summary.result === 'won';
     case 'solo-rush':
       return (summary.mode === 'computer' || summary.mode === 'friend') && summary.result === 'won';
     case 'all-rush':
-      return game.replayed.mode === 'rush' && game.replayed.game.results.every((r) => r.outcome === 'solved');
+      return summary.mode === 'rush' && summary.allFound === true;
   }
 }
 
@@ -52,7 +50,7 @@ function inSteps<Step extends string>(
   games: readonly StatsGame[], steps: readonly Step[], earns: (step: Step, game: StatsGame) => boolean,
 ): Unlock<Step>[] {
   const ended = games
-    .map((game) => ({ game, endedAt: summarizeGame(game.replayed).endedAt }))
+    .map((game) => ({ game, endedAt: summaryOf(game).endedAt }))
     .sort((a, b) => a.endedAt - b.endedAt);
   const unlocks: Unlock<Step>[] = [];
   for (const step of steps) {
