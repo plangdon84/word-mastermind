@@ -118,10 +118,19 @@ export async function saveEntries(db: D1Database, accountId: string, entries: re
   try {
     // One batch (one round trip); its statements run in order, each seeing the total the ones before it left.
     return count(await db.batch(entries.map(insert)));
-  } catch {
-    // A batch is all or nothing: one entry the database refuses mustn't keep the rest out on every sync.
+  } catch (error) {
+    // A batch is all or nothing: one entry the database refuses mustn't keep the rest out on every sync, so
+    // each goes on its own. If any still fails (the database down, say), so does the request: the device then
+    // sends them all again next time, and the ones kept now are skipped, so none is ever taken as kept and lost.
     let added = 0;
-    for (const entry of entries) added += await insert(entry).run().then((r) => count([r]), () => 0);
+    let failed = false;
+    for (const entry of entries) {
+      added += await insert(entry).run().then((r) => count([r]), () => {
+        failed = true;
+        return 0;
+      });
+    }
+    if (failed) throw error;
     return added;
   }
 }
