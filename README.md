@@ -2247,7 +2247,8 @@ first.
   `by_email` for a request sent by email, and `lobby_invites`), with each
   account's code on `accounts.friend_code`; `email_requests` counts each
   account's requests by email for the daily limit, never the email;
-  `email_declines` holds who declined whose request by email, for a week.
+  `email_declines` holds who declined whose request by email: ignored
+  after a week, and deleted the next time anyone declines one.
   Deleting the account removes you from every list and its declines.
 
 ### Friends' profiles
