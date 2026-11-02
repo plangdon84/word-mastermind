@@ -110,16 +110,20 @@ async function todayOf(
   const day = dailyDay(now);
   const answer = run ?? await currentRun(env, mode, player, day);
   if ('error' in answer.body) return answer;
-  const theme = mode === 'daily' ? (await themeFor(env.DB, day))?.theme ?? null : null;
   const runDay = answer.body.run?.day;
+  // Independent reads, side by side.
+  const themeOf = async (of: DailyDay) => (mode === 'daily' ? (await themeFor(env.DB, of))?.theme ?? null : null);
+  const [theme, runTheme, placements] = await Promise.all([
+    themeOf(day), runDay && runDay !== day ? themeOf(runDay) : null, pastPlacements(env.DB, player, day, mode),
+  ]);
   return {
     day,
     theme,
-    runTheme: mode === 'daily' && runDay && runDay !== day ? (await themeFor(env.DB, runDay))?.theme ?? null : theme,
+    runTheme: runDay && runDay !== day ? runTheme : theme,
     nextAt: dayEnd(day),
     now,
     run: answer.body.run,
-    placements: await pastPlacements(env.DB, player, day, mode),
+    placements,
   };
 }
 
@@ -195,15 +199,17 @@ async function board(
      ORDER BY ${order}, finished_at LIMIT ${BOARD_SIZE}`,
   ).bind(day, difficulty, ...circleArgs)
     .all<{ name: string; guesses: number; ms: number; player_id: string; rank: number; friend_code: string | null }>();
-  // Each player's name now, not the one their run started with (item 18zw).
-  const names = await boardNames(env.DB, top.map((r) => r.player_id));
-  const total = await env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM ${table} WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}`,
-  ).bind(day, difficulty, ...circleArgs).first<number>('n');
-  const mine = await env.DB.prepare(
-    `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(table, rankBy, only('o.player_id', 4))}
-     FROM ${table} r WHERE r.day = ?1 AND r.difficulty = ?2 AND ${isPlayers('r.player_id', '?3')}`,
-  ).bind(day, difficulty, player.id, ...circleArgs).first<PlaceRow>();
+  // Each player's name now, not the one their run started with (item 18zw); and the count and your place, alongside.
+  const [names, total, mine] = await Promise.all([
+    boardNames(env.DB, top.map((r) => r.player_id)),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM ${table} WHERE day = ?1 AND difficulty = ?2 ${only('player_id', 3)}`,
+    ).bind(day, difficulty, ...circleArgs).first<number>('n'),
+    env.DB.prepare(
+      `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(table, rankBy, only('o.player_id', 4))}
+       FROM ${table} r WHERE r.day = ?1 AND r.difficulty = ?2 AND ${isPlayers('r.player_id', '?3')}`,
+    ).bind(day, difficulty, player.id, ...circleArgs).first<PlaceRow>(),
+  ]);
   // The words stay secret until the day is over, and from you while you finish that day's run late.
   let shown = now >= dayEnd(day);
   // A day without a Daily Word had no runs to finish (Issue 214).

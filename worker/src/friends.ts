@@ -15,7 +15,7 @@ import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
 import { vapidKeysOf } from './pushRoutes';
-import { syncedName } from './sync';
+import { currentNames, syncedName } from './sync';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -162,17 +162,19 @@ export async function listFriends(env: Env, accountId: string, now: number): Pro
     `SELECT f.friend_id, f.state, f.since, a.friend_code FROM friends f JOIN accounts a ON a.id = f.friend_id
      WHERE f.account_id = ?1 AND NOT (f.state = 'sent' AND f.by_email = 1) ORDER BY f.since DESC`,
   ).bind(accountId).all<{ friend_id: string; state: string; since: number; friend_code: string }>();
-  const list: FriendsList = {
-    code: await friendCodeOf(db, accountId), invite: await inviteKeyOf(db, accountId), friends: [], received: [], sent: [], lobbyInvites: [],
-  };
+  // Every name in one query, not one each (up to MAX_FRIENDS), alongside the rest.
+  const [code, invite, names, lobbyInvites] = await Promise.all([
+    friendCodeOf(db, accountId), inviteKeyOf(db, accountId), currentNames(db, results.map((r) => r.friend_id)),
+    openLobbyInvites(env, accountId, now),
+  ]);
+  const list: FriendsList = { code, invite, friends: [], received: [], sent: [], lobbyInvites };
   for (const row of results) {
-    const friend: Friend = { code: row.friend_code, name: await nameOrDefault(db, row.friend_id), since: row.since };
+    const friend: Friend = { code: row.friend_code, name: names[row.friend_id] ?? NO_NAME, since: row.since };
     if (row.state === 'friends') list.friends.push(friend);
     else if (row.state === 'received') list.received.push(friend);
     else list.sent.push(friend);
   }
   list.friends.sort((a, b) => a.name.localeCompare(b.name));
-  list.lobbyInvites = await openLobbyInvites(env, accountId, now);
   return list;
 }
 
@@ -400,11 +402,14 @@ async function removeFriend(db: D1Database, accountId: string, code: string, now
  * settings, email, friends list or an ID.
  */
 async function friendProfile(db: D1Database, friendId: string, now: number): Promise<FriendProfile> {
-  const row = await db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
-    .first<{ country: string | null; member_since: number }>();
-  const player = await playerOfAccount(db, friendId);
+  const [row, player, name] = await Promise.all([
+    db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
+      .first<{ country: string | null; member_since: number }>(),
+    playerOfAccount(db, friendId),
+    nameOrDefault(db, friendId),
+  ]);
   return {
-    name: await nameOrDefault(db, friendId),
+    name,
     country: isCountry(row?.country) ? row.country : null,
     memberSince: row?.member_since ?? null,
     // The Daily Word's places come last, so an older app, which takes a day's first, shows the Daily Set's.
@@ -448,11 +453,10 @@ export async function routeFriends(
     const friendId = await friendIdByCode(env.DB, accountId, code);
     if (!friendId) return errorResponse(404, 'not-found');
     if (query) return json(await friendGamesPage(env.DB, friendId, query, now));
-    const answer: FriendProfileAnswer = {
-      profile: await friendProfile(env.DB, friendId, now),
-      summary: await sharedSummaryOf(env.DB, friendId),
-      versus: await versusOf(env.DB, accountId, friendId),
-    };
+    const [profile, summary, versus] = await Promise.all([
+      friendProfile(env.DB, friendId, now), sharedSummaryOf(env.DB, friendId), versusOf(env.DB, accountId, friendId),
+    ]);
+    const answer: FriendProfileAnswer = { profile, summary, versus };
     return json(answer);
   }
   if (pathname === '/api/friends/search') {

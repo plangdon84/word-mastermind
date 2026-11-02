@@ -205,18 +205,21 @@ export async function playedPage(
   // A room lookup each for the rest, at most PLAYED_PAGE + PLAYED_RETRIES: within a request's calls. If the
   // database fails here, the request does, and the app asks again with its place unchanged.
   const ratings = await ratingChanges(env.DB, [...asked, ...page], player);
+  // The lookups run side by side (a page's wait is its slowest, not their sum), then are read in order.
+  const [askedPlayed, pagePlayed] = await Promise.all([asked, page].map((rows) =>
+    Promise.all(rows.map((row) => tryPlayed(env, row, player, ids, ratings)))));
   const retried: PlayedGame[] = [];
   const failing: number[] = [];
-  for (const row of asked) {
-    const played = await tryPlayed(env, row, player, ids, ratings);
+  asked.forEach((row, i) => {
+    const played = askedPlayed[i];
     if (played === AGAIN) failing.push(row.seq);
     else if (played) retried.push({ ...played, seq: row.seq });
-  }
+  });
   const games: PlayedGame[] = [];
   let cursor = after;
   let skips = skip;
-  for (const row of page) {
-    const played = await tryPlayed(env, row, player, ids, ratings);
+  for (const [i, row] of page.entries()) {
+    const played = pagePlayed[i];
     if (played === AGAIN) {
       // A lookup failed for now: pass over this game for the app to ask for again, or once it may pass
       // over no more, stop before it, so the next pull asks for it again.

@@ -41,10 +41,13 @@ class FakeStatement {
     return { success: true, results: [], meta: { changes: Number(changes) } };
   }
 
-  /** In a batch, D1 gives each statement's rows too, as `all` does. */
-  async inBatch() {
-    if (this.db.prepare(this.sql).columns().length === 0) return this.run();
-    return this.all();
+  /** In a batch, D1 gives each statement's rows too, as `all` does. Synchronous, so batches at once never interleave. */
+  inBatch() {
+    const statement = this.db.prepare(this.sql);
+    if (statement.columns().length === 0) {
+      return { success: true, results: [], meta: { changes: Number(statement.run(...this.args).changes) } };
+    }
+    return { success: true, results: statement.all(...this.args), meta: {} };
   }
 }
 
@@ -64,7 +67,7 @@ export function fakeD1({ dailyThemes = false } = {}): { db: D1Database; sqlite: 
       sqlite.exec('BEGIN');
       try {
         const results = [];
-        for (const statement of statements) results.push(await statement.inBatch());
+        for (const statement of statements) results.push(statement.inBatch());
         sqlite.exec('COMMIT');
         return results;
       } catch (e) {

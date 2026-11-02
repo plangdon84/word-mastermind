@@ -219,15 +219,16 @@ interface Built {
 /** Builds these server games' entries from the account's side, one room at a time; a room that can't answer is `stuck`. */
 async function buildGames(env: Env, rows: readonly LinkedRow[], player: Player, ids: readonly string[]): Promise<Built> {
   const built: Built = { rows: [], stuck: [] };
-  for (const row of rows) {
-    try {
-      const played = await toPlayed(env, row, player, ids, null);
-      if (played) built.rows.push(indexRow(played.entry, row.seq));
-    } catch (e) {
+  // The room lookups run side by side, then are read in order.
+  const tried = await Promise.allSettled(rows.map((row) => toPlayed(env, row, player, ids, null)));
+  tried.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      if (result.value) built.rows.push(indexRow(result.value.entry, rows[i].seq));
+    } else if (result.reason instanceof TryAgain) {
       // A game that can't be read is left out for good; one whose room can't answer for now, retried.
-      if (e instanceof TryAgain) built.stuck.push(row.seq);
+      built.stuck.push(rows[i].seq);
     }
-  }
+  });
   return built;
 }
 
