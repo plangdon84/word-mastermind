@@ -302,8 +302,12 @@ describe('friend requests by email', () => {
     expect((await bob.friends.list()).received).toEqual([]);
     expect(pushed()).toEqual([]);
 
-    // A week on, it reaches Bob again.
-    advance(EMAIL_DECLINE_MS);
+    // Still ignored a moment before the week is up; a week on, it reaches Bob again.
+    advance(EMAIL_DECLINE_MS - 1);
+    await ann.friends.requestByEmail('bob@example.com');
+    expect((await bob.friends.list()).received).toEqual([]);
+    expect(pushed()).toEqual([]);
+    advance(1);
     await ann.friends.requestByEmail('bob@example.com');
     expect((await bob.friends.list()).received).toMatchObject([{ code: annCode }]);
     expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);

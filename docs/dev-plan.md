@@ -87,8 +87,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     code or name work as today
   - The check runs after answering, with the lookup (`deliverEmailRequest`),
     costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
-    or `KEEP_TABLES`), cleared after 7 days and when either account is
-    deleted
+    or `KEEP_TABLES`), ignored after 7 days (and deleted the next time
+    anyone declines one) and deleted with either account
 
 - [x] **19l. The Correspondence rating board** (the owner's request, 1
   November 2026; worker, review gate; updates README "Leaderboards" and
