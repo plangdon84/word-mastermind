@@ -1,5 +1,6 @@
 import { identityHeaders, type ApiIdentity } from './apiIdentity';
 import { loadSettings, type Settings } from './settings';
+import { readStored } from './localStore';
 
 /*
  * Turn alerts (README "Two player vs. a friend"): Web Push notifications for
@@ -172,11 +173,7 @@ export async function resyncAlerts(apiUrl: string, identity: ApiIdentity, remind
 }
 
 function stored(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === 'true';
-  } catch {
-    return false;
-  }
+  return readStored(key) === 'true';
 }
 
 function store(key: string, on: boolean): void {

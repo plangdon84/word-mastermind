@@ -6,6 +6,8 @@
  * never are.
  */
 
+import { readStored, writeStored } from './localStore';
+
 /** The old production address. A preview is a subdomain of it, so never matches. */
 export const OLD_HOST = 'word-mastermind.pages.dev';
 
@@ -32,17 +34,10 @@ export const newAddress = (location: Pick<Location, 'pathname' | 'search' | 'has
 /** Whether the popup shows: on the old address, until Done. Browser storage can be blocked. */
 export function movedNoticeDue(hostname: string): boolean {
   if (!isOldHost(hostname)) return false;
-  try {
-    return localStorage.getItem(DONE_KEY) !== 'done';
-  } catch {
-    return true;
-  }
+  return readStored(DONE_KEY) !== 'done';
 }
 
 export function markMovedNoticeDone(): void {
-  try {
-    localStorage.setItem(DONE_KEY, 'done');
-  } catch {
-    // It shows again next visit; nothing else is lost.
-  }
+  // If storage refuses it: it shows again next visit; nothing else is lost.
+  writeStored(DONE_KEY, 'done');
 }

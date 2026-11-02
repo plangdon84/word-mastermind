@@ -1,5 +1,6 @@
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import { DailyApiError, type DailyError } from './dailyApi';
+import { writeStored } from './localStore';
 
 /*
  * A guest's name on the Daily boards (Dev Plan item 18zw): the server shows
@@ -35,11 +36,8 @@ function load(): Sent | null {
 
 /** A daily game started as this guest with this name: the server has it now. */
 export function noteBoardName(id: string, name: string): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ id, name } satisfies Sent));
-  } catch {
-    // Storage full or off: the next game started sends the name instead.
-  }
+  // If storage refuses it: the next game started sends the name instead.
+  writeStored(KEY, JSON.stringify({ id, name } satisfies Sent));
 }
 
 /**

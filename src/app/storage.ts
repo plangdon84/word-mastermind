@@ -4,6 +4,7 @@ import {
 } from '../game';
 import { newId } from './ids';
 import { onOtherTabSaveAt } from './tabSync';
+import { removeStored } from './localStore';
 
 /**
  * What survives a page reload: the solo game in progress, its letter marks and
@@ -111,11 +112,7 @@ export function savedSince(written: string | null): Saved | null {
 
 /** Forgets the saved game: a game cancelled before your first guess leaves nothing behind. */
 export function clearSaved(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to clear.
-  }
+  removeStored(KEY);
 }
 
 /**

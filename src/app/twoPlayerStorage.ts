@@ -4,6 +4,7 @@ import {
 } from '../game';
 import { newId } from './ids';
 import { onOtherTabSaveAt, savedSinceAt } from './tabSync';
+import { removeStored } from './localStore';
 
 /** What survives a page reload in two player. Settings are saved separately. */
 export interface TwoPlayerSaved {
@@ -115,9 +116,5 @@ export const onOtherTabTwoPlayerSave = (listener: (saved: TwoPlayerSaved) => voi
 
 /** Forgets the saved game, so an abandoned game can't be continued. */
 export function clearTwoPlayer(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to clear.
-  }
+  removeStored(KEY);
 }

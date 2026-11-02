@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { addDays, isDailyDay, isObject, parseMarks, type DailyDay, type DailyMode, type DailyPlacement, type Marks } from '../game';
 import { parsePlacement } from './dailyApi';
+import { writeStored } from './localStore';
 
 /*
  * What this device keeps about the daily games, the Daily Set (Daily Rush)
@@ -44,11 +45,8 @@ export function loadDaily(mode: DailyMode = 'daily'): DailySaved | null {
 }
 
 export function saveDaily(saved: DailySaved, mode: DailyMode = 'daily'): void {
-  try {
-    localStorage.setItem(KEY[mode], JSON.stringify(saved));
-  } catch {
-    // Storage is a convenience; the game is on the server.
-  }
+  // If storage refuses it: the game is on the server.
+  writeStored(KEY[mode], JSON.stringify(saved));
 }
 
 /**
@@ -86,11 +84,8 @@ export function loadPlacements(): DailyPlacement[] {
 const placementListeners = new Set<() => void>();
 
 export function savePlacements(placements: readonly DailyPlacement[], mode: DailyMode = 'daily'): void {
-  try {
-    localStorage.setItem(PLACEMENTS_KEY[mode], JSON.stringify(placements));
-  } catch {
-    // The badges wait until the server can be asked again.
-  }
+  // If storage refuses it: the badges wait until the server can be asked again.
+  writeStored(PLACEMENTS_KEY[mode], JSON.stringify(placements));
   placementListeners.forEach((update) => update());
 }
 

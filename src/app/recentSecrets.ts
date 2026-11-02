@@ -1,4 +1,5 @@
 import { SECRET_WORD_SET } from '../game/wordLists';
+import { writeStored } from './localStore';
 
 /** How many of your past secret words are offered on the choose-your-word screen. */
 export const RECENT_LIMIT = 10;
@@ -34,9 +35,5 @@ export function loadRecentSecrets(): string[] {
 }
 
 export function saveRecentSecrets(recent: readonly string[]): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(recent));
-  } catch {
-    // Storage is a convenience; the game works without it.
-  }
+  writeStored(KEY, JSON.stringify(recent));
 }

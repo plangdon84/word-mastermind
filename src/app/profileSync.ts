@@ -2,6 +2,7 @@ import { isServerMode, type HistoryEntry } from '../game';
 import type { Profile } from './profileStorage';
 import type { Settings } from './settings';
 import { UPLOAD_BATCH, type SyncApi, type SyncedProfile } from './syncApi';
+import { writeStored, removeStored } from './localStore';
 
 /*
  * Keeping this device and the account in step (README "Accounts"): on
@@ -51,20 +52,13 @@ export function loadSyncState(): SyncState | null {
 }
 
 function saveSyncState(state: SyncState): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  } catch {
-    // The next sign-in sends every game again, which the server ignores.
-  }
+  // If storage refuses it: the next sign-in sends every game again, which the server ignores.
+  writeStored(KEY, JSON.stringify(state));
 }
 
 /** Signing out forgets which account this browser synced with; the games here stay. */
 export function clearSyncState(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to clear.
-  }
+  removeStored(KEY);
 }
 
 /** Games saved here (a finished game, a restored backup) for the next sync to send, once signed in. */
