@@ -11,6 +11,14 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
+- [ ] **19m. Deep code review before 1.25.0** (the owner's request, 2
+  November 2026; merges with #56; worker, review gate)
+  - The script budget goes to 150 KB, the top of the usual "good" range
+    for a first load (the owner's call, 2 November 2026)
+  - A deep review of the whole code base for smaller downloads, speed,
+    refactors and bugs. For this run only, findings are fixed in the PR
+    at every severity rather than filed as issues; one that's
+    impractical to fix goes to the owner to accept
 - [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
