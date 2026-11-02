@@ -132,9 +132,11 @@ export async function handleDaily(
     throw new Error(`A Daily Rush refused a move: ${result.error}`);
   }
   const next: DailyEntry = { ...entry, record: toRunRecord(result.game) };
-  await storage.put(keyOf(mode, next.playerId), next);
+  // A finished run goes into D1 first: if that fails, the move isn't kept, so trying it again saves it, and a
+  // run is never over here but missing from the board and the history.
   const totals = dailyTotals(result.game);
   if (totals) await deps.saveFinished(mode, day, next, totals, finishedLate(day, result.game), now);
+  await storage.put(keyOf(mode, next.playerId), next);
   return answer(next);
 }
 
@@ -150,13 +152,16 @@ export async function saveFinishedDaily(
   now: number,
 ): Promise<void> {
   const { playerId, name, record } = entry;
-  if (!late) await db.prepare(
-    `INSERT OR IGNORE INTO ${RESULTS_TABLE[mode]} (day, player_id, difficulty, name, guesses, ms, finished_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
-  ).bind(day, playerId, record.difficulty, name, totals.guesses, totals.ms, now).run();
   const gameId = `${mode}:${day}:${playerId}`;
-  await db.prepare(
-    `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
-  ).bind(gameId, mode, historyVersion, JSON.stringify(record), record.startedAt, now).run();
-  await db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(gameId, playerId).run();
+  // One batch: the board, the history and its player row are kept together or not at all.
+  await db.batch([
+    ...(late ? [] : [db.prepare(
+      `INSERT OR IGNORE INTO ${RESULTS_TABLE[mode]} (day, player_id, difficulty, name, guesses, ms, finished_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    ).bind(day, playerId, record.difficulty, name, totals.guesses, totals.ms, now)]),
+    db.prepare(
+      `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+    ).bind(gameId, mode, historyVersion, JSON.stringify(record), record.startedAt, now),
+    db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(gameId, playerId),
+  ]);
 }

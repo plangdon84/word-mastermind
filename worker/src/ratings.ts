@@ -43,12 +43,14 @@ export interface RatingChange {
  * Rates a finished game: both players' new ratings from their current ones
  * and the host's score, with the ratings it started from. Those can differ
  * from the ratings when the game began, since other rated games may have
- * finished meanwhile (issue #156). The caller makes sure each game is rated
- * once.
+ * finished meanwhile (issue #156). A game is rated once: asked again (a
+ * retry), it returns the changes it stored.
  */
 export async function rateFinishedGame(
   db: D1Database, gameId: string, pool: RatingPool, players: Record<Seat, string>, hostScore: 0 | 0.5 | 1, now: number,
 ): Promise<Record<Seat, RatingChange>> {
+  const stored = await storedChanges(db, gameId);
+  if (stored[players.host] && stored[players.guest]) return { host: stored[players.host], guest: stored[players.guest] };
   const before = await ratingsOf(db, players, pool, now);
   const [host, guest] = rateGame(before.host, before.guest, hostScore);
   const after: Record<Seat, Rating> = { host, guest };
@@ -74,20 +76,24 @@ interface RatedGameRow {
 export async function rateGroupGame(
   db: D1Database, gameId: string, pool: RatingPool, players: readonly { accountId: string; place: number }[], now: number,
 ): Promise<Record<string, RatingChange>> {
-  const { results: rated } = await db.prepare(
-    'SELECT account_id, rating_before, rd_before, rating_after, rd_after FROM rated_games WHERE game_id = ?1',
-  ).bind(gameId).all<RatedGameRow>();
-  if (rated.length > 0) {
-    const { volatility } = NEW_RATING;
-    return Object.fromEntries(rated.map((r) => [r.account_id, {
-      before: { rating: r.rating_before, rd: r.rd_before ?? NEW_RATING.rd, volatility },
-      after: { rating: r.rating_after, rd: r.rd_after, volatility },
-    }]));
-  }
+  const stored = await storedChanges(db, gameId);
+  if (Object.keys(stored).length > 0) return stored;
   const before = await Promise.all(players.map((p) => currentRating(db, p.accountId, pool, now)));
   const after = rateGroup(players.map((p, i) => ({ rating: before[i], place: p.place })));
   await db.batch(players.flatMap(({ accountId }, i) => ratingStatements(db, gameId, pool, accountId, before[i], after[i], now)));
   return Object.fromEntries(players.map(({ accountId }, i) => [accountId, { before: before[i], after: after[i] }]));
+}
+
+/** A rated game's stored changes, by account ID: none if it hasn't been rated. */
+async function storedChanges(db: D1Database, gameId: string): Promise<Record<string, RatingChange>> {
+  const { results: rated } = await db.prepare(
+    'SELECT account_id, rating_before, rd_before, rating_after, rd_after FROM rated_games WHERE game_id = ?1',
+  ).bind(gameId).all<RatedGameRow>();
+  const { volatility } = NEW_RATING;
+  return Object.fromEntries(rated.map((r) => [r.account_id, {
+    before: { rating: r.rating_before, rd: r.rd_before ?? NEW_RATING.rd, volatility },
+    after: { rating: r.rating_after, rd: r.rd_after, volatility },
+  }]));
 }
 
 /** Keeping a player's new rating, and the game's change to it: to run in one batch with the other players'. */
@@ -114,11 +120,11 @@ export async function listRatings(db: D1Database, accountId: string, now: number
   return results.map((row) => ({ pool: row.pool, ...showRating(ageRating(toRating(row), now - row.rated_at)), games: row.games }));
 }
 
-/** Forgets an account's ratings, when it's deleted. */
-export async function deleteRatings(db: D1Database, accountId: string): Promise<void> {
-  await db.prepare('DELETE FROM ratings WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM rated_games WHERE account_id = ?1').bind(accountId).run();
-}
+/** Forgetting an account's ratings, when it's deleted: statements for its batch. */
+export const deleteRatings = (db: D1Database, accountId: string): D1PreparedStatement[] => [
+  db.prepare('DELETE FROM ratings WHERE account_id = ?1').bind(accountId),
+  db.prepare('DELETE FROM rated_games WHERE account_id = ?1').bind(accountId),
+];
 
 /** `GET /api/ratings`: your ratings, signed in. Returns null for any other path. */
 export async function routeRatings(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {

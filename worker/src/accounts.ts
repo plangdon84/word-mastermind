@@ -297,26 +297,25 @@ export async function endSessionAndAlerts(db: D1Database, token: string): Promis
 export async function deleteAccount(db: D1Database, accountId: string): Promise<void> {
   const account = await findAccount(db, accountId);
   if (!account) return;
-  await db.prepare('DELETE FROM push_subscriptions WHERE guest_id IN (SELECT id FROM guests WHERE account_id = ?1)')
-    .bind(accountId).run();
-  await db.prepare('DELETE FROM sessions WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM login_links WHERE email = ?1').bind(account.email).run();
-  await db.prepare('DELETE FROM history_entries WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM profiles WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM friends WHERE account_id = ?1 OR friend_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM lobby_invites WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM email_requests WHERE account_id = ?1').bind(accountId).run();
-  await db.prepare('DELETE FROM email_declines WHERE sender_id = ?1 OR declined_by = ?1').bind(accountId).run();
-  // Its reminders' bookkeeping (Dev Plan item 18zj): when it last played, its daily games started, reminders sent.
-  for (const table of ['player_activity', 'daily_played', 'reminders_sent']) {
-    await db.prepare(`DELETE FROM ${table} WHERE player_id = ?1`).bind(accountId).run();
-  }
-  await deleteRatings(db, accountId);
-  await db.prepare('UPDATE guests SET account_id = NULL WHERE account_id = ?1').bind(accountId).run();
-  // Its profile for friends (Dev Plan item 18cb) last, with the account, so a request indexing it meanwhile can't leave rows behind.
+  const run = (sql: string, ...values: unknown[]) => db.prepare(sql).bind(...values);
+  // One batch, so it all goes or none does, in one round trip.
   await db.batch([
-    db.prepare('DELETE FROM profile_games WHERE account_id = ?1').bind(accountId),
-    db.prepare('DELETE FROM shared_profiles WHERE account_id = ?1').bind(accountId),
-    db.prepare('DELETE FROM accounts WHERE id = ?1').bind(accountId),
+    run('DELETE FROM push_subscriptions WHERE guest_id IN (SELECT id FROM guests WHERE account_id = ?1)', accountId),
+    run('DELETE FROM sessions WHERE account_id = ?1', accountId),
+    run('DELETE FROM login_links WHERE email = ?1', account.email),
+    run('DELETE FROM history_entries WHERE account_id = ?1', accountId),
+    run('DELETE FROM profiles WHERE account_id = ?1', accountId),
+    run('DELETE FROM friends WHERE account_id = ?1 OR friend_id = ?1', accountId),
+    run('DELETE FROM lobby_invites WHERE account_id = ?1', accountId),
+    run('DELETE FROM email_requests WHERE account_id = ?1', accountId),
+    run('DELETE FROM email_declines WHERE sender_id = ?1 OR declined_by = ?1', accountId),
+    // Its reminders' bookkeeping (Dev Plan item 18zj): when it last played, its daily games started, reminders sent.
+    ...['player_activity', 'daily_played', 'reminders_sent'].map((table) => run(`DELETE FROM ${table} WHERE player_id = ?1`, accountId)),
+    ...deleteRatings(db, accountId),
+    run('UPDATE guests SET account_id = NULL WHERE account_id = ?1', accountId),
+    // Its profile for friends (Dev Plan item 18cb) with the account, so a request indexing it meanwhile can't leave rows behind.
+    run('DELETE FROM profile_games WHERE account_id = ?1', accountId),
+    run('DELETE FROM shared_profiles WHERE account_id = ?1', accountId),
+    run('DELETE FROM accounts WHERE id = ?1', accountId),
   ]);
 }
