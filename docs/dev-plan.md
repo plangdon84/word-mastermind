@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 1 November 2026.
+Last triaged with the owner: 2 November 2026.
 
 ## To build
 
@@ -11,12 +11,37 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
+- [ ] **19n. Leaderboard names and review clean-ups** (issues
+  plangdon84/word-mastermind-archive#259,
+  plangdon84/word-mastermind-archive#260,
+  plangdon84/word-mastermind-archive#261 and
+  plangdon84/word-mastermind-archive#262; worker, review gate)
+  - Issue 261: a name the profanity filter now refuses shows as "A player"
+    on every board, the Daily boards too (the owner, 2 November 2026: one
+    rule for all, which still works if guests later leave the boards),
+    instead of the name from the day. One shared helper re-checks a
+    stored name, used everywhere it's written out today; fix the
+    leaderboards comment to match; tests for a player with no profile row;
+    README "Leaderboards" says what a refused name shows
+  - Issues 260 and 261: a rating board ranks and caps its top 100 in the
+    database query, finds your own place with a separate count and checks
+    names only for the rows it sends. Keep how tied ratings share a rank
+  - Issue 259: the server keeps a guest's new name only once they've
+    started a daily game (the owner, 2 November 2026). The device keeps a
+    rename still to send until the server takes it, so an offline rename
+    and two quick renames come right on the next visit; signing out never
+    sends the account's name for the new guest; a test of how the app
+    spots a rename
+  - Issue 262: the worker's scheduled job deletes declined email requests
+    once their week is over, so the privacy page's "deleted soon after"
+    stays true (the owner, 2 November 2026)
 - [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
     everything unlocked, badge collector, a veteran with thousands of
     games), checked by a test, with a picker in preview builds' profiles,
     shown only when signed out
+
 **Later**
 
 - [ ] **19e. Friending your random opponent** (issue #78; split from
