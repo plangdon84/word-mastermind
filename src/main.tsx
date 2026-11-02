@@ -14,9 +14,10 @@ import { preventDoubleTapZoom } from './app/doubleTap';
 import { trackInputKind } from './app/inputKind';
 import { ReportHost } from './app/ReportIssue';
 import { newAddress, redirectDue } from './app/moved';
+import { preloadScreens } from './app/lazy';
 import { registerServiceWorker } from './app/turnAlerts';
 import { PROFILE_KEY } from './app/profileStorage';
-import { noteFirstVisit } from './app/releases';
+import { noteFirstVisit } from './app/version';
 
 // The game has moved (Dev Plan item 18f, issue #92): once the day comes, the old address sends you on.
 if (redirectDue(location.hostname, Date.now())) location.replace(newAddress(location));
@@ -31,6 +32,9 @@ render(
   </>,
   document.getElementById('root')!,
 );
+
+// The screens that load when first needed come down quietly once the page has loaded (Dev Plan item 19m).
+preloadScreens();
 
 preventDoubleTapZoom(document);
 trackInputKind(document);

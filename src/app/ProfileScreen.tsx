@@ -19,7 +19,7 @@ import { PROFILE_PAGES, PROFILE_PAGE_TITLE, type ProfilePage } from './profilePa
 import { openReport } from './reportIssue';
 import type { Difficulty, Settings } from './settings';
 import { TurnAlertsSetting } from './TurnAlerts';
-import { Tutorial } from './Tutorial';
+import { Tutorial } from './screens';
 import { NAME_ERROR, plural } from './messages';
 
 const formatDate = (ms: number) =>

@@ -11,7 +11,7 @@ import type { DailyToday } from './dailyApi';
 import { useDailyToday } from './dailyToday';
 import { lobbyApi } from './lobbyApi';
 import type { LobbyInProgress } from './lobbyStorage';
-import { useFriendsList } from './FriendsSection';
+import { useFriendsList } from './friendsList';
 import type { Friend } from './friendsApi';
 import { FriendGameButton, friendGameWaits, LobbyInviteButton, useFriendGames, useLobbyInvites } from './FriendGamesList';
 import { listOpen, loadListChoice, saveListChoice } from './gamesInProgress';
@@ -29,22 +29,19 @@ import {
 } from '../game';
 import { loadRush } from './rushStorage';
 import type { BoardId } from './LeaderboardsScreen';
-import { Tutorial } from './Tutorial';
 import { TurnAlertsPrompt } from './TurnAlerts';
 import { MovedNotice } from './MovedNotice';
 import { movedNoticeDue } from './moved';
-import { ReleasePopup, VersionLink, WhatsNew } from './ReleaseNotes';
-import { markVersionSeen, readSeenVersion, releasePopupDue } from './releases';
+import { ReleasePopup, Tutorial, WhatsNew } from './screens';
+import { VersionLink } from './VersionLink';
+import { markVersionSeen, readSeenVersion, releasePopupDue } from './version';
+import { readStored } from './localStore';
 
 const SIGN_IN_OFFER_KEY = 'word-mastermind:sign-in-offer:v1';
 
 /** Whether "Not now" was said to the title screen's offer to sign in. Browser storage can be blocked. */
 function signInOfferDismissed(): boolean {
-  try {
-    return localStorage.getItem(SIGN_IN_OFFER_KEY) === 'dismissed';
-  } catch {
-    return false;
-  }
+  return readStored(SIGN_IN_OFFER_KEY) === 'dismissed';
 }
 
 /**

@@ -26,8 +26,24 @@ function parseWordList(text: string): readonly string[] {
 /** Words a player (or the computer) may pick as a secret. Sorted. */
 export const SECRET_WORDS: readonly string[] = parseWordList(secretText);
 
-/** Words a player may guess: a superset of `SECRET_WORDS`. Sorted. */
-export const GUESS_WORDS: readonly string[] = parseWordList(guessText);
+/** Two sorted lists as one, each word once. */
+function mergeSorted(a: readonly string[], b: readonly string[]): string[] {
+  const merged: string[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length || j < b.length) {
+    const next = j >= b.length || (i < a.length && a[i] <= b[j]) ? a[i++] : b[j++];
+    if (merged[merged.length - 1] !== next) merged.push(next);
+  }
+  return merged;
+}
+
+/**
+ * Words a player may guess: a superset of `SECRET_WORDS`. Sorted. The app's
+ * build ships the guess list without the secret words (vite.config.ts), so
+ * they're merged back here; the whole list (the worker's) merges to itself.
+ */
+export const GUESS_WORDS: readonly string[] = mergeSorted(parseWordList(guessText), SECRET_WORDS);
 
 export const SECRET_WORD_SET: ReadonlySet<string> = new Set(SECRET_WORDS);
 export const GUESS_WORD_SET: ReadonlySet<string> = new Set(GUESS_WORDS);

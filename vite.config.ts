@@ -1,7 +1,27 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import preact from '@preact/preset-vite';
 import { defineConfig } from 'vitest/config';
 import { buildApiUrl } from './src/buildApiUrl';
 import { APP_VERSION } from './src/app/releases';
+
+/** The app's own entry, whose static imports load at start-up. */
+const APP_ENTRY = resolve(import.meta.dirname, 'src/main.tsx');
+
+interface ChunkGraph {
+  getModuleInfo(id: string): { importedIds: readonly string[] } | null;
+}
+
+/** The app's own modules that load at start-up: everything `src/main.tsx` imports, but not dynamically. */
+const startUpModules = new WeakMap<ChunkGraph, Set<string>>();
+function startUpOf(graph: ChunkGraph): Set<string> {
+  let found = startUpModules.get(graph);
+  if (found) return found;
+  found = new Set([APP_ENTRY]);
+  for (const id of found) for (const imported of graph.getModuleInfo(id)?.importedIds ?? []) found.add(imported);
+  startUpModules.set(graph, found);
+  return found;
+}
 
 export default defineConfig(({ mode }) => {
   // A preview uses the staging worker (VITE_API_URL_PREVIEW), never production's.
@@ -17,6 +37,18 @@ export default defineConfig(({ mode }) => {
     plugins: [
       preact(),
       {
+        // The guess list holds every secret word too: the app ships each word once (about 5 KB less to
+        // download), and src/game/wordLists.ts merges the two lists back. The worker's bundle keeps the whole list.
+        name: 'guess-list-without-secrets',
+        enforce: 'pre',
+        load(id) {
+          if (!id.endsWith('/wordlist/lists/guess.txt?raw')) return null;
+          const secrets = new Set(readFileSync(resolve(import.meta.dirname, 'wordlist/lists/secret.txt'), 'utf8').split('\n'));
+          const guesses = readFileSync(id.slice(0, -'?raw'.length), 'utf8').split('\n').filter((w) => w !== '' && !secrets.has(w));
+          return `export default ${JSON.stringify(`${guesses.join('\n')}\n`)};`;
+        },
+      },
+      {
         // The app reads this to find out a newer build is out (issue #136, src/app/appUpdate.ts).
         name: 'version-file',
         apply: 'build',
@@ -27,12 +59,27 @@ export default defineConfig(({ mode }) => {
     ],
     define: {
       'import.meta.env.VITE_APP_BUILD': JSON.stringify(build),
+      // The version (src/app/version.ts), so the release notes needn't load to say it.
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_VERSION),
       ...(api !== undefined ? { 'import.meta.env.VITE_API_URL': JSON.stringify(api) } : {}),
     },
     build: {
       // The app, and the usage dashboard (Dev Plan item 18m) at /admin/, behind Cloudflare Access.
       // Legal (/*!) comments stay: the word lists' ESDB notice ships with them (issue 229; npm run check:size checks).
-      rollupOptions: { input: { main: 'index.html', admin: 'admin/index.html' }, output: { comments: { legal: true } } },
+      rollupOptions: {
+        input: { main: 'index.html', admin: 'admin/index.html' },
+        output: {
+          comments: { legal: true },
+          // Everything of the app's own that loads at start-up goes in one file, not one per set of the lazy
+          // screens (src/app/screens.ts) that share it. Preact and the fonts stay apart: the dashboard shares them.
+          codeSplitting: {
+            groups: [
+              { name: 'shared', test: /node_modules/, priority: 1 },
+              { debugName: 'app', name: (id: string, graph: ChunkGraph) => (!id.includes('node_modules') && startUpOf(graph).has(id) ? 'app' : null) },
+            ],
+          },
+        },
+      },
       // The definitions chunk (~700 kB, ~210 kB gzipped) is deliberately one
       // lazy-loaded file; everything else stays well under the default limit.
       chunkSizeWarningLimit: 800,

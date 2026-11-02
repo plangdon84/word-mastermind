@@ -373,60 +373,8 @@ export const RELEASES: Release[] = [
   },
 ];
 
+/**
+ * This version: the newest release's. The app reads it from `version.ts`,
+ * where the build puts it, so the notes above load only when they're shown.
+ */
 export const APP_VERSION = RELEASES[0].version;
-
-const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
-
-/** A version's numbers, or null if it isn't major.minor.patch. */
-export function parseVersion(version: string): [number, number, number] | null {
-  const m = VERSION.exec(version);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-}
-
-/** Negative if a is older than b, positive if newer, 0 if the same. */
-export function compareVersions(a: string, b: string): number {
-  const x = parseVersion(a) ?? [0, 0, 0];
-  const y = parseVersion(b) ?? [0, 0, 0];
-  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
-}
-
-/**
- * Whether the popup shows, given the last version this device was told
- * about: only for a newer one. A device that's never been told (null) was
- * here before versions began, since a new device is marked on its first
- * visit (`noteFirstVisit`).
- */
-export const releasePopupDue = (seen: string | null, current: string = APP_VERSION): boolean =>
-  seen === null || compareVersions(current, seen) > 0;
-
-export const SEEN_KEY = 'word-mastermind:seen-version:v1';
-
-/** The last version this device was told about. Browser storage can be blocked. */
-export function readSeenVersion(): string | null {
-  try {
-    return localStorage.getItem(SEEN_KEY);
-  } catch {
-    return APP_VERSION;
-  }
-}
-
-export function markVersionSeen(version: string = APP_VERSION): void {
-  try {
-    localStorage.setItem(SEEN_KEY, version);
-  } catch {
-    // It shows again next visit; nothing else is lost.
-  }
-}
-
-/**
- * Run once at start-up, before the app makes a profile: a device on its
- * first visit (no profile yet) has nothing to catch up on, so it's marked as
- * having seen this version and gets no popup.
- */
-export function noteFirstVisit(profileKey: string): void {
-  try {
-    if (localStorage.getItem(SEEN_KEY) === null && localStorage.getItem(profileKey) === null) markVersionSeen();
-  } catch {
-    // Blocked storage: readSeenVersion says seen, so no popup either way.
-  }
-}

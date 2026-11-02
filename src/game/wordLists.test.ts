@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import bannedText from '../../wordlist/lists/banned.txt?raw';
+import shippedGuessText from '../../wordlist/lists/guess.txt?raw';
 import { GUESS_WORD_SET, GUESS_WORDS, SECRET_WORDS } from './wordLists';
 import { validateGuess, validateSecretWord } from './words';
 
@@ -23,6 +25,13 @@ describe('word lists', () => {
 
   it('make the guess list a superset of the secret list', () => {
     expect(SECRET_WORDS.filter((word) => !GUESS_WORD_SET.has(word))).toEqual([]);
+  });
+
+  it('give back the whole guess list, though the app ships it without the secret words', () => {
+    const file = readFileSync(new URL('../../wordlist/lists/guess.txt', import.meta.url), 'utf8').split('\n').filter((w) => w !== '');
+    expect(GUESS_WORDS).toEqual(file);
+    const shipped = new Set(shippedGuessText.split('\n'));
+    expect(SECRET_WORDS.filter((word) => shipped.has(word))).toEqual([]);
   });
 
   it('leave banned words off both lists', () => {

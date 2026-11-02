@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import {
   isObject, SCREENSHOT_MAX, type IssueReport, type ReportContext, type ReportScreenshot,
 } from '../game';
-import { APP_VERSION } from './releases';
+import { APP_VERSION } from './version';
 
 /*
  * Report an issue (README "Reporting an issue"): the server files each report
