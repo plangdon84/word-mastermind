@@ -11,14 +11,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19m. Deep code review before 1.25.0** (the owner's request, 2
-  November 2026; merges with #56; worker, review gate)
-  - The script budget goes to 150 KB, the top of the usual "good" range
-    for a first load (the owner's call, 2 November 2026)
-  - A deep review of the whole code base for smaller downloads, speed,
-    refactors and bugs. For this run only, findings are fixed in the PR
-    at every severity rather than filed as issues; one that's
-    impractical to fix goes to the owner to accept
 - [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
@@ -72,6 +64,22 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     card for the words
 
 ## Done, latest first
+
+- [x] **19m. Deep code review before 1.25.0** (the owner's request, 2
+  November 2026; merges with #56; worker, review gate)
+  - The script budget goes to 150 KB, the top of the usual "good" range
+    for a first load (the owner's call, 2 November 2026)
+  - A deep review of the whole code base for smaller downloads, speed,
+    refactors and bugs. For this run only, findings are fixed in the PR
+    at every severity rather than filed as issues; one that's
+    impractical to fix goes to the owner to accept
+  - Done: start-up scripts from 141 KB to 102 KB gzipped (screens most
+    players don't open first load when needed and are fetched once the page
+    has loaded; the guess list ships each word once; a lighter logo); a
+    finished game whose save to D1 fails is no longer lost; the worker makes
+    fewer round trips (friends' names in one query, reads side by side,
+    batched writes); history loads replay each game once; requests time out
+    after 30 seconds; one storage helper and one copy of small helpers
 
 - [x] **19d. Two player and Solo Rush in two tabs** (from item 17)
   - With the same game open in two tabs, a move in one is lost when the

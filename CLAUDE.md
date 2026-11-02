@@ -23,7 +23,9 @@ Run `npm test` and `npm run typecheck` before committing.
   `npm run wordlist` and `npm run test:wordlist`. Never hand-edit
   `wordlist/lists/`. `src/game/wordLists.ts` imports `secret.txt` and
   `guess.txt` as text (Vite `?raw`, typed in `src/raw.d.ts`), so the lists
-  ship in the bundle and are never fetched at runtime.
+  ship in the bundle and are never fetched at runtime. The app's build ships
+  the guess list without the secret words (a plugin in `vite.config.ts`),
+  and `GUESS_WORDS` merges them back (Dev Plan item 19m).
 - The same ETL run writes `wordlist/lists/definitions.json` from Open English
   WordNet (pinned by URL and SHA-256; `wordlist/definitions.py`). Fix a bad or
   missing definition in `wordlist/rules/definitions.txt`, never in the JSON.
@@ -32,6 +34,15 @@ Run `npm test` and `npm run typecheck` before committing.
   Medium, Hard and Extreme (Easy everywhere but rated play; README "Easy"). Keep game
   rules in `src/game/` and only presentation in `src/app/`. Nothing may load
   from a third-party host at runtime (fonts are bundled via fontsource).
+  Every screen but the title screen, single player and two player vs. the
+  computer loads when first needed (Dev Plan item 19m): import them from
+  `src/app/screens.ts` (`lazy` in `src/app/lazy.tsx`), never their own
+  modules, or they load at start-up again; `preloadScreens` fetches them
+  once the page has loaded. The build puts all start-up code in one `app`
+  chunk (`codeSplitting` in `vite.config.ts`). Browser storage goes through
+  `readStored` / `writeStored` / `removeStored` (`src/app/localStore.ts`),
+  and every request to the server gives up after 30 seconds
+  (`requestTimeout` in `src/app/apiIdentity.ts`).
 - A game is a record (secret words, start time, moves) and everything else is
   rebuilt by replaying it (`replaySolo`, `replayTwoPlayer`); save records, not
   derived state. Replay takes a record's words as recorded (`replaying`, Dev
@@ -53,7 +64,10 @@ Run `npm test` and `npm run typecheck` before committing.
   in `worker/wrangler.toml`, D1 tables in `worker/migrations/`) that imports
   `src/game/` unchanged. It registers guests (the profile's `deviceId` is the
   guest ID) and checks words. Its tests use a D1 stand-in on `node:sqlite`
-  (`worker/src/fakeD1.ts`), and `npm run typecheck` covers it.
+  (`worker/src/fakeD1.ts`), and `npm run typecheck` covers it. A finished
+  game goes into D1 (one batch) before its Durable Object keeps the move, so
+  a failed save leaves the move to be made again (Dev Plan item 19m); small
+  shared helpers (hex, SHA-256, random, JSON) are `worker/src/secure.ts`.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
   (the worker). Add every new D1 table to `WIPE_TABLES` or `KEEP_TABLES` in
   `worker/src/wipe.ts` (`npm run wipe`).
@@ -375,7 +389,9 @@ Run `npm test` and `npm run typecheck` before committing.
 - Version and release notes (Dev Plan item 18g, issue #91; README "Version
   and release notes"): `RELEASES` in `src/app/releases.ts`, newest first,
   sets the version on the title screen, the popup on a device's first visit
-  to a new version and What's new (`src/app/ReleaseNotes.tsx`). A PR that
+  to a new version and What's new (`src/app/ReleaseNotes.tsx`, loaded when
+  shown); the build passes the newest version to `APP_VERSION` in
+  `src/app/version.ts`, which the app reads instead. A PR that
   changes what players see adds a release (1.1.0 for a feature, 1.0.1 for a
   fix) with one-line notes and fills in the PR's **Release note** section;
   other PRs leave it alone.
