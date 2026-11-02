@@ -3,6 +3,7 @@ import {
   type Marks, type SoloGame, type SoloMove, type SoloRecord,
 } from '../game';
 import { newId } from './ids';
+import { onOtherTabSaveAt } from './tabSync';
 
 /**
  * What survives a page reload: the solo game in progress, its letter marks and
@@ -122,12 +123,5 @@ export function clearSaved(): void {
  * in two tabs, or a new one started there), so this tab can follow it rather
  * than save over it. Returns the unsubscribe.
  */
-export function onOtherTabSave(listener: (saved: Saved) => void): () => void {
-  const onStorage = (e: StorageEvent) => {
-    if (e.key !== KEY) return;
-    const saved = parseSaved(e.newValue);
-    if (saved) listener(saved);
-  };
-  window.addEventListener('storage', onStorage);
-  return () => window.removeEventListener('storage', onStorage);
-}
+export const onOtherTabSave = (listener: (saved: Saved) => void): (() => void) =>
+  onOtherTabSaveAt(KEY, (raw) => parseSaved(raw), listener);

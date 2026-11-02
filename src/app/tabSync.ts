@@ -19,11 +19,28 @@ export function savedSinceAt<T>(key: string, written: string | null, parse: (raw
   }
 }
 
-/** Calls `listener` with what another tab saves under `key`, when it reads. Returns the unsubscribe. */
+/**
+ * What's saved under `key` now. A storage event's own value can be older
+ * than what this page has already caught up to (events arrive late), so
+ * it's read again from storage rather than trusted.
+ */
+export function currentAt(key: string, fallback: string | null): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Calls `listener` with what's saved under `key` when another tab saves
+ * there, if it reads: the latest save, not the event's own (`currentAt`).
+ * Returns the unsubscribe.
+ */
 export function onOtherTabSaveAt<T>(key: string, parse: (raw: string | null) => T | null, listener: (saved: T) => void): () => void {
   const onStorage = (e: StorageEvent) => {
     if (e.key !== key) return;
-    const saved = parse(e.newValue);
+    const saved = parse(currentAt(key, e.newValue));
     if (saved) listener(saved);
   };
   window.addEventListener('storage', onStorage);

@@ -200,10 +200,12 @@ test('two tabs of one Solo Rush keep every guess, and the clock runs in the tab 
   await setHidden(page, false);
   await expect(shown(page, b)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Paused' })).toBeHidden();
-  // Reloading pauses it, as closing the page always has, until Resume.
+  // Reloading pauses it, until Resume, unless the reloaded page catches up with the pause first and resumes it.
   await page.reload();
   await resume(page);
-  await button(page, 'Resume').first().click();
+  const paused = page.getByRole('heading', { name: 'Paused' });
+  await expect(paused.or(shown(page, a))).toBeVisible();
+  if (await paused.isVisible()) await button(page, 'Resume').first().click();
   for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
 });
 

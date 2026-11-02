@@ -24,16 +24,32 @@ describe('another tab\'s saves', () => {
 
   it('come to a listener as they happen, for that key only and when they read', () => {
     const target = new EventTarget();
+    const store = new Map<string, string>();
     vi.stubGlobal('window', target);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null });
     const heard: unknown[] = [];
     const stop = onOtherTabSaveAt('k', parse, (s) => heard.push(s));
-    const send = (key: string, newValue: string | null) => target.dispatchEvent(Object.assign(new Event('storage'), { key, newValue }));
+    const send = (key: string, newValue: string | null) => {
+      if (newValue === null) store.delete(key);
+      else store.set(key, newValue);
+      target.dispatchEvent(Object.assign(new Event('storage'), { key, newValue }));
+    };
     send('k', '{"n":3}');
     send('other', '{"n":4}');
     send('k', null);
     stop();
     send('k', '{"n":5}');
     expect(heard).toEqual([{ n: 3 }]);
+  });
+
+  it('give the latest save when an event arrives late, never its older value', () => {
+    const target = new EventTarget();
+    vi.stubGlobal('window', target);
+    vi.stubGlobal('localStorage', { getItem: () => '{"n":7}' });
+    const heard: unknown[] = [];
+    onOtherTabSaveAt('k', parse, (s) => heard.push(s));
+    target.dispatchEvent(Object.assign(new Event('storage'), { key: 'k', newValue: '{"n":6}' }));
+    expect(heard).toEqual([{ n: 7 }]);
   });
 
   it('compare records as saved', () => {
