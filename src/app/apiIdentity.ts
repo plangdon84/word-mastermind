@@ -51,7 +51,15 @@ export function apiRequester(
     } catch {
       throw fail('unreachable', 0);
     }
-    const data: unknown = await response.json().catch(() => null);
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch (e) {
+      // Cut off while reading (the time limit, or the connection dropped): not an answer, so unreachable.
+      if (e instanceof DOMException && (e.name === 'AbortError' || e.name === 'TimeoutError')) throw fail('unreachable', 0);
+      if (e instanceof TypeError) throw fail('unreachable', 0);
+      // A body that isn't JSON: an error page, say.
+    }
     if (!response.ok) throw fail(isObject(data) && typeof data.error === 'string' ? data.error : 'bad-request', response.status);
     return data;
   };

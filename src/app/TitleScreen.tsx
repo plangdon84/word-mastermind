@@ -35,7 +35,7 @@ import { movedNoticeDue } from './moved';
 import { ReleasePopup, Tutorial, WhatsNew } from './screens';
 import { VersionLink } from './VersionLink';
 import { markVersionSeen, readSeenVersion, releasePopupDue } from './version';
-import { readStored } from './localStore';
+import { readStored, writeStored } from './localStore';
 
 const SIGN_IN_OFFER_KEY = 'word-mastermind:sign-in-offer:v1';
 
@@ -59,11 +59,8 @@ function SetupOffers({ apiUrl, identity, onSignIn }: { apiUrl: string; identity:
         <div class="row-btns">
           <button type="button" class="btn primary" onClick={onSignIn}>Sign in</button>
           <button type="button" class="btn" onClick={() => {
-            try {
-              localStorage.setItem(SIGN_IN_OFFER_KEY, 'dismissed');
-            } catch {
-              // It shows again next visit; nothing else is lost.
-            }
+            // If storage refuses it, the offer shows again next visit; nothing else is lost.
+            writeStored(SIGN_IN_OFFER_KEY, 'dismissed');
             setDismissed(true);
           }}>Not now</button>
         </div>

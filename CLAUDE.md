@@ -39,8 +39,10 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/app/screens.ts` (`lazy` in `src/app/lazy.tsx`), never their own
   modules, or they load at start-up again; `preloadScreens` fetches them
   once the page has loaded. The build puts all start-up code in one `app`
-  chunk (`codeSplitting` in `vite.config.ts`). Browser storage goes through
-  `readStored` / `writeStored` / `removeStored` (`src/app/localStore.ts`),
+  chunk (`codeSplitting` in `vite.config.ts`). Browser storage writes go through
+  `readStored` / `writeStored` / `removeStored` (`src/app/localStore.ts`);
+  a read that parses a saved game keeps its own try/catch, which guards the
+  parsing too,
   and every request to the server gives up after 30 seconds
   (`requestTimeout` in `src/app/apiIdentity.ts`).
 - A game is a record (secret words, start time, moves) and everything else is
@@ -65,8 +67,10 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/game/` unchanged. It registers guests (the profile's `deviceId` is the
   guest ID) and checks words. Its tests use a D1 stand-in on `node:sqlite`
   (`worker/src/fakeD1.ts`), and `npm run typecheck` covers it. A finished
-  game goes into D1 (one batch) before its Durable Object keeps the move, so
-  a failed save leaves the move to be made again (Dev Plan item 19m); small
+  game is stored in its Durable Object at once, marked `unsaved`, then put in
+  D1 in one batch with its rating (rated once, however saves overlap,
+  `ratingStatements`); a failed save is retried by the room's alarm or the
+  next request (Dev Plan item 19m); small
   shared helpers (hex, SHA-256, random, JSON) are `worker/src/secure.ts`.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
   (the worker). Add every new D1 table to `WIPE_TABLES` or `KEEP_TABLES` in

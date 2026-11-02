@@ -3,7 +3,7 @@ import {
   isObject, SCREENSHOT_MAX, type IssueReport, type ReportContext, type ReportScreenshot,
 } from '../game';
 import { APP_VERSION } from './version';
-import { apiBase } from './apiIdentity';
+import { apiBase, requestTimeout } from './apiIdentity';
 
 /*
  * Report an issue (README "Reporting an issue"): the server files each report
@@ -78,6 +78,7 @@ export async function sendReport(
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-guest-id': guestId },
     body: JSON.stringify(report),
+    signal: requestTimeout(),
   }).catch(() => null);
   if (!response) throw new ReportError('unreachable');
   const body: unknown = await response.json().catch(() => null);

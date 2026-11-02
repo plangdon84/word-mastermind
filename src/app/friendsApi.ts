@@ -6,6 +6,7 @@ import {
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import { isCountry } from './countries';
 import { parsePlacement } from './dailyApi';
+import { removeStored, writeStored } from './localStore';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -480,12 +481,8 @@ export const PENDING_INVITE_MS = 24 * 60 * 60 * 1000;
  * then the link has to be opened again after signing in.
  */
 export function savePendingInvite(key: string | null, now: number = Date.now()): void {
-  try {
-    if (key) localStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ key, at: now }));
-    else localStorage.removeItem(PENDING_INVITE_KEY);
-  } catch {
-    // See above.
-  }
+  if (key) writeStored(PENDING_INVITE_KEY, JSON.stringify({ key, at: now }));
+  else removeStored(PENDING_INVITE_KEY);
 }
 
 export function parsePendingInvite(raw: string | null, now: number): string | null {

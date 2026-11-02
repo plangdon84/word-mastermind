@@ -44,7 +44,7 @@ export interface LoadedFriend {
 }
 
 const toHistoryGames = (entries: readonly HistoryEntry[]) =>
-  entries.map(toHistoryGame).filter((g): g is HistoryGame => g !== null);
+  entries.map((entry) => toHistoryGame(entry)).filter((g): g is HistoryGame => g !== null);
 
 type Loading = { status: 'loading' } | { status: 'error'; text: string } | ({ status: 'ready' } & LoadedFriend);
 

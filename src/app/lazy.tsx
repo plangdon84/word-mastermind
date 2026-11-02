@@ -9,8 +9,14 @@ import { useEffect, useState } from 'preact/hooks';
 
 const preloads: (() => Promise<unknown>)[] = [];
 
-/** A component of `T` that loads `load()` when it's first needed, then renders it like the original. */
-export function lazy<P extends object>(load: () => Promise<ComponentType<P>>): ComponentType<P> & { preload: () => Promise<unknown> } {
+/**
+ * A component that loads `load()` when it's first needed, then renders it
+ * like the original. With `quiet` (a popup that can wait for another
+ * visit), it shows nothing while loading or if loading fails.
+ */
+export function lazy<P extends object>(
+  load: () => Promise<ComponentType<P>>, { quiet = false } = {},
+): ComponentType<P> & { preload: () => Promise<unknown> } {
   let loaded: ComponentType<P> | null = null;
   let pending: Promise<ComponentType<P>> | null = null;
   const preload = () => pending ??= load().then((component) => (loaded = component), (error: unknown) => {
@@ -41,7 +47,12 @@ export function lazy<P extends object>(load: () => Promise<ComponentType<P>>): C
       const Loaded = loaded;
       return <Loaded {...props} />;
     }
-    if (failed) return <LoadFailed onRetry={() => setFailed(false)} />;
+    if (quiet) return null;
+    // A popup that failed (the tutorial) can still be closed.
+    const { onClose } = props as { onClose?: unknown };
+    if (failed) {
+      return <LoadFailed onRetry={() => setFailed(false)} onClose={typeof onClose === 'function' ? () => onClose() : undefined} />;
+    }
     // Shown only if loading takes a moment (styles.css), so a quick load doesn't flash it.
     return <p class="field-note lazy-loading" role="status">Loading…</p>;
   }
@@ -49,13 +60,14 @@ export function lazy<P extends object>(load: () => Promise<ComponentType<P>>): C
 }
 
 /** A screen that didn't load: offline, or (after a new version went out) its file is gone, which a reload fixes. */
-function LoadFailed({ onRetry }: { onRetry: () => void }) {
+function LoadFailed({ onRetry, onClose }: { onRetry: () => void; onClose?: () => void }) {
   return (
     <section class="lazy-failed" role="alert">
       <p>This part of the game didn't load. Check your connection, then try again.</p>
       <div class="lazy-failed-actions">
         <button type="button" class="btn primary" onClick={onRetry}>Try again</button>
         <button type="button" class="btn" onClick={() => location.reload()}>Reload</button>
+        {onClose && <button type="button" class="btn" onClick={onClose}>Close</button>}
       </div>
     </section>
   );

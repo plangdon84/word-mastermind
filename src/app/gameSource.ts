@@ -1,5 +1,5 @@
 import { isObject, isWordError, validateWord, type WordKind, type WordValidation } from '../game';
-import { apiBase, identityHeaders, type ApiIdentity } from './apiIdentity';
+import { apiBase, identityHeaders, requestTimeout, type ApiIdentity } from './apiIdentity';
 
 /**
  * Where a word is checked: on this device (local), or by the server
@@ -37,6 +37,7 @@ export function remoteSource(apiUrl: string, identity: ApiIdentity, fetchFn: typ
       method: 'POST',
       headers: { 'content-type': 'application/json', ...identityHeaders(identity) },
       body: JSON.stringify(body),
+      signal: requestTimeout(),
     });
     if (!response.ok) throw new Error(`${path} answered ${response.status}`);
     return response.json();

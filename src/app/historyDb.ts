@@ -143,15 +143,14 @@ export interface HistoryGame {
 /** A game for stats, badges and unlocks, with its summary, so they needn't work it out again (Dev Plan item 19c). */
 export const statsGame = ({ entry, replayed, summary }: HistoryGame): StatsGame => ({ id: entry.id, replayed, summary });
 
-export function toHistoryGame(entry: HistoryEntry): HistoryGame | null {
-  const replayed = replayEntry(entry);
+export function toHistoryGame(entry: HistoryEntry, replayed = replayEntry(entry)): HistoryGame | null {
   return replayed ? { entry, replayed, summary: summarizeGame(replayed) } : null;
 }
 
 /** A stored value as a game to show, or null if it doesn't read: each game is replayed once. */
 function storedGame(value: unknown): HistoryGame | null {
   const parsed = parseReplayedEntry(value);
-  return parsed && { ...parsed, summary: summarizeGame(parsed.replayed) };
+  return parsed && toHistoryGame(parsed.entry, parsed.replayed);
 }
 
 /** Where a page of history starts: an offset into this browser's, or a friend's `FriendGamesQuery.after`. */

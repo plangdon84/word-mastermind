@@ -21,5 +21,6 @@ export const AccountSection = lazy(() => import('./AccountSection').then((m) => 
 export const FriendsSection = lazy(() => import('./FriendsSection').then((m) => m.FriendsSection));
 export const GoogleNamePrompt = lazy(() => import('./GoogleNamePrompt').then((m) => m.GoogleNamePrompt));
 export const Tutorial = lazy(() => import('./Tutorial').then((m) => m.Tutorial));
-export const ReleasePopup = lazy(() => import('./ReleaseNotes').then((m) => m.ReleasePopup));
+// Quiet: a release popup that can't load waits for the next visit rather than showing a panel there's no closing.
+export const ReleasePopup = lazy(() => import('./ReleaseNotes').then((m) => m.ReleasePopup), { quiet: true });
 export const WhatsNew = lazy(() => import('./ReleaseNotes').then((m) => m.WhatsNew));

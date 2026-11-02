@@ -6,7 +6,7 @@ import {
 import type { FriendError, FriendGame, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
 import { declinedNotice, expiredNotice, joinedNotice, moveNotices, timeLowNotice, type Notice } from './notices';
-import { rateFinishedGame, type RatingChange } from './ratings';
+import { keptChanges, ratedGameChanges, ratingStatements, seatChanges, type RatingChange } from './ratings';
 
 /*
  * The referee for one game against a friend, run by the game's Durable
@@ -56,6 +56,12 @@ export interface Room {
   ratings?: Record<Seat, Rating>;
   ratingsBefore?: Record<Seat, Rating>;
   ratingsAfter?: Record<Seat, Rating>;
+  /**
+   * A finished game not yet in D1's history (Dev Plan item 19m): saving it
+   * failed, so the alarm and the next request try again. Stored as soon as
+   * the game ends, before saving, so a request meanwhile finds it over.
+   */
+  unsaved?: boolean;
   /**
    * The deadline whose player was reminded their time is running out
    * (README "Reminders"), so each turn reminds once.
@@ -222,30 +228,54 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
 }
 
 /**
- * Saves the room after a change and sets the alarm for the next deadline (or
- * clears it once the game is over). A finished game goes into D1's game
- * history first, rated if it's rated: if that fails, nothing is saved, so
- * the move can be made again (the alarm is retried too) and the game is
- * never left over in the room but missing from the history. Returns the
- * room as saved.
+ * Saves the room after a change and sets the alarm for the next deadline.
+ * A finished game is stored at once, marked `unsaved`, so any request that
+ * comes in while it's saved finds it over; then it goes into D1's game
+ * history (rated if it's rated) by `saveToHistory`. Returns the room as
+ * saved.
  */
 async function save(storage: RoomStorage, deps: RoomDeps, room: Room, now: number): Promise<Room> {
   const game = gameOf(room);
-  let saved = room;
   if (game?.status === 'over' && room.record) {
-    const changes = await deps.saveFinished(room, room.record, now);
-    if (changes) {
-      saved = {
-        ...room,
-        ratingsBefore: { host: changes.host.before, guest: changes.guest.before },
-        ratingsAfter: { host: changes.host.after, guest: changes.guest.after },
-      };
-    }
+    const over: Room = { ...room, unsaved: true };
+    await storage.put(ROOM_KEY, over);
+    return saveToHistory(storage, deps, over, now);
   }
-  await storage.put(ROOM_KEY, saved);
-  const next = game && nextAlarm(saved, game, now);
+  await storage.put(ROOM_KEY, room);
+  const next = game && nextAlarm(room, game, now);
   if (next) await storage.setAlarm(next);
   else await storage.deleteAlarm();
+  return room;
+}
+
+/** How long after a failed save to D1 the alarm tries again. */
+export const SAVE_RETRY_MS = 60 * 1000;
+
+/**
+ * Puts a finished game into D1's history, rated if it's rated, and clears
+ * `unsaved`. If that fails, the room keeps `unsaved` and its alarm tries
+ * again shortly: the failure never fails the request, or the game couldn't
+ * even be opened while D1 is down. Two tries at once are harmless: the
+ * history ignores a game it has, and a game is rated once.
+ */
+async function saveToHistory(storage: RoomStorage, deps: RoomDeps, room: Room, now: number): Promise<Room> {
+  let changes: Record<Seat, RatingChange> | null;
+  try {
+    changes = await deps.saveFinished(room, room.record!, now);
+  } catch {
+    await storage.setAlarm(now + SAVE_RETRY_MS);
+    return room;
+  }
+  // Read again: a request while D1 was answering may have changed the room (a rematch asked for).
+  const latest = (await storage.get<Room>(ROOM_KEY)) ?? room;
+  const { unsaved: _unsaved, ...rest } = latest;
+  const saved: Room = changes ? {
+    ...rest,
+    ratingsBefore: { host: changes.host.before, guest: changes.guest.before },
+    ratingsAfter: { host: changes.host.after, guest: changes.guest.after },
+  } : rest;
+  await storage.put(ROOM_KEY, saved);
+  await storage.deleteAlarm();
   return saved;
 }
 
@@ -266,6 +296,7 @@ function nextAlarm(room: Room, game: PvpGame, now: number): number | null {
  * this at the deadline; every request checks too, in case the alarm is late.
  */
 async function settle(storage: RoomStorage, deps: RoomDeps, room: Room, now: number): Promise<Room> {
+  if (room.unsaved && room.record) return saveToHistory(storage, deps, room, now);
   if (isOpenInvite(room)) {
     if (now < inviteEnds(room)) return room;
     const expired = { ...room, expired: true };
@@ -473,24 +504,26 @@ async function answerRoom(
 }
 
 /**
- * Saves a finished game to D1: its record, and a row per player for their
- * history, in one batch; and rates it if it's rated. Saving it again (a
- * retry after a failure) changes nothing and returns the same ratings.
+ * Saves a finished game to D1: its record and a row per player for their
+ * history, and if it's rated, the players' ratings, all in one batch, so
+ * they're kept together or not at all. Saving it again (a retry) changes
+ * nothing and returns the ratings it was given the first time.
  */
 export async function saveFinishedGame(db: D1Database, room: Room, record: PvpRecord, now: number): Promise<Record<Seat, RatingChange> | null> {
   if (!room.guest) return null;
   // A cancelled game (item 18zv) has no winner: it's neither kept in either history nor rated.
   if (record.moves.at(-1)?.kind === 'cancel') return null;
+  const game = gameOf(room);
+  const players = { host: room.host.guestId, guest: room.guest.guestId };
+  const pool = ratingPool(roomTimeControl(room));
+  const changes = room.rated && game?.outcome ? await ratedGameChanges(db, pool, players, hostScore(game.outcome), now) : [];
   await db.batch([
     db.prepare(
       `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, 'friend', ?2, ?3, ?4, ?5)`,
     ).bind(room.id, HISTORY_VERSION, JSON.stringify(record), record.startedAt, now),
-    ...[room.host.guestId, room.guest.guestId].map((guestId) =>
+    ...[players.host, players.guest].map((guestId) =>
       db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(room.id, guestId)),
+    ...ratingStatements(db, room.id, pool, changes, now),
   ]);
-  const game = gameOf(room);
-  if (!room.rated || !game?.outcome) return null;
-  return rateFinishedGame(db, room.id, ratingPool(roomTimeControl(room)), {
-    host: room.host.guestId, guest: room.guest.guestId,
-  }, hostScore(game.outcome), now);
+  return changes.length > 0 ? seatChanges(await keptChanges(db, room.id, changes), players) : null;
 }

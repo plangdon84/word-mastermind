@@ -3,6 +3,7 @@ import { localDay } from './badges';
 import { FriendsApiError, type FriendsApi, type SharedSummary } from './friendsApi';
 import type { HistoryGame } from './historyDb';
 import { sharedSummary } from './sharedSummary';
+import { removeStored, writeStored } from './localStore';
 
 /*
  * Sharing your profile with friends (Dev Plan item 18cb, README "Friends'
@@ -45,12 +46,9 @@ function lastShared(): Shared | null {
 }
 
 function noteShared(value: Shared | null): void {
-  try {
-    if (value) localStorage.setItem(SENT_KEY, JSON.stringify(value));
-    else localStorage.removeItem(SENT_KEY);
-  } catch {
-    // Browser storage can be blocked: the summary is then sent again next time.
-  }
+  // If storage refuses it: browser storage can be blocked: the summary is then sent again next time.
+  if (value) writeStored(SENT_KEY, JSON.stringify(value));
+  else removeStored(SENT_KEY);
 }
 
 /** Forgets what was sent: signing out, so the next account's is sent. */

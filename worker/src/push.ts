@@ -164,7 +164,8 @@ async function reusedAuthorization(endpoint: string, keys: VapidKeys, now: numbe
   const made = vapidHeaders.get(key);
   if (made && now >= made.madeAt && now - made.madeAt < VAPID_REUSE_MS) return made.header;
   const header = await vapidAuthorization(endpoint, keys, now);
-  // Only a few push services exist, so this stays tiny.
+  // Only a few push services exist, so this stays tiny; an hour-old header is dropped as another is made.
+  for (const [old, { madeAt }] of vapidHeaders) if (now - madeAt >= VAPID_REUSE_MS || madeAt > now) vapidHeaders.delete(old);
   vapidHeaders.set(key, { header, madeAt: now });
   return header;
 }

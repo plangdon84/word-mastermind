@@ -8,7 +8,7 @@
 import { writeStored } from './localStore';
 
 /** This version: the newest in `RELEASES` (releases.test.ts checks they agree). */
-export const APP_VERSION: string = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? '0.0.0';
+export const APP_VERSION: string = (import.meta.env?.VITE_APP_VERSION as string | undefined) ?? '0.0.0';
 
 const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 

@@ -109,13 +109,21 @@ export async function boardNames(db: D1Database, ids: readonly string[]): Promis
  */
 export async function saveEntries(db: D1Database, accountId: string, entries: readonly HistoryEntry[], now: number): Promise<number> {
   if (entries.length === 0) return 0;
-  // One batch (one round trip); its statements run in order, each seeing the total the ones before it left.
-  const results = await db.batch(entries.map((entry) => db.prepare(
+  const insert = (entry: HistoryEntry) => db.prepare(
     `INSERT OR IGNORE INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at)
      SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
      WHERE (SELECT history_chars FROM accounts WHERE id = ?1) + LENGTH(?5) <= ${MAX_ACCOUNT_CHARS}`,
-  ).bind(accountId, entry.id, entry.mode, entry.version, JSON.stringify(entry), entry.record.startedAt, now)));
-  return results.reduce((added, { meta }) => added + (meta.changes ?? 0), 0);
+  ).bind(accountId, entry.id, entry.mode, entry.version, JSON.stringify(entry), entry.record.startedAt, now);
+  const count = (results: readonly D1Result[]) => results.reduce((added, { meta }) => added + (meta.changes ?? 0), 0);
+  try {
+    // One batch (one round trip); its statements run in order, each seeing the total the ones before it left.
+    return count(await db.batch(entries.map(insert)));
+  } catch {
+    // A batch is all or nothing: one entry the database refuses mustn't keep the rest out on every sync.
+    let added = 0;
+    for (const entry of entries) added += await insert(entry).run().then((r) => count([r]), () => 0);
+    return added;
+  }
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 import { DAILY_MODES, type DailyMode } from '../game';
 import type { DailyToday } from './dailyApi';
-import { readStored } from './localStore';
+import { readStored, removeStored, writeStored } from './localStore';
 
 const KEY = 'word-mastermind:daily-card:v1';
 
@@ -14,12 +14,9 @@ export function loadDailyCollapsed(): boolean {
 }
 
 export function saveDailyCollapsed(collapsed: boolean): void {
-  try {
-    if (collapsed) localStorage.setItem(KEY, 'collapsed');
-    else localStorage.removeItem(KEY);
-  } catch {
-    // It opens again next visit; nothing else is lost.
-  }
+  // If storage refuses it: it opens again next visit; nothing else is lost.
+  if (collapsed) writeStored(KEY, 'collapsed');
+  else removeStored(KEY);
 }
 
 /**
