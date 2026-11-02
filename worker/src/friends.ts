@@ -240,6 +240,13 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * How long a declined request by email keeps the sender's repeats by email
+ * to that player away (Dev Plan item 19a): ignored silently, still counted
+ * towards the sender's daily limit, so nothing tells them it was declined.
+ */
+export const EMAIL_DECLINE_MS = 7 * DAY_MS;
+
+/**
  * A friend request to whoever has an account with `email` (Dev Plan item
  * 18d), first counted against the sender's limits: whether anyone has
  * that email must never show, so every refusal is here, before the email
@@ -276,9 +283,12 @@ export async function deliverEmailRequest(db: D1Database, accountId: string, ema
   const found = await db.prepare('SELECT id FROM accounts WHERE email = ?1').bind(email).first<{ id: string }>();
   const friendId = found?.id;
   if (!friendId || friendId === accountId) return [];
-  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first();
-  if (existing || await listSize(db, friendId) >= MAX_FRIENDS) return [];
+  // One read: where they stand, and whether this player declined a request by email from the sender in the past week.
+  const existing = await db.prepare(
+    `SELECT (SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2) AS state,
+       EXISTS (SELECT 1 FROM email_declines WHERE sender_id = ?1 AND declined_by = ?2 AND at > ?3) AS declined`,
+  ).bind(accountId, friendId, now - EMAIL_DECLINE_MS).first<{ state: string | null; declined: number }>();
+  if (existing?.state || existing?.declined || await listSize(db, friendId) >= MAX_FRIENDS) return [];
   await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 1), (?2, ?1, 'received', ?3, 1)`)
     .bind(accountId, friendId, now).run();
   return [friendRequestNotice(friendId, await nameOrDefault(db, accountId))];
@@ -359,16 +369,28 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
 /**
  * Removes a friend, declines their request or withdraws yours: either way,
  * both sides forget it. Removing a friend also renews your invite link, so
- * one they still have can't make them your friend again.
+ * one they still have can't make them your friend again. Declining a
+ * request that came by email remembers the sender for a week
+ * (`EMAIL_DECLINE_MS`), clearing older declines as it goes.
  */
-async function removeFriend(db: D1Database, accountId: string, code: string): Promise<void> {
+async function removeFriend(db: D1Database, accountId: string, code: string, now: number): Promise<void> {
   const friendId = await accountByCode(db, code);
   if (!friendId) return;
-  const row = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first<{ state: string }>();
+  const row = await db.prepare('SELECT state, by_email FROM friends WHERE account_id = ?1 AND friend_id = ?2')
+    .bind(accountId, friendId).first<{ state: string; by_email: number }>();
   if (row?.state === 'friends') await inviteKeyOf(db, accountId, true);
-  await db.prepare('DELETE FROM friends WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)')
-    .bind(accountId, friendId).run();
+  const forget = db.prepare('DELETE FROM friends WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)')
+    .bind(accountId, friendId);
+  if (row?.state !== 'received' || !row.by_email) {
+    await forget.run();
+    return;
+  }
+  await db.batch([
+    forget,
+    db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS),
+    db.prepare(`INSERT INTO email_declines (sender_id, declined_by, at) VALUES (?1, ?2, ?3)
+      ON CONFLICT (sender_id, declined_by) DO UPDATE SET at = excluded.at`).bind(friendId, accountId, now),
+  ]);
 }
 
 /**
@@ -480,7 +502,7 @@ export async function routeFriends(
     if (!added.ok) return errorResponse(added.status, added.error);
     await afterAnswering(Promise.resolve(added.notices));
   } else if (pathname === '/api/friends/remove') {
-    await removeFriend(env.DB, accountId, code);
+    await removeFriend(env.DB, accountId, code, now);
   } else {
     return errorResponse(404, 'not-found');
   }

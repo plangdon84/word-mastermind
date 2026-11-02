@@ -11,20 +11,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19a. Email friend requests after a decline** (issue
-  plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
-  updates README "Friends" and the privacy page)
-  - Decided with the owner on 9 October 2026: once a player declines a
-    request that came by email, the server remembers that sender and
-    player for a week and silently ignores the sender's repeat email
-    requests to them: no request, no notification, and the sender sees the
-    usual answer. The ignored repeat still counts towards the sender's 20
-    email requests a day, so nothing reveals the decline. Adds by friend
-    code or name work as today
-  - The check runs after answering, with the lookup (`deliverEmailRequest`),
-    costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
-    or `KEEP_TABLES`), cleared after 7 days and when either account is
-    deleted
 - [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
@@ -88,6 +74,21 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     card for the words
 
 ## Done, latest first
+
+- [x] **19a. Email friend requests after a decline** (issue
+  plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
+  updates README "Friends" and the privacy page)
+  - Decided with the owner on 9 October 2026: once a player declines a
+    request that came by email, the server remembers that sender and
+    player for a week and silently ignores the sender's repeat email
+    requests to them: no request, no notification, and the sender sees the
+    usual answer. The ignored repeat still counts towards the sender's 20
+    email requests a day, so nothing reveals the decline. Adds by friend
+    code or name work as today
+  - The check runs after answering, with the lookup (`deliverEmailRequest`),
+    costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
+    or `KEEP_TABLES`), cleared after 7 days and when either account is
+    deleted
 
 - [x] **19l. The Correspondence rating board** (the owner's request, 1
   November 2026; worker, review gate; updates README "Leaderboards" and

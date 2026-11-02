@@ -148,7 +148,9 @@ Run `npm test` and `npm run typecheck` before committing.
   notifications run after answering (`defer`, the worker's `waitUntil`);
   the sender's row is `by_email`, off their list, search and limit until
   accepted, and forgotten when they add that player another way
-  (`forgetEmailRequest`). Never store an email typed there.
+  (`forgetEmailRequest`). Never store an email typed there. Declining a
+  request by email keeps its sender's repeats by email away for a week
+  (Dev Plan item 19a, D1 `email_declines`, checked in `deliverEmailRequest`).
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
   read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends

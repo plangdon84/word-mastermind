@@ -2207,6 +2207,12 @@ first.
     answering, and sends friend notifications after answering too. Nothing is emailed, and an email with no
     account isn't kept. At most 20 a day, found or not. Someone who already
     asked you, or is already a friend, gets nothing new.
+  - **After a decline** (Dev Plan item 19a): once you **Decline** a
+    request that came by email, the server remembers that sender for a
+    week and quietly ignores their repeat requests to you by email: no
+    request and no notification, while the sender sees the usual answer
+    and the repeat still counts towards their 20 a day, so nothing tells
+    them you declined. Adding you by code or name works as always.
   - A phone's contacts and social accounts are left out: a web app can't
     read an iPhone's contacts, and each social account needs its own
     sign-in setup.
@@ -2240,8 +2246,9 @@ first.
 - The server keeps the list in D1 (`friends`, two rows per pair, marked
   `by_email` for a request sent by email, and `lobby_invites`), with each
   account's code on `accounts.friend_code`; `email_requests` counts each
-  account's requests by email for the daily limit, never the email.
-  Deleting the account removes you from every list.
+  account's requests by email for the daily limit, never the email;
+  `email_declines` holds who declined whose request by email, for a week.
+  Deleting the account removes you from every list and its declines.
 
 ### Friends' profiles
 

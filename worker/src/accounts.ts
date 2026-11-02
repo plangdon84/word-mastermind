@@ -290,8 +290,8 @@ export async function endSessionAndAlerts(db: D1Database, token: string): Promis
 
 /**
  * Deletes an account: every device is signed out and stops getting turn
- * alerts, its email, sign-in links, synced profile and history, friends
- * lobby invites, ratings and reminders' records are forgotten, and its guest IDs are plain guests again. Games already played
+ * alerts, its email, sign-in links, synced profile and history, friends,
+ * declined requests by email, lobby invites, ratings and reminders' records are forgotten, and its guest IDs are plain guests again. Games already played
  * stay in the game history.
  */
 export async function deleteAccount(db: D1Database, accountId: string): Promise<void> {
@@ -306,6 +306,7 @@ export async function deleteAccount(db: D1Database, accountId: string): Promise<
   await db.prepare('DELETE FROM friends WHERE account_id = ?1 OR friend_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM lobby_invites WHERE account_id = ?1').bind(accountId).run();
   await db.prepare('DELETE FROM email_requests WHERE account_id = ?1').bind(accountId).run();
+  await db.prepare('DELETE FROM email_declines WHERE sender_id = ?1 OR declined_by = ?1').bind(accountId).run();
   // Its reminders' bookkeeping (Dev Plan item 18zj): when it last played, its daily games started, reminders sent.
   for (const table of ['player_activity', 'daily_played', 'reminders_sent']) {
     await db.prepare(`DELETE FROM ${table} WHERE player_id = ?1`).bind(accountId).run();

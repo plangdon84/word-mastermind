@@ -16,7 +16,7 @@ import { fakeD1 } from './fakeD1';
 import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
 import { LINKED_GAMES_SQL, NEXT_LINKS_SQL, RETRY_PLAYED_SQL } from './friendProfiles';
-import { addFriend, newFriendCode } from './friends';
+import { addFriend, EMAIL_DECLINE_MS, newFriendCode } from './friends';
 import { handle, type Env } from './index';
 import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
 
@@ -282,6 +282,68 @@ describe('friend requests by email', () => {
     for (let i = 0; i < MAX_FRIENDS - 1; i++) insert.run(ANN, `filler-${i}`, NOW);
     await ann.friends.requestByEmail('bob@example.com');
     expect(await refusal(ann.friends.add((await cat.friends.list()).code))).toBe('sent');
+  });
+
+  it('are ignored for a week after the player declines one, still counting towards the daily limit', async () => {
+    const { player, pushed, advance, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const annCode = (await ann.friends.list()).code;
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.requestByEmail('bob@example.com');
+    pushed();
+    expect(await bob.friends.remove(annCode)).toMatchObject({ received: [] });
+    const counted = () => (sqlite.prepare('SELECT COUNT(*) AS n FROM email_requests').get() as { n: number }).n;
+    const before = counted();
+
+    // Asking again by email answers as usual, but Bob gets no request and no notification.
+    expect(await refusal(ann.friends.requestByEmail('bob@example.com'))).toBe('sent');
+    expect(counted()).toBe(before + 1);
+    expect((await bob.friends.list()).received).toEqual([]);
+    expect(pushed()).toEqual([]);
+
+    // A week on, it reaches Bob again.
+    advance(EMAIL_DECLINE_MS);
+    await ann.friends.requestByEmail('bob@example.com');
+    expect((await bob.friends.list()).received).toMatchObject([{ code: annCode }]);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+
+    // Declining it again, then adding by code, works as today.
+    await bob.friends.remove(annCode);
+    expect((await ann.friends.add(bobCode)).sent).toMatchObject([{ code: bobCode }]);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+  });
+
+  it("remember only a declined request by email, never one by code or the sender's own withdrawal", async () => {
+    const { player, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    const [annCode, bobCode, catCode] = [(await ann.friends.list()).code, (await bob.friends.list()).code, (await cat.friends.list()).code];
+    await ann.friends.add(bobCode);
+    await bob.friends.remove(annCode);
+    await ann.friends.requestByEmail('cat@example.com');
+    await ann.friends.remove(catCode);
+    expect(sqlite.prepare('SELECT * FROM email_declines').all()).toEqual([]);
+    await ann.friends.requestByEmail('cat@example.com');
+    expect((await cat.friends.list()).received).toMatchObject([{ code: annCode }]);
+  });
+
+  it('clear declines older than a week, and both sides of one when an account is deleted', async () => {
+    const { player, advance, sqlite, fetchFn } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    const annCode = (await ann.friends.list()).code;
+    await ann.friends.requestByEmail('bob@example.com');
+    await bob.friends.remove(annCode);
+    advance(EMAIL_DECLINE_MS);
+    await ann.friends.requestByEmail('cat@example.com');
+    await cat.friends.remove(annCode);
+    // A new account takes its device's guest ID as its own.
+    expect(sqlite.prepare('SELECT sender_id, declined_by FROM email_declines').all()).toEqual([{ sender_id: ANN, declined_by: CAT }]);
+    await authApi('https://api.example', CAT, fetchFn).deleteAccount(cat.session!.token);
+    expect(sqlite.prepare('SELECT * FROM email_declines').all()).toEqual([]);
   });
 
   it("send nothing to a friend, or to someone who already asked you (who you'd accept on your list)", async () => {
