@@ -1,6 +1,7 @@
 import { guestName, isObject, isTime, validateName } from '../game';
 import { isCountry } from './countries';
 import { newId } from './ids';
+import { writeStored } from './localStore';
 
 /** This browser's profile (README "Profile"). Games are kept separately, in IndexedDB. */
 export interface Profile {
@@ -53,9 +54,5 @@ export function loadProfile(now: number = Date.now()): Profile {
 }
 
 export function saveProfile(profile: Profile): void {
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  } catch {
-    // Storage is a convenience; the game works without it.
-  }
+  writeStored(PROFILE_KEY, JSON.stringify(profile));
 }

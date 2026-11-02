@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { APP_VERSION, compareVersions, parseVersion, RELEASES, releasePopupDue } from './releases';
+import { APP_VERSION as NEWEST, RELEASES } from './releases';
+import { APP_VERSION, compareVersions, parseVersion, releasePopupDue } from './version';
 
 describe('release notes', () => {
   it('lists valid versions, newest first, with the app on the newest', () => {
+    // The build puts the newest release's number in version.ts, so the notes can load later.
     expect(APP_VERSION).toBe(RELEASES[0].version);
+    expect(NEWEST).toBe(APP_VERSION);
     for (const r of RELEASES) expect(parseVersion(r.version), r.version).not.toBeNull();
     for (let i = 1; i < RELEASES.length; i++) {
       expect(compareVersions(RELEASES[i - 1].version, RELEASES[i].version), RELEASES[i].version).toBeGreaterThan(0);

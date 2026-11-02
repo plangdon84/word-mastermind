@@ -1,4 +1,5 @@
 import { isLive, isObject, isTime, parseMarks, timeControlText, type Marks, type TimeControl } from '../game';
+import { writeStored, removeStored } from './localStore';
 
 /*
  * The games against a friend this device is in. The server referees them and
@@ -56,11 +57,8 @@ export function loadFriendGames(): FriendGameEntry[] {
 function save(entries: readonly FriendGameEntry[]): void {
   let done = 0;
   const kept = entries.filter((e) => !e.done || ++done <= MAX_DONE_FRIEND_GAMES);
-  try {
-    localStorage.setItem(KEY, JSON.stringify(kept));
-  } catch {
-    // Storage is a convenience; the server still has the game.
-  }
+  // If storage refuses it: the server still has the game.
+  writeStored(KEY, JSON.stringify(kept));
 }
 
 /** Adds a game (newest first), or leaves it where it is if it's already listed. */
@@ -89,11 +87,7 @@ export function mergeFriendGames(found: readonly Pick<FriendGameEntry, 'id' | 'a
 
 /** Forgets every game: on signing out, they're the account's, not the new guest's. */
 export function clearFriendGames(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to clear.
-  }
+  removeStored(KEY);
 }
 
 export function updateFriendGame(id: string, change: Partial<Omit<FriendGameEntry, 'id' | 'addedAt'>>): void {

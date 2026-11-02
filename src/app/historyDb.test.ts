@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HistoryEntry } from '../game';
 import {
-  deleteHistory, getAllGames, getAllIds, getGame, getGames, loadGamesPage, onGameSaved, putGame, putGames, saveFinishedGame,
+  deleteHistory, getAllGames, getAllIds, getGame, getGames, loadAllMatching, loadGamesPage, onGameSaved, putGame, putGames,
+  saveFinishedGame, statsGame,
 } from './historyDb';
 
 const T = 1_000_000;
@@ -69,6 +70,15 @@ describe('game history', () => {
       vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(closing);
       await expect(getAllGames()).rejects.toThrow('closing');
     });
+  });
+
+  it('reads every matching game in one go, newest first, with its summary for stats', async () => {
+    const broken = { ...game(3), record: { ...game(3).record, secret: 'bunny' } } as HistoryEntry;
+    await putGames([game(1), game(2, 'beach', ['crane']), broken, game(4)]);
+    const all = await loadAllMatching({});
+    expect(all.map((g) => g.entry.id)).toEqual(['game-4', 'game-2', 'game-1']);
+    expect(statsGame(all[1])).toEqual({ id: 'game-2', replayed: all[1].replayed, summary: all[1].summary });
+    expect((await loadAllMatching({ result: 'lost' }))).toEqual([]);
   });
 
   it('only saves games started since the profile was created', async () => {

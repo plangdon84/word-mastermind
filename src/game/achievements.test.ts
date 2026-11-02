@@ -7,7 +7,7 @@ import { daily, DAY, dailyWord, friend, lobby, rush, solo, versus } from './test
 
 // Every mode on, so every badge is offered; features.test.ts checks the launch's switches.
 vi.mock('./features', () => ({
-  FEATURES: { randomOpponent: true, ratingBoards: true, competitiveRush: true, suggest: true, dailyTopTenPercent: true },
+  FEATURES: { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true, suggest: true, dailyTopTenPercent: true },
 }));
 
 const T = Date.UTC(2026, 0, 1);

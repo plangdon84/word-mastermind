@@ -5,6 +5,8 @@
  * or closing it yourself holds until something new waits on you.
  */
 
+import { writeStored } from './localStore';
+
 const KEY = 'word-mastermind:games-in-progress:v1';
 
 /** Your own open or close, with what was waiting on you then. */
@@ -41,9 +43,6 @@ export function loadListChoice(): ListChoice | null {
 }
 
 export function saveListChoice(choice: ListChoice): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(choice));
-  } catch {
-    // It follows what's waiting next visit; nothing else is lost.
-  }
+  // If storage refuses it: it follows what's waiting next visit; nothing else is lost.
+  writeStored(KEY, JSON.stringify(choice));
 }

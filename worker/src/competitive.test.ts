@@ -11,7 +11,7 @@ import { handle, type Env } from './index';
 import { saveFinishedLobby } from './lobbyRoom';
 
 // Switched off for the launch; these tests are for when it's on (launch.test.ts checks it's refused).
-vi.mock('../../src/game/features', () => ({ FEATURES: { randomOpponent: true, ratingBoards: true, competitiveRush: true } }));
+vi.mock('../../src/game/features', () => ({ FEATURES: { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true } }));
 
 /*
  * Competitive Rush (README "Rush modes"): a lobby where each player sets a

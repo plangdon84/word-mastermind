@@ -9,8 +9,8 @@ Build and deploy a **web app** for **Word Mastermind**, a 2-player word-guessing
 > the friends list), and the four Rush modes, at Easy, Medium (the default),
 > Hard and Extreme, with definitions, a profile (history, stats,
 > achievements), accounts and synced profiles, friends and leaderboards.
-> Random opponent, the rating boards and Competitive Rush are built but
-> switched off for 1.0 ([Launch switches](#launch-switches)). Cloudflare
+> Random opponent, the rating boards but Correspondence's and Competitive
+> Rush are built but switched off ([Launch switches](#launch-switches)). Cloudflare
 > deploys `main` to production and every branch to staging; the 1.0 launch
 > is Dev Plan item 18.
 
@@ -1354,8 +1354,9 @@ Built in [Dev Plan](#dev-plan) item 9b: the page, the Daily Rush board and
 the PvP rating boards; Competitive Rush's board came with its mode (item
 11). The app side is `src/app/LeaderboardsScreen.tsx` and
 `leaderboardsApi.ts`; the server's `worker/src/leaderboards.ts`. At the 1.0
-launch only the Daily Rush board is on: the rating boards are switched off
-until there are enough rated players (see [Launch switches](#launch-switches)).
+launch only the Daily Rush board was on; since item 19l the **Correspondence
+PvP** board is on too, and the other rating boards stay switched off until
+there are enough rated players (see [Launch switches](#launch-switches)).
 
 - **Leaderboards** on the [title screen](#title-screen), always shown, opens
   the **Leaderboards** page: a header with **← Back** (to the title screen)
@@ -2206,6 +2207,12 @@ first.
     answering, and sends friend notifications after answering too. Nothing is emailed, and an email with no
     account isn't kept. At most 20 a day, found or not. Someone who already
     asked you, or is already a friend, gets nothing new.
+  - **After a decline** (Dev Plan item 19a): once you **Decline** a
+    request that came by email, the server remembers that sender for a
+    week and quietly ignores their repeat requests to you by email: no
+    request and no notification, while the sender sees the usual answer
+    and the repeat still counts towards their 20 a day, so nothing tells
+    them you declined. Adding you by code or name works as always.
   - A phone's contacts and social accounts are left out: a web app can't
     read an iPhone's contacts, and each social account needs its own
     sign-in setup.
@@ -2239,8 +2246,10 @@ first.
 - The server keeps the list in D1 (`friends`, two rows per pair, marked
   `by_email` for a request sent by email, and `lobby_invites`), with each
   account's code on `accounts.friend_code`; `email_requests` counts each
-  account's requests by email for the daily limit, never the email.
-  Deleting the account removes you from every list.
+  account's requests by email for the daily limit, never the email;
+  `email_declines` holds who declined whose request by email: ignored
+  after a week, and deleted the next time anyone declines one.
+  Deleting the account removes you from every list and its declines.
 
 ### Friends' profiles
 
@@ -2326,7 +2335,7 @@ same merge ships it to both.
 | Switch | At 1.0 | What's off |
 |---|---|---|
 | `randomOpponent` | Off | [Random opponent](#random-opponent): the choice under Two player, and the queue's routes |
-| `ratingBoards` | Off | The rating boards (Live 15, 10 and 5 min, Correspondence, Competitive Rush) on the [Leaderboards](#leaderboards) page, and their route. The Daily Rush board stays |
+| `ratingBoards` | Correspondence only (item 19l) | The list of rating boards that are on. The others (Live 15, 10 and 5 min, Competitive Rush) are left off the [Leaderboards](#leaderboards) page, and their route refuses them. The daily boards stay |
 | `competitiveRush` | Off | [Competitive Rush](#competitive-rush): the Rush kind, opening one on the server, and its badge |
 | `suggest` | On | Easy's **Suggest** button and its routes (see [Easy](#easy)) |
 | `dailyTopTenPercent` | Off | The Daily Rush **top 10%** badge (see [Achievements](#achievements)), until the Daily Rush regularly has more than 10 players |

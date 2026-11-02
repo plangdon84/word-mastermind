@@ -163,6 +163,21 @@ const isId = (value: unknown): value is string =>
  * replay to a finished game; marks that don't parse are dropped.
  */
 export function parseHistoryEntry(value: unknown): HistoryEntry | null {
+  return parseReplayedEntry(value)?.entry ?? null;
+}
+
+/**
+ * `parseHistoryEntry`, with the game replayed to check it, so a caller that
+ * needs both (loading the history) replays each game once, not twice.
+ */
+export function parseReplayedEntry(value: unknown): { entry: HistoryEntry; replayed: ReplayedGame } | null {
+  const entry = readEntry(value);
+  const replayed = entry && replayEntry(entry);
+  return entry && replayed ? { entry, replayed } : null;
+}
+
+/** An entry's fields, each read defensively, before its game is replayed. */
+function readEntry(value: unknown): HistoryEntry | null {
   if (!isObject(value) || !isId(value.id)) return null;
   const { id, version, mode } = value;
   if (!Number.isInteger(version) || (version as number) < 1 || (version as number) > HISTORY_VERSION) return null;
@@ -196,7 +211,7 @@ export function parseHistoryEntry(value: unknown): HistoryEntry | null {
       entry = { ...base, mode, kind, record, places, rating, marks: runMarks(record, value.marks) };
     }
   }
-  return entry && replayEntry(entry) ? entry : null;
+  return entry;
 }
 
 /** A game's result from your side. A Rush has none: it's scored instead. */
@@ -231,6 +246,8 @@ export interface GameSummary {
   names: readonly string[];
   /** A Rush's score and level, or null if it has none (given up, or no word found). */
   rush: SoloRunSummary | null;
+  /** A Word Set (every Rush, the Daily Set and Daily Word, a lobby): every word found. Null for any other game. */
+  allFound: boolean | null;
 }
 
 const lastMoveAt = (startedAt: number, moves: readonly { at: number }[]) =>
@@ -251,6 +268,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         endedAt: lastMoveAt(game.startedAt, game.moves),
         words: new Set([game.secret, ...game.guesses.map((g) => g.guess)]),
         rush: null,
+        allFound: null,
         opponent: null,
         names: [],
         place: null,
@@ -274,6 +292,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
           ...game.humanGuesses.map((g) => g.guess), ...game.computerGuesses.map((g) => g.guess),
         ]),
         rush: null,
+        allFound: null,
         opponent: null,
         names: [],
         place: null,
@@ -294,6 +313,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         endedAt: lastMoveAt(game.startedAt, game.moves),
         words: new Set([...game.words, ...guesses.map((g) => g.guess)]),
         rush: summarizeSoloRun(game),
+        allFound: game.results.every((r) => r.outcome === 'solved'),
         opponent: null,
         names: [],
         place: null,
@@ -318,6 +338,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
           ...game.guesses.host.map((g) => g.guess), ...game.guesses.guest.map((g) => g.guess),
         ]),
         rush: null,
+        allFound: null,
         opponent,
         names: [opponent],
         place: null,
@@ -341,6 +362,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         endedAt: lastMoveAt(game.startedAt, game.moves),
         words: new Set([...game.words, ...guesses.map((g) => g.guess)]),
         rush: null,
+        allFound: game.results.every((r) => r.outcome === 'solved'),
         opponent: null,
         names: replayed.mode === 'lobby' ? replayed.places.filter((p) => !p.you && p.strength === null).map((p) => p.name) : [],
         place: replayed.mode === 'lobby' ? { rank: you?.rank ?? null, of: replayed.places.length } : null,

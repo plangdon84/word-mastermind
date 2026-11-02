@@ -15,7 +15,8 @@ import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
 import { vapidKeysOf } from './pushRoutes';
-import { syncedName } from './sync';
+import { currentNames, syncedName } from './sync';
+import { secureRandom } from './secure';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -28,8 +29,6 @@ import { syncedName } from './sync';
 /** Shown for a player whose device hasn't sent a profile yet. */
 export const NO_NAME = 'A player';
 
-/** A random number in [0, 1) that nobody can predict, for friend codes. */
-const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 
 /** `length` letters and digits from the join codes' alphabet. */
 const randomCode = (length: number, random: () => number) =>
@@ -162,17 +161,19 @@ export async function listFriends(env: Env, accountId: string, now: number): Pro
     `SELECT f.friend_id, f.state, f.since, a.friend_code FROM friends f JOIN accounts a ON a.id = f.friend_id
      WHERE f.account_id = ?1 AND NOT (f.state = 'sent' AND f.by_email = 1) ORDER BY f.since DESC`,
   ).bind(accountId).all<{ friend_id: string; state: string; since: number; friend_code: string }>();
-  const list: FriendsList = {
-    code: await friendCodeOf(db, accountId), invite: await inviteKeyOf(db, accountId), friends: [], received: [], sent: [], lobbyInvites: [],
-  };
+  // Every name in one query, not one each (up to MAX_FRIENDS), alongside the rest.
+  const [code, invite, names, lobbyInvites] = await Promise.all([
+    friendCodeOf(db, accountId), inviteKeyOf(db, accountId), currentNames(db, results.map((r) => r.friend_id)),
+    openLobbyInvites(env, accountId, now),
+  ]);
+  const list: FriendsList = { code, invite, friends: [], received: [], sent: [], lobbyInvites };
   for (const row of results) {
-    const friend: Friend = { code: row.friend_code, name: await nameOrDefault(db, row.friend_id), since: row.since };
+    const friend: Friend = { code: row.friend_code, name: names[row.friend_id] ?? NO_NAME, since: row.since };
     if (row.state === 'friends') list.friends.push(friend);
     else if (row.state === 'received') list.received.push(friend);
     else list.sent.push(friend);
   }
   list.friends.sort((a, b) => a.name.localeCompare(b.name));
-  list.lobbyInvites = await openLobbyInvites(env, accountId, now);
   return list;
 }
 
@@ -240,6 +241,13 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * How long a declined request by email keeps the sender's repeats by email
+ * to that player away (Dev Plan item 19a): ignored silently, still counted
+ * towards the sender's daily limit, so nothing tells them it was declined.
+ */
+export const EMAIL_DECLINE_MS = 7 * DAY_MS;
+
+/**
  * A friend request to whoever has an account with `email` (Dev Plan item
  * 18d), first counted against the sender's limits: whether anyone has
  * that email must never show, so every refusal is here, before the email
@@ -276,9 +284,12 @@ export async function deliverEmailRequest(db: D1Database, accountId: string, ema
   const found = await db.prepare('SELECT id FROM accounts WHERE email = ?1').bind(email).first<{ id: string }>();
   const friendId = found?.id;
   if (!friendId || friendId === accountId) return [];
-  const existing = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first();
-  if (existing || await listSize(db, friendId) >= MAX_FRIENDS) return [];
+  // One read: where they stand, and whether this player declined a request by email from the sender in the past week.
+  const existing = await db.prepare(
+    `SELECT (SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2) AS state,
+       EXISTS (SELECT 1 FROM email_declines WHERE sender_id = ?1 AND declined_by = ?2 AND at > ?3) AS declined`,
+  ).bind(accountId, friendId, now - EMAIL_DECLINE_MS).first<{ state: string | null; declined: number }>();
+  if (existing?.state || existing?.declined || await listSize(db, friendId) >= MAX_FRIENDS) return [];
   await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 1), (?2, ?1, 'received', ?3, 1)`)
     .bind(accountId, friendId, now).run();
   return [friendRequestNotice(friendId, await nameOrDefault(db, accountId))];
@@ -359,16 +370,28 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
 /**
  * Removes a friend, declines their request or withdraws yours: either way,
  * both sides forget it. Removing a friend also renews your invite link, so
- * one they still have can't make them your friend again.
+ * one they still have can't make them your friend again. Declining a
+ * request that came by email remembers the sender for a week
+ * (`EMAIL_DECLINE_MS`), clearing older declines as it goes.
  */
-async function removeFriend(db: D1Database, accountId: string, code: string): Promise<void> {
+async function removeFriend(db: D1Database, accountId: string, code: string, now: number): Promise<void> {
   const friendId = await accountByCode(db, code);
   if (!friendId) return;
-  const row = await db.prepare('SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ?2')
-    .bind(accountId, friendId).first<{ state: string }>();
+  const row = await db.prepare('SELECT state, by_email FROM friends WHERE account_id = ?1 AND friend_id = ?2')
+    .bind(accountId, friendId).first<{ state: string; by_email: number }>();
   if (row?.state === 'friends') await inviteKeyOf(db, accountId, true);
-  await db.prepare('DELETE FROM friends WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)')
-    .bind(accountId, friendId).run();
+  const forget = db.prepare('DELETE FROM friends WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)')
+    .bind(accountId, friendId);
+  if (row?.state !== 'received' || !row.by_email) {
+    await forget.run();
+    return;
+  }
+  await db.batch([
+    forget,
+    db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS),
+    db.prepare(`INSERT INTO email_declines (sender_id, declined_by, at) VALUES (?1, ?2, ?3)
+      ON CONFLICT (sender_id, declined_by) DO UPDATE SET at = excluded.at`).bind(friendId, accountId, now),
+  ]);
 }
 
 /**
@@ -378,11 +401,14 @@ async function removeFriend(db: D1Database, accountId: string, code: string): Pr
  * settings, email, friends list or an ID.
  */
 async function friendProfile(db: D1Database, friendId: string, now: number): Promise<FriendProfile> {
-  const row = await db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
-    .first<{ country: string | null; member_since: number }>();
-  const player = await playerOfAccount(db, friendId);
+  const [row, player, name] = await Promise.all([
+    db.prepare('SELECT country, member_since FROM profiles WHERE account_id = ?1').bind(friendId)
+      .first<{ country: string | null; member_since: number }>(),
+    playerOfAccount(db, friendId),
+    nameOrDefault(db, friendId),
+  ]);
   return {
-    name: await nameOrDefault(db, friendId),
+    name,
     country: isCountry(row?.country) ? row.country : null,
     memberSince: row?.member_since ?? null,
     // The Daily Word's places come last, so an older app, which takes a day's first, shows the Daily Set's.
@@ -426,11 +452,10 @@ export async function routeFriends(
     const friendId = await friendIdByCode(env.DB, accountId, code);
     if (!friendId) return errorResponse(404, 'not-found');
     if (query) return json(await friendGamesPage(env.DB, friendId, query, now));
-    const answer: FriendProfileAnswer = {
-      profile: await friendProfile(env.DB, friendId, now),
-      summary: await sharedSummaryOf(env.DB, friendId),
-      versus: await versusOf(env.DB, accountId, friendId),
-    };
+    const [profile, summary, versus] = await Promise.all([
+      friendProfile(env.DB, friendId, now), sharedSummaryOf(env.DB, friendId), versusOf(env.DB, accountId, friendId),
+    ]);
+    const answer: FriendProfileAnswer = { profile, summary, versus };
     return json(answer);
   }
   if (pathname === '/api/friends/search') {
@@ -480,7 +505,7 @@ export async function routeFriends(
     if (!added.ok) return errorResponse(added.status, added.error);
     await afterAnswering(Promise.resolve(added.notices));
   } else if (pathname === '/api/friends/remove') {
-    await removeFriend(env.DB, accountId, code);
+    await removeFriend(env.DB, accountId, code, now);
   } else {
     return errorResponse(404, 'not-found');
   }

@@ -5,6 +5,7 @@ import { isGuestId } from './guests';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
 import { addressOf } from './limits';
+import { sha256Hex, toHex } from './secure';
 
 /*
  * Report an issue (README "Reporting an issue"). The app sends a report; the
@@ -31,7 +32,7 @@ const DAY_MS = 24 * HOUR_MS;
 const REPORT_ID = /^[0-9a-f]{32}$/;
 const SCREENSHOT_PATH = /^\/api\/reports\/([^/]+)\/screenshot$/;
 
-const newReportId = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+const newReportId = () => toHex(crypto.getRandomValues(new Uint8Array(16)));
 
 /** Does the image start the way its type says? A report can't smuggle in, say, HTML labelled as a PNG. */
 export function screenshotMatchesType(type: ScreenshotType, data: string): boolean {
@@ -49,10 +50,7 @@ export function screenshotMatchesType(type: ScreenshotType, data: string): boole
 }
 
 /** An address, hashed: enough to count its reports, kept for an hour only (`sendReport`). */
-async function hashAddress(address: string): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`report:${address}`)));
-  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+const hashAddress = (address: string): Promise<string> => sha256Hex(`report:${address}`);
 
 /** May this device, from this address (hashed; null outside Cloudflare), send a report now? */
 async function mayReport(db: D1Database, guestId: string, ipHash: string | null, now: number): Promise<boolean> {

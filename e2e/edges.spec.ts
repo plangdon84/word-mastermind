@@ -140,6 +140,75 @@ test('two tabs of one single player game keep every guess', async ({ page, conte
   for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
 });
 
+test('two tabs of one game against the computer keep every guess, and it guesses once a turn (Dev Plan item 19d)', async ({ page, context }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'Computer').click();
+  await button(page, /^Casual/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start game').click();
+  // Your secret word.
+  await guess(page, 'storm');
+  await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
+  const second = await context.newPage();
+  await second.goto('/');
+  await resume(second);
+  await expect(second.getByText('Your turn')).toBeVisible();
+  const target = ((await getStorage(page, 'two-player'))!.record as { computerSecret: string }).computerSecret;
+  const [a, b] = ['crane', 'house', 'pilot'].filter((w) => w !== target);
+  // The first tab, shown again, leads: the computer answers there, and the second tab follows.
+  await page.bringToFront();
+  await guess(page, a);
+  await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
+  await expect(shown(second, a)).toBeVisible();
+  await second.bringToFront();
+  await expect(second.getByText('Your turn')).toBeVisible();
+  await guess(second, b);
+  await expect(second.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
+  await expect(shown(page, b)).toBeVisible();
+  // Every guess kept, and the computer's turns alternate with yours: never two answers to one guess.
+  const moves = ((await getStorage(page, 'two-player'))!.record as { moves: { side: string; kind: string }[] }).moves
+    .filter((m) => m.kind === 'guess');
+  expect(moves.filter((m) => m.side === 'human').length).toBe(2);
+  for (let i = 1; i < moves.length; i++) expect(moves[i].side).not.toBe(moves[i - 1].side);
+  await page.reload();
+  await resume(page);
+  for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
+});
+
+test('two tabs of one Solo Rush keep every guess, and the clock runs in the tab you look at (Dev Plan item 19d)', async ({ page, context }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'Solo').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start game').click();
+  await expect(page.getByText(/No guesses yet/)).toBeVisible();
+  const words = (await getStorage(page, 'rush'))!.record as { words: string[] };
+  const [a, b] = ['crane', 'storm', 'house'].filter((w) => w !== words.words[0]);
+  await guess(page, a);
+  const second = await context.newPage();
+  await second.goto('/');
+  await resume(second);
+  // Switching tabs: the first pauses as it's hidden, and the second takes over its run and resumes it.
+  await setHidden(page, true);
+  await setHidden(second, false);
+  await expect(shown(second, a)).toBeVisible();
+  await expect(second.getByRole('heading', { name: 'Paused' })).toBeHidden();
+  await guess(second, b);
+  // And back: the first catches up rather than resuming its own copy over the second tab's guess.
+  await setHidden(second, true);
+  await setHidden(page, false);
+  await expect(shown(page, b)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeHidden();
+  // Reloading pauses it, until Resume, unless the reloaded page catches up with the pause first and resumes it.
+  await page.reload();
+  await resume(page);
+  const paused = page.getByRole('heading', { name: 'Paused' });
+  await expect(paused.or(shown(page, a))).toBeVisible();
+  if (await paused.isVisible()) await button(page, 'Resume').first().click();
+  for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
+});
+
 test('signing in mid-game keeps the game; signing out starts a new guest', async ({ page }) => {
   await unlockAll(page);
   const secret = await startSolo(page);
@@ -718,4 +787,19 @@ test('finding a friend by name sends them a request, and by email says the same 
   await page.getByLabel('Find a friend').fill(`nobody-${stamp}@example.com`);
   await button(page, 'Find').click();
   await expect(page.getByText("If they have a wordmastermind.app account, they'll get your request.", { exact: false })).toBeVisible();
+});
+
+test('Leaderboards has the Correspondence rating board and no other (item 19l)', async ({ page }) => {
+  await page.goto('/');
+  await unlockAll(page);
+  await button(page, 'Leaderboards').click();
+  const tiles = page.getByRole('group', { name: 'Leaderboards' }).getByRole('button');
+  await expect(tiles).toHaveCount(3);
+  await expect(modeButton(page, 'Correspondence PvP')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Live PvP|^Competitive Rush/ })).toHaveCount(0);
+  await modeButton(page, 'Correspondence PvP').click();
+  await expect(page.getByRole('heading', { name: 'Correspondence PvP' })).toBeVisible();
+  await expect(page.getByText('Nobody is listed yet.')).toBeVisible();
+  await button(page, 'Back').click();
+  await expect(modeButton(page, 'Correspondence PvP')).toBeVisible();
 });

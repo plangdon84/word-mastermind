@@ -1,4 +1,5 @@
 import { isLobbyCode, isObject, parseMarks, type LobbyKind, type Marks } from '../game';
+import { writeStored } from './localStore';
 
 /*
  * What this device keeps about Rush with Friends and Competitive Rush. The lobby is on the
@@ -42,11 +43,8 @@ export function loadLobby(): LobbySaved | null {
 }
 
 export function saveLobby(saved: LobbySaved): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(saved));
-  } catch {
-    // Storage is a convenience; the lobby is on the server.
-  }
+  // If storage refuses it: the lobby is on the server.
+  writeStored(KEY, JSON.stringify(saved));
 }
 
 /** The lobby a reload, or Continue, should go back to, if any. */

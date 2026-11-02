@@ -1,5 +1,6 @@
 import { isObject, isTime, validateName } from '../game';
 import { apiRequester } from './apiIdentity';
+import { removeStored, writeStored } from './localStore';
 
 /*
  * Accounts (README "Accounts"): signing in with an email link or Google, so
@@ -66,12 +67,8 @@ export function loadSession(): Session | null {
 
 /** Saves the session, or forgets it (null) on signing out. */
 export function saveSession(session: Session | null): void {
-  try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    // Storage is a convenience; you'd just sign in again.
-  }
+  if (session) writeStored(SESSION_KEY, JSON.stringify(session));
+  else removeStored(SESSION_KEY);
 }
 
 /** The sign-in link's token, from an emailed link or the end of Google's round trip (`?login=…`). */

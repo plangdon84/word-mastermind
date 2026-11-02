@@ -26,7 +26,8 @@ import { useMessage, usePhysicalKeyboard } from './hooks';
 import { errorMessage, guessCount, marksCheckMessage, repeatMessage, RUSH_NO_SUGGESTIONS, scoreMessage } from './messages';
 import { newId } from './ids';
 import { openReport } from './reportIssue';
-import { loadRush, saveRush } from './rushStorage';
+import { loadRush, onOtherTabRushSave, rushSavedSince, saveRush, type RushSaved } from './rushStorage';
+import { sameRecord } from './tabSync';
 import type { Profile } from './profileStorage';
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
@@ -76,11 +77,15 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const [marks, setMarks] = useState<readonly Marks[]>(() => saved?.marks ?? run.words.map(() => ({})));
   const marksRef = useRef(marks);
   marksRef.current = marks;
+  /** What this page last saved, so coming back can tell whether another page saved since (Dev Plan item 19d). */
+  const written = useRef<string | null>(null);
   /** Saves at once, since the page may be closing (the effect below may not run in time). */
   const setRun = (r: RunGame) => {
     runRef.current = r;
     setRunState(r);
-    saveRush({ id: idRef.current, run: r, marks: marksRef.current, draft: draftRef.current });
+    written.current = saveRush({
+      id: idRef.current, run: r, marks: marksRef.current, draft: draftRef.current, away: autoPaused.current,
+    }) ?? written.current;
   };
   const setDraft = (d: string) => {
     draftRef.current = d;
@@ -113,10 +118,18 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
   const definitions = useDefinitions(openDef >= 0 || over || showFound);
 
+  /** Set when this tab takes another's save: that's never saved back, as it could replace a newer one (Dev Plan item 19d). */
+  const adopted = useRef(false);
   // A reviewed Rush is already saved, and must not replace the Rush in progress.
   useEffect(() => {
-    if (!reviewing) saveRush({ id, run, marks, draft });
+    if (adopted.current) {
+      adopted.current = false;
+      return;
+    }
+    if (!reviewing) written.current = saveRush({ id, run, marks, draft, away: autoPaused.current }) ?? written.current;
   }, [reviewing, id, run, marks, draft]);
+  const reviewingRef = useRef(reviewing);
+  reviewingRef.current = reviewing;
   useEffect(() => {
     if (over && !reviewing) {
       const entry = { id, version: HISTORY_VERSION, mode: 'rush' as const, record: toRunRecord(run), marks };
@@ -165,18 +178,61 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
     setRun(result.game);
   };
 
+  /**
+   * The same Rush open in another tab (Dev Plan item 19d): take its run and
+   * marks, so this tab never saves an older copy over it (a hidden tab used
+   * to pause its own stale run, losing the other tab's guesses). Only a
+   * change is taken, so the tabs' saves don't echo. A run it paused because
+   * it was hidden resumes here, if this tab is the one showing.
+   */
+  const follow = (other: RushSaved) => {
+    if (other.id !== idRef.current || !sameRecord(toRunRecord(other.run), toRunRecord(runRef.current))) {
+      adopted.current = true;
+      idRef.current = other.id;
+      setId(other.id);
+      runRef.current = other.run;
+      setRunState(other.run);
+      autoPaused.current = other.away === true;
+      setNow(Date.now());
+    }
+    if (!sameRecord(marksRef.current, other.marks)) {
+      adopted.current = true;
+      marksRef.current = other.marks;
+      setMarks(other.marks);
+    }
+    if (document.visibilityState === 'visible' && autoPaused.current) resumeClock();
+  };
+  /** Takes another tab's saves this page missed while it slept. */
+  const catchUp = () => {
+    if (reviewingRef.current) return;
+    const other = rushSavedSince(written.current);
+    if (other) follow(other);
+  };
+  useEffect(() => (reviewing ? undefined : onOtherTabRushSave(follow)), [reviewing]);
+
   // Pause while the page is hidden or closed, and resume on return unless
-  // Pause was pressed. Leaving the screen (main menu) pauses too.
+  // Pause was pressed (catching up with another tab first). Leaving the
+  // screen (main menu) pauses too.
   useLayoutEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') pause(true);
-      else if (autoPaused.current) resumeClock();
+      if (document.visibilityState === 'hidden') {
+        pause(true);
+        return;
+      }
+      catchUp();
+      if (autoPaused.current) resumeClock();
+    };
+    const onHide = () => pause(true);
+    const onShow = () => {
+      if (document.visibilityState === 'visible') onVisibility();
     };
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('pagehide', onVisibility);
+    window.addEventListener('pagehide', onHide);
+    window.addEventListener('pageshow', onShow);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pagehide', onVisibility);
+      window.removeEventListener('pagehide', onHide);
+      window.removeEventListener('pageshow', onShow);
       pause(false);
     };
   }, []);

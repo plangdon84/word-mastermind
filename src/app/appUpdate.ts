@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { isObject } from '../game';
-import { APP_VERSION, compareVersions, parseVersion } from './releases';
+import { APP_VERSION, compareVersions, parseVersion } from './version';
 
 /*
  * Getting the new version (issue #136). A page left open, above all a

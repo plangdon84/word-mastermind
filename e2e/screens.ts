@@ -288,6 +288,15 @@ export const SCREENS: Screen[] = [
     },
   },
   { name: 'leaderboards', open: async (page) => { await unlockAll(page); await button(page, 'Leaderboards').click(); } },
+  {
+    // The one rating board on (Dev Plan item 19l), as a guest: nobody listed on a fresh database.
+    name: 'leaderboard-correspondence',
+    open: async (page) => {
+      await unlockAll(page);
+      await button(page, 'Leaderboards').click();
+      await modeButton(page, 'Correspondence PvP').click();
+    },
+  },
   { name: 'profile', open: async (page) => { await unlockAll(page); await page.getByRole('button', { name: /^Profile/ }).click(); } },
   { name: 'profile-account', open: (page) => profilePage(page, 'Account') },
   {

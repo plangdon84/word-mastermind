@@ -7,7 +7,7 @@ import { Keyboard, STRENGTH_LABEL } from './components';
 import { API_URL } from './config';
 import { isPhone, SecretStep, ShareIcon } from './friendParts';
 import { PlayerName } from './friendLink';
-import { useFriendsList } from './FriendsSection';
+import { useFriendsList } from './friendsList';
 import { useMessage, usePhysicalKeyboard } from './hooks';
 import { LobbyApiError, type LobbyApi } from './lobbyApi';
 import { lobbyLink, lobbyMessage } from './lobbyStorage';

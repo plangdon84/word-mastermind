@@ -1,6 +1,6 @@
 import {
-  matchesFilter, parseHistoryEntry, replayEntry, summarizeGame,
-  type GameSummary, type HistoryEntry, type HistoryFilter, type ReplayedGame,
+  matchesFilter, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame,
+  type GameSummary, type HistoryEntry, type HistoryFilter, type ReplayedGame, type StatsGame,
 } from '../game';
 
 /*
@@ -140,9 +140,17 @@ export interface HistoryGame {
   summary: GameSummary;
 }
 
-export function toHistoryGame(entry: HistoryEntry): HistoryGame | null {
-  const replayed = replayEntry(entry);
+/** A game for stats, badges and unlocks, with its summary, so they needn't work it out again (Dev Plan item 19c). */
+export const statsGame = ({ entry, replayed, summary }: HistoryGame): StatsGame => ({ id: entry.id, replayed, summary });
+
+export function toHistoryGame(entry: HistoryEntry, replayed = replayEntry(entry)): HistoryGame | null {
   return replayed ? { entry, replayed, summary: summarizeGame(replayed) } : null;
+}
+
+/** A stored value as a game to show, or null if it doesn't read: each game is replayed once. */
+function storedGame(value: unknown): HistoryGame | null {
+  const parsed = parseReplayedEntry(value);
+  return parsed && toHistoryGame(parsed.entry, parsed.replayed);
 }
 
 /** Where a page of history starts: an offset into this browser's, or a friend's `FriendGamesQuery.after`. */
@@ -180,8 +188,7 @@ export async function loadGamesPage(filter: HistoryFilter, offset: number, limit
         return;
       }
       walked++;
-      const entry = parseHistoryEntry(cursor.value);
-      const game = entry && toHistoryGame(entry);
+      const game = storedGame(cursor.value);
       if (game && matchesFilter(game.summary, filter)) games.push(game);
       cursor.continue();
     };
@@ -190,9 +197,24 @@ export async function loadGamesPage(filter: HistoryFilter, offset: number, limit
   });
 }
 
-/** Every game matching `filter`, newest first. */
+/**
+ * Every game matching `filter`, newest first. Read in one request rather
+ * than a cursor's step per game, which with thousands of games is most of
+ * the time it takes (Dev Plan item 19c).
+ */
 export async function loadAllMatching(filter: HistoryFilter): Promise<HistoryGame[]> {
-  return (await loadGamesPage(filter, 0, Infinity)).games;
+  const values = await withDb(async (db) => {
+    const tx = db.transaction(STORE);
+    const request = tx.objectStore(STORE).index(BY_START).getAll();
+    await done(tx);
+    return request.result as unknown[];
+  });
+  const games: HistoryGame[] = [];
+  for (let i = values.length - 1; i >= 0; i--) {
+    const game = storedGame(values[i]);
+    if (game && matchesFilter(game.summary, filter)) games.push(game);
+  }
+  return games;
 }
 
 /** Deletes every saved game (Reset profile). */

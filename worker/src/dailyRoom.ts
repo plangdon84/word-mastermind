@@ -21,6 +21,12 @@ export interface DailyEntry {
   /** Their name on the leaderboard. */
   name: string;
   record: RunRecord;
+  /**
+   * A finished run not yet in D1 (Dev Plan item 19m): saving it failed, so
+   * the player's next request tries again. Stored as soon as the run ends,
+   * before saving, so a request meanwhile (a double tap) finds it over.
+   */
+  unsaved?: boolean;
 }
 
 /** What the referee needs from outside: keeping a finished run in D1, for the leaderboard, and shuffling. */
@@ -83,7 +89,8 @@ export async function handleDaily(
 ): Promise<DailyResponse> {
   const { day } = request;
   const mode = request.mode ?? 'daily';
-  const entry = await findEntry(storage, mode, request);
+  const found = await findEntry(storage, mode, request);
+  const entry = found?.unsaved ? await saveFinishedEntry(storage, deps, mode, day, found, now) : found;
   const answer = (e: DailyEntry | null): DailyResponse => ({ status: 200, body: { run: e && dailyView(day, replay(e)) } });
   if (request.action === 'get') return answer(entry);
 
@@ -132,10 +139,36 @@ export async function handleDaily(
     throw new Error(`A Daily Rush refused a move: ${result.error}`);
   }
   const next: DailyEntry = { ...entry, record: toRunRecord(result.game) };
-  await storage.put(keyOf(mode, next.playerId), next);
-  const totals = dailyTotals(result.game);
-  if (totals) await deps.saveFinished(mode, day, next, totals, finishedLate(day, result.game), now);
-  return answer(next);
+  if (!dailyTotals(result.game)) {
+    await storage.put(keyOf(mode, next.playerId), next);
+    return answer(next);
+  }
+  const over: DailyEntry = { ...next, unsaved: true };
+  await storage.put(keyOf(mode, over.playerId), over);
+  return answer(await saveFinishedEntry(storage, deps, mode, day, over, now));
+}
+
+/**
+ * Puts a finished run into D1 (its board row and history) and clears
+ * `unsaved`; if that fails, it stays `unsaved` for the next request to try
+ * again, and the request still answers. Saving twice is harmless: D1
+ * ignores rows it has.
+ */
+async function saveFinishedEntry(
+  storage: RoomStorage, deps: DailyDeps, mode: DailyMode, day: DailyDay, entry: DailyEntry, now: number,
+): Promise<DailyEntry> {
+  const run = replay(entry);
+  const totals = dailyTotals(run);
+  if (totals) {
+    try {
+      await deps.saveFinished(mode, day, entry, totals, finishedLate(day, run), now);
+    } catch {
+      return entry;
+    }
+  }
+  const { unsaved: _unsaved, ...saved } = entry;
+  await storage.put(keyOf(mode, saved.playerId), saved);
+  return saved;
 }
 
 /** Each daily game's leaderboard table. */
@@ -150,13 +183,16 @@ export async function saveFinishedDaily(
   now: number,
 ): Promise<void> {
   const { playerId, name, record } = entry;
-  if (!late) await db.prepare(
-    `INSERT OR IGNORE INTO ${RESULTS_TABLE[mode]} (day, player_id, difficulty, name, guesses, ms, finished_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
-  ).bind(day, playerId, record.difficulty, name, totals.guesses, totals.ms, now).run();
   const gameId = `${mode}:${day}:${playerId}`;
-  await db.prepare(
-    `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
-  ).bind(gameId, mode, historyVersion, JSON.stringify(record), record.startedAt, now).run();
-  await db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(gameId, playerId).run();
+  // One batch: the board, the history and its player row are kept together or not at all.
+  await db.batch([
+    ...(late ? [] : [db.prepare(
+      `INSERT OR IGNORE INTO ${RESULTS_TABLE[mode]} (day, player_id, difficulty, name, guesses, ms, finished_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+    ).bind(day, playerId, record.difficulty, name, totals.guesses, totals.ms, now)]),
+    db.prepare(
+      `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+    ).bind(gameId, mode, historyVersion, JSON.stringify(record), record.startedAt, now),
+    db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(gameId, playerId),
+  ]);
 }

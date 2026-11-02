@@ -6,10 +6,11 @@ import { fetchRatingBoard, LeaderboardError, parseRatingBoard, type Circle } fro
 import { syncApi } from '../../src/app/syncApi';
 import { DAY_MS, type RatingPool } from '../../src/game';
 import { fakeD1 } from './fakeD1';
+import { NO_NAME } from './friends';
 import { handle, type Env } from './index';
 
 // Switched off for the launch; these tests are for when it's on (launch.test.ts checks it's refused).
-vi.mock('../../src/game/features', () => ({ FEATURES: { randomOpponent: true, ratingBoards: true, competitiveRush: true } }));
+vi.mock('../../src/game/features', () => ({ FEATURES: { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true } }));
 
 /*
  * The Leaderboards page (README "Leaderboards"): a board per rating pool,
@@ -100,6 +101,16 @@ describe('a rating board', () => {
     // Other pools are apart; rows never carry an account's ID.
     expect((await ann.board('5m')).top).toEqual([]);
     expect(JSON.stringify(board)).not.toContain(ann.id);
+  });
+
+  it('shows a name the profanity filter now refuses as no name', async () => {
+    const { player, rate, guest, sqlite, fetchFn } = setup();
+    const ann = await player('Ann');
+    rate(ann.id, 'correspondence', 1600, 80, 20);
+    // Saved before a stricter filter, say: written straight to the table.
+    sqlite.prepare('UPDATE profiles SET name = ? WHERE account_id = ?').run('Shithead', ann.id);
+    const board = await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn);
+    expect(board.top.map((r) => r.name)).toEqual([NO_NAME]);
   });
 
   it("has Competitive Rush's board, apart from the PvP pools", async () => {

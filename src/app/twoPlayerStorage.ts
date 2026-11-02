@@ -3,6 +3,8 @@ import {
   type Marks, type Side, type TwoPlayerGame, type TwoPlayerMove, type TwoPlayerRecord,
 } from '../game';
 import { newId } from './ids';
+import { onOtherTabSaveAt, savedSinceAt } from './tabSync';
+import { removeStored } from './localStore';
 
 /** What survives a page reload in two player. Settings are saved separately. */
 export interface TwoPlayerSaved {
@@ -93,19 +95,26 @@ export function serializeTwoPlayerSaved({ id, game, marks, draft }: TwoPlayerSav
   return JSON.stringify({ id, record: toTwoPlayerRecord(game), marks, draft });
 }
 
-export function saveTwoPlayer(saved: TwoPlayerSaved): void {
+/** Saves the game; returns what was written, or null if storage refused it. */
+export function saveTwoPlayer(saved: TwoPlayerSaved): string | null {
   try {
-    localStorage.setItem(KEY, serializeTwoPlayerSaved(saved));
+    const raw = serializeTwoPlayerSaved(saved);
+    localStorage.setItem(KEY, raw);
+    return raw;
   } catch {
     // Storage is a convenience; the game works without it.
+    return null;
   }
 }
 
+/** The saved game, if another page saved it since this one wrote `written` (Dev Plan item 19d). */
+export const twoPlayerSavedSince = (written: string | null) => savedSinceAt(KEY, written, (raw) => parseTwoPlayerSaved(raw));
+
+/** Calls `listener` when another tab saves the two player game, so this tab follows it. Returns the unsubscribe. */
+export const onOtherTabTwoPlayerSave = (listener: (saved: TwoPlayerSaved) => void) =>
+  onOtherTabSaveAt(KEY, (raw) => parseTwoPlayerSaved(raw), listener);
+
 /** Forgets the saved game, so an abandoned game can't be continued. */
 export function clearTwoPlayer(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to clear.
-  }
+  removeStored(KEY);
 }

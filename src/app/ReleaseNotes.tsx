@@ -1,18 +1,7 @@
 import { Modal } from './panels';
-import { APP_VERSION, RELEASES, type ReleasePicture } from './releases';
-
-/**
- * The version in the title screen's footer; tapping it opens What's new. The label is
- * short to fit the footer's small print, and the name says What's new.
- */
-export function VersionLink({ onOpen, tabIndex }: { onOpen?: () => void; tabIndex?: number }) {
-  return (
-    <button type="button" class="version-link" aria-label={`Version ${APP_VERSION} · What's new`}
-      title="What's new" tabIndex={tabIndex} onClick={onOpen}>
-      Version {APP_VERSION}
-    </button>
-  );
-}
+import { RELEASES, type ReleasePicture } from './releases';
+import { APP_VERSION } from './version';
+import { VersionLink } from './VersionLink';
 
 /** A mock-up of the thing a note is about: the real look, made inert. */
 function Picture({ picture }: { picture: ReleasePicture }) {

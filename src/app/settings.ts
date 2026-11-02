@@ -2,6 +2,7 @@ import {
   DIFFICULTIES, FEATURES, isRankBy, isTimeControl, isTurnDays, type Difficulty, type Features, type RankBy, type Strength,
   type TimeControl,
 } from '../game';
+import { writeStored } from './localStore';
 
 export type { Difficulty };
 
@@ -142,9 +143,5 @@ export function loadSettings(): Settings {
 }
 
 export function saveSettings(settings: Settings): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(settings));
-  } catch {
-    // Storage is a convenience; the game works without it.
-  }
+  writeStored(KEY, JSON.stringify(settings));
 }

@@ -4,6 +4,7 @@ import { loadDaily } from './dailyStorage';
 import { findFriendGame } from './friendGames';
 import { loadLobby } from './lobbyStorage';
 import { fetchPlayed, PLAYED_RETRIES, type PlayedGame } from './playedApi';
+import { writeStored } from './localStore';
 
 /*
  * Bringing the server's games into this browser's history (README "Game
@@ -69,11 +70,8 @@ function loadState(): PlayedState | null {
 }
 
 function saveState(state: PlayedState): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-  } catch {
-    // The next pull reads from the start again; games already here are skipped.
-  }
+  // If storage refuses it: the next pull reads from the start again; games already here are skipped.
+  writeStored(KEY, JSON.stringify(state));
 }
 
 /** The marks you left on a game while playing it, where this browser still has them. */

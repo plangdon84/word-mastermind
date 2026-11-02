@@ -2,12 +2,12 @@ import type { Strength } from './computer';
 import { addDays, finishedLate, isTopTen, isTopTenPercent, type DailyPlacement } from './daily';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { FEATURES, type Feature, type Features } from './features';
-import { summarizeGame, type GameSummary } from './history';
+import type { GameSummary } from './history';
 import { otherSeat } from './pvp';
 import { STRENGTHS } from './records';
 import { runRankBy, summarizeSoloRun } from './run';
 import { RANK_BYS, type RankBy } from './scoring';
-import type { StatsGame } from './stats';
+import { summaryOf, type StatsGame } from './stats';
 import { computeOldUnlocks, computeUnlocks, OLD_UNLOCK_STEPS, type UnlockStep } from './unlocks';
 
 /*
@@ -333,7 +333,7 @@ export function computeAchievements(
   games: readonly StatsGame[], dayOf: (ms: number) => number, daily: readonly DailyPlacement[] = [],
 ): EarnedBadge[] {
   const rows = games
-    .map((game) => ({ game, summary: summarizeGame(game.replayed) }))
+    .map((game) => ({ game, summary: summaryOf(game) }))
     .sort((a, b) => a.summary.endedAt - b.summary.endedAt);
   const earned = new Map<string, EarnedBadge>();
   const earn = (id: string, row: (typeof rows)[number]) => {

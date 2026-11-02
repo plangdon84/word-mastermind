@@ -108,27 +108,45 @@ export async function boardNames(db: D1Database, ids: readonly string[]): Promis
  * the same statement, so two uploads at once can't both pass the limit.
  */
 export async function saveEntries(db: D1Database, accountId: string, entries: readonly HistoryEntry[], now: number): Promise<number> {
-  let added = 0;
-  for (const entry of entries) {
-    const { meta } = await db.prepare(
-      `INSERT OR IGNORE INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at)
-       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
-       WHERE (SELECT history_chars FROM accounts WHERE id = ?1) + LENGTH(?5) <= ${MAX_ACCOUNT_CHARS}`,
-    ).bind(accountId, entry.id, entry.mode, entry.version, JSON.stringify(entry), entry.record.startedAt, now).run();
-    added += meta.changes ?? 0;
+  if (entries.length === 0) return 0;
+  const insert = (entry: HistoryEntry) => db.prepare(
+    `INSERT OR IGNORE INTO history_entries (account_id, id, mode, version, entry, started_at, uploaded_at)
+     SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+     WHERE (SELECT history_chars FROM accounts WHERE id = ?1) + LENGTH(?5) <= ${MAX_ACCOUNT_CHARS}`,
+  ).bind(accountId, entry.id, entry.mode, entry.version, JSON.stringify(entry), entry.record.startedAt, now);
+  const count = (results: readonly D1Result[]) => results.reduce((added, { meta }) => added + (meta.changes ?? 0), 0);
+  try {
+    // One batch (one round trip); its statements run in order, each seeing the total the ones before it left.
+    return count(await db.batch(entries.map(insert)));
+  } catch (error) {
+    // A batch is all or nothing: one entry the database refuses mustn't keep the rest out on every sync, so
+    // each goes on its own. If any still fails (the database down, say), so does the request: the device then
+    // sends them all again next time, and the ones kept now are skipped, so none is ever taken as kept and lost.
+    let added = 0;
+    let failed = false;
+    for (const entry of entries) {
+      added += await insert(entry).run().then((r) => count([r]), () => {
+        failed = true;
+        return 0;
+      });
+    }
+    if (failed) throw error;
+    return added;
   }
-  return added;
 }
 
-/** A page of the account's games after `cursor`, in the order they arrived. */
-export async function loadEntries(db: D1Database, accountId: string, cursor: number) {
+/**
+ * A page of the account's games after `cursor`, in the order they arrived,
+ * as the response's JSON: each entry is stored as JSON already, so it's
+ * passed on as it is rather than parsed and written out again.
+ */
+export async function loadEntries(db: D1Database, accountId: string, cursor: number): Promise<string> {
   const { results } = await db.prepare(
     `SELECT seq, entry FROM history_entries WHERE account_id = ?1 AND seq > ?2 ORDER BY seq LIMIT ${DOWNLOAD_PAGE + 1}`,
   ).bind(accountId, cursor).all<{ seq: number; entry: string }>();
   const page = results.slice(0, DOWNLOAD_PAGE);
-  const entries = page.map((r) => JSON.parse(r.entry) as unknown);
   const last = page.length > 0 ? page[page.length - 1].seq : cursor;
-  return { entries, cursor: last, next: results.length > DOWNLOAD_PAGE ? last : null };
+  return `{"entries":[${page.map((r) => r.entry).join(',')}],"cursor":${last},"next":${results.length > DOWNLOAD_PAGE ? last : null}}`;
 }
 
 /** Routes `/api/profile` and `/api/history`, or returns null for any other path. */
@@ -153,7 +171,7 @@ export async function routeSync(request: Request, env: Env, now: number, pathnam
   if (method === 'GET') {
     const after = Number(new URL(request.url).searchParams.get('after') ?? 0);
     if (!Number.isSafeInteger(after) || after < 0) return errorResponse(400, 'bad-request');
-    return json(await loadEntries(env.DB, accountId, after));
+    return new Response(await loadEntries(env.DB, accountId, after), { headers: { 'content-type': 'application/json; charset=utf-8' } });
   }
   if (method !== 'POST') return errorResponse(405, 'bad-request');
   const body = await readJson(request);

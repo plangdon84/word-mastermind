@@ -84,8 +84,14 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
 
   /** What this page last saved, so coming back can tell whether another page saved since. */
   const written = useRef<string | null>(null);
+  /** Set when this tab takes another's save: that's never saved back, as it could replace a newer one (Dev Plan item 19d). */
+  const adopted = useRef(false);
   // A reviewed game is already saved, and must not replace the game in progress.
   useEffect(() => {
+    if (adopted.current) {
+      adopted.current = false;
+      return;
+    }
     if (!reviewing) written.current = save({ id, game, marks, draft }) ?? written.current;
   }, [reviewing, id, game, marks, draft]);
   // The same game open in another tab: follow its moves and marks, so its
@@ -95,10 +101,15 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
     if (reviewing) return undefined;
     const follow = (other: Saved) => {
       if (JSON.stringify(toSoloRecord(other.game)) !== JSON.stringify(toSoloRecord(gameRef.current))) {
+        adopted.current = true;
         setId(other.id);
         setGame(other.game);
       }
-      setMarks((m) => (JSON.stringify(m) === JSON.stringify(other.marks) ? m : other.marks));
+      setMarks((m) => {
+        if (JSON.stringify(m) === JSON.stringify(other.marks)) return m;
+        adopted.current = true;
+        return other.marks;
+      });
     };
     // A page that slept (a tab in the background, or one Back brought back)
     // may have missed those saves: it catches up on coming back (issue #163).

@@ -234,12 +234,13 @@ export async function saveFinishedLobby(
   const { game } = lobby;
   if (!game) return null;
   const gameId = `lobby:${lobby.code}:${game.startedAt}`;
-  await db.prepare(
-    `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, 'lobby', ?2, ?3, ?4, ?5)`,
-  ).bind(gameId, historyVersion, JSON.stringify(lobby), game.startedAt, endedAt).run();
-  for (const player of lobby.players) {
-    await db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(gameId, player.id).run();
-  }
+  await db.batch([
+    db.prepare(
+      `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, 'lobby', ?2, ?3, ?4, ?5)`,
+    ).bind(gameId, historyVersion, JSON.stringify(lobby), game.startedAt, endedAt),
+    ...lobby.players.map((player) =>
+      db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(gameId, player.id)),
+  ]);
   const people = game.seats.filter((s) => s.strength === null);
   if (lobbyKind(lobby) !== 'competitive' || people.length < 2) return null;
   const places = people.map((p) => ({

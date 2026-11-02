@@ -30,7 +30,15 @@ export function isAlphabetic(word: string): boolean {
 /** Secret words may not repeat a letter (`bunny` is invalid). Guesses may. */
 export function hasRepeatedLetters(word: string): boolean {
   const normalized = normalizeWord(word);
-  return new Set(normalized).size !== normalized.length;
+  let seen = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    const bit = normalized.charCodeAt(i) - 97;
+    // Anything but a–z: counted as a Set would.
+    if (bit < 0 || bit > 25) return new Set(normalized).size !== normalized.length;
+    if (seen & (1 << bit)) return true;
+    seen |= 1 << bit;
+  }
+  return false;
 }
 
 /** Is the word on the secret-word list? Case-insensitive. */

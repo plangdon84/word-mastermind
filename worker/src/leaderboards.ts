@@ -1,4 +1,6 @@
-import { ageRating, FEATURES, gamesUntilListed, isProvisional, isRatingPool, NEW_RATING, PROVISIONAL_RD, type RatingPool } from '../../src/game';
+import {
+  ageRating, FEATURES, gamesUntilListed, isProvisional, isRatingPool, NEW_RATING, PROVISIONAL_RD, validateName, type RatingPool,
+} from '../../src/game';
 import {
   isCircle, RATING_BOARD_SIZE, type Circle, type RatingBoard, type RatingBoardRow, type YourRatingPlace,
 } from '../../src/app/leaderboardsApi';
@@ -59,8 +61,10 @@ export async function ratingBoard(
   listed.forEach((r, i) => {
     const rating = Math.round(r.rating);
     const rank = i > 0 && ranked[i - 1].rating === rating ? ranked[i - 1].rank : i + 1;
+    // A name the profanity filter now refuses shows as no name, as on the daily boards.
+    const shown = r.name === null ? null : validateName(r.name);
     ranked.push({
-      rank, name: r.name ?? NO_NAME, rating, games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
+      rank, name: shown?.ok ? shown.name : NO_NAME, rating, games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
     });
   });
   let you: YourRatingPlace | null = null;
@@ -78,8 +82,6 @@ export async function ratingBoard(
 export async function routeLeaderboards(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
   if (!pathname.startsWith('/api/leaderboards/')) return null;
   if (pathname !== '/api/leaderboards/ratings') return errorResponse(404, 'not-found');
-  // Off for the 1.0 launch (the launch switches, `src/game/features.ts`).
-  if (!FEATURES.ratingBoards) return errorResponse(404, 'off');
   if (request.method !== 'GET') return errorResponse(405, 'bad-request');
   const who = await identify(request, env.DB, now);
   if (!who.ok) return errorResponse(who.status, who.error);
@@ -87,6 +89,8 @@ export async function routeLeaderboards(request: Request, env: Env, now: number,
   const pool = params.get('pool');
   const circle = params.get('circle') ?? 'everyone';
   if (!isRatingPool(pool) || !isCircle(circle)) return errorResponse(400, 'bad-request');
+  // Only the boards switched on (the launch switches, `src/game/features.ts`; Correspondence alone since item 19l).
+  if (!FEATURES.ratingBoards.includes(pool)) return errorResponse(404, 'off');
   // Anyone can see a board; only an account has friends, or a place on one.
   const { accountId } = who.player;
   if (circle === 'friends' && !accountId) return errorResponse(401, 'signed-out');

@@ -121,8 +121,9 @@ export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, boa
   board?: BoardId | null;
   onExit: () => void;
 }) {
-  // The rating boards are switched off for the launch (`src/game/features.ts`); the daily ones always show.
-  const tiles: BoardId[] = ['daily', 'dailyWord', ...(FEATURES.ratingBoards ? RATING_POOLS : [])];
+  // The rating boards that are on (`src/game/features.ts`, Correspondence alone since item 19l); the daily ones always show.
+  const pools = RATING_POOLS.filter((pool) => FEATURES.ratingBoards.includes(pool));
+  const tiles: BoardId[] = ['daily', 'dailyWord', ...pools];
   // With one board, a page of one tile is a tap for nothing: open the board, and Back leaves.
   const only = API_URL && tiles.length === 1 ? tiles[0]! : null;
   const [board, setBoard] = useState<BoardId | null>(opened ?? only);
@@ -135,7 +136,7 @@ export function LeaderboardsScreen({ identity, difficulty, rankBy, onRankBy, boa
   useEffect(() => {
     let live = true;
     // Your rating on each board's tile, while the rating boards are on.
-    if (API_URL && signedIn && FEATURES.ratingBoards) void fetchRatings(API_URL, identity).then((list) => live && setRatings(list));
+    if (API_URL && signedIn && pools.length > 0) void fetchRatings(API_URL, identity).then((list) => live && setRatings(list));
     return () => {
       live = false;
     };

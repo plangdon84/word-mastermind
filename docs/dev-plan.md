@@ -11,36 +11,12 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19a. Email friend requests after a decline** (issue
-  plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
-  updates README "Friends" and the privacy page)
-  - Decided with the owner on 9 October 2026: once a player declines a
-    request that came by email, the server remembers that sender and
-    player for a week and silently ignores the sender's repeat email
-    requests to them: no request, no notification, and the sender sees the
-    usual answer. The ignored repeat still counts towards the sender's 20
-    email requests a day, so nothing reveals the decline. Adds by friend
-    code or name work as today
-  - The check runs after answering, with the lookup (`deliverEmailRequest`),
-    costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
-    or `KEEP_TABLES`), cleared after 7 days and when either account is
-    deleted
 - [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
     everything unlocked, badge collector, a veteran with thousands of
     games), checked by a test, with a picker in preview builds' profiles,
     shown only when signed out
-- [ ] **19c. Faster first load of a long history** (from item 17)
-  - With 5,000 games, opening the app takes about 2 seconds on a slow phone
-    to replay every game (each profile page is then under 1); keep each
-    game's summary with it instead, so the history isn't replayed in full
-- [ ] **19d. Two player and Solo Rush in two tabs** (from item 17)
-  - With the same game open in two tabs, a move in one is lost when the
-    other saves (item 17 fixed it for single player). Harder here: the
-    computer's moves and the Rush clock's pauses run in each tab, so one
-    tab has to lead
-
 **Later**
 
 - [ ] **19e. Friending your random opponent** (issue #78; split from
@@ -88,6 +64,73 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     card for the words
 
 ## Done, latest first
+
+- [x] **19m. Deep code review before 1.25.0** (the owner's request, 2
+  November 2026; merges with #56; worker, review gate)
+  - The script budget goes to 150 KB, the top of the usual "good" range
+    for a first load (the owner's call, 2 November 2026)
+  - A deep review of the whole code base for smaller downloads, speed,
+    refactors and bugs. For this run only, findings are fixed in the PR
+    at every severity rather than filed as issues; one that's
+    impractical to fix goes to the owner to accept
+  - Done: start-up scripts from 141 KB to 102 KB gzipped (screens most
+    players don't open first load when needed and are fetched once the page
+    has loaded; the guess list ships each word once; a lighter logo); a
+    finished game whose save to D1 fails is no longer lost; the worker makes
+    fewer round trips (friends' names in one query, reads side by side,
+    batched writes); history loads replay each game once; requests time out
+    after 30 seconds; one storage helper and one copy of small helpers
+
+- [x] **19d. Two player and Solo Rush in two tabs** (from item 17)
+  - With the same game open in two tabs, a move in one is lost when the
+    other saves (item 17 fixed it for single player). Harder here: the
+    computer's moves and the Rush clock's pauses run in each tab, so one
+    tab has to lead
+  - Built: each tab follows the other's saves (as single player does) and
+    never saves back a state it took, which could replace a newer one
+    (single player gets this too). The tab you're looking at leads, holding
+    a Web Lock, and only it plays the computer's turn. A Solo Rush save
+    says whether its pause was automatic (the page hidden), so the tab
+    shown catches up and resumes it rather than resuming its own copy
+
+- [x] **19c. Faster first load of a long history** (from item 17)
+  - With 5,000 games, opening the app takes about 2 seconds on a slow phone
+    to replay every game (each profile page is then under 1); keep each
+    game's summary with it instead, so the history isn't replayed in full
+  - Built differently, by measurement: keeping summaries in the browser's
+    database cost as much to read back as replaying (about 55 ms for 5,000
+    games), and the profile needs every game replayed for its badges
+    anyway. Instead the history is read in one request, not a step per
+    game; scoring a guess uses a letter mask, not sets; and badges, stats
+    and unlocks reuse the summary each game already has. Opening the app
+    then the profile with 5,000 games at 4× CPU slowdown: 3.0–3.4 s before,
+    1.5–1.8 s after. The script budget goes to 144 KB (the owner's OK, 2
+    November 2026)
+
+- [x] **19a. Email friend requests after a decline** (issue
+  plangdon84/word-mastermind-archive#217; worker, privacy, review gate;
+  updates README "Friends" and the privacy page)
+  - Decided with the owner on 9 October 2026: once a player declines a
+    request that came by email, the server remembers that sender and
+    player for a week and silently ignores the sender's repeat email
+    requests to them: no request, no notification, and the sender sees the
+    usual answer. The ignored repeat still counts towards the sender's 20
+    email requests a day, so nothing reveals the decline. Adds by friend
+    code or name work as today
+  - The check runs after answering, with the lookup (`deliverEmailRequest`),
+    costing one read and no write; the pair is kept in D1 (in `WIPE_TABLES`
+    or `KEEP_TABLES`), ignored after 7 days (and deleted the next time
+    anyone declines one) and deleted with either account
+
+- [x] **19l. The Correspondence rating board** (the owner's request, 1
+  November 2026; worker, review gate; updates README "Leaderboards" and
+  "Launch switches")
+  - The owner's call: correspondence is the most played two player mode
+    (the usage dashboard) and several players already have established
+    correspondence ratings, so its rating board goes on. The live clocks'
+    boards and Competitive Rush's stay off, as do Random opponent,
+    Competitive Rush and the top 10% badge. `ratingBoards` becomes the list
+    of boards that are on, so another goes on with one word
 
 - [x] **18zx. Pause in the Daily Word** (issue
   plangdon84/word-mastermind-archive#257; worker, review gate; updates

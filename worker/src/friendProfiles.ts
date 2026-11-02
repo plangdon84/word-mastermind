@@ -1,5 +1,5 @@
 import {
-  addDays, dailyDay, isServerMode, parseHistoryEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
+  addDays, dailyDay, isServerMode, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
   friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, parseSharedSummary, type FriendGamesQuery, type SharedSummary,
@@ -9,6 +9,7 @@ import { identify, isPlayers, playerOfAccount, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
 import { toPlayed, TryAgain, type GameRow } from './played';
+import { parseJson as parse } from './secure';
 
 /*
  * Friends' profiles kept ready (Dev Plan item 18cb, README "Friends'
@@ -30,13 +31,6 @@ export const INDEX_PLAYED = 10;
 /** A Word Set with friends you weren't placed in, as its `rank`: after every place. */
 const NOT_PLACED = 1_000_000;
 
-const parse = (text: string): unknown => {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-};
 
 
 /** The entries of `profile_games` rows (a synced game's from history_entries), as a friend sees them. */
@@ -52,8 +46,7 @@ const entriesOf = (rows: readonly { entry: string | null }[]): HistoryEntry[] =>
 const shownBefore = (now: number) => addDays(dailyDay(now), -1);
 
 /** One game as a `profile_games` row, or null if it doesn't replay (the app wouldn't show it). */
-function indexRow(entry: HistoryEntry, gameSeq: number | null) {
-  const replayed = replayEntry(entry);
+function indexRow(entry: HistoryEntry, gameSeq: number | null, replayed = replayEntry(entry)) {
   if (!replayed) return null;
   const summary = summarizeGame(replayed);
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
@@ -151,10 +144,11 @@ export async function indexStep(env: Env, accountId: string): Promise<{ done: bo
   ).bind(accountId, row.synced_through).all<{ seq: number; entry: string }>();
   if (synced.length > 0) {
     await insertRows(db, accountId, synced.map((r) => {
-      const entry = parseHistoryEntry(parse(r.entry));
+      // Replayed once, to check it and to index it.
+      const parsed = parseReplayedEntry(parse(r.entry));
       // Sync refuses the server's games, so an entry that is one, or looks like one, isn't the device's to add.
-      if (!entry || isServerMode(entry.mode) || SERVER_ENTRY_ID.test(entry.id)) return null;
-      return indexRow(entry, null);
+      if (!parsed || isServerMode(parsed.entry.mode) || SERVER_ENTRY_ID.test(parsed.entry.id)) return null;
+      return indexRow(parsed.entry, null, parsed.replayed);
     }));
     await db.prepare('UPDATE shared_profiles SET synced_through = MAX(synced_through, ?2) WHERE account_id = ?1')
       .bind(accountId, synced[synced.length - 1].seq).run();
@@ -219,15 +213,16 @@ interface Built {
 /** Builds these server games' entries from the account's side, one room at a time; a room that can't answer is `stuck`. */
 async function buildGames(env: Env, rows: readonly LinkedRow[], player: Player, ids: readonly string[]): Promise<Built> {
   const built: Built = { rows: [], stuck: [] };
-  for (const row of rows) {
-    try {
-      const played = await toPlayed(env, row, player, ids, null);
-      if (played) built.rows.push(indexRow(played.entry, row.seq));
-    } catch (e) {
+  // The room lookups run side by side, then are read in order.
+  const tried = await Promise.allSettled(rows.map((row) => toPlayed(env, row, player, ids, null)));
+  tried.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      if (result.value) built.rows.push(indexRow(result.value.entry, rows[i].seq));
+    } else if (result.reason instanceof TryAgain) {
       // A game that can't be read is left out for good; one whose room can't answer for now, retried.
-      if (e instanceof TryAgain) built.stuck.push(row.seq);
+      built.stuck.push(rows[i].seq);
     }
-  }
+  });
   return built;
 }
 

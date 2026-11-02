@@ -192,6 +192,34 @@ describe('syncing with an account', () => {
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM history_entries WHERE account_id = ?').get(accountId)).toEqual({ n: 2 });
   });
 
+  it('keeps the rest when one game is refused, and fails the upload so the device sends again', async () => {
+    const { signIn, sqlite, db } = setup();
+    const accountId = (await signIn(PHONE, 'ann@example.com')).account.id;
+    const failing = (refuse: (sql: string, args: unknown[]) => boolean) => ({
+      ...db,
+      batch: async () => {
+        throw new Error('D1 refused the batch');
+      },
+      prepare: (sql: string) => {
+        const statement = db.prepare(sql);
+        return {
+          ...statement,
+          bind: (...args: unknown[]) => {
+            const bound = statement.bind(...args);
+            return { ...bound, run: () => (refuse(sql, args) ? Promise.reject(new Error('refused')) : bound.run()) };
+          },
+        };
+      },
+    }) as unknown as D1Database;
+    // One bad game: the others are kept, and the upload fails, so the device sends them again (those kept are skipped).
+    await expect(saveEntries(failing((_, args) => args[1] === 'bad'), accountId, [won('good'), won('bad'), won('fine')], NOW))
+      .rejects.toThrow('D1 refused the batch');
+    // The database down: the upload fails, so the device sends them again.
+    await expect(saveEntries(failing(() => true), accountId, [won('later')], NOW)).rejects.toThrow('D1 refused the batch');
+    expect(sqlite.prepare('SELECT id FROM history_entries WHERE account_id = ? ORDER BY id').all(accountId))
+      .toEqual([{ id: 'fine' }, { id: 'good' }]);
+  });
+
   it("keeps each account's running total in step with its games", async () => {
     const { signIn, api, sqlite } = setup();
     const onPhone = await signIn(PHONE, 'ann@example.com');

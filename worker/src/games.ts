@@ -279,7 +279,13 @@ export async function routeGames(
 
   const [, gameId, action] = match!;
   if (!GAME_ID.test(gameId)) return errorResponse(404, 'not-found');
-  const id = env.GAMES.idFromString(gameId);
+  let id: DurableObjectId;
+  try {
+    id = env.GAMES.idFromString(gameId);
+  } catch {
+    // Well formed, but not an ID this namespace made: no such game.
+    return errorResponse(404, 'not-found');
+  }
   if (!action) {
     return method === 'GET'
       ? toRoom(env, id, { action: 'get', guestId: player.id, aliases: player.aliases })

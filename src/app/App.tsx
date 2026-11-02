@@ -5,44 +5,31 @@ import {
   type Session,
 } from './account';
 import { noteReloadFor, triedReloadFor, useLatestBuild } from './appUpdate';
-import { AccountSection, type AccountNotice, type LoginAsk } from './AccountSection';
-import { GoogleNamePrompt } from './GoogleNamePrompt';
 import { DIFFICULTY_LABEL } from './components';
 import { NoServerSection, UpdateBar } from './panels';
 import { forgetTappedLink, TAP_LOOKS_MS, takeTappedLink } from './notificationTaps';
 import {
   BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
-  type DailyMode, type DailyPlacement, type HistoryFilter, type HistoryMode, type LobbyKind,
+  type DailyMode, type DailyPlacement, type EarnedBadge, type StatsGame, type HistoryFilter, type HistoryMode, type LobbyKind,
 } from '../game';
 import { DAILY_NAME } from './messages';
-import { Analytics, type RatingsState } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';
 import { boardNameStale, noteBoardName, sendBoardName } from './boardName';
 import { fetchRatings, type PoolRating } from './ratingsApi';
-import { Achievements } from './Badge';
 import { friendApi } from './friendApi';
-import { FriendScreen } from './FriendScreen';
-import { MatchScreen } from './MatchScreen';
 import { clearFriendGames, gameIdFromUrl, loadFriendGames } from './friendGames';
 import { friendCodeFromUrl, friendsApi, inviteFromUrl, loadPendingInvite, savePendingInvite, type Friend } from './friendsApi';
-import { FriendsSection } from './FriendsSection';
-import { FriendProfileScreen, type FriendPage } from './FriendProfileScreen';
 import { OpenFriend } from './friendLink';
-import { DailyScreen } from './DailyScreen';
 import { dailyInProgress, loadPlacements } from './dailyStorage';
 import { announceBadges, loadBadgeNotices, loadEarnedBadges, localDay, markBadgesSeen } from './badges';
-import { LeaderboardsScreen, type BoardId } from './LeaderboardsScreen';
-import { LobbyScreen } from './LobbyScreen';
 import { activeLobby, activeLobbyKind, lobbyCodeFromUrl, lobbyInProgress } from './lobbyStorage';
-import { GameHistory } from './GameHistory';
-import { getAllIds, getGames, onGameSaved, putGames, type HistoryGame } from './historyDb';
+import { getAllIds, getGames, onGameSaved, putGames, statsGame, type HistoryGame } from './historyDb';
 import { useHistoryGames } from './hooks';
 import { newId } from './ids';
 import { syncFriendGames } from './nextGame';
 import { pullPlayedGames } from './playedGames';
 import { clearSharedState, shareProfile } from './profileShare';
-import { ProfileScreen } from './ProfileScreen';
 import { DailyResult, friendReviewGame, LobbyPlaces, ratingLine } from './reviews';
 import { isProfilePage, type OpenProfile, type ProfilePage } from './profilePages';
 import {
@@ -50,8 +37,16 @@ import {
 } from './profileSync';
 import { displayName, loadProfile, saveProfile, type Profile } from './profileStorage';
 import { loadRush } from './rushStorage';
-import { RushScreen } from './RushScreen';
+import { Achievements } from './Badge';
 import { EnterSide } from './keyboard';
+import type { AccountNotice, LoginAsk } from './AccountSection';
+import type { RatingsState } from './Analytics';
+import type { FriendPage } from './FriendProfileScreen';
+import type { BoardId } from './LeaderboardsScreen';
+import {
+  AccountSection, Analytics, DailyScreen, FriendProfileScreen, FriendScreen, FriendsSection, GameHistory,
+  GoogleNamePrompt, LeaderboardsScreen, LobbyScreen, MatchScreen, ProfileScreen, RushScreen,
+} from './screens';
 import { loadSettings, saveSettings, type Mode, type Settings } from './settings';
 import { SoloScreen } from './SoloScreen';
 import { loadSaved } from './storage';
@@ -122,8 +117,10 @@ const PROFILE_SYNC_DELAY_MS = 1500;
 const SHARE_DELAY_MS = 3000;
 
 /** The profile's stats subpage, from every saved game. */
-function StatsPage({ games, identity, signedIn, onOpen }: {
+function StatsPage({ games, replayed, identity, signedIn, onOpen }: {
   games: HistoryGame[] | null;
+  /** The same games as stats read them (`statsGame`). */
+  replayed: StatsGame[] | null;
   identity: ApiIdentity;
   signedIn: boolean;
   onOpen: (game: HistoryGame) => void;
@@ -137,16 +134,12 @@ function StatsPage({ games, identity, signedIn, onOpen }: {
     };
   }, [identity, signedIn]);
   const ratings: RatingsState | undefined = API_URL ? { signedIn, list: signedIn ? ratingList : null } : undefined;
-  const replayed = useMemo(() => games?.map((g) => ({ id: g.entry.id, replayed: g.replayed })) ?? null, [games]);
   const stats = useMemo(() => replayed && computeStats(replayed, Date.now()), [replayed]);
   return <Analytics stats={stats} games={games ?? []} onOpen={onOpen} ratings={ratings} />;
 }
 
 /** The profile's achievements subpage: every badge, earned or not, from every saved game. */
-function AchievementsPage({ games }: { games: HistoryGame[] | null }) {
-  const earned = useMemo(
-    () => games && computeAchievements(games.map((g) => ({ id: g.entry.id, replayed: g.replayed })), localDay, loadPlacements()),
-    [games]);
+function AchievementsPage({ earned }: { earned: EarnedBadge[] | null }) {
   // Badges new since you last looked are marked as such here, and the profile dot goes.
   const [fresh] = useState(() => new Set(loadBadgeNotices().unseen));
   useEffect(markBadgesSeen, []);
@@ -155,12 +148,12 @@ function AchievementsPage({ games }: { games: HistoryGame[] | null }) {
 
 
 /** Each profile row's one-line summary. */
-function profileSummaries({ games, session, settings }: {
+function profileSummaries({ games, earned, session, settings }: {
   games: HistoryGame[] | null;
+  earned: EarnedBadge[] | null;
   session: Session | null;
   settings: Settings;
 }): Partial<Record<ProfilePage, string>> {
-  const earned = games && computeAchievements(games.map((g) => ({ id: g.entry.id, replayed: g.replayed })), localDay, loadPlacements());
   const unseen = loadBadgeNotices().unseen.length;
   return {
     account: session ? `Signed in as ${session.account.email}` : 'Sign in to play on any device and add friends',
@@ -581,9 +574,13 @@ export function App() {
   // The profile's rows and stats, and the title screen's unlocked modes, need every finished game; loaded only there.
   const historyGames = useHistoryGames(historyVersion,
     screen.name === 'profile' || screen.name === 'title' || screen.name === 'friendProfile' || friendOver !== null);
-  const open = useMemo(
-    () => historyGames && openModes(computeUnlocks(historyGames.map((g) => ({ id: g.entry.id, replayed: g.replayed })))),
-    [historyGames]);
+  // Each worked out once a history, not on every render: a long history makes them slow.
+  const statsGames = useMemo(() => historyGames?.map(statsGame) ?? null, [historyGames]);
+  const open = useMemo(() => statsGames && openModes(computeUnlocks(statsGames)), [statsGames]);
+  const onProfilePage = screen.name === 'profile';
+  const earned = useMemo(
+    () => (onProfilePage && statsGames ? computeAchievements(statsGames, localDay, loadPlacements()) : null),
+    [statsGames, onProfilePage]);
 
   // The server keeps turn alerts under this device's guest ID, which signing out changes, with the reminders it
   // wants. Sent on opening, and again when either changes.
@@ -692,7 +689,7 @@ export function App() {
             setHistoryVersion((v) => v + 1);
             syncNow();
           }}
-          summaries={profileSummaries({ games: historyGames, session: API_URL ? session : null, settings })}
+          summaries={profileSummaries({ games: historyGames, earned, session: API_URL ? session : null, settings })}
           pages={{
             account: API_URL ? (
               <>
@@ -741,8 +738,8 @@ export function App() {
                   setScreen({ name: 'friendProfile', friend, page: null, from: screen.from });
                 }} />
             </>) : <NoServerSection label="Friends" needs="Friends" />,
-            stats: <StatsPage games={historyGames} identity={identity} signedIn={session !== null} onOpen={openReview} />,
-            achievements: <AchievementsPage games={historyGames} />,
+            stats: <StatsPage games={historyGames} replayed={statsGames} identity={identity} signedIn={session !== null} onOpen={openReview} />,
+            achievements: <AchievementsPage earned={earned} />,
             history: <GameHistory key={historyVersion} filter={historyFilter} onFilter={setHistoryFilter} onOpen={openReview} />,
           }} />
       );

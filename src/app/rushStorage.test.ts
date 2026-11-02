@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRun, submitRunGuess } from '../game';
+import { createRun, pauseRun, submitRunGuess } from '../game';
 import { parseRushSaved, serializeRushSaved } from './rushStorage';
 
 const T = 1_000_000;
@@ -73,5 +73,28 @@ describe('parseRushSaved', () => {
     expect(parseRushSaved(null)).toBeNull();
     expect(parseRushSaved('{not json')).toBeNull();
     expect(parseRushSaved('[]')).toBeNull();
+  });
+});
+
+describe('a run paused because the page was hidden (Dev Plan item 19d)', () => {
+  const paused = () => {
+    const created = createRun(['beach', 'crane'], T, { pausable: true, difficulty: 'hard' });
+    if (!created.ok) throw new Error(created.error);
+    const result = pauseRun(created.game, T + 1_000);
+    if (!result.ok) throw new Error(result.error);
+    return result.game;
+  };
+
+  it('keeps that it was away, so whichever tab is showing resumes it', () => {
+    const state = { id: 'run-1', run: paused(), marks: [{}, {}], draft: '', away: true };
+    expect(parseRushSaved(serializeRushSaved(state))).toEqual(state);
+  });
+
+  it('leaves it out for a run paused by Pause, or not paused at all', () => {
+    expect(parseRushSaved(serializeRushSaved({ id: 'r', run: paused(), marks: [{}, {}], draft: '' }))).not.toHaveProperty('away');
+    const created = createRun(['beach', 'crane'], T, { pausable: true, difficulty: 'hard' });
+    if (!created.ok) throw new Error(created.error);
+    expect(serializeRushSaved({ id: 'r', run: created.game, marks: [{}, {}], draft: '', away: true })).not.toContain('away');
+    expect(parseRushSaved(saved({}, { away: true }))).not.toHaveProperty('away');
   });
 });

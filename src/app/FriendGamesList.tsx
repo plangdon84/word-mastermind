@@ -3,7 +3,7 @@ import { friendApi, FriendApiError, opponentName, type FriendGame } from './frie
 import { loadFriendGames, updateFriendGame } from './friendGames';
 import { durationText, timeLeftText } from './messages';
 import type { ApiIdentity } from './apiIdentity';
-import { useFriendsList } from './FriendsSection';
+import { useFriendsList } from './friendsList';
 import type { LobbyInvite } from './friendsApi';
 
 type Row = { id: string; game: FriendGame | null; failed: boolean };

@@ -150,6 +150,26 @@ export async function vapidAuthorization(endpoint: string, keys: VapidKeys, now:
   return `vapid t=${unsigned}.${toBase64Url(signature)}, k=${keys.publicKey}`;
 }
 
+/** How long one VAPID header is reused for a push service: an hour of its 12. */
+const VAPID_REUSE_MS = 60 * 60 * 1000;
+const vapidHeaders = new Map<string, { header: string; madeAt: number }>();
+
+/**
+ * `vapidAuthorization`, reused for an hour per push service: importing the
+ * key and signing are the costly part of a push, and one move can notify
+ * several devices.
+ */
+async function reusedAuthorization(endpoint: string, keys: VapidKeys, now: number): Promise<string> {
+  const key = `${new URL(endpoint).origin} ${keys.publicKey} ${keys.subject}`;
+  const made = vapidHeaders.get(key);
+  if (made && now >= made.madeAt && now - made.madeAt < VAPID_REUSE_MS) return made.header;
+  const header = await vapidAuthorization(endpoint, keys, now);
+  // Only a few push services exist, so this stays tiny; an hour-old header is dropped as another is made.
+  for (const [old, { madeAt }] of vapidHeaders) if (now - madeAt >= VAPID_REUSE_MS || madeAt > now) vapidHeaders.delete(old);
+  vapidHeaders.set(key, { header, madeAt: now });
+  return header;
+}
+
 /** A message's `Topic` header: at most 32 URL-safe base64 characters (RFC 8030), from a hash of its game. */
 export async function topicOf(gameId: string): Promise<string> {
   return toBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(`topic:${gameId}`)))).slice(0, 32);
@@ -173,7 +193,7 @@ export async function sendPush(
   const response = await fetchFn(subscription.endpoint, {
     method: 'POST',
     headers: {
-      authorization: await vapidAuthorization(subscription.endpoint, keys, now),
+      authorization: await reusedAuthorization(subscription.endpoint, keys, now),
       'content-encoding': 'aes128gcm',
       'content-type': 'application/octet-stream',
       ttl: String(TTL_SECONDS),

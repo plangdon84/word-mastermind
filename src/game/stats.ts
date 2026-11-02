@@ -16,7 +16,12 @@ import type { TwoPlayerGame } from './twoPlayer';
 export interface StatsGame {
   id: string;
   replayed: ReplayedGame;
+  /** Its summary, if already worked out, so it isn't worked out again (Dev Plan item 19c). */
+  summary?: GameSummary;
 }
+
+/** A game's summary: the one it carries, else worked out from the replayed game. */
+export const summaryOf = (game: StatsGame): GameSummary => game.summary ?? summarizeGame(game.replayed);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Trends compare this many days with the same number before them. */
@@ -330,8 +335,9 @@ function topGuesses(rows: readonly Row[]): { word: string; count: number }[] {
 /** Every stat on the profile, from the finished games in the history. `now` places the trend periods. */
 export function computeStats(games: readonly StatsGame[], now: number): Stats {
   const rows: Row[] = games
-    .map(({ id, replayed }) => {
-      const summary = summarizeGame(replayed);
+    .map((game) => {
+      const { id, replayed } = game;
+      const summary = summaryOf(game);
       return { id, summary, replayed, found: wordsFound(replayed, summary), seconds: secondsPlayed(replayed, summary) };
     })
     .sort((a, b) => a.summary.endedAt - b.summary.endedAt);

@@ -1,5 +1,6 @@
-import { identityHeaders, type ApiIdentity } from './apiIdentity';
+import { apiBase, identityHeaders, requestTimeout, type ApiIdentity } from './apiIdentity';
 import { loadSettings, type Settings } from './settings';
+import { readStored, removeStored, writeStored } from './localStore';
 
 /*
  * Turn alerts (README "Two player vs. a friend"): Web Push notifications for
@@ -87,7 +88,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
  */
 async function serverOff(apiUrl: string): Promise<boolean> {
   try {
-    return (await fetch(`${apiUrl.replace(/\/$/, '')}/api/push/key`)).status === 404;
+    return (await fetch(`${apiBase(apiUrl)}/api/push/key`, { signal: requestTimeout() })).status === 404;
   } catch {
     return false;
   }
@@ -109,10 +110,11 @@ const sameBytes = (a: ArrayBuffer | null | undefined, b: Uint8Array) =>
   !!a && a.byteLength === b.length && new Uint8Array(a).every((x, i) => x === b[i]);
 
 function post(apiUrl: string, identity: ApiIdentity, path: string, body: unknown): Promise<Response> {
-  return fetch(`${apiUrl.replace(/\/$/, '')}${path}`, {
+  return fetch(`${apiBase(apiUrl)}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...identityHeaders(identity) },
     body: JSON.stringify(body),
+    signal: requestTimeout(),
   });
 }
 
@@ -125,7 +127,7 @@ export async function enableAlerts(apiUrl: string, identity: ApiIdentity): Promi
   if (!hasPush()) return alertsState();
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';
-  const keyResponse = await fetch(`${apiUrl.replace(/\/$/, '')}/api/push/key`);
+  const keyResponse = await fetch(`${apiBase(apiUrl)}/api/push/key`, { signal: requestTimeout() });
   if (keyResponse.status === 404) return 'server-off';
   if (!keyResponse.ok) return 'off';
   const { publicKey } = await keyResponse.json() as { publicKey: string };
@@ -172,20 +174,12 @@ export async function resyncAlerts(apiUrl: string, identity: ApiIdentity, remind
 }
 
 function stored(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === 'true';
-  } catch {
-    return false;
-  }
+  return readStored(key) === 'true';
 }
 
 function store(key: string, on: boolean): void {
-  try {
-    if (on) localStorage.setItem(key, 'true');
-    else localStorage.removeItem(key);
-  } catch {
-    // Storage is a convenience; the prompt just comes back.
-  }
+  if (on) writeStored(key, 'true');
+  else removeStored(key);
 }
 
 /**

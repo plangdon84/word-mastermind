@@ -27,7 +27,11 @@ import { openReport } from './reportIssue';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
 import type { Profile } from './profileStorage';
 import type { Settings } from './settings';
-import { clearTwoPlayer, loadTwoPlayer, saveTwoPlayer } from './twoPlayerStorage';
+import { sameRecord } from './tabSync';
+import { useTabLeader } from './tabLeader';
+import {
+  clearTwoPlayer, loadTwoPlayer, onOtherTabTwoPlayerSave, saveTwoPlayer, twoPlayerSavedSince, type TwoPlayerSaved,
+} from './twoPlayerStorage';
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
 import { twoPlayerShareText } from './shareText';
@@ -154,10 +158,53 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
   const yourLastChance = finalGuess && turn === 'human';
   const definitions = useDefinitions(openYou >= 0 || openComputer >= 0 || over);
 
+  /** What this page last saved, so coming back can tell whether another page saved since. */
+  const written = useRef<string | null>(null);
+  /** Set when this tab takes another's save: that's never saved back, as it could replace a newer one. */
+  const adopted = useRef(false);
   // A reviewed game is already saved, and must not replace the game in progress.
   useEffect(() => {
-    if (game && !reviewing) saveTwoPlayer({ id, game, marks, draft });
+    if (adopted.current) {
+      adopted.current = false;
+      return;
+    }
+    if (game && !reviewing) written.current = saveTwoPlayer({ id, game, marks, draft }) ?? written.current;
   }, [reviewing, id, game, marks, draft]);
+  // The same game open in another tab (Dev Plan item 19d): follow its moves
+  // and marks, so they aren't lost when this tab saves next, as single
+  // player does. Only a change is taken, so the tabs' saves don't echo.
+  useEffect(() => {
+    if (reviewing) return undefined;
+    const follow = (other: TwoPlayerSaved) => {
+      const current = gameRef.current;
+      if (!current || !sameRecord(toTwoPlayerRecord(other.game), toTwoPlayerRecord(current))) {
+        adopted.current = true;
+        setId(other.id);
+        setGame(other.game);
+      }
+      setMarks((m) => {
+        if (sameRecord(m, other.marks)) return m;
+        adopted.current = true;
+        return other.marks;
+      });
+    };
+    // A page that slept may have missed those saves: it catches up on coming back.
+    const catchUp = () => {
+      if (document.visibilityState !== 'visible') return;
+      const other = twoPlayerSavedSince(written.current);
+      if (other) follow(other);
+    };
+    const stop = onOtherTabTwoPlayerSave(follow);
+    document.addEventListener('visibilitychange', catchUp);
+    window.addEventListener('pageshow', catchUp);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', catchUp);
+      window.removeEventListener('pageshow', catchUp);
+    };
+  }, [reviewing]);
+  // Only one tab plays the computer's turn, so two tabs never make it two different guesses.
+  const leading = useTabLeader('word-mastermind:two-player', !reviewing);
   // A finished game goes into your history, and is saved again if you change its marks afterwards.
   useEffect(() => {
     if (game && over && !reviewing) {
@@ -173,9 +220,9 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
     if (result?.ok) setGame(result.game);
   };
 
-  // The computer's turn: think briefly, then guess.
+  // The computer's turn: think briefly, then guess. Only in the leading tab; the others follow its save.
   useEffect(() => {
-    if (!game || turn !== 'computer') return;
+    if (!game || turn !== 'computer' || !leading) return;
     const timer = setTimeout(() => {
       const current = gameRef.current;
       if (!current || whoseTurn(current) !== 'computer') return;
@@ -184,7 +231,7 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
       if (result.ok) setGame(result.game);
     }, finalGuess ? FINAL_THINK_MS : THINK_MS);
     return () => clearTimeout(timer);
-  }, [game, turn]);
+  }, [game, turn, leading]);
 
   const computerCount = game?.computerGuesses.length ?? 0;
   useEffect(() => {

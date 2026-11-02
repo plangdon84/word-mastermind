@@ -37,6 +37,8 @@ export function limitOf(method: string, pathname: string): Limit | null {
   }
   // A rematch makes a game and a decline sends a notification, like a new invite.
   if (/^\/api\/games\/[0-9a-f]{64}\/(?:rematch|decline)$/.test(pathname)) return 'general';
+  // So does inviting a friend to a lobby, each time it's sent.
+  if (/^\/api\/lobbies\/[A-Z0-9]{6}\/invite$/.test(pathname)) return 'general';
   return null;
 }
 
