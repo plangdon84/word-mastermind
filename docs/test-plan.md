@@ -85,7 +85,7 @@ catch it.
 | Case | Layer | Built |
 | --- | --- | --- |
 | Going offline mid-game and back | Browser | Single player carries on offline and keeps its guesses; a friend game that was offline (and hidden) catches up on the move made meanwhile. Lobbies and Daily Rush use the same refresh on return as friend games, so they aren't repeated. Reloading while offline isn't offered at 1.0 (the service worker only handles notifications) |
-| Two tabs on one device, same game | Browser | A friend game: a move in one tab shows in the other. Single player: **lost a guess** (the other tab saved over it); fixed, so the other tab now follows. Two player and Solo Rush have the same problem, which needs more than a small fix: Dev Plan item 19d |
+| Two tabs on one device, same game | Browser | A friend game: a move in one tab shows in the other. Single player: **lost a guess** (the other tab saved over it); fixed, so the other tab now follows. Two player and Solo Rush had the same problem; Dev Plan item 19d fixed both: each tab follows the other's saves and never saves back what it took, only the tab you're looking at plays the computer's turn (a Web Lock), and a Solo Rush paused by hiding one tab resumes in the tab shown. Browser tests for both, in Chromium and WebKit |
 | Two devices, one account | Browser | Two browsers signed in to one account: a game finished on one reaches the other's history |
 | Signing in and out mid-game | Browser | Signing in (the emailed link, which the local server prints) keeps a single player game and a friend game going; signing out gives a new guest ID |
 | A page returning after a long sleep | Browser + unit | The local server runs on the real clock, so a browser test can only move the page's clock: Solo Rush's stopwatch leaves out 3 hours away. What depends on the server's time (deadlines, the day flipping) is in the unit tests, where time is an argument |
@@ -201,7 +201,7 @@ New Dev Plan items, in the post-launch backlog unless the owner moves them:
 
 - **17b. Tap targets of 44 px** (done): every button restyled to 44 px,
   and the test's minimum raised to match.
-- **19d. Two player and Solo Rush in two tabs**: the same lost-move problem
+- **19d. Two player and Solo Rush in two tabs** (done): the same lost-move problem
   single player had, harder there since the computer's moves and the Rush
   clock's pauses run in each tab.
 - **19c. Faster first load of a long history** (done): 2 s with 5,000 games on a

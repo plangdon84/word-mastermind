@@ -2,6 +2,7 @@ import {
   isObject, parseMarks, parseRunRecord, replayRun, toRunRecord, type Marks, type RunGame,
 } from '../game';
 import { newId } from './ids';
+import { onOtherTabSaveAt, savedSinceAt } from './tabSync';
 
 /** What survives a page reload in Rush. Settings are saved separately. */
 export interface RushSaved {
@@ -11,6 +12,11 @@ export interface RushSaved {
   /** Medium's in/out marks, one set per word, kept so a finished Rush can be reviewed. */
   marks: readonly Marks[];
   draft: string;
+  /**
+   * Paused because the page was hidden or closed, not by Pause: whichever
+   * tab is showing resumes it (Dev Plan item 19d). Left out when false.
+   */
+  away?: boolean;
 }
 
 const KEY = 'word-mastermind:rush:v1';
@@ -42,12 +48,13 @@ export function parseRushSaved(raw: string | null, makeId: () => string = newId)
     run,
     marks: run.words.map((_, i) => parseMarks(stored[i])),
     draft: typeof draft === 'string' && /^[a-z]{0,5}$/.test(draft) ? draft : '',
+    ...(data.away === true && run.pausedAt !== null ? { away: true } : {}),
   };
 }
 
 /** Only the run's record is written; `parseRushSaved` replays it. */
-export function serializeRushSaved({ id, run, marks, draft }: RushSaved): string {
-  return JSON.stringify({ id, record: toRunRecord(run), marks, draft });
+export function serializeRushSaved({ id, run, marks, draft, away }: RushSaved): string {
+  return JSON.stringify({ id, record: toRunRecord(run), marks, draft, ...(away && run.pausedAt !== null ? { away: true } : {}) });
 }
 
 /** Browser storage can be missing or blocked (private windows), so failures are ignored. */
@@ -59,10 +66,20 @@ export function loadRush(): RushSaved | null {
   }
 }
 
-export function saveRush(saved: RushSaved): void {
+/** Saves the run; returns what was written, or null if storage refused it. */
+export function saveRush(saved: RushSaved): string | null {
   try {
-    localStorage.setItem(KEY, serializeRushSaved(saved));
+    const raw = serializeRushSaved(saved);
+    localStorage.setItem(KEY, raw);
+    return raw;
   } catch {
     // Storage is a convenience; the game works without it.
+    return null;
   }
 }
+
+/** The saved run, if another page saved it since this one wrote `written` (Dev Plan item 19d). */
+export const rushSavedSince = (written: string | null) => savedSinceAt(KEY, written, (raw) => parseRushSaved(raw));
+
+/** Calls `listener` when another tab saves the Solo Rush, so this tab follows it. Returns the unsubscribe. */
+export const onOtherTabRushSave = (listener: (saved: RushSaved) => void) => onOtherTabSaveAt(KEY, (raw) => parseRushSaved(raw), listener);

@@ -17,12 +17,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     everything unlocked, badge collector, a veteran with thousands of
     games), checked by a test, with a picker in preview builds' profiles,
     shown only when signed out
-- [ ] **19d. Two player and Solo Rush in two tabs** (from item 17)
-  - With the same game open in two tabs, a move in one is lost when the
-    other saves (item 17 fixed it for single player). Harder here: the
-    computer's moves and the Rush clock's pauses run in each tab, so one
-    tab has to lead
-
 **Later**
 
 - [ ] **19e. Friending your random opponent** (issue #78; split from
@@ -70,6 +64,18 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     card for the words
 
 ## Done, latest first
+
+- [x] **19d. Two player and Solo Rush in two tabs** (from item 17)
+  - With the same game open in two tabs, a move in one is lost when the
+    other saves (item 17 fixed it for single player). Harder here: the
+    computer's moves and the Rush clock's pauses run in each tab, so one
+    tab has to lead
+  - Built: each tab follows the other's saves (as single player does) and
+    never saves back a state it took, which could replace a newer one
+    (single player gets this too). The tab you're looking at leads, holding
+    a Web Lock, and only it plays the computer's turn. A Solo Rush save
+    says whether its pause was automatic (the page hidden), so the tab
+    shown catches up and resumes it rather than resuming its own copy
 
 - [x] **19c. Faster first load of a long history** (from item 17)
   - With 5,000 games, opening the app takes about 2 seconds on a slow phone

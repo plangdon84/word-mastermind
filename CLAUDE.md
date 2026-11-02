@@ -331,6 +331,12 @@ Run `npm test` and `npm run typecheck` before committing.
   `CHROME_PATH` (Lighthouse) point at its preinstalled Chromium. It has no
   WebKit until installed (`docs/test-plan.md`); PRs run Chromium only in CI,
   so a session runs the WebKit browser tests itself for what it touched.
+- The same game in two tabs (Dev Plan items 17 and 19d): single player,
+  two player vs. the computer and Solo Rush follow another tab's saves
+  (`src/app/tabSync.ts`) and never save back what they took (`adopted`);
+  only the leading tab (`useTabLeader`, a Web Lock the shown tab takes)
+  plays the computer's turn, and a Solo Rush save's `away` marks an
+  automatic pause, resumed by whichever tab is shown.
 - The move to `wordmastermind.app` (Dev Plan item 18f, issue #92):
   `src/app/moved.ts` shows `MovedNotice.tsx` on `word-mastermind.pages.dev`
   itself (never a preview) until Done, and from `REDIRECT_FROM` sends that

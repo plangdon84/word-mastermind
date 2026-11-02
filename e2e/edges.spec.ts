@@ -140,6 +140,73 @@ test('two tabs of one single player game keep every guess', async ({ page, conte
   for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
 });
 
+test('two tabs of one game against the computer keep every guess, and it guesses once a turn (Dev Plan item 19d)', async ({ page, context }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'Computer').click();
+  await button(page, /^Casual/).click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start game').click();
+  // Your secret word.
+  await guess(page, 'storm');
+  await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
+  const second = await context.newPage();
+  await second.goto('/');
+  await resume(second);
+  await expect(second.getByText('Your turn')).toBeVisible();
+  const target = ((await getStorage(page, 'two-player'))!.record as { computerSecret: string }).computerSecret;
+  const [a, b] = ['crane', 'house', 'pilot'].filter((w) => w !== target);
+  // The first tab, shown again, leads: the computer answers there, and the second tab follows.
+  await page.bringToFront();
+  await guess(page, a);
+  await expect(page.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
+  await expect(shown(second, a)).toBeVisible();
+  await second.bringToFront();
+  await expect(second.getByText('Your turn')).toBeVisible();
+  await guess(second, b);
+  await expect(second.getByText('Your turn')).toBeVisible({ timeout: 20_000 });
+  await expect(shown(page, b)).toBeVisible();
+  // Every guess kept, and the computer's turns alternate with yours: never two answers to one guess.
+  const moves = ((await getStorage(page, 'two-player'))!.record as { moves: { side: string; kind: string }[] }).moves
+    .filter((m) => m.kind === 'guess');
+  expect(moves.filter((m) => m.side === 'human').length).toBe(2);
+  for (let i = 1; i < moves.length; i++) expect(moves[i].side).not.toBe(moves[i - 1].side);
+  await page.reload();
+  await resume(page);
+  for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
+});
+
+test('two tabs of one Solo Rush keep every guess, and the clock runs in the tab you look at (Dev Plan item 19d)', async ({ page, context }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'Solo').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Start game').click();
+  await expect(page.getByText(/No guesses yet/)).toBeVisible();
+  const words = (await getStorage(page, 'rush'))!.record as { words: string[] };
+  const [a, b] = ['crane', 'storm', 'house'].filter((w) => w !== words.words[0]);
+  await guess(page, a);
+  const second = await context.newPage();
+  await second.goto('/');
+  await resume(second);
+  // Switching tabs: the first pauses as it's hidden, and the second takes over its run and resumes it.
+  await setHidden(page, true);
+  await setHidden(second, false);
+  await expect(shown(second, a)).toBeVisible();
+  await expect(second.getByRole('heading', { name: 'Paused' })).toBeHidden();
+  await guess(second, b);
+  // And back: the first catches up rather than resuming its own copy over the second tab's guess.
+  await setHidden(second, true);
+  await setHidden(page, false);
+  await expect(shown(page, b)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paused' })).toBeHidden();
+  // Reloading pauses it, as closing the page always has, until Resume.
+  await page.reload();
+  await resume(page);
+  await button(page, 'Resume').first().click();
+  for (const word of [a, b]) await expect(shown(page, word)).toBeVisible();
+});
+
 test('signing in mid-game keeps the game; signing out starts a new guest', async ({ page }) => {
   await unlockAll(page);
   const secret = await startSolo(page);
