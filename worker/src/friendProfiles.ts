@@ -1,5 +1,5 @@
 import {
-  addDays, dailyDay, isServerMode, parseHistoryEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
+  addDays, dailyDay, isServerMode, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
   friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, parseSharedSummary, type FriendGamesQuery, type SharedSummary,
@@ -52,8 +52,7 @@ const entriesOf = (rows: readonly { entry: string | null }[]): HistoryEntry[] =>
 const shownBefore = (now: number) => addDays(dailyDay(now), -1);
 
 /** One game as a `profile_games` row, or null if it doesn't replay (the app wouldn't show it). */
-function indexRow(entry: HistoryEntry, gameSeq: number | null) {
-  const replayed = replayEntry(entry);
+function indexRow(entry: HistoryEntry, gameSeq: number | null, replayed = replayEntry(entry)) {
   if (!replayed) return null;
   const summary = summarizeGame(replayed);
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
@@ -151,10 +150,11 @@ export async function indexStep(env: Env, accountId: string): Promise<{ done: bo
   ).bind(accountId, row.synced_through).all<{ seq: number; entry: string }>();
   if (synced.length > 0) {
     await insertRows(db, accountId, synced.map((r) => {
-      const entry = parseHistoryEntry(parse(r.entry));
+      // Replayed once, to check it and to index it.
+      const parsed = parseReplayedEntry(parse(r.entry));
       // Sync refuses the server's games, so an entry that is one, or looks like one, isn't the device's to add.
-      if (!entry || isServerMode(entry.mode) || SERVER_ENTRY_ID.test(entry.id)) return null;
-      return indexRow(entry, null);
+      if (!parsed || isServerMode(parsed.entry.mode) || SERVER_ENTRY_ID.test(parsed.entry.id)) return null;
+      return indexRow(parsed.entry, null, parsed.replayed);
     }));
     await db.prepare('UPDATE shared_profiles SET synced_through = MAX(synced_through, ?2) WHERE account_id = ?1')
       .bind(accountId, synced[synced.length - 1].seq).run();

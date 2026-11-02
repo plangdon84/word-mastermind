@@ -15,10 +15,22 @@ export const identityHeaders = ({ guestId, token }: ApiIdentity): Record<string,
   token ? { 'x-guest-id': guestId, authorization: `Bearer ${token}` } : { 'x-guest-id': guestId };
 
 /**
+ * How long a request may take before it's given up as unreachable: a
+ * stalled connection would otherwise keep a sync or a pull busy, so none
+ * other starts, until the page reloads.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000;
+
+/** A signal that aborts after `REQUEST_TIMEOUT_MS`, where the browser has `AbortSignal.timeout`. */
+export const requestTimeout = (): AbortSignal | undefined =>
+  typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined;
+
+/**
  * Makes JSON requests to the worker at `apiUrl` as `identity`, answering
  * with the body. Rejects with `fail(code, status)`: `unreachable` (status 0)
- * if the server can't be reached, or the server's error code (`bad-request`
- * if it gave none) if it refused. Each API passes its own error class.
+ * if the server can't be reached or doesn't answer in time, or the server's
+ * error code (`bad-request` if it gave none) if it refused. Each API passes
+ * its own error class.
  */
 export function apiRequester(
   apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch, fail: (code: string, status: number) => Error,
@@ -31,6 +43,7 @@ export function apiRequester(
         method,
         headers: { ...identityHeaders(identity), ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
         body: body === undefined ? undefined : JSON.stringify(body),
+        signal: requestTimeout(),
       });
     } catch {
       throw fail('unreachable', 0);

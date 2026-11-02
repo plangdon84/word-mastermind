@@ -1,5 +1,5 @@
 import {
-  matchesFilter, parseHistoryEntry, replayEntry, summarizeGame,
+  matchesFilter, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame,
   type GameSummary, type HistoryEntry, type HistoryFilter, type ReplayedGame, type StatsGame,
 } from '../game';
 
@@ -148,6 +148,12 @@ export function toHistoryGame(entry: HistoryEntry): HistoryGame | null {
   return replayed ? { entry, replayed, summary: summarizeGame(replayed) } : null;
 }
 
+/** A stored value as a game to show, or null if it doesn't read: each game is replayed once. */
+function storedGame(value: unknown): HistoryGame | null {
+  const parsed = parseReplayedEntry(value);
+  return parsed && { ...parsed, summary: summarizeGame(parsed.replayed) };
+}
+
 /** Where a page of history starts: an offset into this browser's, or a friend's `FriendGamesQuery.after`. */
 export type HistoryCursor = number | string;
 
@@ -183,8 +189,7 @@ export async function loadGamesPage(filter: HistoryFilter, offset: number, limit
         return;
       }
       walked++;
-      const entry = parseHistoryEntry(cursor.value);
-      const game = entry && toHistoryGame(entry);
+      const game = storedGame(cursor.value);
       if (game && matchesFilter(game.summary, filter)) games.push(game);
       cursor.continue();
     };
@@ -207,8 +212,7 @@ export async function loadAllMatching(filter: HistoryFilter): Promise<HistoryGam
   });
   const games: HistoryGame[] = [];
   for (let i = values.length - 1; i >= 0; i--) {
-    const entry = parseHistoryEntry(values[i]);
-    const game = entry && toHistoryGame(entry);
+    const game = storedGame(values[i]);
     if (game && matchesFilter(game.summary, filter)) games.push(game);
   }
   return games;
