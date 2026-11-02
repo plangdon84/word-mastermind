@@ -3,6 +3,7 @@ import {
   isObject, SCREENSHOT_MAX, type IssueReport, type ReportContext, type ReportScreenshot,
 } from '../game';
 import { APP_VERSION } from './version';
+import { apiBase } from './apiIdentity';
 
 /*
  * Report an issue (README "Reporting an issue"): the server files each report
@@ -73,8 +74,7 @@ export interface SentReport {
 export async function sendReport(
   apiUrl: string, guestId: string, report: IssueReport, fetchFn: typeof fetch = fetch,
 ): Promise<SentReport> {
-  // `VITE_API_URL` may end in a slash; `//api/reports` would miss the route.
-  const response = await fetchFn(`${apiUrl.replace(/\/$/, '')}/api/reports`, {
+  const response = await fetchFn(`${apiBase(apiUrl)}/api/reports`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-guest-id': guestId },
     body: JSON.stringify(report),

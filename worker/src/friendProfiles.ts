@@ -9,6 +9,7 @@ import { identify, isPlayers, playerOfAccount, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
 import { toPlayed, TryAgain, type GameRow } from './played';
+import { parseJson as parse } from './secure';
 
 /*
  * Friends' profiles kept ready (Dev Plan item 18cb, README "Friends'
@@ -30,13 +31,6 @@ export const INDEX_PLAYED = 10;
 /** A Word Set with friends you weren't placed in, as its `rank`: after every place. */
 const NOT_PLACED = 1_000_000;
 
-const parse = (text: string): unknown => {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-};
 
 
 /** The entries of `profile_games` rows (a synced game's from history_entries), as a friend sees them. */

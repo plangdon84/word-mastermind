@@ -1,5 +1,5 @@
 import { isObject, isWordError, validateWord, type WordKind, type WordValidation } from '../game';
-import { identityHeaders, type ApiIdentity } from './apiIdentity';
+import { apiBase, identityHeaders, type ApiIdentity } from './apiIdentity';
 
 /**
  * Where a word is checked: on this device (local), or by the server
@@ -33,7 +33,7 @@ export function parseWordValidation(value: unknown): WordValidation | null {
  */
 export function remoteSource(apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch): GameSource {
   const post = async (path: string, body: unknown): Promise<unknown> => {
-    const response = await fetchFn(`${apiUrl.replace(/\/$/, '')}${path}`, {
+    const response = await fetchFn(`${apiBase(apiUrl)}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...identityHeaders(identity) },
       body: JSON.stringify(body),

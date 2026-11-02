@@ -1,6 +1,7 @@
 import { isGuestId } from './guests';
 import { toBase64Url } from './push';
 import { deleteRatings } from './ratings';
+import { sha256Hex } from './secure';
 
 /*
  * Accounts (README "Accounts"): signing in with an email link or Google, and
@@ -46,10 +47,7 @@ const toAccount = (row: AccountRow): Account =>
 export const newToken = () => toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
 
 /** Tokens are stored as their SHA-256 (hex), so a leaked table signs nobody in. */
-export async function hashToken(token: string): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)));
-  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+export const hashToken = (token: string): Promise<string> => sha256Hex(token);
 
 /** A token as `newToken` makes them; anything else can't be one, so it isn't looked up. */
 export const isToken = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);

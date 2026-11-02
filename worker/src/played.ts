@@ -7,6 +7,7 @@ import { PLAYED_PAGE, PLAYED_RETRIES, type PlayedGame } from '../../src/app/play
 import { identify, isPlayers, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
+import { parseJson, sha256Hex } from './secure';
 
 /*
  * `GET /api/played`: the games the server refereed that you played (README
@@ -30,9 +31,7 @@ const GAME_ID = /^[0-9a-f]{64}$/;
 
 /** A history entry's ID for a server game: its hash, so a friend game's ID (a credential) never reaches a backup file. */
 async function entryId(mode: string, gameId: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(gameId));
-  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-  return `${mode}-${hex.slice(0, 40)}`;
+  return `${mode}-${(await sha256Hex(gameId)).slice(0, 40)}`;
 }
 
 /**
@@ -64,13 +63,6 @@ async function ratingChanges(db: D1Database, rows: readonly GameRow[], player: P
   return new Map(results.map((r) => [r.game_id, { before: Math.round(r.rating_before), after: Math.round(r.rating_after) }]));
 }
 
-const parse = (text: string): unknown => {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-};
 
 /**
  * One game as your history entry, or null if it can't be (a room that's gone, a record that doesn't read).
@@ -82,7 +74,7 @@ export async function toPlayed(
 ): Promise<PlayedGame | null> {
   const rating = ratings ? ratings.get(row.id) ?? null : null;
   const base = { id: await entryId(row.mode, row.id), version: HISTORY_VERSION };
-  const data = parse(row.record);
+  const data = parseJson(row.record);
   if (row.mode === 'friend') {
     const record = parsePvpRecord(data);
     if (!record || !GAME_ID.test(row.id)) return null;

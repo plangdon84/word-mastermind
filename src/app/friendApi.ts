@@ -2,7 +2,7 @@ import {
   isDifficulty, isObject, isTime, parseMarks, isTimeControl, isTurnDays, type Difficulty, type GuessResult, type Marks, type PvpView, type Seat,
   type TimeControl,
 } from '../game';
-import { apiRequester, type ApiIdentity } from './apiIdentity';
+import { apiBase, apiRequester, type ApiIdentity } from './apiIdentity';
 import { isShownRating, type ShownRating } from './ratingsApi';
 
 /*
@@ -199,7 +199,7 @@ export function parseListedGames(value: unknown): ListedGame[] | null {
 
 /** The WebSocket address an open game page listens on for moves (`routeLiveSocket` in the worker). */
 export const liveSocketUrl = (apiUrl: string, id: string) =>
-  `${apiUrl.replace(/\/$/, '').replace(/^http/, 'ws')}/api/games/${encodeURIComponent(id)}/live`;
+  `${apiBase(apiUrl).replace(/^http/, 'ws')}/api/games/${encodeURIComponent(id)}/live`;
 
 export interface FriendApi {
   /** Your games, newest first. */

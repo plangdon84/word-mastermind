@@ -10,6 +10,9 @@ export interface ApiIdentity {
   token: string | null;
 }
 
+/** The server's address with no slash at the end, to put a path after (`VITE_API_URL` may end in one). */
+export const apiBase = (apiUrl: string): string => apiUrl.replace(/\/$/, '');
+
 /** The headers every request to the server carries. */
 export const identityHeaders = ({ guestId, token }: ApiIdentity): Record<string, string> =>
   token ? { 'x-guest-id': guestId, authorization: `Bearer ${token}` } : { 'x-guest-id': guestId };
@@ -35,7 +38,7 @@ export const requestTimeout = (): AbortSignal | undefined =>
 export function apiRequester(
   apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch, fail: (code: string, status: number) => Error,
 ): (method: 'GET' | 'POST', path: string, body?: unknown) => Promise<unknown> {
-  const base = apiUrl.replace(/\/$/, '');
+  const base = apiBase(apiUrl);
   return async (method, path, body) => {
     let response: Response;
     try {

@@ -1,4 +1,4 @@
-import { identityHeaders, type ApiIdentity } from './apiIdentity';
+import { apiBase, identityHeaders, type ApiIdentity } from './apiIdentity';
 import { loadSettings, type Settings } from './settings';
 import { readStored } from './localStore';
 
@@ -88,7 +88,7 @@ async function currentSubscription(): Promise<PushSubscription | null> {
  */
 async function serverOff(apiUrl: string): Promise<boolean> {
   try {
-    return (await fetch(`${apiUrl.replace(/\/$/, '')}/api/push/key`)).status === 404;
+    return (await fetch(`${apiBase(apiUrl)}/api/push/key`)).status === 404;
   } catch {
     return false;
   }
@@ -110,7 +110,7 @@ const sameBytes = (a: ArrayBuffer | null | undefined, b: Uint8Array) =>
   !!a && a.byteLength === b.length && new Uint8Array(a).every((x, i) => x === b[i]);
 
 function post(apiUrl: string, identity: ApiIdentity, path: string, body: unknown): Promise<Response> {
-  return fetch(`${apiUrl.replace(/\/$/, '')}${path}`, {
+  return fetch(`${apiBase(apiUrl)}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...identityHeaders(identity) },
     body: JSON.stringify(body),
@@ -126,7 +126,7 @@ export async function enableAlerts(apiUrl: string, identity: ApiIdentity): Promi
   if (!hasPush()) return alertsState();
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off';
-  const keyResponse = await fetch(`${apiUrl.replace(/\/$/, '')}/api/push/key`);
+  const keyResponse = await fetch(`${apiBase(apiUrl)}/api/push/key`);
   if (keyResponse.status === 404) return 'server-off';
   if (!keyResponse.ok) return 'off';
   const { publicKey } = await keyResponse.json() as { publicKey: string };

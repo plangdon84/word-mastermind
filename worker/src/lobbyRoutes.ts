@@ -8,6 +8,7 @@ import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
 import type { LobbyRequest } from './lobbyRoom';
 import { lobbyInviteNotice } from './notices';
+import { secureRandom } from './secure';
 
 /*
  * Rush with Friends and Competitive Rush: the worker checks who is asking and what they sent,
@@ -20,8 +21,6 @@ const LOBBY_PATH = /^\/api\/lobbies\/([^/]+)(?:\/(join|leave|close|settings|star
 /** Tries this many codes before giving up on opening a lobby (a clash is about one in a billion). */
 const CODE_TRIES = 5;
 
-/** A random number in [0, 1) that nobody can predict, for join codes. */
-const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 
 export async function toLobby(env: Env, code: string, request: LobbyRequest): Promise<Response> {
   const response = await env.LOBBIES.get(env.LOBBIES.idFromName(code)).fetch('https://lobby/', {

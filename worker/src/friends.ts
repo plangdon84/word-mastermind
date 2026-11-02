@@ -16,6 +16,7 @@ import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notice
 import { notifyGuest } from './push';
 import { vapidKeysOf } from './pushRoutes';
 import { currentNames, syncedName } from './sync';
+import { secureRandom } from './secure';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -28,8 +29,6 @@ import { currentNames, syncedName } from './sync';
 /** Shown for a player whose device hasn't sent a profile yet. */
 export const NO_NAME = 'A player';
 
-/** A random number in [0, 1) that nobody can predict, for friend codes. */
-const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 
 /** `length` letters and digits from the join codes' alphabet. */
 const randomCode = (length: number, random: () => number) =>
