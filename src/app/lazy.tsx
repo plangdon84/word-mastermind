@@ -22,14 +22,21 @@ export function lazy<P extends object>(load: () => Promise<ComponentType<P>>): C
   function Lazy(props: P) {
     const [, setLoaded] = useState(0);
     const [failed, setFailed] = useState(false);
+    /** Whether this render showed the screen, not "Loading…". */
+    const shown = loaded !== null;
     useEffect(() => {
-      if (loaded || failed) return undefined;
+      if (shown || failed) return undefined;
+      // It may have loaded (the quiet preload) between this render and now: show it, or nothing would.
+      if (loaded) {
+        setLoaded((n) => n + 1);
+        return undefined;
+      }
       let live = true;
       preload().then(() => live && setLoaded((n) => n + 1), () => live && setFailed(true));
       return () => {
         live = false;
       };
-    }, [failed]);
+    }, [shown, failed]);
     if (loaded) {
       const Loaded = loaded;
       return <Loaded {...props} />;
