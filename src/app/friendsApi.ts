@@ -184,6 +184,12 @@ export interface SharedSummary {
   stats: Stats;
   badges: EarnedBadge[];
   featured: HistoryEntry[];
+  /**
+   * Your average guesses per word for the rated ladder's first computers
+   * (`ladderAverage`, Dev Plan item 19p); absent with too few words. The
+   * queue reads it; friends' apps don't show it.
+   */
+  ladderAverage?: number;
 }
 
 /**
@@ -320,6 +326,8 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
   return {
     format: SHARED_FORMAT, games: value.games as number, stats: { ...stats, modes } as unknown as Stats, badges: [...badges.values()],
     featured: parseEntries(value.featured),
+    ...(typeof value.ladderAverage === 'number' && value.ladderAverage >= 1 && value.ladderAverage <= 1000
+      ? { ladderAverage: value.ladderAverage } : {}),
   };
 }
 

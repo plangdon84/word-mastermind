@@ -1,5 +1,5 @@
 import {
-  addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, type DailyPlacement, type GameSummary, type HistoryEntry,
+  addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, ladderAverage, type DailyPlacement, type GameSummary, type HistoryEntry,
   type ReplayedGame, type StatsGame,
 } from '../game';
 import { SHARED_FORMAT, type SharedSummary } from './friendsApi';
@@ -33,12 +33,15 @@ export function sharedSummary(
     const { best, bestRush, fastest } = stats.modes[mode];
     for (const ref of [best, bestRush, fastest]) if (ref) featuredIds.add(ref.id);
   }
+  // From every game, today's Daily Word too: it's only read by the queue, never shown to friends.
+  const average = ladderAverage(games.map((g) => g.replayed));
   return {
     format: SHARED_FORMAT,
     games: shown.length,
     stats,
     badges: computeAchievements(statsGames, dayOf, placements.filter((p) => p.day < hiddenFrom)),
     featured: shown.filter((g) => featuredIds.has(g.entry.id)).map((g) => withoutRating(g.entry)),
+    ...(average === null ? {} : { ladderAverage: average }),
   };
 }
 

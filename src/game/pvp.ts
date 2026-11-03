@@ -110,7 +110,19 @@ export interface PvpRecord {
    * they were played.
    */
   firstGuessFree?: true;
+  /**
+   * A rated ladder game (Dev Plan item 19p, README "Random opponent"),
+   * matched by the queue rather than a challenge: against a computer when
+   * `computer` is set, its recall (`COMPUTER_RATINGS`), in the guest's
+   * seat. Absent on every other game.
+   */
+  ladder?: PvpLadder;
   moves: readonly PvpMove[];
+}
+
+/** A ladder game: against a person, or a computer at this recall. */
+export interface PvpLadder {
+  computer?: number;
 }
 
 /** How a record is timed. */
@@ -175,6 +187,8 @@ export function pvpTurn(game: PvpGame): Seat | null {
 }
 
 /** When the current turn started: the last guess, or the start of the game. */
+export const pvpTurnStart = (game: PvpRecord): number => turnStart(game);
+
 function turnStart(game: PvpRecord): number {
   let since = game.startedAt;
   for (const move of game.moves) if (move.kind === 'guess') since = move.at;
@@ -427,10 +441,10 @@ export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
 }
 
 export function toPvpRecord(game: PvpGame): PvpRecord {
-  const { secrets, first, startedAt, difficulty, rated, firstGuessFree, moves } = game;
+  const { secrets, first, startedAt, difficulty, rated, firstGuessFree, ladder, moves } = game;
   return {
     secrets, first, startedAt, ...timingOf(timeControlOf(game)), difficulty, ...(rated ? { rated } : {}),
-    ...(firstGuessFree ? { firstGuessFree } : {}), moves,
+    ...(firstGuessFree ? { firstGuessFree } : {}), ...(ladder ? { ladder } : {}), moves,
   };
 }
 
@@ -440,6 +454,7 @@ export function replayPvp(record: PvpRecord): PvpResult {
     record.secrets, record.first, record.startedAt, timeControlOf(record), record.difficulty, record.rated === true, true,
     record.firstGuessFree === true,
   );
+  if (result.ok && record.ladder) result = { ok: true, game: { ...result.game, ladder: record.ladder } };
   for (const move of record.moves) {
     if (!result.ok) break;
     result = applyPvpMove(result.game, move);

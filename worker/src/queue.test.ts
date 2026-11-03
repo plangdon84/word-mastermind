@@ -2,20 +2,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { authApi } from '../../src/app/account';
 import { friendApi } from '../../src/app/friendApi';
 import { queueApi, QueueApiError, type QueueChoice } from '../../src/app/queueApi';
-import { NEW_RATING } from '../../src/game';
+import { sharedSummary } from '../../src/app/sharedSummary';
+import { COMPUTER_RATINGS, NEW_RATING, updateRating } from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { fakeQueues } from './fakeQueues';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
 import { allowedGap, pickOpponent, STALE_MS, type Seeker } from './queue';
+import { COMPUTER_ID } from './room';
 
 // Switched off for the launch; these tests are for when it's on (launch.test.ts checks it's refused).
 vi.mock('../../src/game/features', () => ({ FEATURES: { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true } }));
 
 /*
  * The matchmaking queue (README "Random opponent"): signed-in players wait
- * with their word, one queue per time control and difficulty, and are
- * paired by rating into a rated game.
+ * with their word in the one queue, Live 10 at Medium (Dev Plan item 19p),
+ * and are paired by rating into a rated game, or with a computer at their
+ * level after 30 seconds.
  */
 
 const NOW = Date.UTC(2026, 8, 28);
@@ -23,10 +26,10 @@ const APP = 'https://app.example';
 const ANN = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const BOB = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
 const CAT = '9f8e7d6c-5b4a-4c3d-a2e1-f0e9d8c7b6a5';
-const TEN_HARD: QueueChoice = { timeControl: '10m', difficulty: 'hard' };
+const LADDER: QueueChoice = { timeControl: '10m', difficulty: 'medium' };
 
 const seeker = (accountId: string, rating: number, joinedAt = NOW): Seeker =>
-  ({ accountId, name: accountId, secret: 'storm', rating: { ...NEW_RATING, rating }, joinedAt, seenAt: joinedAt });
+  ({ accountId, name: accountId, secret: 'storm', rating: { ...NEW_RATING, rating }, computer: 0.38, joinedAt, seenAt: joinedAt });
 
 describe('pickOpponent', () => {
   it('picks the closest rating within the gap, never yourself', () => {
@@ -80,7 +83,7 @@ function setup() {
       games: friendApi('https://api.example', identity, fetchFn),
     };
   };
-  return { sqlite, player, fetchFn, tick: (ms: number) => { clock += ms; } };
+  return { sqlite, player, fetchFn, rooms, tick: (ms: number) => { clock += ms; } };
 }
 
 const refusal = (call: Promise<unknown>) => call.then(() => 'accepted', (e: QueueApiError) => e.code);
@@ -89,28 +92,25 @@ describe('the queue', () => {
   it('is for signed-in players only', async () => {
     const { fetchFn } = setup();
     const guest = queueApi('https://api.example', { guestId: ANN, token: null }, fetchFn);
-    expect(await refusal(guest.join(TEN_HARD, 'Ann', 'storm'))).toBe('signed-out');
+    expect(await refusal(guest.join(LADDER, 'Ann', 'storm'))).toBe('signed-out');
   });
 
-  it('offers the live clocks only', async () => {
+  it('is Live 10 at Medium alone', async () => {
     const { player } = setup();
     const ann = await player(ANN, 'Ann');
-    for (const timeControl of ['1d', '3d'] as const) {
-      expect(await refusal(ann.queue.join({ timeControl, difficulty: 'hard' }, 'Ann', 'storm'))).toBe('bad-request');
+    for (const choice of [
+      { timeControl: '1d', difficulty: 'medium' }, { timeControl: '5m', difficulty: 'medium' }, { timeControl: '15m', difficulty: 'medium' },
+      { timeControl: '10m', difficulty: 'hard' }, { timeControl: '10m', difficulty: 'easy' },
+    ] as const) {
+      expect(await refusal(ann.queue.join(choice, 'Ann', 'storm'))).toBe('bad-request');
     }
-    expect(await ann.queue.join({ timeControl: '5m', difficulty: 'hard' }, 'Ann', 'storm')).toMatchObject({ state: 'waiting' });
-  });
-
-  it('leaves Easy out: matched games are rated', async () => {
-    const { player } = setup();
-    const ann = await player(ANN, 'Ann');
-    expect(await refusal(ann.queue.join({ timeControl: '5m', difficulty: 'easy' }, 'Ann', 'storm'))).toBe('bad-request');
+    expect(await ann.queue.join(LADDER, 'Ann', 'storm')).toMatchObject({ state: 'waiting' });
   });
 
   it('refuses a secret word the rules refuse', async () => {
     const { player } = setup();
     const ann = await player(ANN, 'Ann');
-    expect(await refusal(ann.queue.join(TEN_HARD, 'Ann', 'bunny'))).toBe('repeated-letters');
+    expect(await refusal(ann.queue.join(LADDER, 'Ann', 'bunny'))).toBe('repeated-letters');
   });
 
   it('pairs two players in the same queue into a rated game, the one who waited as host', async () => {
@@ -118,61 +118,180 @@ describe('the queue', () => {
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
     const cat = await player(CAT, 'Cat');
-    expect(await ann.queue.join(TEN_HARD, 'Ann', 'storm')).toEqual({ state: 'waiting', since: NOW, waiting: 0, now: NOW });
-    // Another difficulty is another queue.
-    expect(await bob.queue.join({ ...TEN_HARD, difficulty: 'medium' }, 'Bob', 'crane')).toMatchObject({ state: 'waiting' });
+    expect(await ann.queue.join(LADDER, 'Ann', 'storm')).toEqual({ state: 'waiting', since: NOW, waiting: 0, now: NOW });
     tick(5_000);
-    const matched = await cat.queue.join(TEN_HARD, 'Cat', 'beach');
+    const matched = await cat.queue.join(LADDER, 'Cat', 'beach');
     if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
-    expect(await ann.queue.poll(TEN_HARD)).toEqual(matched);
+    expect(await ann.queue.poll(LADDER)).toEqual(matched);
 
     const fresh = { rating: 1500, provisional: true, after: null };
     expect(await ann.games.get(matched.gameId)).toMatchObject({
-      seat: 'host', state: 'playing', guestName: 'Cat', timeControl: '10m', rated: true, matched: true,
-      ratings: { you: fresh, opponent: fresh }, view: { difficulty: 'hard', yourSecret: 'storm', rated: true },
+      seat: 'host', state: 'playing', guestName: 'Cat', timeControl: '10m', rated: true, matched: true, computer: false,
+      ratings: { you: fresh, opponent: fresh }, view: { difficulty: 'medium', yourSecret: 'storm', rated: true },
     });
     expect(await cat.games.get(matched.gameId)).toMatchObject({ seat: 'guest', view: { yourSecret: 'beach' } });
     // It's listed as each player's game, from any device.
     expect((await cat.games.list()).map((g) => g.id)).toEqual([matched.gameId]);
-    expect(await bob.queue.poll({ ...TEN_HARD, difficulty: 'medium' })).toMatchObject({ state: 'waiting' });
+    // Bob, who joined after the match, is still waiting.
+    expect(await bob.queue.join(LADDER, 'Bob', 'crane')).toMatchObject({ state: 'waiting', waiting: 0 });
   });
 
   it('drops a player who stops checking in', async () => {
     const { player, tick } = setup();
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
-    await ann.queue.join(TEN_HARD, 'Ann', 'storm');
+    await ann.queue.join(LADDER, 'Ann', 'storm');
     tick(STALE_MS);
-    expect(await bob.queue.join(TEN_HARD, 'Bob', 'beach')).toMatchObject({ state: 'waiting', waiting: 0 });
-    expect(await ann.queue.poll(TEN_HARD)).toEqual({ state: 'idle' });
+    expect(await bob.queue.join(LADDER, 'Bob', 'beach')).toMatchObject({ state: 'waiting', waiting: 0 });
+    expect(await ann.queue.poll(LADDER)).toEqual({ state: 'idle' });
   });
 
   it('lets a player leave', async () => {
     const { player } = setup();
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
-    await ann.queue.join(TEN_HARD, 'Ann', 'storm');
-    expect(await ann.queue.leave(TEN_HARD)).toEqual({ state: 'idle' });
-    expect(await bob.queue.join(TEN_HARD, 'Bob', 'beach')).toMatchObject({ state: 'waiting', waiting: 0 });
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    expect(await ann.queue.leave(LADDER)).toEqual({ state: 'idle' });
+    expect(await bob.queue.join(LADDER, 'Bob', 'beach')).toMatchObject({ state: 'waiting', waiting: 0 });
   });
 
   it('matches by rating, widening the gap while they wait', async () => {
     const { player, tick, sqlite } = setup();
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
-    sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, '10m', 2000, 60, 0.06, 30, ?)`)
+    sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, 'correspondence', 2000, 60, 0.06, 30, ?)`)
       .run(ann.accountId, NOW);
-    await ann.queue.join(TEN_HARD, 'Ann', 'storm');
-    expect(await bob.queue.join(TEN_HARD, 'Bob', 'beach')).toMatchObject({ state: 'waiting', waiting: 1 });
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    expect(await bob.queue.join(LADDER, 'Bob', 'beach')).toMatchObject({ state: 'waiting', waiting: 1 });
     for (let waited = 10_000; waited < 30_000; waited += 10_000) {
       tick(10_000);
-      expect(await ann.queue.poll(TEN_HARD)).toMatchObject({ state: 'waiting' });
-      expect(await bob.queue.poll(TEN_HARD)).toMatchObject({ state: 'waiting' });
+      expect(await ann.queue.poll(LADDER)).toMatchObject({ state: 'waiting' });
+      expect(await bob.queue.poll(LADDER)).toMatchObject({ state: 'waiting' });
     }
-    // After 30 seconds the gap of 500 is allowed.
+    // After 30 seconds the gap of 500 is allowed, and a person comes before a computer.
     tick(10_000);
-    const matched = await bob.queue.poll(TEN_HARD);
+    const matched = await bob.queue.poll(LADDER);
     expect(matched).toMatchObject({ state: 'matched' });
-    expect(await ann.queue.poll(TEN_HARD)).toEqual(matched);
+    expect(await ann.queue.poll(LADDER)).toEqual(matched);
+  });
+});
+
+describe('a computer when nobody is free (Dev Plan item 19p)', () => {
+  /** Joins alone and waits out the 30 seconds: the next check-in starts a game against a computer. */
+  async function computerGame(setupResult: ReturnType<typeof setup>, ann: Awaited<ReturnType<ReturnType<typeof setup>['player']>>) {
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    setupResult.tick(29_999);
+    expect(await ann.queue.poll(LADDER)).toMatchObject({ state: 'waiting' });
+    setupResult.tick(1);
+    const matched = await ann.queue.poll(LADDER);
+    if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
+    // Asked again, the match is still there for the page to open.
+    expect(await ann.queue.poll(LADDER)).toEqual(matched);
+    return matched.gameId;
+  }
+
+  const ratedAfter = (sqlite: ReturnType<typeof setup>['sqlite'], gameId: string) =>
+    sqlite.prepare('SELECT account_id, pool, rating_before, rating_after, computer_recall FROM rated_games WHERE game_id = ?').all(gameId);
+
+  it('offers a computer after 30 seconds, labelled as one, which plays its turns after a short pause', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    const game = await ann.games.get(gameId);
+    expect(game).toMatchObject({
+      seat: 'host', state: 'playing', guestName: '🤖 Computer', timeControl: '10m', rated: true, matched: true, computer: true,
+      ratings: { you: { rating: 1500, provisional: true }, opponent: { rating: 1500, provisional: false } },
+      view: { difficulty: 'medium', yourSecret: 'storm', rated: true },
+    });
+    // The test rooms' random numbers are all 0: Ann goes first, and the computer waits 3 seconds.
+    await ann.games.guess(gameId, 'crane');
+    context.tick(2_999);
+    expect((await ann.games.get(gameId)).view?.theirGuesses).toHaveLength(0);
+    context.tick(1);
+    expect((await ann.games.get(gameId)).view?.theirGuesses).toHaveLength(1);
+    // The room's alarm plays it too, with nobody asking.
+    await ann.games.guess(gameId, 'plots');
+    context.tick(3_000);
+    await context.rooms.runAlarms();
+    const room = context.rooms.rooms.get(gameId)!;
+    const stored = await room.get<{ record: { moves: { seat: string; kind: string }[] } }>('room');
+    expect(stored!.record.moves.filter((m) => m.seat === 'guest' && m.kind === 'guess')).toHaveLength(2);
+  });
+
+  it('rates the player alone, by the full change while provisional, and keeps it as their game only', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    await ann.games.concede(gameId);
+    const expert = { rating: 1500, rd: 50, volatility: 0.06 };
+    const full = updateRating(NEW_RATING, [{ opponent: expert, score: 0 }]);
+    expect(ratedAfter(context.sqlite, gameId)).toEqual([
+      { account_id: ann.accountId, pool: 'correspondence', rating_before: 1500, rating_after: full.rating, computer_recall: 0.38 },
+    ]);
+    expect(context.sqlite.prepare('SELECT guest_id FROM game_players WHERE game_id = ?').all(gameId))
+      .not.toContainEqual({ guest_id: COMPUTER_ID });
+    const kept = context.sqlite.prepare('SELECT mode, record FROM games WHERE id = ?').get(gameId) as { mode: string; record: string };
+    expect(kept.mode).toBe('friend');
+    expect(JSON.parse(kept.record)).toMatchObject({ rated: true, ladder: { computer: 0.38 } });
+    expect(await ann.games.get(gameId)).toMatchObject({ state: 'over', ratings: { you: { after: { rating: Math.round(full.rating) } } } });
+  });
+
+  it('picks a settled player\'s computer by rating, and moves their rating by half', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const settled = { rating: 1700, rd: 60, volatility: 0.06 };
+    context.sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, 'correspondence', ?, ?, ?, 30, ?)`)
+      .run(ann.accountId, settled.rating, settled.rd, settled.volatility, NOW);
+    const gameId = await computerGame(context, ann);
+    const computer = COMPUTER_RATINGS.find((c) => c.recall === 0.6)!;
+    expect(await ann.games.get(gameId)).toMatchObject({ ratings: { opponent: { rating: computer.rating } } });
+    await ann.games.concede(gameId);
+    const full = updateRating(settled, [{ opponent: { rating: computer.rating, rd: 50, volatility: 0.06 }, score: 0 }]);
+    const [row] = ratedAfter(context.sqlite, gameId) as { rating_after: number; computer_recall: number }[];
+    expect(row.computer_recall).toBe(0.6);
+    expect(row.rating_after).toBeCloseTo(settled.rating + (full.rating - settled.rating) / 2, 6);
+  });
+
+  it('picks a provisional player\'s computer by the average their device shared', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const summary = { ...sharedSummary([], [], NOW, () => 0), ladderAverage: 8 };
+    context.sqlite.prepare('INSERT INTO shared_profiles (account_id, summary, summary_at) VALUES (?, ?, ?)')
+      .run(ann.accountId, JSON.stringify(summary), NOW);
+    const gameId = await computerGame(context, ann);
+    expect(await ann.games.get(gameId)).toMatchObject({ ratings: { opponent: { rating: COMPUTER_RATINGS.find((c) => c.recall === 0.8)!.rating } } });
+  });
+
+  it('matches a person who comes along before the next check-in, rather than a computer', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const bob = await context.player(BOB, 'Bob');
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    context.tick(20_000);
+    expect(await ann.queue.poll(LADDER)).toMatchObject({ state: 'waiting' });
+    // Ann's 30 seconds are up, but Bob joins before her next check-in: Bob's join pairs them.
+    context.tick(15_000);
+    const matched = await bob.queue.join(LADDER, 'Bob', 'beach');
+    if (matched.state !== 'matched') throw new Error('not matched');
+    expect(await ann.queue.poll(LADDER)).toEqual(matched);
+    expect(await ann.games.get(matched.gameId)).toMatchObject({ guestName: 'Bob', computer: false });
+  });
+
+  it('gives a computer when the only other player is too far apart in rating', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const bob = await context.player(BOB, 'Bob');
+    context.sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, 'correspondence', 2200, 60, 0.06, 30, ?)`)
+      .run(ann.accountId, NOW);
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    await bob.queue.join(LADDER, 'Bob', 'beach');
+    context.tick(15_000);
+    expect(await ann.queue.poll(LADDER)).toMatchObject({ state: 'waiting' });
+    expect(await bob.queue.poll(LADDER)).toMatchObject({ state: 'waiting' });
+    // At 30 seconds the gap of 700 is still past the 500 allowed.
+    context.tick(15_000);
+    const matched = await ann.queue.poll(LADDER);
+    if (matched.state !== 'matched') throw new Error('not matched');
+    expect(await ann.games.get(matched.gameId)).toMatchObject({ guestName: '🤖 Computer', computer: true });
   });
 });

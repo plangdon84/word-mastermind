@@ -294,8 +294,17 @@ Run `npm test` and `npm run typecheck` before committing.
   referee in `worker/src/queue.ts` (`pickOpponent`: a rating gap that widens
   while they wait); a match starts a rated game room (`startMatchedGame`,
   `matched` on the room). The app side is `src/app/MatchScreen.tsx` and
-  `queueApi.ts`. Item 13b switches it and the rating boards off for 1.0 and
-  limits the queue to live clocks.
+  `queueApi.ts`. Item 13b switches it and the rating boards off for 1.0.
+  Since item 19p it's one rated ladder, Live 10 at Medium (`LADDER_CHOICE`):
+  after 30 seconds without a person (`COMPUTER_AFTER_MS`) it starts a game
+  against a computer from `src/game/computerRatings.ts` (item 19o's fixed
+  table, `npm run calibrate`), picked by `ladderComputer` (rating, or the
+  shared summary's `ladderAverage` while provisional) in `src/game/ladder.ts`.
+  The room plays its seat (`room.computer`, `COMPUTER_ID`): guesses planned
+  at the start (`planComputerGuesses`), each played when due. Records carry
+  `ladder`; a computer game rates the player alone (`rateVsComputer`, half
+  the change once settled) with `rated_games.computer_recall`. Live 10 rates
+  into the `correspondence` pool (`ratingPool`).
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:
   Random opponent, the rating boards, Competitive Rush and the Daily Rush

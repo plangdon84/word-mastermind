@@ -1,4 +1,4 @@
-import type { Strength } from './computer';
+import { RECALL, type Strength } from './computer';
 import { addDays, finishedLate, isTopTen, isTopTenPercent, type DailyPlacement } from './daily';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { FEATURES, type Feature, type Features } from './features';
@@ -283,7 +283,17 @@ function gameBadges(game: StatsGame, summary: GameSummary): string[] {
     // A draw where the computer found your word first: you tied it with your final guess.
     if (summary.result === 'drawn' && replayed.game.first === 'computer') ids.push('clutch');
   }
-  if (replayed.mode === 'friend') {
+  // A rated ladder game (Dev Plan item 19p): never a friend badge. Against a computer, a win earns the VS CPU
+  // badges of the strongest named strength it's at least as strong as, at your difficulty or easier.
+  if (replayed.mode === 'friend' && replayed.game.ladder) {
+    const recall = replayed.game.ladder.computer;
+    if (summary.result === 'won' && recall !== undefined) {
+      const beaten = STRENGTHS.reduce((best, s, i) => (RECALL[s] <= recall ? i : best), 0);
+      for (const s of STRENGTHS.slice(0, beaten + 1)) {
+        for (const d of DIFFICULTIES) if (harderOrEqual(summary.difficulty, d)) ids.push(cpuBadgeId(s, d));
+      }
+    }
+  } else if (replayed.mode === 'friend') {
     if (summary.result === 'won') {
       ids.push('friend-win');
       // Only a win where you found their word: not their giving up or running out of time before you did
@@ -296,9 +306,9 @@ function gameBadges(game: StatsGame, summary: GameSummary): string[] {
         if (harder >= 2) ids.push('friend-harder-2');
       }
     }
-    // Your friend found your word first, and you tied it with your final guess.
-    if (summary.result === 'drawn' && replayed.game.first !== replayed.seat) ids.push('clutch');
   }
+  // Your opponent (a friend, a ladder player or computer) found your word first, and you tied it with your final guess.
+  if (replayed.mode === 'friend' && summary.result === 'drawn' && replayed.game.first !== replayed.seat) ids.push('clutch');
   // Every Word Set's level, scored from your own run alone as Solo Rush is: a Rush's by time, a Crush's by
   // guesses. The Daily Set is on both boards, so it earns both.
   if (replayed.mode === 'rush' || replayed.mode === 'daily' || replayed.mode === 'lobby') {

@@ -1232,40 +1232,69 @@ issues #96 and #78), **Rematch** is the result's main button (after
 
 Built in [Dev Plan](#dev-plan) item 10: the matchmaking queue. It's
 switched off for the 1.0 launch, until there are enough players (see
-[Launch switches](#launch-switches)), and since item 13b it offers the live
-clocks only.
+[Launch switches](#launch-switches)). Since item 19p (agreed with the owner
+on 3 November 2026) it's **one rated ladder**, Live 10 minutes each at
+Medium, where a player who isn't matched with a person within 30 seconds
+plays a computer at about their level. Item 19q switches it on.
 
 - **Signed in only:** matched games are always [rated](#rating), and a
   rating needs an account. Signed out, the screen says so, with **Open
   profile**.
-- **Choosing:** Two player → **Random opponent** → the time control (live
-  5, 10 or 15 minutes each) → your difficulty →
-  **Next: your word**, then your secret word (with Pick for me and Recently
-  used). There's one queue per time control and difficulty, so you only
-  meet players on the same clock and difficulty, and difficulty is fixed for
-  the game.
+- **One queue:** **Live 10 minutes each, at Medium**: nearly every player
+  plays Medium, and one queue keeps the wait short. Queues per difficulty
+  (and other clocks) come once there are enough players; the server refuses
+  any other queue. You choose your secret word (with Pick for me and
+  Recently used), and difficulty is fixed for the game.
 - **Live only:** the queue needs your page open while you wait, which suits
-  a live game but not one played a guess a day. Correspondence stays a game
-  against a friend until the queue works without an open page (the server
-  refuses a correspondence queue).
-- **Waiting:** **Looking for an opponent…** with the time waited, the
-  choices, your word and **Cancel**. The app checks in every 2 seconds; the
-  server drops anyone it hasn't heard from in 30 seconds (the page was
-  closed), and the app joins again by itself if it was dropped while in the
-  background. Leaving the screen leaves the queue.
-- **Matching:** two players are paired when their ratings (in that
-  [pool](#rating)) are within **200 points**, a gap that widens by 10 points
-  each second the longer-waiting of the two has waited (500 after 30
-  seconds); the closest rating wins, the longest waiting on a tie. It's to
-  tune once there are players.
-- **The game:** the player who waited longer is the host; the coin toss
-  decides who goes first as usual. It then plays like a game against a
-  friend (clocks, turn alerts, **Online games** on the title screen), with
-  **Find another opponent** in place of New invite. The waiting player also
-  gets a **Matched with Bob** alert.
-- The server (`worker/src/queue.ts`) runs one Durable Object per queue
-  (`QUEUES`, named like `10m:hard`), which starts the game in a game room
-  like any other.
+  a live game but not one played a guess a day.
+- **Waiting:** **Looking for an opponent…** with the time waited, your word
+  and **Cancel**. The app checks in every 2 seconds; the server drops anyone
+  it hasn't heard from in 30 seconds (the page was closed), and the app
+  joins again by itself if it was dropped while in the background. Leaving
+  the screen leaves the queue.
+- **Matching:** two players are paired when their ratings are within **200
+  points**, a gap that widens by 10 points each second the longer-waiting
+  of the two has waited (500 after 30 seconds); the closest rating wins, the
+  longest waiting on a tie. **People are always matched first.**
+- **A computer after 30 seconds:** at your first check-in once you've
+  waited **30 seconds** with nobody to match, you play a computer instead,
+  labelled openly as one: it plays as **🤖 Computer**, and item 19q's
+  screen says "No one was free, so you're playing a computer at about your
+  level" at the start. Its strength is one of the
+  [computer ratings](#computer-ratings), chosen when you join and never
+  below Expert:
+  - **while your rating is provisional**, the computer nearest your
+    **average guesses per word**: your last 20 words found in single player
+    and the Daily Word (games played to the end, without Suggest, at any
+    difficulty, Easy included), which your device works out and sends with
+    its [shared summary](#friends-profiles) (`ladderAverage`; the server
+    keeps it from friends). With fewer than 5 such words, Expert.
+  - **once it's settled**, the computer nearest your **rating**.
+- **The computer's game:** it takes the guest's seat with a random
+  secret-list word (never yours). All its guesses at your word are worked
+  out when the game starts, since they depend only on its own scores
+  (`planComputerGuesses`, as a lobby's computers' are), and the game room
+  plays each on its turn after a pause of 3 to 8 seconds, timed when it was
+  due, so the record replays as it is. Its clock runs like a person's.
+- **The game:** against a person, the player who waited longer is the host;
+  the coin toss decides who goes first as usual. It then plays like a game
+  against a friend (clocks, turn alerts, **Online games** on the title
+  screen), with **Find another opponent** in place of New invite and no
+  rematch. The waiting player also gets a **Matched with Bob** alert. The
+  record says it's a ladder game (`ladder`, with the computer's recall
+  against a computer).
+- **History and badges:** a ladder game is its own kind in the history
+  (shown as `vs. 🤖 Computer` against a computer). Against a computer, a
+  win earns the **VS CPU** badges of the strongest of the four named
+  strengths it's at least as strong as (Expert up to 90%, Mastermind at
+  100%), at your difficulty or easier; it counts toward the win streak,
+  Clutch and every solve badge, but never a friend badge. A ladder game
+  against a person counts toward the same, but never **Win a game against
+  a friend** or the **HARDER** badges (before 19p a matched game earned
+  them, as it was kept as a friend game).
+- The server (`worker/src/queue.ts`) runs the queue as a Durable Object
+  (`QUEUES`, named `10m:medium`), which starts the game in a game room like
+  any other (`startMatchedGame`, or `startComputerGame` for a computer).
 
 ### Daily Rush
 
@@ -1912,7 +1941,9 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   badges, circles in the difficulty's metal with the strength's pips (1–4).
   A harder difficulty also awards the easier ones, and a stronger computer
   the weaker ones, so beating Mastermind at Extreme earns all 16. A draw
-  isn't a win.
+  isn't a win. A win against a [rated ladder](#random-opponent) computer
+  (Dev Plan item 19p) counts as beating the strongest of the four it's at
+  least as strong as: Expert up to a recall of 90%, Mastermind at 100%.
 - **Few guesses:** solve a word (SOLO) in 20 or fewer, 15 or fewer and 10 or
   fewer guesses, in any mode, and win against the computer (VS CPU) having
   made that few. A word solved in 8 guesses earns all three. Any difficulty;
@@ -1981,6 +2012,8 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   marked 1st) and a **Competitive Rush win** (first against at least one
   other person, since only people are rated; tagged COMPETITIVE; not
   offered while Competitive Rush is switched off).
+  A [rated ladder](#random-opponent) game never earns a friend badge,
+  whether against a person or a computer (Dev Plan item 19p).
 - **Unlocked (item 18zn):** **Every mode unlocked** (win a Practice game,
   find the Daily Word or beat the computer; see [Unlocking
   modes](#unlocking-modes)), tagged UNLOCKED and labelled ALL MODES. It
@@ -2495,9 +2528,23 @@ the worked example in Glickman's paper; the worker applies it
   "Ann challenges you to a rated game" before accepting), every matched
   game, and every [Competitive Rush](#competitive-rush) with at least two
   people in it. Invite links and unmarked challenges are unrated.
-- **Pools:** one rating per live clock (**15 min**, **10 min**, **5 min**)
-  and one for **correspondence** (1 and 3 days per guess together), as chess
-  sites rate blitz and rapid apart, and one for **Competitive Rush**.
+- **Pools:** one **two player rating** for Live 10 minutes and
+  correspondence (1 and 3 days per guess) together, the pool still called
+  `correspondence` (Dev Plan item 19p, the owner, 3 November 2026: a
+  production audit found half of rated correspondence games end within an
+  hour, with a median guess of 25 seconds, so they play much like live
+  games; every rated game keeps its record, so separate ratings could be
+  rebuilt later). Rated challenges to a friend and the
+  [rated ladder](#random-opponent) count toward it. Live 15 and 5 minutes
+  keep their own pools, unused while they're off, and Competitive Rush has
+  one. The old `10m` pool holds only ratings from before 19p.
+- **Against a computer** (the [rated ladder](#random-opponent)): the
+  computer's rating ([computer ratings](#computer-ratings)) never moves. A
+  game against it moves your rating by **half as much** as against a
+  person of that rating, win or lose, and by the **full** amount while your
+  rating is still provisional (`rateVsComputer`; the owner, 3 November
+  2026). No cap for now. A draw leaves it alone, as against a person. Its
+  `rated_games` row keeps the computer's recall (`computer_recall`).
 - **Scores:** a win is 1, a loss 0; giving up and running out of time
   lose. A **draw** in a two player game changes neither player's rating
   nor volatility (issues #131 and #153), but it still counts as a game

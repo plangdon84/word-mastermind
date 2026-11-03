@@ -1,4 +1,4 @@
-import { validateSecretWord, type Rating } from '../../src/game';
+import { COMPUTER_AFTER_MS, validateSecretWord, type Rating } from '../../src/game';
 import type { QueueError, QueueStatus } from '../../src/app/queueApi';
 
 /*
@@ -6,8 +6,11 @@ import type { QueueError, QueueStatus } from '../../src/app/queueApi';
  * Durable Object per time control and difficulty (`matchmaker.ts`). Players
  * wait with their secret word, checking in every few seconds; the queue
  * pairs two whose ratings are close enough, allowing a wider gap the longer
- * either has waited, and starts a rated game between them. Like the game
- * logic, it never reads the clock: the time is passed in.
+ * either has waited, and starts a rated game between them. Since Dev Plan
+ * item 19p, there's one queue, Live 10 at Medium, and a player not matched
+ * with a person within 30 seconds (`COMPUTER_AFTER_MS`) plays a computer at
+ * about their level instead, chosen when they join. Like the game logic,
+ * it never reads the clock: the time is passed in.
  */
 
 /** A player waiting in the queue. */
@@ -16,6 +19,8 @@ export interface Seeker {
   name: string;
   secret: string;
   rating: Rating;
+  /** The recall of the computer they'd play if no person is free (`ladderComputer`). */
+  computer: number;
   joinedAt: number;
   /** When they last checked in. */
   seenAt: number;
@@ -68,10 +73,12 @@ export interface QueueStorage {
 export interface QueueDeps {
   /** Starts a rated game: `host` waited longer, `guest` made the match. Returns its ID. */
   startGame(host: Seeker, guest: Seeker, now: number): Promise<string>;
+  /** Starts a rated game against the seeker's computer. Returns its ID. */
+  startComputerGame(seeker: Seeker, now: number): Promise<string>;
 }
 
 export type QueueRequest =
-  | { action: 'join'; accountId: string; name: string; secret: string; rating: Rating }
+  | { action: 'join'; accountId: string; name: string; secret: string; rating: Rating; computer: number }
   | { action: 'poll'; accountId: string }
   | { action: 'leave'; accountId: string };
 
@@ -95,7 +102,7 @@ const waiting = (state: QueueState, seeker: Seeker, now: number): QueueResponse 
  */
 async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueState, seeker: Seeker, now: number): Promise<QueueResponse> {
   const opponent = pickOpponent(seeker, state.seekers, now);
-  if (!opponent) return waiting(state, seeker, now);
+  if (!opponent) return now - seeker.joinedAt >= COMPUTER_AFTER_MS ? playComputer(storage, deps, state, seeker, now) : waiting(state, seeker, now);
   const without = state.seekers.filter((s) => s.accountId !== opponent.accountId && s.accountId !== seeker.accountId);
   await storage.put(KEY, { ...state, seekers: without });
   let gameId: string;
@@ -109,6 +116,26 @@ async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueStat
   const current = await load(storage, now);
   const at = { gameId, at: now };
   await storage.put(KEY, { ...current, matches: { ...current.matches, [opponent.accountId]: at, [seeker.accountId]: at } });
+  return { status: 200, body: { state: 'matched', gameId } };
+}
+
+/**
+ * Nobody was free for 30 seconds: the seeker plays their computer. They
+ * leave the queue first, as a matched player does; if the game can't be
+ * started, they go back and the next check-in tries again.
+ */
+async function playComputer(storage: QueueStorage, deps: QueueDeps, state: QueueState, seeker: Seeker, now: number): Promise<QueueResponse> {
+  await storage.put(KEY, { ...state, seekers: state.seekers.filter((s) => s.accountId !== seeker.accountId) });
+  let gameId: string;
+  try {
+    gameId = await deps.startComputerGame(seeker, now);
+  } catch {
+    const current = await load(storage, now);
+    await storage.put(KEY, { ...current, seekers: [...current.seekers.filter((s) => s.accountId !== seeker.accountId), seeker] });
+    return waiting(state, seeker, now);
+  }
+  const current = await load(storage, now);
+  await storage.put(KEY, { ...current, matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } } });
   return { status: 200, body: { state: 'matched', gameId } };
 }
 
@@ -140,7 +167,7 @@ export async function handleQueue(storage: QueueStorage, deps: QueueDeps, reques
   const secret = validateSecretWord(request.secret);
   if (!secret.ok) return { status: 400, body: { error: secret.error } };
   const seeker: Seeker = {
-    accountId, name: request.name, secret: secret.word, rating: request.rating, joinedAt: now, seenAt: now,
+    accountId, name: request.name, secret: secret.word, rating: request.rating, computer: request.computer, joinedAt: now, seenAt: now,
   };
   const next = { seekers: [...others, seeker], matches: otherMatches };
   await storage.put(KEY, next);

@@ -1,12 +1,13 @@
 import {
   concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, ratingPool, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
   isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
-  type Marks, type Rating, type TimeControl, type TurnDays,
+  type Marks, type Rating, type TimeControl, type TurnDays, computerRating, LADDER_COMPUTER_NAME, planComputerGuesses, pvpTurn, pvpTurnStart,
+  ratedComputer, rateVsComputer, SECRET_WORDS, type PlannedGuess,
 } from '../../src/game';
 import type { FriendError, FriendGame, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
 import { declinedNotice, expiredNotice, joinedNotice, moveNotices, timeLowNotice, type Notice } from './notices';
-import { keptChanges, ratedGameChanges, ratingStatements, seatChanges, type RatingChange } from './ratings';
+import { currentRating, keptChanges, ratedGameChanges, ratingStatements, seatChanges, type RatingChange } from './ratings';
 
 /*
  * The referee for one game against a friend, run by the game's Durable
@@ -49,6 +50,13 @@ export interface Room {
   /** Started by the matchmaking queue (`queue.ts`), not an invite. */
   matched?: boolean;
   /**
+   * A ladder game against a computer (Dev Plan item 19p), in the guest's
+   * seat: its recall, and every guess it will make with the pause before
+   * each, worked out when the game starts (`planComputerGuesses`). The room
+   * plays each on the computer's turn (`playComputer`).
+   */
+  computer?: { recall: number; plan: PlannedGuess[] };
+  /**
    * A rated game's ratings when it started, and once it's over, the ones it
    * was rated from (other rated games may have finished meanwhile) and after
    * it. Rooms rated before `ratingsBefore` was kept have only `ratingsAfter`.
@@ -68,6 +76,9 @@ export interface Room {
    */
   timeLowFor?: number;
 }
+
+/** A ladder computer's player ID: never a guest ID a device could make (`isGuestId`), so nobody can take its seat. */
+export const COMPUTER_ID = 'computer';
 
 /** How long an invite link works for, from when it's sent. */
 export const INVITE_MS = 24 * 60 * 60 * 1000;
@@ -133,6 +144,15 @@ export type RoomRequest =
   | {
     action: 'create'; id: string; guestId: string; name: string; secret: string; difficulty: Difficulty; timeControl: TimeControl;
     invitee?: Player | null; rated?: boolean; matched?: boolean; rematchOf?: string;
+  }
+  /**
+   * A ladder game against a computer at `recall` (Dev Plan item 19p),
+   * started at once by the queue: the player is the host, rated `rating`
+   * going in.
+   */
+  | {
+    action: 'computer'; id: string; guestId: string; name: string; secret: string; difficulty: Difficulty; timeControl: TimeControl;
+    recall: number; rating: Rating;
   }
   | Asker & (
     | { action: 'get' }
@@ -222,6 +242,7 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
     serverNow: now,
     rated: room.rated === true,
     matched: room.matched === true,
+    computer: room.computer !== undefined,
     ratings: ratingLines(room, seat),
     view: game && seat ? pvpView(game, seat) : null,
   };
@@ -285,10 +306,35 @@ async function saveToHistory(storage: RoomStorage, deps: RoomDeps, room: Room, n
  * end the game when it has run out. Null once the game is over.
  */
 function nextAlarm(room: Room, game: PvpGame, now: number): number | null {
+  const computerAt = computerMoveAt(room, game);
+  if (computerAt !== null) return computerAt;
   const deadline = pvpDeadline(game);
   const timeLow = pvpTimeLowAt(game);
   if (deadline !== null && timeLow !== null && room.timeLowFor !== deadline && timeLow > now) return timeLow;
   return deadline;
+}
+
+/** When the computer's next guess is due, if it's the computer's turn; else null. */
+function computerMoveAt(room: Room, game: PvpGame): number | null {
+  if (!room.computer || pvpTurn(game) !== 'guest') return null;
+  const next = room.computer.plan[game.guesses.guest.length];
+  return next ? pvpTurnStart(game) + next.pauseMs : null;
+}
+
+/**
+ * Plays the computer's guess once it's due, timed when it was due (not when
+ * the alarm or a request came), so the record is the same however late the
+ * room woke. Its pause is far inside its clock and its first-guess time.
+ */
+async function playComputer(storage: RoomStorage, deps: RoomDeps, room: Room, game: PvpGame, now: number): Promise<Room | null> {
+  const at = computerMoveAt(room, game);
+  if (at === null || now < at) return null;
+  const word = room.computer!.plan[game.guesses.guest.length].word;
+  const result = submitPvpGuess(game, 'guest', word, at);
+  if (!result.ok) return null;
+  const played = await save(storage, deps, { ...room, record: toPvpRecord(result.game) }, now);
+  deps.notify(moveNotices(played, result.game).filter((n) => n.guestId !== COMPUTER_ID));
+  return played;
 }
 
 /**
@@ -305,6 +351,10 @@ async function settle(storage: RoomStorage, deps: RoomDeps, room: Room, now: num
     return expired;
   }
   const game = gameOf(room);
+  if (game) {
+    const played = await playComputer(storage, deps, room, game, now);
+    if (played) return played;
+  }
   const deadline = game && pvpDeadline(game);
   if (!game || deadline === null) return room;
   if (now < deadline) return remindTimeLow(storage, deps, room, game, deadline, now);
@@ -386,6 +436,46 @@ export function rematchDifficulty(difficulty: Difficulty, rated: boolean): Diffi
   return rated && !isRatedDifficulty(difficulty) ? 'medium' : difficulty;
 }
 
+/**
+ * A ladder game against a computer (Dev Plan item 19p), started at once:
+ * the computer takes the guest's seat with a random secret-list word, and
+ * all its guesses at the player's word are worked out now.
+ */
+async function startComputerGame(
+  storage: RoomStorage, deps: RoomDeps, request: Extract<RoomRequest, { action: 'computer' }>, now: number,
+): Promise<RoomResponse> {
+  const computer = ratedComputer(request.recall);
+  if (!computer || !isRatedDifficulty(request.difficulty)) return refuse(400, 'bad-request');
+  const secret = validateSecretWord(request.secret);
+  if (!secret.ok) return refuse(400, secret.error);
+  let theirs = SECRET_WORDS[Math.floor(deps.random() * SECRET_WORDS.length)];
+  // Never the player's own word, which would make a hit on the first guess a draw at best.
+  if (theirs === secret.word) theirs = SECRET_WORDS[(SECRET_WORDS.indexOf(theirs) + 1) % SECRET_WORDS.length];
+  const timeControl = request.timeControl;
+  const created = createPvpGame(
+    { host: secret.word, guest: theirs }, pickFirstSeat(deps.random), now, timeControl,
+    { host: request.difficulty, guest: request.difficulty }, true,
+  );
+  if (!created.ok) return refuse(400, created.error);
+  const record = toPvpRecord({ ...created.game, ladder: { computer: computer.recall } });
+  const room: Room = {
+    id: request.id,
+    createdAt: now,
+    timeControl,
+    host: { guestId: request.guestId, name: request.name, secret: secret.word, difficulty: request.difficulty },
+    guest: { guestId: COMPUTER_ID, name: LADDER_COMPUTER_NAME },
+    invitee: null,
+    record,
+    cancelled: false,
+    rated: true,
+    matched: true,
+    computer: { recall: computer.recall, plan: planComputerGuesses(secret.word, computer.recall, deps.random) },
+    ratings: { host: request.rating, guest: computerRating(computer) },
+  };
+  const saved = await save(storage, deps, room, now);
+  return { status: 201, body: describeRoom(saved, [request.guestId], now) };
+}
+
 async function answerRoom(
   storage: RoomStorage, deps: RoomDeps, request: RoomRequest, now: number,
 ): Promise<RoomResponse> {
@@ -415,6 +505,11 @@ async function answerRoom(
     return { status: 201, body: describeRoom(room, [request.guestId], now) };
   }
 
+  if (request.action === 'computer') {
+    if (stored) return refuse(409, 'bad-request');
+    return startComputerGame(storage, deps, request, now);
+  }
+
   if (!stored) return refuse(404, 'not-found');
   const room = await settle(storage, deps, stored, now);
   const ids = idsOf(request);
@@ -433,6 +528,8 @@ async function answerRoom(
       { host: room.host.difficulty, guest: request.difficulty }, room.rated === true,
     );
     if (!created.ok) return refuse(400, created.error);
+    // A ladder game against a person (Dev Plan item 19p): its record says so.
+    if (room.matched) created.game = { ...created.game, ladder: {} };
     const ratings = room.rated
       ? await deps.ratingsOf({ host: room.host.guestId, guest: request.guestId }, roomTimeControl(room), now) : undefined;
     const joined: Room = {
@@ -516,14 +613,32 @@ export async function saveFinishedGame(db: D1Database, room: Room, record: PvpRe
   const game = gameOf(room);
   const players = { host: room.host.guestId, guest: room.guest.guestId };
   const pool = ratingPool(roomTimeControl(room));
-  const changes = room.rated && game?.outcome ? await ratedGameChanges(db, pool, players, hostScore(game.outcome), now) : [];
+  const computer = room.computer && ratedComputer(room.computer.recall);
+  const outcome = room.rated ? game?.outcome : null;
+  const changes = !outcome ? []
+    : computer ? await computerGameChanges(db, pool, players.host, computerRating(computer), hostScore(outcome), now)
+      : await ratedGameChanges(db, pool, players, hostScore(outcome), now);
+  // A computer has no history, so only people get a row.
+  const people = computer ? [players.host] : [players.host, players.guest];
   await db.batch([
     db.prepare(
       `INSERT OR IGNORE INTO games (id, mode, version, record, started_at, finished_at) VALUES (?1, 'friend', ?2, ?3, ?4, ?5)`,
     ).bind(room.id, HISTORY_VERSION, JSON.stringify(record), record.startedAt, now),
-    ...[players.host, players.guest].map((guestId) =>
+    ...people.map((guestId) =>
       db.prepare('INSERT OR IGNORE INTO game_players (game_id, guest_id) VALUES (?1, ?2)').bind(room.id, guestId)),
-    ...ratingStatements(db, room.id, pool, changes, now),
+    ...ratingStatements(db, room.id, pool, changes, now, computer?.recall),
   ]);
-  return changes.length > 0 ? seatChanges(await keptChanges(db, room.id, changes), players) : null;
+  if (changes.length === 0) return null;
+  const kept = await keptChanges(db, room.id, changes);
+  if (!computer) return seatChanges(kept, players);
+  const fixed = computerRating(computer);
+  return kept[players.host] ? { host: kept[players.host], guest: { before: fixed, after: fixed } } : null;
+}
+
+/** The player's change in a ladder game against a computer, whose rating never moves (`rateVsComputer`). */
+async function computerGameChanges(
+  db: D1Database, pool: ReturnType<typeof ratingPool>, accountId: string, computer: Rating, score: 0 | 0.5 | 1, now: number,
+) {
+  const before = await currentRating(db, accountId, pool, now);
+  return [{ accountId, before, after: rateVsComputer(before, computer, score) }];
 }

@@ -1,11 +1,12 @@
-import { FEATURES, isDifficulty, isLive, isObject, isRatedDifficulty, isTimeControl, ratingPool } from '../../src/game';
-import type { QueueChoice } from '../../src/app/queueApi';
+import { FEATURES, isObject, ladderComputer, ratingPool } from '../../src/game';
+import { LADDER_CHOICE, type QueueChoice } from '../../src/app/queueApi';
 import { identify } from './accounts';
 import { isShortString, nameOf } from './games';
 import { registerGuest } from './guests';
 import { errorResponse, readJson } from './http';
 import type { Env } from './index';
 import { queueName, type MatchmakerRequest } from './matchmaker';
+import { ladderAverageOf } from './friendProfiles';
 import { currentRating } from './ratings';
 
 /*
@@ -17,14 +18,12 @@ import { currentRating } from './ratings';
 const QUEUE_PATH = /^\/api\/queue(?:\/(poll|leave))?$/;
 
 /**
- * The queue's time control and difficulty. Live clocks only: a matched
- * correspondence game would need the queue to work without an open page.
- * Matched games are rated, so not Easy.
+ * The queue's time control and difficulty: Live 10 at Medium alone since
+ * Dev Plan item 19p (`LADDER_CHOICE`), with queues per difficulty once
+ * there are enough players.
  */
 function choiceOf(body: Record<string, unknown>): QueueChoice | null {
-  return isTimeControl(body.timeControl) && isLive(body.timeControl) && isDifficulty(body.difficulty)
-    && isRatedDifficulty(body.difficulty)
-    ? { timeControl: body.timeControl, difficulty: body.difficulty } : null;
+  return body.timeControl === LADDER_CHOICE.timeControl && body.difficulty === LADDER_CHOICE.difficulty ? LADDER_CHOICE : null;
 }
 
 async function toQueue(env: Env, request: MatchmakerRequest): Promise<Response> {
@@ -56,5 +55,7 @@ export async function routeQueue(request: Request, env: Env, now: number, pathna
   if (!name || !isShortString(body.secret)) return errorResponse(400, 'bad-request');
   await registerGuest(env.DB, accountId, now);
   const rating = await currentRating(env.DB, accountId, ratingPool(choice.timeControl), now);
-  return toQueue(env, { ...choice, action: 'join', accountId, name, secret: body.secret, rating });
+  // The computer they'd play if nobody is free: by rating once it's settled, else by their shared average.
+  const computer = ladderComputer(rating, await ladderAverageOf(env.DB, accountId)).recall;
+  return toQueue(env, { ...choice, action: 'join', accountId, name, secret: body.secret, rating, computer });
 }

@@ -40,7 +40,7 @@ export interface RatingChange {
 }
 
 /** One player's change in a game being rated: the statements to keep it are made from these. */
-interface PlayerChange {
+export interface PlayerChange {
   accountId: string;
   before: Rating;
   after: Rating;
@@ -134,10 +134,11 @@ async function storedChanges(db: D1Database, gameId: string): Promise<Record<str
  * Keeping the players' new ratings and the game's changes to them, for one
  * batch. Each rating changes only while the game has no changes kept yet,
  * so a game is rated once even if two saves of it overlap (D1 runs a batch
- * as one transaction): the second changes nothing.
+ * as one transaction): the second changes nothing. `computerRecall` marks a
+ * ladder game against a computer (Dev Plan item 19p).
  */
 export function ratingStatements(
-  db: D1Database, gameId: string, pool: RatingPool, changes: readonly PlayerChange[], now: number,
+  db: D1Database, gameId: string, pool: RatingPool, changes: readonly PlayerChange[], now: number, computerRecall?: number,
 ): D1PreparedStatement[] {
   return [
     ...changes.map(({ accountId, after: { rating, rd, volatility } }) => db.prepare(
@@ -146,9 +147,9 @@ export function ratingStatements(
        ON CONFLICT (account_id, pool) DO UPDATE SET rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6`,
     ).bind(accountId, pool, rating, rd, volatility, now, gameId)),
     ...changes.map(({ accountId, before, after }) => db.prepare(
-      `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
-    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now)),
+      `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now, computerRecall ?? null)),
   ];
 }
 

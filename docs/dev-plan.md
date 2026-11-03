@@ -11,36 +11,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19p. Computers in the Live 10 queue** (after 19o; worker, review
-  gate; Random opponent stays switched off until 19q)
-  - The queue (`worker/src/queue.ts`) is Live 10 at Medium alone, and
-    offers a computer after 30 seconds with no person to match. A provisional player's computer comes from
-    their average guesses per word: the last 20 words found in single
-    player and the Daily Word (games played to the end), without Suggest,
-    Easy included, sent with the device's shared summary; with fewer than
-    5 words found, Expert. A settled player's comes from their rating.
-    Never below Expert's 0.38
-  - The game room runs the computer's seat: its secret word is random
-    from the secret list, and its guesses are worked out when the game
-    starts (they depend only on its own scores against your word, as in
-    a lobby's `computerMoves`), each played on its turn after a short
-    pause, so records replay as they are
-  - Rating: the computer's rating never moves. A game against it moves
-    the player's rating by half as much as against a person, both ways,
-    and by the full amount while their rating is still provisional (the
-    owner, 3 November 2026). No cap for now
-  - History and badges: a game against a ladder computer is its own kind
-    in the history. It earns the VS CPU badges of the strongest of the
-    four named strengths it's at least as strong as, the win streak,
-    Clutch and every solve badge, never the friend badges. Ladder games
-    against a person stop earning **Win a game against a friend** and
-    the HARDER badges, which they earn today because a matched game is
-    kept as a friend game (the owner, 3 November 2026)
-  - Rating pools: Live 10 rates into the same pool as correspondence (one
-    two player rating, `ratingPool`); Live 15 and 5 keep their own,
-    unused while off
-  - README "Random opponent", "Rating" and "Achievements" record all of
-    the above
 - [ ] **19q. Switch on the Live 10 ladder** (after 19p)
   - `FEATURES`: Random opponent on, shown as **Rated ladder** (Live 10
     at Medium; "Live, 10 minutes each, at Medium. Matched with a player
@@ -109,6 +79,36 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19p. Computers in the Live 10 queue** (after 19o; worker, review
+  gate; Random opponent stays switched off until 19q)
+  - The queue (`worker/src/queue.ts`) is Live 10 at Medium alone, and
+    offers a computer after 30 seconds with no person to match. A provisional player's computer comes from
+    their average guesses per word: the last 20 words found in single
+    player and the Daily Word (games played to the end), without Suggest,
+    Easy included, sent with the device's shared summary; with fewer than
+    5 words found, Expert. A settled player's comes from their rating.
+    Never below Expert's 0.38
+  - The game room runs the computer's seat: its secret word is random
+    from the secret list, and its guesses are worked out when the game
+    starts (they depend only on its own scores against your word, as in
+    a lobby's `computerMoves`), each played on its turn after a short
+    pause, so records replay as they are
+  - Rating: the computer's rating never moves. A game against it moves
+    the player's rating by half as much as against a person, both ways,
+    and by the full amount while their rating is still provisional (the
+    owner, 3 November 2026). No cap for now
+  - History and badges: a game against a ladder computer is its own kind
+    in the history. It earns the VS CPU badges of the strongest of the
+    four named strengths it's at least as strong as, the win streak,
+    Clutch and every solve badge, never the friend badges. Ladder games
+    against a person stop earning **Win a game against a friend** and
+    the HARDER badges, which they earn today because a matched game is
+    kept as a friend game (the owner, 3 November 2026)
+  - Rating pools: Live 10 rates into the same pool as correspondence (one
+    two player rating, `ratingPool`); Live 15 and 5 keep their own,
+    unused while off
+  - README "Random opponent", "Rating" and "Achievements" record all of
+    the above
 - [x] **19o. Computer ratings table** (the owner, 3 November 2026; first
   of three items for a rated ladder that never leaves you waiting; game
   logic only)

@@ -49,6 +49,8 @@ export interface FriendGame {
   rated: boolean;
   /** Started by the matchmaking queue (README "Random opponent"), not an invite. */
   matched: boolean;
+  /** A ladder game against a computer (Dev Plan item 19p), which plays the guest's seat. */
+  computer: boolean;
   /** A rated game's ratings from your side, once it has started. */
   ratings: { you: RatingLine; opponent: RatingLine } | null;
   /** Your view of the game once it has started and you're in it. */
@@ -158,7 +160,7 @@ export function parseFriendGame(value: unknown): FriendGame | null {
   return {
     id, seat, state: state as FriendGameState, hostName, guestName, opponentCode, inviteeName, invitedYou: value.invitedYou === true,
     rematchOf, rematch, timeControl, createdAt, expiresAt, serverNow,
-    rated: value.rated === true, matched: value.matched === true, ratings, view,
+    rated: value.rated === true, matched: value.matched === true, computer: value.computer === true, ratings, view,
   };
 }
 

@@ -144,6 +144,23 @@ export async function startMatchedGame(
 }
 
 /**
+ * A ladder game against the seeker's computer (Dev Plan item 19p): the
+ * room starts it at once, the seeker as host.
+ */
+export async function startComputerGame(
+  env: Env, seeker: Seeker, timeControl: TimeControl, difficulty: Difficulty, now: number,
+): Promise<string> {
+  const id = env.GAMES.newUniqueId();
+  const created = await toRoom(env, id, {
+    action: 'computer', id: id.toString(), guestId: seeker.accountId, name: seeker.name, secret: seeker.secret, difficulty, timeControl,
+    recall: seeker.computer, rating: seeker.rating,
+  });
+  if (!created.ok) throw new Error(`Couldn't start a computer game: ${created.status}`);
+  await addPlayer(env.DB, id.toString(), seeker.accountId, now);
+  return id.toString();
+}
+
+/**
  * A rematch of a finished game (README "Rematch"): a challenge to the other
  * player only, with the same clock, rated if it was, and each side at the
  * difficulty they ask or accept it with (`rematchDifficulty`). The old

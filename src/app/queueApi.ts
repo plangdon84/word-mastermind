@@ -1,4 +1,4 @@
-import { isLive, isObject, isTime, type Difficulty, type TimeControl, type WordError } from '../game';
+import { isObject, isTime, type Difficulty, type TimeControl, type WordError } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 
 /*
@@ -26,12 +26,14 @@ export interface QueueChoice {
 }
 
 /**
- * The queue for these settings. It offers the live clocks only, so a saved
- * correspondence time control (from a game against a friend) becomes 10
- * minutes each, rather than a queue the server refuses.
+ * The one queue, the rated ladder (Dev Plan item 19p): Live 10 at Medium,
+ * with queues per difficulty switched on once there are enough players.
  */
-export function queueChoice(timeControl: TimeControl, difficulty: Difficulty): QueueChoice {
-  return { timeControl: isLive(timeControl) ? timeControl : '10m', difficulty };
+export const LADDER_CHOICE: Readonly<QueueChoice> = { timeControl: '10m', difficulty: 'medium' };
+
+/** The queue for these settings: the ladder's, whatever was chosen, rather than a queue the server refuses. */
+export function queueChoice(_timeControl: TimeControl, _difficulty: Difficulty): QueueChoice {
+  return { ...LADDER_CHOICE };
 }
 
 export function parseQueueStatus(value: unknown): QueueStatus | null {

@@ -248,8 +248,10 @@ async function saveShared(db: D1Database, accountId: string, text: string, now: 
 export async function sharedSummaryOf(db: D1Database, friendId: string): Promise<SharedSummary | null> {
   const row = await db.prepare('SELECT summary FROM shared_profiles WHERE account_id = ?1').bind(friendId)
     .first<{ summary: string | null }>();
-  const summary = row?.summary ? parseSharedSummary(parse(row.summary)) : null;
-  if (!summary) return null;
+  const parsed = row?.summary ? parseSharedSummary(parse(row.summary)) : null;
+  if (!parsed) return null;
+  // The queue's alone (Dev Plan item 19p): it counts today's Daily Word, which friends don't see yet.
+  const { ladderAverage: _ladderAverage, ...summary } = parsed;
   const serverIds = summary.featured.filter((e) => isServerMode(e.mode)).map((e) => e.id);
   if (serverIds.length === 0) return summary;
   const { results } = await db.prepare(
@@ -327,4 +329,16 @@ export async function routeProfileShare(request: Request, env: Env, now: number,
   if (pathname === '/api/profile/index') return json(await indexStep(env, accountId));
   const ok = await saveShared(env.DB, accountId, await request.text(), now);
   return ok ? json({ ok: true }) : errorResponse(400, 'bad-request');
+}
+
+/**
+ * A player's average guesses per word for the rated ladder's first
+ * computers (`ladderAverage`), as their device last shared it; null
+ * without one.
+ */
+export async function ladderAverageOf(db: D1Database, accountId: string): Promise<number | null> {
+  const row = await db.prepare('SELECT summary FROM shared_profiles WHERE account_id = ?1').bind(accountId)
+    .first<{ summary: string | null }>();
+  const summary = row?.summary ? parseSharedSummary(parse(row.summary)) : null;
+  return summary?.ladderAverage ?? null;
 }

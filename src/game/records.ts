@@ -138,7 +138,7 @@ export function parsePvpMoves(value: unknown): PvpMove[] | null {
 /** A game against a friend, as the server keeps it. */
 export function parsePvpRecord(value: unknown): PvpRecord | null {
   if (!isObject(value)) return null;
-  const { secrets, first, startedAt, turnDays, clockMinutes, difficulty, rated, firstGuessFree } = value;
+  const { secrets, first, startedAt, turnDays, clockMinutes, difficulty, rated, firstGuessFree, ladder } = value;
   const moves = parsePvpMoves(value.moves);
   if (!isObject(secrets) || typeof secrets.host !== 'string' || typeof secrets.guest !== 'string') return null;
   if (!isObject(difficulty) || !isDifficulty(difficulty.host) || !isDifficulty(difficulty.guest)) return null;
@@ -149,9 +149,13 @@ export function parsePvpRecord(value: unknown): PvpRecord | null {
     ? (CLOCK_MINUTES.includes(clockMinutes as ClockMinutes) && turnDays === undefined ? { clockMinutes: clockMinutes as ClockMinutes } : null)
     : turnDays === undefined || TURN_DAYS.includes(turnDays as TurnDays) ? (turnDays === undefined ? {} : { turnDays: turnDays as TurnDays }) : null;
   if (!timing) return null;
+  // Dev Plan item 19p's ladder: a matched game, against a computer at a recall in (0, 1].
+  if (ladder !== undefined && (!isObject(ladder)
+    || (ladder.computer !== undefined && !(typeof ladder.computer === 'number' && ladder.computer > 0 && ladder.computer <= 1)))) return null;
   return {
     secrets: { host: secrets.host, guest: secrets.guest }, first, startedAt, ...timing,
     difficulty: { host: difficulty.host, guest: difficulty.guest }, ...(rated ? { rated: true as const } : {}),
-    ...(firstGuessFree ? { firstGuessFree: true as const } : {}), moves,
+    ...(firstGuessFree ? { firstGuessFree: true as const } : {}),
+    ...(ladder ? { ladder: typeof ladder.computer === 'number' ? { computer: ladder.computer } : {} } : {}), moves,
   };
 }
