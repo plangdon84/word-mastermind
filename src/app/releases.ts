@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.0.1',
+    notes: [
+      { text: 'A name that\'s no longer allowed now shows as "A player" on every leaderboard.' },
+      { text: 'A new name chosen as a guest now reaches the daily leaderboards, even if you were offline when you chose it.' },
+    ],
+  },
+  {
     version: '2.0.0',
     notes: [
       { text: 'New leaderboard for players that compete in rated games.' },
