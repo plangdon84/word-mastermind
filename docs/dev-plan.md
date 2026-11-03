@@ -52,6 +52,15 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     matched first. The computer's strength is any recall from Expert's
     0.38 (the floor) to 1.0 in steps of 0.1, each with a fixed rating
     that never changes
+  - Also agreed, 3 November 2026: the ladder is Medium only (one queue;
+    nearly every player plays Medium), with queues per difficulty switched
+    on once there are enough players. Live 10 and correspondence share one
+    two player rating and one board (a production audit found half of
+    rated correspondence games end within an hour, with a median guess of
+    25 seconds, so they play much like live games); every rated game keeps
+    its record, so separate ratings could be rebuilt later. On the title
+    screen it's Two player's third opponent, renamed from Random opponent
+    to **Rated match**
   - A script (`npm run calibrate`, by hand, not in `npm test`) plays
     20,000 solves at each recall from 0.38 and 0.40 to 1.00 in steps of
     0.05, and turns them into ratings with Expert pinned at 1500. Between
@@ -73,8 +82,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     game often ends before you find the word
 - [ ] **19p. Computers in the Live 10 queue** (after 19o; worker, review
   gate; Random opponent stays switched off until 19q)
-  - The queue (`worker/src/queue.ts`) offers a computer after 30 seconds
-    with no person to match. A provisional player's computer comes from
+  - The queue (`worker/src/queue.ts`) is Live 10 at Medium alone, and
+    offers a computer after 30 seconds with no person to match. A provisional player's computer comes from
     their average guesses per word: the last 20 words found in single
     player and the Daily Word (games played to the end), without Suggest,
     Easy included, sent with the device's shared summary; with fewer than
@@ -96,12 +105,18 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     against a person stop earning **Win a game against a friend** and
     the HARDER badges, which they earn today because a matched game is
     kept as a friend game (the owner, 3 November 2026)
+  - Rating pools: Live 10 rates into the same pool as correspondence (one
+    two player rating, `ratingPool`); Live 15 and 5 keep their own,
+    unused while off
   - README "Random opponent", "Rating" and "Achievements" record all of
     the above
 - [ ] **19q. Switch on the Live 10 ladder** (after 19p)
-  - `FEATURES`: Random opponent on with Live 10 minutes alone, and the
-    Live 10 rating board on beside Correspondence. A ladder row shows how
-    many of the player's games were against computers
+  - `FEATURES`: Random opponent on, shown as **Rated match** (Live 10 at
+    Medium; "Live, 10 minutes each. Matched with a player near your
+    rating, or a computer at your level after 30 seconds. Signed in."),
+    and the Correspondence board renamed for the shared two player
+    rating. A board row shows how many of the player's rated games were
+    against computers
   - The usage dashboard adds, per computer recall, players' actual score
     against it beside the score their ratings expected (totals only), so
     a computer whose rating is wrong can be retuned in 19o's table
