@@ -421,6 +421,14 @@ answers totals only. Counts over a period read only that period's rows
 entry per game. Counted figures are kept for 5 minutes, so Refresh taps
 don't count again, keeping it well within D1's free 5 million rows a day.
 
+**Rated ladder computers** (Dev Plan item 19q): for each computer in the
+computer ratings table, its games and players' actual score against it (a
+win raised their rating, a draw left it alone) beside the score their
+ratings going in expected, from `rated_games.computer_recall`. A computer
+players beat more often than expected is rated too high, and less often,
+too low: retune its row in `src/game/computerRatings.ts` (README "Computer
+ratings").
+
 Setting it up (once, in the Cloudflare dashboard; Access is free for up to
 50 people). The menu names are the Cloudflare One dashboard's as of
 October 2026:

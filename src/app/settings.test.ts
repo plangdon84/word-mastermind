@@ -38,7 +38,7 @@ describe('parseSettings', () => {
     // Switched off for the launch: back to the defaults.
     expect(parseSettings(JSON.stringify({ rushKind: 'competitive' })).rushKind).toBe('solo');
     expect(parseSettings(JSON.stringify({ opponent: 'random' }), null, allOn).opponent).toBe('random');
-    expect(parseSettings(JSON.stringify({ opponent: 'random' })).opponent).toBe('computer');
+    expect(parseSettings(JSON.stringify({ opponent: 'random' }), null, { ...allOn, randomOpponent: false }).opponent).toBe('computer');
     expect(parseSettings(JSON.stringify({ rushKind: 'tournament' })).rushKind).toBe('solo');
   });
 

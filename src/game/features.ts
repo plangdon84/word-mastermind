@@ -9,7 +9,7 @@
 import type { RatingPool } from './rating';
 
 export interface Features {
-  /** Two player vs. a random opponent: the matchmaking queue (README "Random opponent"). */
+  /** Two player's Rated ladder: the matchmaking queue (README "Random opponent"). */
   randomOpponent: boolean;
   /**
    * Which rating boards are on the Leaderboards page, of Live 15, 10 and 5
@@ -34,7 +34,8 @@ export type Feature = keyof Features;
 
 /** Off for the 1.0 launch, until there are enough players (Dev Plan item 13b); on since as noted. */
 export const FEATURES: Readonly<Features> = {
-  randomOpponent: false,
+  // On since Dev Plan item 19q: the rated ladder, Live 10 at Medium, with a computer after 30 seconds.
+  randomOpponent: true,
   ratingBoards: ['correspondence'],
   competitiveRush: false,
   suggest: true,

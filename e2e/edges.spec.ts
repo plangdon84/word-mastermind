@@ -620,7 +620,7 @@ test.describe(() => {
     await signIn(page, 'rated@example.com');
     await button(page, 'Back to profile').click();
     await button(page, /^Stats/).click();
-    await expect(page.locator('.rating-pool')).toHaveText('Corresp.');
+    await expect(page.locator('.rating-pool')).toHaveText('2-player');
     for (const width of [320, 375, 390, 412]) {
       await page.setViewportSize({ width, height: 800 });
       const [tile, rating, pool] = await page.evaluate(() => {
@@ -630,7 +630,7 @@ test.describe(() => {
         digits.selectNodeContents(dd.firstChild!);
         return [box(document.querySelector('.rating-tile')!), box(digits), box(document.querySelector('.rating-pool')!)];
       });
-      for (const [what, [left, right]] of [['1888?', rating], ['Corresp.', pool]] as const) {
+      for (const [what, [left, right]] of [['1888?', rating], ['2-player', pool]] as const) {
         expect(left, `${what}'s left at ${width}px`).toBeGreaterThanOrEqual(tile[0]);
         expect(right, `${what}'s right at ${width}px`).toBeLessThanOrEqual(tile[1]);
       }
@@ -795,11 +795,30 @@ test('Leaderboards has the Correspondence rating board and no other (item 19l)',
   await button(page, 'Leaderboards').click();
   const tiles = page.getByRole('group', { name: 'Leaderboards' }).getByRole('button');
   await expect(tiles).toHaveCount(3);
-  await expect(modeButton(page, 'Correspondence PvP')).toBeVisible();
+  await expect(modeButton(page, 'Two player rating')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Live PvP|^Competitive Rush/ })).toHaveCount(0);
-  await modeButton(page, 'Correspondence PvP').click();
-  await expect(page.getByRole('heading', { name: 'Correspondence PvP' })).toBeVisible();
+  await modeButton(page, 'Two player rating').click();
+  await expect(page.getByRole('heading', { name: 'Two player rating' })).toBeVisible();
   await expect(page.getByText('Nobody is listed yet.')).toBeVisible();
   await button(page, 'Back').click();
-  await expect(modeButton(page, 'Correspondence PvP')).toBeVisible();
+  await expect(modeButton(page, 'Two player rating')).toBeVisible();
+});
+
+test('the Rated ladder plays a computer when nobody is free for 30 seconds (item 19q)', async ({ page }) => {
+  test.setTimeout(120_000);
+  await unlockAll(page);
+  await signIn(page, `ladder-${Date.now()}@example.com`);
+  await page.goto('/');
+  await modeButton(page, 'Two player').click();
+  await modeButton(page, 'Rated ladder').click();
+  await expect(page.getByRole('heading', { name: 'Rated ladder' })).toBeVisible();
+  await page.keyboard.type('storm');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Looking for an opponent…' })).toBeVisible();
+  // Alone in the queue: after 30 seconds, a computer at about your level, said openly.
+  await expect(page.getByText("No one was free, so you're playing a computer at about your level.")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('tab', { name: /🤖 Computer/ })).toBeVisible();
+  // Whoever goes first, the computer guesses within its 8-second pause of its turn.
+  if (await page.getByText('Your turn').isVisible()) await guess(page, 'crane');
+  await expect(page.getByRole('tab', { name: /🤖 Computer \(1\)/ })).toBeVisible({ timeout: 15_000 });
 });

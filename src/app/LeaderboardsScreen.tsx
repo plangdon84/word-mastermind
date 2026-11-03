@@ -24,7 +24,8 @@ export const BOARD_TITLE: Record<BoardId, string> = {
   '15m': 'Live PvP · 15 min',
   '10m': 'Live PvP · 10 min',
   '5m': 'Live PvP · 5 min',
-  correspondence: 'Correspondence PvP',
+  // One two player rating since Dev Plan item 19p: the rated ladder (Live 10), rated challenges and correspondence.
+  correspondence: 'Two player rating',
   rush: 'Competitive Rush',
 };
 
@@ -34,7 +35,7 @@ const BOARD_DETAIL: Record<BoardId, string> = {
   '15m': 'Ratings from rated games on a 15-minute clock.',
   '10m': 'Ratings from rated games on a 10-minute clock.',
   '5m': 'Ratings from rated games on a 5-minute clock.',
-  correspondence: 'Ratings from rated games at 1 or 3 days per guess.',
+  correspondence: 'Ratings from rated two player games: the Rated ladder, rated challenges, live or over days.',
   rush: 'Ratings from Competitive Rush lobbies.',
 };
 
@@ -90,14 +91,17 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
                   <span class="board-rank">{r.rank}</span>
                   <span class="board-name"><PlayerName name={r.name} code={r.friendCode} />{r.you && <span class="visually-hidden"> (you)</span>}</span>
                   <span class="board-guesses" aria-label={`Rating ${r.rating}`}>{r.rating}</span>
-                  <span class="board-time board-games" aria-label={gamesText(r.games)}>{r.games}</span>
+                  <span class="board-time board-games"
+                    aria-label={r.computerGames > 0 ? `${gamesText(r.games)}, ${r.computerGames} against computers` : gamesText(r.games)}>
+                    {r.games}{r.computerGames > 0 && <span class="board-cpu"> · 🤖{r.computerGames}</span>}
+                  </span>
                 </li>
               ))}
             </ol>
           )}
           <p class="board-you">{yourRatingText(board, youShown)}</p>
           <p class="board-note">
-            {board.top.length > 0 && 'Rank, name, rating and rated games. '}
+            {board.top.length > 0 && `Rank, name, rating and rated games${board.top.some((r) => r.computerGames > 0) ? ' (🤖 against computers)' : ''}. `}
             Players are listed once their rating isn't provisional (a "?" after it), which also comes back after a long
             break.
           </p>

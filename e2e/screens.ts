@@ -136,6 +136,15 @@ export const SCREENS: Screen[] = [
     },
   },
   { name: 'two-opponent', open: twoPlayerSetup },
+  {
+    // The rated ladder (Dev Plan item 19q), signed out: it needs an account.
+    name: 'ladder-signed-out',
+    open: async (page) => {
+      await twoPlayerSetup(page);
+      await modeButton(page, 'Rated ladder').click();
+      await expect(page.getByRole('heading', { name: 'Sign in to play the rated ladder.' })).toBeVisible();
+    },
+  },
   { name: 'two-strength', open: async (page) => { await twoPlayerSetup(page); await modeButton(page, 'Computer').click(); } },
   {
     name: 'two-game',
@@ -294,7 +303,7 @@ export const SCREENS: Screen[] = [
     open: async (page) => {
       await unlockAll(page);
       await button(page, 'Leaderboards').click();
-      await modeButton(page, 'Correspondence PvP').click();
+      await modeButton(page, 'Two player rating').click();
     },
   },
   { name: 'profile', open: async (page) => { await unlockAll(page); await page.getByRole('button', { name: /^Profile/ }).click(); } },

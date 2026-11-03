@@ -34,6 +34,7 @@ interface BoardRow {
   account_id: string;
   rating: number;
   games: number;
+  computer_games: number;
   rank: number;
   total: number;
   name: string | null;
@@ -68,13 +69,15 @@ export async function ratingBoard(
        FROM ratings r WHERE ${LISTED} ${only}
        ORDER BY r.rating DESC, r.account_id LIMIT ${RATING_BOARD_SIZE})
      SELECT t.account_id, t.rating, t.games, t.rank, t.total, COALESCE(p.name, p.guest_name) AS name,
+       (SELECT COUNT(*) FROM rated_games g WHERE g.account_id = t.account_id AND g.pool = ?1 AND g.computer_recall IS NOT NULL) AS computer_games,
        ${circle === 'friends' ? friendCodeSql('t.account_id', '?3') : 'NULL'} AS friend_code
      FROM top t LEFT JOIN profiles p ON p.account_id = t.account_id
      ORDER BY t.rating DESC, t.account_id`,
   ).bind(...args).all<BoardRow>();
   const top = results.map((r): RatingBoardRow => ({
     // A name the profanity filter now refuses shows as no name, as on every board (`names.ts`).
-    rank: r.rank, name: shownName(r.name), rating: Math.round(r.rating), games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
+    rank: r.rank, name: shownName(r.name), rating: Math.round(r.rating), games: r.games,
+    computerGames: r.computer_games, you: r.account_id === accountId, friendCode: r.friend_code,
   }));
   let you: YourRatingPlace | null = null;
   if (accountId) {

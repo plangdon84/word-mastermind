@@ -200,6 +200,12 @@ describe('the figures', () => {
       (?, '2026-10-16', 'daily', ?), (?, '2026-10-16', 'dailyWord', ?)`)
       .run(account, at(0), guestId(3), at(0), guestId(6), at(0), guestId(3), at(0));
 
+    // Ladder games against computers (Dev Plan item 19q): a win, a loss and a draw against Expert, from 1500.
+    for (const [id, after] of [['c1', 1520], ['c2', 1480], ['c3', 1500]] as const) {
+      sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
+        VALUES (?, ?, 'correspondence', 1500, 300, ?, 280, ?, 0.38)`).run(id, account, after, NOW);
+    }
+
     const response = await figures(await key.sign(valid));
     expect(response.headers.get('cache-control')).toBe('no-store');
     const text = await response.text();
@@ -239,5 +245,9 @@ describe('the figures', () => {
     expect(usage.dailyWord.at(-1)).toEqual({ day: '2026-10-16', started: 1, finished: {} });
     expect(usage.countries).toEqual([{ country: 'GB', count: 1 }]);
     expect(usage.noCountry).toBe(0);
+    expect(usage.ladder).toHaveLength(7);
+    expect(usage.ladder![0]).toMatchObject({ recall: 0.38, rating: 1500, games: 3, score: 1.5 });
+    expect(usage.ladder![0].expected).toBeCloseTo(1.5);
+    expect(usage.ladder![6]).toEqual({ recall: 1, rating: 1890, games: 0, score: 0, expected: 0 });
   });
 });

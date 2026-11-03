@@ -25,6 +25,8 @@ export interface RatingBoardRow {
   rating: number;
   /** Rated games played in this pool. */
   games: number;
+  /** How many of them were against a rated ladder computer (Dev Plan item 19q). */
+  computerGames: number;
   you: boolean;
   /** On the Friends view, a friend's row: their friend code, which opens their profile. Null otherwise. */
   friendCode: string | null;
@@ -61,7 +63,9 @@ export function parseRatingBoard(value: unknown): RatingBoard | null {
     if (!isObject(row) || !isCount(row.rank) || typeof row.name !== 'string' || typeof row.rating !== 'number') return null;
     if (!isCount(row.games) || typeof row.you !== 'boolean') return null;
     const friendCode = typeof row.friendCode === 'string' ? row.friendCode : null;
-    top.push({ rank: row.rank, name: row.name, rating: row.rating, games: row.games, you: row.you, friendCode });
+    // An older server sends no count of computer games.
+    const computerGames = isCount(row.computerGames) ? row.computerGames : 0;
+    top.push({ rank: row.rank, name: row.name, rating: row.rating, games: row.games, computerGames, you: row.you, friendCode });
   }
   let you: YourRatingPlace | null = null;
   if (value.you !== null) {

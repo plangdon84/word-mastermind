@@ -883,6 +883,10 @@ export function App() {
           setSettings({ ...settings, mode: 'two', opponent: 'friend' });
           setScreen({ name: 'friend', id: null, challenge: friend });
         }}
+        onLadder={() => {
+          setSettings({ ...settings, mode: 'two', opponent: 'random' });
+          setScreen({ name: 'match' });
+        }}
         onStart={() => setScreen(settings.mode === 'two' && settings.opponent === 'friend' ? { name: 'friend', id: null }
           : settings.mode === 'two' && settings.opponent === 'random' ? { name: 'match' }
           : settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord')

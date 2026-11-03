@@ -23,12 +23,12 @@ export interface PoolRating extends ShownRating {
 }
 
 export const POOL_LABEL: Record<RatingPool, string> = {
-  '15m': '15 min', '10m': '10 min', '5m': '5 min', correspondence: 'Correspondence', rush: 'Competitive Rush',
+  '15m': '15 min', '10m': '10 min', '5m': '5 min', correspondence: 'Two player', rush: 'Competitive Rush',
 };
 
 /** The same, short enough for the stats headline's Rating tile on a 320px phone (issue 182). */
 export const POOL_SHORT_LABEL: Record<RatingPool, string> = {
-  ...POOL_LABEL, correspondence: 'Corresp.', rush: 'Rush',
+  ...POOL_LABEL, correspondence: '2-player', rush: 'Rush',
 };
 
 export const isShownRating = (value: unknown): value is ShownRating =>

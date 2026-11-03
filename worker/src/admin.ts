@@ -1,5 +1,5 @@
-import type { DailyCounts, ModeCount, PeriodCount, PeriodKind, Periods, Usage } from '../../src/admin/usage';
-import { addDays, DAY_MS, dailyDay, dayStart } from '../../src/game';
+import type { DailyCounts, LadderComputerFigures, ModeCount, PeriodCount, PeriodKind, Periods, Usage } from '../../src/admin/usage';
+import { addDays, COMPUTER_RATINGS, COMPUTER_RD, DAY_MS, dailyDay, dayStart, GLICKO_SCALE } from '../../src/game';
 import { ACCESS_HEADER, verifyAccessToken } from './access';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -117,6 +117,12 @@ export async function usageAt(db: D1Database, now: number): Promise<Usage> {
       `SELECT day, difficulty, COUNT(*) AS n FROM ${DIFFICULTY_TABLES[mode]} WHERE day >= ?1 GROUP BY day, difficulty`,
     ).bind(firstDay)),
     db.prepare(`SELECT country, COUNT(*) AS count FROM profiles WHERE country IS NOT NULL GROUP BY country ORDER BY count DESC, country`),
+    // Ladder games against a computer (Dev Plan item 19q): a win raised the player's rating, a loss lowered it and
+    // a draw left it alone, grouped by the rating they went in with, to the point.
+    db.prepare(
+      `SELECT computer_recall AS recall, ROUND(rating_before) AS rating, CASE WHEN rating_after > rating_before THEN 1 WHEN rating_after < rating_before THEN -1 ELSE 0 END AS result, COUNT(*) AS n
+       FROM rated_games WHERE computer_recall IS NOT NULL GROUP BY 1, 2, 3`,
+    ),
   ]);
   const rows = <T>(i: number) => results[i].results as T[];
   const totals = rows<{
@@ -150,7 +156,35 @@ export async function usageAt(db: D1Database, now: number): Promise<Usage> {
     dailyWord: dailyCounts('dailyWord', 14),
     countries: rows<{ country: string; count: number }>(15),
     noCountry: totals.no_country,
+    ladder: ladderFigures(rows<LadderRow>(16)),
   };
+}
+
+interface LadderRow {
+  recall: number;
+  rating: number;
+  result: number;
+  n: number;
+}
+
+/**
+ * Each ladder computer's games, players' actual score against it and the
+ * score Glicko-2 expected from their ratings going in (`rating.ts`, with the
+ * computer's RD).
+ */
+export function ladderFigures(rows: readonly LadderRow[]): LadderComputerFigures[] {
+  const phi = COMPUTER_RD / GLICKO_SCALE;
+  const g = 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
+  return COMPUTER_RATINGS.map((computer) => {
+    const figures: LadderComputerFigures = { recall: computer.recall, rating: computer.rating, games: 0, score: 0, expected: 0 };
+    for (const row of rows) {
+      if (row.recall !== computer.recall) continue;
+      figures.games += row.n;
+      figures.score += row.n * (row.result > 0 ? 1 : row.result === 0 ? 0.5 : 0);
+      figures.expected += row.n / (1 + Math.exp(-g * (row.rating - computer.rating) / GLICKO_SCALE));
+    }
+    return figures;
+  });
 }
 
 /** `GET /api/admin/figures`, for a request through Cloudflare Access; null for any other path. */

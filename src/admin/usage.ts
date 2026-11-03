@@ -36,6 +36,23 @@ export interface DailyCounts {
   finished: Record<string, number>;
 }
 
+/**
+ * The rated ladder's computers (Dev Plan item 19q): for each, how players
+ * actually scored against it beside the score their ratings expected (a
+ * win 1, a draw ½), so one whose rating is wrong can be retuned in the
+ * computer ratings table. Totals over every game against it.
+ */
+export interface LadderComputerFigures {
+  recall: number;
+  /** Its fixed rating. */
+  rating: number;
+  games: number;
+  /** Players' total score against it. */
+  score: number;
+  /** The total their ratings going in expected. */
+  expected: number;
+}
+
 export interface Usage {
   /** When the figures were counted (ms). */
   at: number;
@@ -63,6 +80,8 @@ export interface Usage {
   /** Signed-in players by the country in their profile (its code), most first; `noCountry` chose none. */
   countries: { country: string; count: number }[];
   noCountry: number;
+  /** One row per ladder computer, weakest first. Absent from a server before Dev Plan item 19q. */
+  ladder?: LadderComputerFigures[];
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

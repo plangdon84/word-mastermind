@@ -689,6 +689,10 @@ export function FriendScreen({
       <div class="boards" data-tab={tab}>
         <section class="board you" aria-label="Your guesses">
           <h2 class="board-title">Your guesses</h2>
+          {game.computer && !over && !review && view.yourGuesses.length === 0 && (
+            // The rated ladder (Dev Plan item 19q): a computer, said openly at the start.
+            <p class="board-note opponent-note" role="status">No one was free, so you're playing a computer at about your level.</p>
+          )}
           {medium && !over && !review && settings.shareMarks && (
             <p class="board-note opponent-note">{opponent} sees your marks with each guess you send.</p>
           )}

@@ -9,8 +9,9 @@ Build and deploy a **web app** for **Word Mastermind**, a 2-player word-guessing
 > the friends list), and the four Rush modes, at Easy, Medium (the default),
 > Hard and Extreme, with definitions, a profile (history, stats,
 > achievements), accounts and synced profiles, friends and leaderboards.
-> Random opponent, the rating boards but Correspondence's and Competitive
-> Rush are built but switched off ([Launch switches](#launch-switches)). Cloudflare
+> The rating boards but the two player one and Competitive Rush are built
+> but switched off ([Launch switches](#launch-switches)); the Rated ladder
+> is on since 2.1.0. Cloudflare
 > deploys `main` to production and every branch to staging; the 1.0 launch
 > is Dev Plan item 18.
 
@@ -303,11 +304,11 @@ Notes that follow from the rules:
 3. **Two player online (PvP)**, in two forms:
    - **Challenge a friend** (built, live or correspondence): invite a
      specific person to a game by link. See [Two player vs. a friend](#two-player-vs-a-friend).
-   - **Random opponent** (built, signed in; switched off for 1.0, see
-     [Launch switches](#launch-switches)): enter your secret word, join
-     a queue, and get matched with someone near your rating; rated, with a
-     [leaderboard](#leaderboards) (item 9b). See
-     [Random opponent](#random-opponent).
+   - **Rated ladder** (built, signed in; on since Dev Plan item 19q): live,
+     10 minutes each, at Medium. Enter your secret word, join the queue,
+     and get matched with someone near your rating, or a computer at your
+     level after 30 seconds; rated, with a [leaderboard](#leaderboards).
+     See [Random opponent](#random-opponent).
 4. **Rush**: solve 4 secret words against the clock, in four kinds (see
    [Rush modes](#rush-modes)):
    - **Solo Rush** (built, no backend needed): 4 random words.
@@ -881,12 +882,14 @@ the code keep the old names, so nothing already saved changes.
   straight back into the game of the mode last played.
 - **Practice** (one word, no opponent) asks for your difficulty, then
   **Start game**. **Two player** asks for the opponent (Computer, A friend
-  or Random opponent), then the computer's strength (Casual, Skilled,
+  or **Rated ladder**, which goes straight to your word: "Live, 10 minutes
+  each, at Medium. Matched with a player near your rating, or a computer
+  at your level after 30 seconds. Signed in."), then the computer's strength (Casual, Skilled,
   Expert, Mastermind) or, against a friend, **Send an invite link** and,
   signed in, your friends list under it (issue 218): picking a friend sends
   them a challenge, as Profile → Friends → Challenge does, while signed out
-  a line asks you to sign in to challenge friends. For the invite link or
-  a random opponent, then the time control: **Live**
+  a line asks you to sign in to challenge friends. For the invite link,
+  then the time control: **Live**
   with 5, 10 or 15 minutes each, or 1 or 3 days per guess (shortest first,
   issue 246; the friend game's own time choice too); then your
   difficulty and **Start game** (against a person, **Next: your word**).
@@ -1235,7 +1238,9 @@ switched off for the 1.0 launch, until there are enough players (see
 [Launch switches](#launch-switches)). Since item 19p (agreed with the owner
 on 3 November 2026) it's **one rated ladder**, Live 10 minutes each at
 Medium, where a player who isn't matched with a person within 30 seconds
-plays a computer at about their level. Item 19q switches it on.
+plays a computer at about their level. Item 19q switched it on, shown
+under Two player as **Rated ladder** (renamed from Random opponent, so it
+isn't mistaken for a rated challenge to a friend).
 
 - **Signed in only:** matched games are always [rated](#rating), and a
   rating needs an account. Signed out, the screen says so, with **Open
@@ -1247,8 +1252,9 @@ plays a computer at about their level. Item 19q switches it on.
   Recently used), and difficulty is fixed for the game.
 - **Live only:** the queue needs your page open while you wait, which suits
   a live game but not one played a guess a day.
-- **Waiting:** **Looking for an opponent…** with the time waited, your word
-  and **Cancel**. The app checks in every 2 seconds; the server drops anyone
+- **Waiting:** **Rated ladder** asks for your word, then **Looking for an
+  opponent…** with the time waited ("…or a computer at about your level if
+  no one is free after 30 seconds"), your word and **Cancel**. The app checks in every 2 seconds; the server drops anyone
   it hasn't heard from in 30 seconds (the page was closed), and the app
   joins again by itself if it was dropped while in the background. Leaving
   the screen leaves the queue.
@@ -1258,9 +1264,9 @@ plays a computer at about their level. Item 19q switches it on.
   longest waiting on a tie. **People are always matched first.**
 - **A computer after 30 seconds:** at your first check-in once you've
   waited **30 seconds** with nobody to match, you play a computer instead,
-  labelled openly as one: it plays as **🤖 Computer**, and item 19q's
-  screen says "No one was free, so you're playing a computer at about your
-  level" at the start. Its strength is one of the
+  labelled openly as one: it plays as **🤖 Computer**, and the game says
+  "No one was free, so you're playing a computer at about your level" until
+  your first guess. Its strength is one of the
   [computer ratings](#computer-ratings), chosen when you join and never
   below Expert:
   - **while your rating is provisional**, the computer nearest your
@@ -1417,8 +1423,9 @@ Built in [Dev Plan](#dev-plan) item 9b: the page, the Daily Rush board and
 the PvP rating boards; Competitive Rush's board came with its mode (item
 11). The app side is `src/app/LeaderboardsScreen.tsx` and
 `leaderboardsApi.ts`; the server's `worker/src/leaderboards.ts`. At the 1.0
-launch only the Daily Rush board was on; since item 19l the **Correspondence
-PvP** board is on too, and the other rating boards stay switched off until
+launch only the Daily Rush board was on; since item 19l the correspondence
+board is on too (renamed **Two player rating** in item 19q, for the shared
+two player rating), and the other rating boards stay switched off until
 there are enough rated players (see [Launch switches](#launch-switches)).
 
 - **Leaderboards** on the [title screen](#title-screen), always shown, opens
@@ -1433,14 +1440,17 @@ there are enough rated players (see [Launch switches](#launch-switches)).
     [Daily Word](#daily-word)), today first, earlier days with ‹ ›.
   - **Live PvP · 15 min**, **Live PvP · 10 min** and **Live PvP · 5 min**:
     rating, one per clock, as the [ratings](#rating) are.
-  - **Correspondence PvP**: rating (1 and 3 days per guess together).
+  - **Two player rating**: the shared two player rating (the Rated ladder,
+    rated challenges, correspondence; the `correspondence` pool). Each row
+    shows how many of the player's rated games were against a ladder
+    computer (`· 🤖3`).
   - **Competitive Rush**: rating.
 - Every board has **← Back** in its header, returning to where it was opened
   from: the Leaderboards page, or the Daily Rush result or title-screen
   link.
 - **Which modes are rated:** one [Glicko-2](#rating) rating per pool, so
-  each has a board: each live clock, correspondence, and Competitive Rush.
-  Games against a [random opponent](#random-opponent) are rated, as is a
+  each has a board: Live 15 and 5, the two player rating, and Competitive
+  Rush. Games on the [Rated ladder](#random-opponent) are rated, as is a
   challenge from the friends list marked **Rated game** and a [Competitive
   Rush](#competitive-rush) with at least two people; invite links are
   unrated.
@@ -2409,7 +2419,7 @@ same merge ships it to both.
 
 | Switch | At 1.0 | What's off |
 |---|---|---|
-| `randomOpponent` | Off | [Random opponent](#random-opponent): the choice under Two player, and the queue's routes |
+| `randomOpponent` | On since item 19q | The [Rated ladder](#random-opponent): the choice under Two player, and the queue's routes |
 | `ratingBoards` | Correspondence only (item 19l) | The list of rating boards that are on. The others (Live 15, 10 and 5 min, Competitive Rush) are left off the [Leaderboards](#leaderboards) page, and their route refuses them. The daily boards stay |
 | `competitiveRush` | Off | [Competitive Rush](#competitive-rush): the Rush kind, opening one on the server, and its badge |
 | `suggest` | On | Easy's **Suggest** button and its routes (see [Easy](#easy)) |
