@@ -21,6 +21,8 @@ export * from './report';
 export * from './daily';
 export * from './lobby';
 export * from './rating';
+export * from './computerRatings';
+export * from './ladder';
 export * from './unlocks';
 export * from './features';
 export * from './practice';

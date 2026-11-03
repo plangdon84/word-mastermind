@@ -31,7 +31,8 @@ export function friendReviewGame(game: PvpGame, seat: Seat, you: string, opponen
     expiresAt: null,
     serverNow: null,
     rated: game.rated === true,
-    matched: false,
+    matched: game.ladder !== undefined,
+    computer: game.ladder?.computer !== undefined,
     // Only your own rating is kept, so the review shows your change and not theirs.
     ratings: null,
     view: pvpView(game, seat),

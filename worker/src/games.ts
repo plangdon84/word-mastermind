@@ -1,5 +1,5 @@
 import {
-  FEATURES, isDifficulty, isObject, isTimeControl, parseMarks, isTurnDays, validateName, validateSecretWord, type Difficulty, type TimeControl,
+  COMPUTER_RECALL_FLOOR, FEATURES, isDifficulty, isObject, isTimeControl, parseMarks, isTurnDays, validateName, validateSecretWord, type Difficulty, type TimeControl,
 } from '../../src/game';
 import type { FriendGame } from '../../src/app/friendApi';
 import { isFriendCode } from '../../src/app/friendsApi';
@@ -140,6 +140,24 @@ export async function startMatchedGame(
   if (!joined.ok) throw new Error(`Couldn't start a matched game: ${joined.status}`);
   await addPlayer(env.DB, id.toString(), host.accountId, now);
   await addPlayer(env.DB, id.toString(), guest.accountId, now);
+  return id.toString();
+}
+
+/**
+ * A ladder game against the seeker's computer (Dev Plan item 19p): the
+ * room starts it at once, the seeker as host.
+ */
+export async function startComputerGame(
+  env: Env, seeker: Seeker, timeControl: TimeControl, difficulty: Difficulty, now: number,
+): Promise<string> {
+  const id = env.GAMES.newUniqueId();
+  const created = await toRoom(env, id, {
+    action: 'computer', id: id.toString(), guestId: seeker.accountId, name: seeker.name, secret: seeker.secret, difficulty, timeControl,
+    // A seeker queued before 19p has no computer chosen: the floor, Expert.
+    recall: seeker.computer ?? COMPUTER_RECALL_FLOOR, rating: seeker.rating,
+  });
+  if (!created.ok) throw new Error(`Couldn't start a computer game: ${created.status}`);
+  await addPlayer(env.DB, id.toString(), seeker.accountId, now);
   return id.toString();
 }
 

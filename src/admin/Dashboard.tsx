@@ -119,6 +119,31 @@ function Figures({ usage }: { usage: Usage }) {
         <DailyChart title="Daily Word entries by difficulty" days={usage.dailyWord} />
       </section>
 
+      {usage.ladder && (
+        <section>
+          <h2>Rated ladder computers</h2>
+          <table class="figures">
+            <caption>Players' score against each computer (a win 1, a draw ½) beside what their ratings expected</caption>
+            <thead><tr><th scope="col">Computer</th><th scope="col">Games</th><th scope="col">Players' score</th><th scope="col">Expected</th></tr></thead>
+            <tbody>
+              {usage.ladder.map((c) => (
+                <tr key={c.recall}>
+                  <th scope="row">{Math.round(c.recall * 100)}% · {c.rating}</th>
+                  <td>{count(c.games)}</td>
+                  <td>{c.games ? `${(100 * c.score / c.games).toFixed(1)}%` : '–'}</td>
+                  <td>{c.games ? `${(100 * c.expected / c.games).toFixed(1)}%` : '–'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p class="notes">
+            Settled players' games only (a provisional player's computer is picked by their average guesses, not their
+            rating). A computer players beat more often than expected is rated too high; less often, too low. Each game is
+            judged against the computer's rating now, so just after a retune its older games lean the other way.
+          </p>
+        </section>
+      )}
+
       <section>
         <h2>Players by country</h2>
         <table class="figures">

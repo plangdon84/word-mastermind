@@ -25,17 +25,6 @@ async function refusal(response: Response) {
 }
 
 describe('switched off', () => {
-  it('the matchmaking queue', async () => {
-    const { fetchFn } = setup();
-    for (const path of ['/api/queue', '/api/queue/poll', '/api/queue/leave']) {
-      const response = await fetchFn(`https://api.example${path}`, {
-        method: 'POST', headers: { 'x-guest-id': ANN, 'content-type': 'application/json' },
-        body: JSON.stringify({ timeControl: '10m', difficulty: 'hard' }),
-      });
-      expect(await refusal(response)).toEqual({ status: 404, error: 'off' });
-    }
-  });
-
   it('the rating boards but Correspondence (item 19l)', async () => {
     const { fetchFn } = setup();
     for (const pool of ['15m', '10m', '5m', 'rush']) {

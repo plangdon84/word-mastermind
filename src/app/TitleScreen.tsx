@@ -24,7 +24,7 @@ import type { ApiIdentity } from './apiIdentity';
 import type { Profile } from './profileStorage';
 import type { Difficulty, Mode, Opponent, RushKind, Settings, Strength } from './settings';
 import {
-  DAILY_MODES, FEATURES, isLive, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, ordinal, runRankBy, wordSetName, type DailyMode,
+  DAILY_MODES, FEATURES, isRatedDifficulty, ratedDifficultyFor, normalizeLobbyCode, ordinal, runRankBy, wordSetName, type DailyMode,
   type LobbyKind, type OpenModes, type TimeControl,
 } from '../game';
 import { loadRush } from './rushStorage';
@@ -84,7 +84,9 @@ interface Choice<T> {
 // Single player is Practice, and Rush is Word Sets, to players (Dev Plan item 18za); saved data keeps the old names.
 const MODES: Choice<Mode>[] = [
   { value: 'single', label: 'Practice', detail: 'Find a secret word on your own, at your own pace.' },
-  { value: 'two', label: 'Two player', detail: "Race an opponent to find each other's word: the computer or a friend." },
+  { value: 'two', label: 'Two player', detail: FEATURES.randomOpponent
+    ? "Race an opponent to find each other's word: the computer, a friend or the Rated ladder."
+    : "Race an opponent to find each other's word: the computer or a friend." },
   { value: 'rush', label: 'Word Sets', detail: 'Find 4 words in a row against the clock, on your own or with friends.' },
 ];
 
@@ -115,7 +117,11 @@ const OPPONENTS = ([
   API_URL
     ? { value: 'friend', label: 'A friend', detail: 'Send an invite link, or challenge a friend. Play live, or take turns over days.' }
     : { value: 'friend', label: 'A friend', detail: 'Challenge someone you know.', later: true },
-  { value: 'random', label: 'Random opponent', detail: 'Get matched with a player near your rating. Signed in.', later: !API_URL },
+  // The rated ladder (Dev Plan items 19o to 19q): one queue, Live 10 at Medium, so it starts straight at your word.
+  {
+    value: 'random', label: 'Rated ladder', later: !API_URL,
+    detail: 'Live, 10 minutes each, at Medium. Matched with a player near your rating, or a computer at your level after 30 seconds. Signed in.',
+  },
 ] satisfies Choice<Opponent>[]).filter((c) => c.value !== 'random' || FEATURES.randomOpponent);
 
 /** The timings, in two groups: live on a chess clock, or turns over days. */
@@ -466,7 +472,7 @@ function FriendPick({ identity, onLink, onChallenge, onSignIn }: {
  */
 export function TitleScreen({
   settings, onSettings, profile, identity, friendGamesVersion, onProfile, inProgress, dailyInProgress, onContinue, onStart,
-  onOpenFriendGame, onDaily, lobbyInProgress, onLobby, onLeaderboards, onChallenge, open,
+  onOpenFriendGame, onDaily, lobbyInProgress, onLobby, onLeaderboards, onChallenge, onLadder, open,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
@@ -494,6 +500,8 @@ export function TitleScreen({
   onOpenFriendGame: (id: string) => void;
   /** Starts a challenge to one friend (signed in), as Profile → Friends → Challenge does. */
   onChallenge: (friend: Friend) => void;
+  /** Opens the rated ladder: your word, then the queue (Live 10 at Medium, nothing to choose). */
+  onLadder: () => void;
   /** Which modes you've unlocked (README "Unlocking modes"); null while your games load, when nothing shows locked. */
   open: OpenModes | null;
 }) {
@@ -540,9 +548,8 @@ export function TitleScreen({
   };
   const two = settings.mode === 'two';
   const friend = two && settings.opponent === 'friend';
-  const random = two && settings.opponent === 'random';
   // Rated play leaves Easy out: with Easy as your default, it plays at Medium (`ratedDifficultyFor`).
-  const rated = random || competitiveChosen;
+  const rated = competitiveChosen;
   const back: Record<Step, Step> = {
     home: 'home',
     rush: 'home',
@@ -550,9 +557,9 @@ export function TitleScreen({
     opponent: 'home',
     friend: 'opponent',
     strength: 'opponent',
-    turn: friend ? 'friend' : 'opponent',
+    turn: 'friend',
     news: 'home',
-    difficulty: friend || random ? 'turn' : two ? 'strength' : lobbyChosen ? 'friends' : dailyChosen ? 'home' : settings.mode === 'rush' ? 'rush' : 'home',
+    difficulty: friend ? 'turn' : two ? 'strength' : lobbyChosen ? 'friends' : dailyChosen ? 'home' : settings.mode === 'rush' ? 'rush' : 'home',
   };
 
   // Modes not yet unlocked are greyed out, saying how to open them. Practice, the Daily Word, two player against
@@ -699,8 +706,12 @@ export function TitleScreen({
           details={lock && API_URL ? { friend: lock.detail, random: lock.detail } : undefined}
           done={lock && API_URL ? { friend: lock.done, random: lock.done } : undefined}
           onPick={(opponent) => {
+            if (opponent === 'random') {
+              onLadder();
+              return;
+            }
             onSettings({ ...settings, opponent });
-            setStep(opponent === 'computer' ? 'strength' : opponent === 'friend' ? 'friend' : 'turn');
+            setStep(opponent === 'computer' ? 'strength' : 'friend');
           }} />
       )}
 
@@ -710,8 +721,6 @@ export function TitleScreen({
       )}
 
       {step === 'turn' && TIME_GROUPS
-        // The queue is live only: a matched correspondence game would need it to work without an open page.
-        .filter((g) => !random || g.choices.every((c) => isLive(c.value)))
         .map((g) => (
           <section class="time-group" key={g.label} aria-label={g.label}>
             <h3 class="menu-label">{g.label}</h3>
@@ -745,19 +754,17 @@ export function TitleScreen({
             : lobbyChosen
               ? 'How much the app helps everyone track their own guesses. One difficulty for the whole lobby; you can change it until you start.'
                 + (competitiveChosen ? " It's the same for everyone, so it doesn't change the rating." : '')
-              : random
-              ? "How much the app helps you track your own guesses. You'll be matched with a player at the same difficulty, and it's fixed for the game."
               : 'How much the app helps you track your own guesses. You can change it during a game from the menu.'}</p>
           {/* A Word Set ranks by time (Rush) or guesses (Crush); the Daily Set is on both boards. */}
           {settings.mode === 'rush' && !dailyChosen && (
             <RankBySwitch label rankBy={settings.rankBy} onPick={(rankBy) => onSettings({ ...settings, rankBy })} />
           )}
           <Choices label="Your difficulty" selected={rated ? ratedDifficultyFor(settings.difficulty) : settings.difficulty}
-            // A matched game and Competitive Rush are rated, so they leave Easy out.
+            // Competitive Rush is rated, so it leaves Easy out.
             choices={rated ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}
             onPick={(difficulty) => onSettings({ ...settings, difficulty })} />
           <button type="button" class="btn primary big" onClick={onStart}>
-            {friend || random || competitiveChosen ? 'Next: your word' : dailyChosen ? `Start ${dailyName}` : lobbyChosen ? 'Open lobby' : 'Start game'}
+            {friend || competitiveChosen ? 'Next: your word' : dailyChosen ? `Start ${dailyName}` : lobbyChosen ? 'Open lobby' : 'Start game'}
           </button>
         </>
       )}

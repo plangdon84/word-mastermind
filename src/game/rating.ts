@@ -36,16 +36,25 @@ export const GLICKO_SCALE = 173.7178;
 const CONVERGENCE = 1e-6;
 
 /**
- * Each live clock has its own rating, as blitz and rapid do in chess;
- * correspondence (1 or 3 days per guess) has one, and so does Competitive
- * Rush.
+ * The rating pools. Every rated two player game, live on any clock or
+ * correspondence (1 or 3 days per guess), counts toward one two player
+ * rating, `correspondence` (Dev Plan item 19p, the owner, 3 November 2026:
+ * rated correspondence games play much like live ones), and Competitive
+ * Rush has its own. `15m`, `10m` and `5m` hold only ratings from before 19p.
  */
 export const RATING_POOLS = ['15m', '10m', '5m', 'correspondence', 'rush'] as const;
 export type RatingPool = (typeof RATING_POOLS)[number];
 
+/**
+ * The pools a player's ratings are shown from: the two player rating and
+ * Competitive Rush. The clock pools are retired (frozen since Dev Plan item
+ * 19p, and empty in production when it shipped, the owner, 3 November 2026).
+ */
+export const SHOWN_POOLS: readonly RatingPool[] = ['correspondence', 'rush'];
+
 export const isRatingPool = (value: unknown): value is RatingPool => RATING_POOLS.includes(value as RatingPool);
 
-export const ratingPool = (control: TimeControl): RatingPool => (control.endsWith('d') ? 'correspondence' : control as RatingPool);
+export const ratingPool = (_control: TimeControl): RatingPool => 'correspondence';
 
 export const isProvisional = (rating: Rating) => rating.rd > PROVISIONAL_RD;
 
@@ -146,6 +155,20 @@ export function rateGame(a: Rating, b: Rating, scoreA: 0 | 0.5 | 1): [Rating, Ra
   return scoreA === 0.5
     ? [{ ...rated[0], rating: a.rating, volatility: a.volatility }, { ...rated[1], rating: b.rating, volatility: b.volatility }]
     : rated;
+}
+
+/**
+ * A player's rating after a ladder game against a computer (Dev Plan item
+ * 19p, the owner, 3 November 2026), whose own rating never moves: half
+ * the change a game against a person of that rating would make, win or
+ * lose, but the full change while the player's rating is provisional. A
+ * draw changes neither rating nor volatility, as against a person; RD
+ * narrows as Glicko-2 has it.
+ */
+export function rateVsComputer(player: Rating, computer: Rating, score: 0 | 0.5 | 1): Rating {
+  const after = updateRating(player, [{ opponent: computer, score }]);
+  if (score === 0.5) return { ...after, rating: player.rating, volatility: player.volatility };
+  return isProvisional(player) ? after : { ...after, rating: player.rating + (after.rating - player.rating) / 2 };
 }
 
 /** One player's score against another by their places: the better place wins, the same place draws. */

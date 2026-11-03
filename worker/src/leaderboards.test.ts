@@ -79,6 +79,22 @@ async function refusal(call: Promise<unknown>): Promise<string> {
 }
 
 describe('a rating board', () => {
+  it('counts each player\'s rated games against a ladder computer in the pool (Dev Plan item 19q)', async () => {
+    const { player, rate, guest, fetchFn, sqlite } = setup();
+    const ann = await player('Ann');
+    rate(ann.id, 'correspondence', 1600, 80, 20);
+    const ratedGame = (id: string, pool: string, recall: number | null) => sqlite.prepare(
+      `INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
+       VALUES (?, ?, ?, 1600, 80, 1610, 79, 0, ?)`,
+    ).run(id, ann.id, pool, recall);
+    ratedGame('a', 'correspondence', 0.38);
+    ratedGame('b', 'correspondence', 1);
+    ratedGame('c', 'correspondence', null);
+    ratedGame('d', '10m', 0.5);
+    const board = await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn);
+    expect(board.top).toEqual([{ rank: 1, name: 'Ann', rating: 1600, games: 20, computerGames: 2, you: false, friendCode: null }]);
+  });
+
   it('lists established ratings, highest first, ties sharing a rank, and hides provisional ones', async () => {
     const { player, rate, guest, fetchFn } = setup();
     const ann = await player('Ann');
@@ -93,9 +109,9 @@ describe('a rating board', () => {
     expect(board).toEqual({
       pool: '10m', circle: 'everyone', total: 3, you: null,
       top: [
-        { rank: 1, name: 'Bob', rating: 1712, games: 31, you: false, friendCode: null },
-        { rank: 2, name: 'Ann', rating: 1600, games: 20, you: false, friendCode: null },
-        { rank: 2, name: 'Cat', rating: 1600, games: 12, you: false, friendCode: null },
+        { rank: 1, name: 'Bob', rating: 1712, games: 31, computerGames: 0, you: false, friendCode: null },
+        { rank: 2, name: 'Ann', rating: 1600, games: 20, computerGames: 0, you: false, friendCode: null },
+        { rank: 2, name: 'Cat', rating: 1600, games: 12, computerGames: 0, you: false, friendCode: null },
       ],
     });
     // Other pools are apart; rows never carry an account's ID.
@@ -118,7 +134,7 @@ describe('a rating board', () => {
     sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, 0)').run('acct-nameless', 'nameless@example.com');
     rate('acct-nameless', 'correspondence', 1600, 80, 20);
     const board = await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn);
-    expect(board.top).toEqual([{ rank: 1, name: NO_NAME, rating: 1600, games: 20, you: false, friendCode: null }]);
+    expect(board.top).toEqual([{ rank: 1, name: NO_NAME, rating: 1600, games: 20, computerGames: 0, you: false, friendCode: null }]);
   });
 
   it('sends only the top 100, counting the rest, and finds your place below them, ties sharing it', async () => {
@@ -151,7 +167,7 @@ describe('a rating board', () => {
     rate(ann.id, 'rush', 1650, 90, 14);
     rate(bob.id, '10m', 1712, 90, 31);
     expect(await ann.board('rush')).toMatchObject({
-      pool: 'rush', total: 1, top: [{ rank: 1, name: 'Ann', rating: 1650, games: 14, you: true, friendCode: null }],
+      pool: 'rush', total: 1, top: [{ rank: 1, name: 'Ann', rating: 1650, games: 14, computerGames: 0, you: true, friendCode: null }],
     });
   });
 
@@ -195,8 +211,8 @@ describe('a rating board', () => {
     await bob.friends.add((await ann.friends.list()).code);
     const board = await ann.board('5m', 'friends');
     expect(board.top).toEqual([
-      { rank: 1, name: 'Bob', rating: 1700, games: 30, you: false, friendCode: (await bob.friends.list()).code },
-      { rank: 2, name: 'Ann', rating: 1500, games: 30, you: true, friendCode: null },
+      { rank: 1, name: 'Bob', rating: 1700, games: 30, computerGames: 0, you: false, friendCode: (await bob.friends.list()).code },
+      { rank: 2, name: 'Ann', rating: 1500, games: 30, computerGames: 0, you: true, friendCode: null },
     ]);
     expect(board).toMatchObject({ circle: 'friends', total: 2, you: { rank: 2 } });
     // Only the Friends view says who's a friend.

@@ -5,7 +5,7 @@ import { pickNextGame } from './nextGame';
 const game = (id: string, state: FriendGame['state'], turn: 'you' | 'opponent' | null, deadline: number | null): FriendGame => ({
   id, seat: 'host', state, hostName: 'Ann', guestName: 'Bob', opponentCode: null, inviteeName: null, invitedYou: false, rematchOf: null, rematch: null,
   timeControl: '1d', createdAt: 0, expiresAt: null,
-  serverNow: 0, rated: false, matched: false, ratings: null,
+  serverNow: 0, rated: false, matched: false, computer: false, ratings: null,
   view: state === 'waiting' ? null : {
     first: 'you', yourSecret: 'storm', theirSecret: null, yourGuesses: [], theirGuesses: [], turn,
     status: state === 'over' ? 'over' : 'playing', outcome: null, startedAt: 0, timeControl: '1d', deadline, clocks: null, rated: false, suggested: 0,

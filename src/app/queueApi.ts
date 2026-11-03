@@ -1,4 +1,4 @@
-import { isLive, isObject, isTime, type Difficulty, type TimeControl, type WordError } from '../game';
+import { isObject, isTime, type Difficulty, type TimeControl, type WordError } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 
 /*
@@ -25,14 +25,6 @@ export interface QueueChoice {
   difficulty: Difficulty;
 }
 
-/**
- * The queue for these settings. It offers the live clocks only, so a saved
- * correspondence time control (from a game against a friend) becomes 10
- * minutes each, rather than a queue the server refuses.
- */
-export function queueChoice(timeControl: TimeControl, difficulty: Difficulty): QueueChoice {
-  return { timeControl: isLive(timeControl) ? timeControl : '10m', difficulty };
-}
 
 export function parseQueueStatus(value: unknown): QueueStatus | null {
   if (!isObject(value)) return null;

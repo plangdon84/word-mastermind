@@ -1,5 +1,5 @@
 import type { QueueChoice } from '../../src/app/queueApi';
-import { startMatchedGame } from './games';
+import { startComputerGame, startMatchedGame } from './games';
 import { json } from './http';
 import type { Env } from './index';
 import { handleQueue, type QueueDeps, type QueueRequest } from './queue';
@@ -13,6 +13,7 @@ export const queueName = ({ timeControl, difficulty }: QueueChoice) => `${timeCo
 /** What a queue needs from outside: starting a game in a game room, with its time control and difficulty. */
 export const queueDeps = (env: Env, { timeControl, difficulty }: QueueChoice): QueueDeps => ({
   startGame: (host, guest, now) => startMatchedGame(env, host, guest, timeControl, difficulty, now),
+  startComputerGame: (seeker, now) => startComputerGame(env, seeker, timeControl, difficulty, now),
 });
 
 /**

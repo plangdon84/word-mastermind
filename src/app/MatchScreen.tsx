@@ -1,7 +1,7 @@
 import type { OpenProfile } from './profilePages';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { ratedDifficultyFor, timeControlText, type WordError } from '../game';
+import { LADDER_CHOICE, timeControlText, type WordError } from '../game';
 import type { ApiIdentity } from './apiIdentity';
 import { DIFFICULTY_LABEL, Keyboard } from './components';
 import { API_URL } from './config';
@@ -10,7 +10,7 @@ import { SecretStep } from './friendParts';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { clockText, secretErrorMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
-import { queueApi, QueueApiError, queueChoice, type QueueError, type QueueStatus } from './queueApi';
+import { queueApi, QueueApiError, type QueueError, type QueueStatus } from './queueApi';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
 import type { Settings } from './settings';
 
@@ -27,11 +27,11 @@ function queueErrorMessage(code: QueueError, word: string): string {
 }
 
 /**
- * Finding a random opponent (README "Random opponent"): choose your word,
- * then wait in the queue for your time control and difficulty until the
- * server pairs you with someone of a similar rating. The game then opens
- * like any game against a friend. Matched games are rated, so this needs an
- * account.
+ * The rated ladder (README "Random opponent", Dev Plan item 19q): choose
+ * your word, then wait in the one queue (Live 10 at Medium) until the
+ * server pairs you with someone of a similar rating, or after 30 seconds
+ * with a computer at about your level. The game then opens like any game
+ * against a friend. Ladder games are rated, so this needs an account.
  */
 export function MatchScreen({ settings, profile, identity, signedIn, onProfile, onExit, onMatched }: {
   settings: Settings;
@@ -44,9 +44,9 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   onMatched: (gameId: string) => void;
 }) {
   const api = useMemo(() => (API_URL ? queueApi(API_URL, identity) : null), [identity]);
-  // Matched games are rated, so an Easy default plays at Medium.
-  const difficulty = ratedDifficultyFor(settings.difficulty);
-  const choice = queueChoice(settings.timeControl, difficulty);
+  // One queue, the rated ladder: Live 10 at Medium, whatever the player's own default difficulty.
+  const choice = LADDER_CHOICE;
+  const difficulty = choice.difficulty;
   const [draft, setDraftState] = useState('');
   const [message, setMessage] = useMessage();
   const [shake, setShake] = useState(false);
@@ -144,12 +144,12 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   );
 
   if (!api) {
-    return panel('Random opponents need the game server.', "This version of the app isn't connected to one.",
+    return panel('The rated ladder needs the game server.', "This version of the app isn't connected to one.",
       <button class="btn primary" type="button" onClick={onExit}>Main menu</button>);
   }
   if (!signedIn) {
-    return panel('Sign in to play a random opponent.',
-      'Games against a random opponent are rated, so they need an account. Sign in from your profile, then come back.',
+    return panel('Sign in to play the rated ladder.',
+      'Ladder games are rated, so they need an account. Sign in from your profile, then come back.',
       <>
         <button class="btn primary" type="button" onClick={() => onProfile('account')}>Open profile</button>
         <button class="btn" type="button" onClick={onExit}>Main menu</button>
@@ -163,7 +163,7 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
           <h2 class="thinking">Looking for an opponent…</h2>
           <p class="search-time" role="timer">{clockText(now + waiting.offset - waiting.since)}</p>
           <p>Rated · {timing} · {DIFFICULTY_LABEL[difficulty]}. You'll be matched with a player of a similar
-            rating; the longer you wait, the wider the search. Keep this page open.</p>
+            rating, or a computer at about your level if no one is free after 30 seconds. Keep this page open.</p>
           <p class="field-note">Your word: <b>{waiting.word.toUpperCase()}</b></p>
           <div class="row-btns"><button class="btn" type="button" onClick={cancel}>Cancel</button></div>
         </section>
@@ -172,7 +172,7 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   }
 
   return (
-    <SecretStep title="Find an opponent" draft={draft} shake={shake} onShakeEnd={() => setShake(false)}
+    <SecretStep title="Rated ladder" draft={draft} shake={shake} onShakeEnd={() => setShake(false)}
       note={`Your opponent will try to guess your secret word. 5 letters, no repeated letters. Rated: ${timing}, `
         + `at ${DIFFICULTY_LABEL[difficulty]}, which stays fixed for the game.`}
       message={message} busy={busy} onDraft={setDraft} onBack={onExit}

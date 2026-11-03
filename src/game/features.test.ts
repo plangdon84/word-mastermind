@@ -4,9 +4,9 @@ import { FEATURES } from './features';
 import { DAY, lobby } from './testGames';
 
 describe('the launch switches', () => {
-  it('are off: Random opponent, the rating boards but Correspondence (item 19l), Competitive Rush and the top 10% badge; Easy\'s Suggest is on', () => {
+  it('are off: the rating boards but Correspondence (item 19l), Competitive Rush and the top 10% badge; Easy\'s Suggest and the rated ladder (item 19q) are on', () => {
     expect(FEATURES).toEqual({
-      randomOpponent: false, ratingBoards: ['correspondence'], competitiveRush: false, suggest: true, dailyTopTenPercent: false,
+      randomOpponent: true, ratingBoards: ['correspondence'], competitiveRush: false, suggest: true, dailyTopTenPercent: false,
     });
   });
 

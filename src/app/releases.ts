@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.1.0',
+    notes: [
+      { text: 'New: the Rated ladder. Play live, 10 minutes each, at Medium against a player near your rating, or a computer at your level if no one is free after 30 seconds.' },
+      { text: "Correspondence, rated challenges and the Rated ladder now share one two player rating and leaderboard, which shows how many of each player's games were against computers." },
+    ],
+  },
+  {
     version: '2.0.1',
     notes: [
       { text: 'A name that\'s no longer allowed now shows as "A player" on every leaderboard.' },

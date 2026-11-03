@@ -175,6 +175,31 @@ describe("the server's games' badges", () => {
     expect(ids([friend('f', T, { first: 'them', them: ['storm'], you: ['beach'] })])).toContain('clutch');
   });
 
+  it('give a ladder game against a person no friend badge, but the win streak and Clutch (Dev Plan item 19p)', () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'], ladder: {} };
+    const badges = ids([friend('f', T, { ...won, difficulty: 'extreme', theirDifficulty: 'easy' })]);
+    expect(badges.filter((id) => id.startsWith('friend-'))).toEqual([]);
+    expect(badges).toContain('solo-extreme');
+    expect(ids([friend('f', T, { first: 'them', them: ['storm'], you: ['beach'], ladder: {} })])).toContain('clutch');
+    const streak = [0, 1, 2].map((i) => friend(`f${i}`, T + i * DAY, won));
+    expect(ids(streak)).toContain('win-streak-3');
+  });
+
+  it('give a ladder win against a computer the VS CPU badges of the strongest strength it reaches', () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
+    const vsCpu = (recall: number) => cpu(ids([friend('f', T, { ...won, ladder: { computer: recall } })]));
+    expect(vsCpu(0.38)).toEqual([
+      'casual-cpu-easy', 'casual-cpu-medium', 'cpu-guesses-10', 'cpu-guesses-15', 'cpu-guesses-20',
+      'expert-cpu-easy', 'expert-cpu-medium', 'skilled-cpu-easy', 'skilled-cpu-medium',
+    ]);
+    expect(vsCpu(0.9)).toEqual(vsCpu(0.38));
+    expect(vsCpu(1)).toContain('mastermind-cpu-medium');
+    expect(vsCpu(1)).not.toContain('mastermind-cpu-hard');
+    expect(ids([friend('f', T, { ...won, ladder: { computer: 1 } })]).filter((id) => id.startsWith('friend-'))).toEqual([]);
+    // A loss earns none.
+    expect(cpu(ids([friend('f', T, { you: ['crane'], them: ['storm'], ladder: { computer: 1 } })]))).toEqual([]);
+  });
+
   it('award beating a friend at a harder level, and two or more harder', () => {
     const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
     const harder = (yours: Difficulty, theirs: Difficulty, more = {}) =>

@@ -90,6 +90,8 @@ export function friendEntry(id: string, start: number, options: {
   timeOut?: boolean;
   /** Their difficulty, if not yours; and a level you switch to after the first guesses. */
   theirDifficulty?: Difficulty; yourSwitch?: Difficulty;
+  /** A rated ladder game (Dev Plan item 19p): against a person (`{}`) or a computer at a recall. */
+  ladder?: { computer?: number };
 }): HistoryEntry {
   const {
     seat = 'host', first = 'you', you, them, yourSecret = 'storm', theirSecret = 'beach', difficulty = 'medium',
@@ -115,7 +117,10 @@ export function friendEntry(id: string, start: number, options: {
   const secrets = { [seat]: yourSecret, [other]: theirSecret } as Record<Seat, string>;
   return {
     id, version: 1, mode: 'friend', seat, opponent, rating, marks: {},
-    record: { secrets, first: firstSeat, startedAt: start, turnDays: 1, difficulty: { [seat]: difficulty, [other]: theirDifficulty } as Record<Seat, Difficulty>, moves },
+    record: {
+      secrets, first: firstSeat, startedAt: start, turnDays: 1, difficulty: { [seat]: difficulty, [other]: theirDifficulty } as Record<Seat, Difficulty>,
+      ...(options.ladder ? { ladder: options.ladder } : {}), moves,
+    },
   };
 }
 

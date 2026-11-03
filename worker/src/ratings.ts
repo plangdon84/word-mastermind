@@ -1,4 +1,4 @@
-import { ageRating, NEW_RATING, rateGame, rateGroup, type Rating, type RatingPool, type Seat } from '../../src/game';
+import { ageRating, NEW_RATING, rateGame, rateGroup, rateVsComputer, SHOWN_POOLS, type Rating, type RatingPool, type Seat } from '../../src/game';
 import { showRating, type PoolRating } from '../../src/app/ratingsApi';
 import { identify } from './accounts';
 import { errorResponse, json } from './http';
@@ -40,7 +40,7 @@ export interface RatingChange {
 }
 
 /** One player's change in a game being rated: the statements to keep it are made from these. */
-interface PlayerChange {
+export interface PlayerChange {
   accountId: string;
   before: Rating;
   after: Rating;
@@ -62,6 +62,18 @@ export async function ratedGameChanges(
     { accountId: players.host, before: before.host, after: host },
     { accountId: players.guest, before: before.guest, after: guest },
   ];
+}
+
+/**
+ * The player's change in a ladder game against a computer (Dev Plan item
+ * 19p), whose own rating never moves (`rateVsComputer`): the player's
+ * current rating going in, as for a game against a person.
+ */
+export async function computerGameChanges(
+  db: D1Database, pool: RatingPool, accountId: string, computer: Rating, score: 0 | 0.5 | 1, now: number,
+): Promise<PlayerChange[]> {
+  const before = await currentRating(db, accountId, pool, now);
+  return [{ accountId, before, after: rateVsComputer(before, computer, score) }];
 }
 
 /**
@@ -134,10 +146,11 @@ async function storedChanges(db: D1Database, gameId: string): Promise<Record<str
  * Keeping the players' new ratings and the game's changes to them, for one
  * batch. Each rating changes only while the game has no changes kept yet,
  * so a game is rated once even if two saves of it overlap (D1 runs a batch
- * as one transaction): the second changes nothing.
+ * as one transaction): the second changes nothing. `computerRecall` marks a
+ * ladder game against a computer (Dev Plan item 19p).
  */
 export function ratingStatements(
-  db: D1Database, gameId: string, pool: RatingPool, changes: readonly PlayerChange[], now: number,
+  db: D1Database, gameId: string, pool: RatingPool, changes: readonly PlayerChange[], now: number, computerRecall?: number,
 ): D1PreparedStatement[] {
   return [
     ...changes.map(({ accountId, after: { rating, rd, volatility } }) => db.prepare(
@@ -146,16 +159,21 @@ export function ratingStatements(
        ON CONFLICT (account_id, pool) DO UPDATE SET rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6`,
     ).bind(accountId, pool, rating, rd, volatility, now, gameId)),
     ...changes.map(({ accountId, before, after }) => db.prepare(
-      `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
-    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now)),
+      `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now, computerRecall ?? null)),
   ];
 }
 
-/** An account's ratings, in every pool it has played a rated game in. */
+/**
+ * An account's ratings, in every pool it has played a rated game in that's
+ * still shown (`SHOWN_POOLS`): never the retired clock pools, frozen since
+ * Dev Plan item 19p.
+ */
 export async function listRatings(db: D1Database, accountId: string, now: number): Promise<PoolRating[]> {
-  const { results } = await db.prepare('SELECT pool, rating, rd, volatility, games, rated_at FROM ratings WHERE account_id = ?1')
-    .bind(accountId).all<RatingRow & { pool: RatingPool }>();
+  const { results } = await db.prepare(
+    'SELECT pool, rating, rd, volatility, games, rated_at FROM ratings WHERE account_id = ?1 AND pool IN (SELECT value FROM json_each(?2))',
+  ).bind(accountId, JSON.stringify(SHOWN_POOLS)).all<RatingRow & { pool: RatingPool }>();
   return results.map((row) => ({ pool: row.pool, ...showRating(ageRating(toRating(row), now - row.rated_at)), games: row.games }));
 }
 
