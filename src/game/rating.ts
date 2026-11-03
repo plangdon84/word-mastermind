@@ -45,6 +45,13 @@ const CONVERGENCE = 1e-6;
 export const RATING_POOLS = ['15m', '10m', '5m', 'correspondence', 'rush'] as const;
 export type RatingPool = (typeof RATING_POOLS)[number];
 
+/**
+ * The pools a player's ratings are shown from: the two player rating and
+ * Competitive Rush. The clock pools are retired (frozen since Dev Plan item
+ * 19p, and empty in production when it shipped, the owner, 3 November 2026).
+ */
+export const SHOWN_POOLS: readonly RatingPool[] = ['correspondence', 'rush'];
+
 export const isRatingPool = (value: unknown): value is RatingPool => RATING_POOLS.includes(value as RatingPool);
 
 export const ratingPool = (_control: TimeControl): RatingPool => 'correspondence';
