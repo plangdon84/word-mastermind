@@ -24,7 +24,8 @@
     "check:size": "node scripts/check-size.ts",
     "lighthouse": "node scripts/lighthouse.ts",
     "e2e": "playwright test",
-    "load-test": "node scripts/load-test.ts"
+    "load-test": "node scripts/load-test.ts",
+    "calibrate": "node scripts/calibrate.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

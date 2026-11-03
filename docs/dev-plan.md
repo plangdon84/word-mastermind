@@ -11,47 +11,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19o. Computer ratings table** (the owner, 3 November 2026; first
-  of three items for a rated ladder that never leaves you waiting; game
-  logic only)
-  - Agreed with the owner, 3 November 2026: one rated ladder, Live 10
-    minutes. A player in its queue who isn't matched with a person within
-    30 seconds plays a computer, labelled openly as one (a 🤖 and a
-    generic computer name, and "No one was free, so you're playing a
-    computer at about your level" at the start). People are always
-    matched first. The computer's strength is any recall from Expert's
-    0.38 (the floor) to 1.0 in steps of 0.1, each with a fixed rating
-    that never changes
-  - Also agreed, 3 November 2026: the ladder is Medium only (one queue;
-    nearly every player plays Medium), with queues per difficulty switched
-    on once there are enough players. Live 10 and correspondence share one
-    two player rating and one board (a production audit found half of
-    rated correspondence games end within an hour, with a median guess of
-    25 seconds, so they play much like live games); every rated game keeps
-    its record, so separate ratings could be rebuilt later. On the title
-    screen it's Two player's third opponent, renamed from Random opponent
-    to **Rated ladder**, so it isn't mistaken for a rated challenge to a
-    friend (which keeps its Rated switch and counts toward the same
-    rating)
-  - A script (`npm run calibrate`, by hand, not in `npm test`) plays
-    20,000 solves at each recall from 0.38 and 0.40 to 1.00 in steps of
-    0.05, and turns them into ratings with Expert pinned at 1500. Between
-    two computers the fewer guesses win and the same count draws, whoever
-    went first (the final-guess rule), so head-to-head results come from
-    each recall's spread of guess counts. A trial run on 3 November gave
-    1500 at 0.38 up to about 1885 at 1.0, Mastermind beating Expert about
-    90% of the time; steps of 0.05 were only 25 to 45 points apart, finer
-    than a rating can tell, so the table keeps steps of 0.1
-  - The table goes in `src/game/` as fixed data (recall, average guesses,
-    rating), with pure functions: the computer for a rating (the nearest,
-    never below the floor) and for an average guesses per word (the
-    nearest). A test checks a few rows still hold with a small seeded run
-  - A production audit (read-only, 3 November; totals only) found the
-    computers play the same against players' own words as against random
-    ones, and players at Medium average about 11.5 to 12.7 guesses on
-    words they play to the end, about Expert. Averages from friend games
-    and vs. Computer look about 3 guesses better than they are, since a
-    game often ends before you find the word
 - [ ] **19p. Computers in the Live 10 queue** (after 19o; worker, review
   gate; Random opponent stays switched off until 19q)
   - The queue (`worker/src/queue.ts`) is Live 10 at Medium alone, and
@@ -150,6 +109,47 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19o. Computer ratings table** (the owner, 3 November 2026; first
+  of three items for a rated ladder that never leaves you waiting; game
+  logic only)
+  - Agreed with the owner, 3 November 2026: one rated ladder, Live 10
+    minutes. A player in its queue who isn't matched with a person within
+    30 seconds plays a computer, labelled openly as one (a 🤖 and a
+    generic computer name, and "No one was free, so you're playing a
+    computer at about your level" at the start). People are always
+    matched first. The computer's strength is any recall from Expert's
+    0.38 (the floor) to 1.0 in steps of 0.1, each with a fixed rating
+    that never changes
+  - Also agreed, 3 November 2026: the ladder is Medium only (one queue;
+    nearly every player plays Medium), with queues per difficulty switched
+    on once there are enough players. Live 10 and correspondence share one
+    two player rating and one board (a production audit found half of
+    rated correspondence games end within an hour, with a median guess of
+    25 seconds, so they play much like live games); every rated game keeps
+    its record, so separate ratings could be rebuilt later. On the title
+    screen it's Two player's third opponent, renamed from Random opponent
+    to **Rated ladder**, so it isn't mistaken for a rated challenge to a
+    friend (which keeps its Rated switch and counts toward the same
+    rating)
+  - A script (`npm run calibrate`, by hand, not in `npm test`) plays
+    20,000 solves at each recall from 0.38 and 0.40 to 1.00 in steps of
+    0.05, and turns them into ratings with Expert pinned at 1500. Between
+    two computers the fewer guesses win and the same count draws, whoever
+    went first (the final-guess rule), so head-to-head results come from
+    each recall's spread of guess counts. A trial run on 3 November gave
+    1500 at 0.38 up to about 1885 at 1.0, Mastermind beating Expert about
+    90% of the time; steps of 0.05 were only 25 to 45 points apart, finer
+    than a rating can tell, so the table keeps steps of 0.1
+  - The table goes in `src/game/` as fixed data (recall, average guesses,
+    rating), with pure functions: the computer for a rating (the nearest,
+    never below the floor) and for an average guesses per word (the
+    nearest). A test checks a few rows still hold with a small seeded run
+  - A production audit (read-only, 3 November; totals only) found the
+    computers play the same against players' own words as against random
+    ones, and players at Medium average about 11.5 to 12.7 guesses on
+    words they play to the end, about Expert. Averages from friend games
+    and vs. Computer look about 3 guesses better than they are, since a
+    game often ends before you find the word
 - [x] **19n. Leaderboard names and review clean-ups** (issues
   plangdon84/word-mastermind-archive#259,
   plangdon84/word-mastermind-archive#260,

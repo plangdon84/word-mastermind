@@ -29,6 +29,7 @@ Build and deploy a **web app** for **Word Mastermind**, a 2-player word-guessing
 - [Decisions](#decisions)
 - [Game Modes](#game-modes)
   - [Computer strength](#computer-strength)
+  - [Computer ratings](#computer-ratings)
   - [PvP formats](#pvp-formats)
   - [Rush modes](#rush-modes)
 - [Difficulty Levels](#difficulty-levels)
@@ -147,7 +148,8 @@ Where things are (`CLAUDE.md` has more on each feature):
   - The profile: `records.ts` (reading records back defensively),
     `history.ts` (history entries and what a row shows), `stats.ts`,
     `achievements.ts`, `unlocks.ts`, `profile.ts` (the name rule)
-  - `rating.ts` (Glicko-2), `report.ts` (the issue report format),
+  - `rating.ts` (Glicko-2), `computerRatings.ts` (the rated ladder's
+    computers, measured by `npm run calibrate`), `report.ts` (the issue report format),
     `features.ts` (the launch switches)
 - `src/app/`: the Preact UI. `App.tsx` switches between screens; each mode
   has a screen (`SoloScreen.tsx`, `TwoPlayerScreen.tsx`, `FriendScreen.tsx`,
@@ -357,6 +359,38 @@ player".
 fails if an average leaves its target range, e.g. after a word-list change;
 then recalibrate `RECALL` in `src/game/computer.ts`. A stronger, optimal solver
 (best possible guess every turn) is a possible later addition.
+
+### Computer ratings
+
+For a rated ladder that never leaves you waiting (Dev Plan items 19o to
+19q, agreed with the owner on 3 November 2026), a player who isn't matched
+with a person in time plays a computer, each with a **fixed rating that
+never changes**. The computers are the same guesser at a recall from
+Expert's 38% (the floor: never weaker) to 100% in steps of 10%:
+
+| Recall | Average guesses | Rating | Note                                  |
+|--------|-----------------|--------|---------------------------------------|
+| 38%    | 12.2            | 1500   | Expert, pinned at 1500                |
+| 50%    | 10.5            | 1602   |                                       |
+| 60%    | 9.5             | 1673   |                                       |
+| 70%    | 8.7             | 1736   |                                       |
+| 80%    | 8.1             | 1792   |                                       |
+| 90%    | 7.6             | 1839   |                                       |
+| 100%   | 7.1             | 1890   | Mastermind: beats Expert about 90%    |
+
+`npm run calibrate` (`scripts/calibrate.ts`, run by hand, not in
+`npm test`) measures them: 20,000 solves of random secret-list words at
+38% and at 40% to 100% in steps of 5%. Between two computers the fewer
+guesses win and the same count draws, whoever went first (the final-guess
+rule), so each pair's head-to-head score comes from their spreads of guess
+counts, and a least-squares fit on the Elo scale turns those into ratings,
+Expert pinned at 1500. Steps of 5% came out only 25 to 45 points apart,
+finer than a rating can tell, so the table keeps steps of 10%. It's fixed
+data in `src/game/computerRatings.ts`, with the computer nearest a rating
+(`computerForRating`) or an average guesses per word (`computerForAverage`),
+never below Expert; `computerRatings.test.ts` replays a small seeded run and
+fails if a row drifts, e.g. after a word-list change, when the calibration
+is run again.
 
 ### PvP formats
 
