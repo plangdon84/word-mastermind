@@ -616,7 +616,8 @@ export async function saveFinishedGame(db: D1Database, room: Room, record: PvpRe
   const players = { host: room.host.guestId, guest: room.guest.guestId };
   const pool = ratingPool(roomTimeControl(room));
   // Its recall and rating as the game started, even if the table has been recalibrated since.
-  const computer = room.computer;
+  // (A room from before the rating was kept there falls back to the one it started with.)
+  const computer = room.computer && { ...room.computer, rating: room.computer.rating ?? room.ratings?.guest.rating ?? 1500 };
   const outcome = room.rated ? game?.outcome : null;
   const changes = !outcome ? []
     : computer ? await computerGameChanges(db, pool, players.host, computerRating(computer), hostScore(outcome), now)

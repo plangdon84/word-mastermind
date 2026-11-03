@@ -1,4 +1,4 @@
-import { ageRating, NEW_RATING, rateGame, rateGroup, rateVsComputer, type Rating, type RatingPool, type Seat } from '../../src/game';
+import { ageRating, NEW_RATING, rateGame, rateGroup, rateVsComputer, SHOWN_POOLS, type Rating, type RatingPool, type Seat } from '../../src/game';
 import { showRating, type PoolRating } from '../../src/app/ratingsApi';
 import { identify } from './accounts';
 import { errorResponse, json } from './http';
@@ -165,10 +165,15 @@ export function ratingStatements(
   ];
 }
 
-/** An account's ratings, in every pool it has played a rated game in. */
+/**
+ * An account's ratings, in every pool it has played a rated game in that's
+ * still shown (`SHOWN_POOLS`): never the retired clock pools, frozen since
+ * Dev Plan item 19p.
+ */
 export async function listRatings(db: D1Database, accountId: string, now: number): Promise<PoolRating[]> {
-  const { results } = await db.prepare('SELECT pool, rating, rd, volatility, games, rated_at FROM ratings WHERE account_id = ?1')
-    .bind(accountId).all<RatingRow & { pool: RatingPool }>();
+  const { results } = await db.prepare(
+    'SELECT pool, rating, rd, volatility, games, rated_at FROM ratings WHERE account_id = ?1 AND pool IN (SELECT value FROM json_each(?2))',
+  ).bind(accountId, JSON.stringify(SHOWN_POOLS)).all<RatingRow & { pool: RatingPool }>();
   return results.map((row) => ({ pool: row.pool, ...showRating(ageRating(toRating(row), now - row.rated_at)), games: row.games }));
 }
 

@@ -2574,7 +2574,10 @@ the worked example in Glickman's paper; the worker applies it
 - **Showing it:** a rated game shows the opponent's rating beside their name
   in the header (`You vs. Ann (1512?)`), and the result panel shows your
   change (`Rating 1500? → 1662? (+162)`). The profile's
-  [analytics](#analytics) headline shows your ratings. `GET /api/ratings`
+  [analytics](#analytics) headline shows your ratings: the two player
+  rating and Competitive Rush only, never the retired 5, 10 and 15 minute
+  pools (frozen since Dev Plan item 19p, and empty in production when it
+  shipped; the owner, 3 November 2026). `GET /api/ratings`
   lists them. Each pool has its own board on the [Leaderboards](#leaderboards)
   page.
 - The wipe script (`npm run wipe`) empties `ratings` and `rated_games` with

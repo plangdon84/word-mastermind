@@ -8,7 +8,8 @@ import { fakeD1 } from './fakeD1';
 import { fakeQueues } from './fakeQueues';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
-import { allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, STALE_MS, type QueueDeps, type Seeker } from './queue';
+import { allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, STALE_MS, STARTING_MS, type QueueDeps, type Seeker } from './queue';
+import { listRatings } from './ratings';
 import { memoryStorage } from './fakeRooms';
 import { COMPUTER_ID } from './room';
 
@@ -84,7 +85,7 @@ function setup() {
       games: friendApi('https://api.example', identity, fetchFn),
     };
   };
-  return { sqlite, player, fetchFn, rooms, tick: (ms: number) => { clock += ms; } };
+  return { db, sqlite, player, fetchFn, rooms, tick: (ms: number) => { clock += ms; } };
 }
 
 const refusal = (call: Promise<unknown>) => call.then(() => 'accepted', (e: QueueApiError) => e.code);
@@ -367,5 +368,32 @@ describe('starting a computer game (review round 1)', () => {
       expect((await handleQueue(storage, deps, poll, NOW + 30_000 + i * 2_000)).body).toMatchObject({ state: 'waiting' });
     }
     expect(tries).toBe(COMPUTER_TRIES);
+  });
+});
+
+describe('review round 2 fixes', () => {
+  it('treats a starting mark left by a stopped queue as gone after its time limit', async () => {
+    const storage = memoryStorage();
+    const stuck = { ...seeker('ann', 1500, NOW), computer: 0.38, starting: NOW };
+    await storage.put('queue', { seekers: [stuck], matches: {} });
+    const started: string[] = [];
+    const deps: QueueDeps = {
+      startGame: async () => { throw new Error('no person game expected'); },
+      startComputerGame: async (s) => { started.push(s.accountId); return 'c'.repeat(64); },
+    };
+    const poll = { action: 'poll' as const, accountId: 'ann' };
+    expect((await handleQueue(storage, deps, poll, NOW + STARTING_MS - 1)).body).toMatchObject({ state: 'waiting' });
+    expect(started).toEqual([]);
+    expect((await handleQueue(storage, deps, poll, NOW + STARTING_MS)).body).toEqual({ state: 'matched', gameId: 'c'.repeat(64) });
+  });
+
+  it('lists only the shown rating pools, never the retired clock ones', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    for (const [pool, games] of [['15m', 40], ['correspondence', 5], ['rush', 3]] as const) {
+      context.sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, ?, 1600, 80, 0.06, ?, ?)`)
+        .run(ann.accountId, pool, games, NOW);
+    }
+    expect((await listRatings(context.db, ann.accountId, NOW)).map((r) => r.pool).sort()).toEqual(['correspondence', 'rush']);
   });
 });
