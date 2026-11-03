@@ -1289,12 +1289,17 @@ isn't mistaken for a rated challenge to a friend).
   rematch. The waiting player also gets a **Matched with Bob** alert. The
   record says it's a ladder game (`ladder`, with the computer's recall
   against a computer).
-- **History and badges:** a ladder game is its own kind in the history
-  (shown as `vs. 🤖 Computer` against a computer). Against a computer, a
-  win earns the **VS CPU** badges of the strongest of the four named
-  strengths it's at least as strong as (Expert up to 90%, Mastermind at
-  100%), at your difficulty or easier; it counts toward the win streak,
-  Clutch and every solve badge, but never a friend badge. A ladder game
+- **History and badges:** a ladder game is kept in the friend-game layout
+  (its record and review), marked as a ladder game: the history shows
+  **Rated ladder · 🤖 Computer** or **Rated ladder · Bob**. A game against
+  a computer is kept out of the friend stats (win %, best, fastest) and the
+  history's search by name (the owner, 3 November 2026, review of PR #65),
+  but counts in the overall win %. Against a computer, a win earns the
+  **VS CPU** badges of the strongest of the four named strengths it's at
+  least as strong as (Expert up to 90%, Mastermind at 100%), at your
+  difficulty or easier, and **Beat the computer in 20, 15 or 10 guesses or
+  fewer** (without Suggest), as against the computer; it counts toward the
+  win streak, Clutch and every solve badge, but never a friend badge. A ladder game
   against a person counts toward the same, but never **Win a game against
   a friend** or the **HARDER** badges (before 19p a matched game earned
   them, as it was kept as a friend game).
@@ -1449,8 +1454,9 @@ there are enough rated players (see [Launch switches](#launch-switches)).
   from: the Leaderboards page, or the Daily Rush result or title-screen
   link.
 - **Which modes are rated:** one [Glicko-2](#rating) rating per pool, so
-  each has a board: Live 15 and 5, the two player rating, and Competitive
-  Rush. Games on the [Rated ladder](#random-opponent) are rated, as is a
+  each has a board: the two player rating (every rated two player game since
+  Dev Plan item 19p) and Competitive Rush; the old Live 15, 10 and 5 boards
+  hold only ratings from before 19p. Games on the [Rated ladder](#random-opponent) are rated, as is a
   challenge from the friends list marked **Rated game** and a [Competitive
   Rush](#competitive-rush) with at least two people; invite links are
   unrated.
@@ -2538,16 +2544,16 @@ the worked example in Glickman's paper; the worker applies it
   "Ann challenges you to a rated game" before accepting), every matched
   game, and every [Competitive Rush](#competitive-rush) with at least two
   people in it. Invite links and unmarked challenges are unrated.
-- **Pools:** one **two player rating** for Live 10 minutes and
-  correspondence (1 and 3 days per guess) together, the pool still called
-  `correspondence` (Dev Plan item 19p, the owner, 3 November 2026: a
-  production audit found half of rated correspondence games end within an
-  hour, with a median guess of 25 seconds, so they play much like live
-  games; every rated game keeps its record, so separate ratings could be
-  rebuilt later). Rated challenges to a friend and the
-  [rated ladder](#random-opponent) count toward it. Live 15 and 5 minutes
-  keep their own pools, unused while they're off, and Competitive Rush has
-  one. The old `10m` pool holds only ratings from before 19p.
+- **Pools:** one **two player rating** for every rated two player game,
+  live on any clock (5, 10 or 15 minutes) or correspondence (1 and 3 days
+  per guess), the pool still called `correspondence` (Dev Plan item 19p,
+  the owner, 3 November 2026: a production audit found half of rated
+  correspondence games end within an hour, with a median guess of 25
+  seconds, so they play much like live games; every rated game keeps its
+  record, so separate ratings could be rebuilt later). Rated challenges to
+  a friend and the [rated ladder](#random-opponent) count toward it, and
+  Competitive Rush has its own. The old `15m`, `10m` and `5m` pools hold
+  only ratings from before 19p.
 - **Against a computer** (the [rated ladder](#random-opponent)): the
   computer's rating ([computer ratings](#computer-ratings)) never moves. A
   game against it moves your rating by **half as much** as against a

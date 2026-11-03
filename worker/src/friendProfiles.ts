@@ -246,9 +246,7 @@ async function saveShared(db: D1Database, accountId: string, text: string, now: 
  * game against them that never happened.
  */
 export async function sharedSummaryOf(db: D1Database, friendId: string): Promise<SharedSummary | null> {
-  const row = await db.prepare('SELECT summary FROM shared_profiles WHERE account_id = ?1').bind(friendId)
-    .first<{ summary: string | null }>();
-  const parsed = row?.summary ? parseSharedSummary(parse(row.summary)) : null;
+  const parsed = await storedSummary(db, friendId);
   if (!parsed) return null;
   // The queue's alone (Dev Plan item 19p): it counts today's Daily Word, which friends don't see yet.
   const { ladderAverage: _ladderAverage, ...summary } = parsed;
@@ -337,8 +335,12 @@ export async function routeProfileShare(request: Request, env: Env, now: number,
  * without one.
  */
 export async function ladderAverageOf(db: D1Database, accountId: string): Promise<number | null> {
+  return (await storedSummary(db, accountId))?.ladderAverage ?? null;
+}
+
+/** An account's shared summary as their device last sent it, or null. */
+async function storedSummary(db: D1Database, accountId: string): Promise<SharedSummary | null> {
   const row = await db.prepare('SELECT summary FROM shared_profiles WHERE account_id = ?1').bind(accountId)
     .first<{ summary: string | null }>();
-  const summary = row?.summary ? parseSharedSummary(parse(row.summary)) : null;
-  return summary?.ladderAverage ?? null;
+  return row?.summary ? parseSharedSummary(parse(row.summary)) : null;
 }

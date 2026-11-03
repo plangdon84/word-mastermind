@@ -90,6 +90,8 @@ function rowParts(game: HistoryGame, placements: readonly DailyPlacement[]): { t
         tag: RESULT_LETTER[result],
         tagLabel: `${RESULT_LABEL[result]}${summary.gaveUp ? ' (gave up)' : ''}`,
         who: summary.mode === 'computer' ? `vs. Computer · ${STRENGTH_LABEL[summary.strength!]}`
+          : summary.ladder === 'computer' ? 'Rated ladder · 🤖 Computer'
+          : summary.ladder === 'person' ? `Rated ladder · ${summary.opponent}`
           : summary.mode === 'friend' ? `vs. ${summary.opponent}` : MODE_LABEL[summary.mode],
         // Turns alternate, so both players make the same number of guesses: yours is enough.
         detail: `${played}${summary.gaveUp ? ' · gave up' : ''}${rating}`,

@@ -226,6 +226,12 @@ export interface GameSummary {
   place: { rank: number | null; of: number } | null;
   /** A rated game's rating for you, before and after. */
   rating: RatingChange | null;
+  /**
+   * A rated ladder game (Dev Plan item 19p): against a person or a computer.
+   * Absent otherwise. A computer game is kept out of friend stats and the
+   * name search (review of PR #65, the owner, 3 November 2026).
+   */
+  ladder?: 'person' | 'computer';
   /** Single player: solving it is a win and giving up a loss. Null for a Rush. */
   result: HistoryResult | null;
   /** You gave up (the game, or a whole Rush). */
@@ -323,6 +329,7 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
     case 'friend': {
       const { game, seat, opponent, rating } = replayed;
       const other = otherSeat(seat);
+      const ladder = !game.ladder ? undefined : game.ladder.computer !== undefined ? 'computer' as const : 'person' as const;
       const winner = game.outcome?.winner ?? null;
       return {
         mode: 'friend',
@@ -340,9 +347,11 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         rush: null,
         allFound: null,
         opponent,
-        names: [opponent],
+        // A ladder computer isn't a player to search for.
+        names: ladder === 'computer' ? [] : [opponent],
         place: null,
         rating,
+        ...(ladder ? { ladder } : {}),
       };
     }
     case 'daily':

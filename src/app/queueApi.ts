@@ -25,16 +25,6 @@ export interface QueueChoice {
   difficulty: Difficulty;
 }
 
-/**
- * The one queue, the rated ladder (Dev Plan item 19p): Live 10 at Medium,
- * with queues per difficulty switched on once there are enough players.
- */
-export const LADDER_CHOICE: Readonly<QueueChoice> = { timeControl: '10m', difficulty: 'medium' };
-
-/** The queue for these settings: the ladder's, whatever was chosen, rather than a queue the server refuses. */
-export function queueChoice(_timeControl: TimeControl, _difficulty: Difficulty): QueueChoice {
-  return { ...LADDER_CHOICE };
-}
 
 export function parseQueueStatus(value: unknown): QueueStatus | null {
   if (!isObject(value)) return null;

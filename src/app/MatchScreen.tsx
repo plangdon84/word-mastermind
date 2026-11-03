@@ -1,7 +1,7 @@
 import type { OpenProfile } from './profilePages';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { ratedDifficultyFor, timeControlText, type WordError } from '../game';
+import { LADDER_CHOICE, timeControlText, type WordError } from '../game';
 import type { ApiIdentity } from './apiIdentity';
 import { DIFFICULTY_LABEL, Keyboard } from './components';
 import { API_URL } from './config';
@@ -10,7 +10,7 @@ import { SecretStep } from './friendParts';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { clockText, secretErrorMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
-import { queueApi, QueueApiError, queueChoice, type QueueError, type QueueStatus } from './queueApi';
+import { queueApi, QueueApiError, type QueueError, type QueueStatus } from './queueApi';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
 import type { Settings } from './settings';
 
@@ -44,8 +44,8 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   onMatched: (gameId: string) => void;
 }) {
   const api = useMemo(() => (API_URL ? queueApi(API_URL, identity) : null), [identity]);
-  // One queue: Live 10 at Medium, whatever the title screen's last choices were.
-  const choice = queueChoice(settings.timeControl, ratedDifficultyFor(settings.difficulty));
+  // One queue, the rated ladder: Live 10 at Medium, whatever the player's own default difficulty.
+  const choice = LADDER_CHOICE;
   const difficulty = choice.difficulty;
   const [draft, setDraftState] = useState('');
   const [message, setMessage] = useMessage();

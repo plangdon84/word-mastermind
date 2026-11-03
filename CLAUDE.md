@@ -303,8 +303,9 @@ Run `npm test` and `npm run typecheck` before committing.
   The room plays its seat (`room.computer`, `COMPUTER_ID`): guesses planned
   at the start (`planComputerGuesses`), each played when due. Records carry
   `ladder`; a computer game rates the player alone (`rateVsComputer`, half
-  the change once settled) with `rated_games.computer_recall`. Live 10 rates
-  into the `correspondence` pool (`ratingPool`).
+  the change once settled) with `rated_games.computer_recall`. Every rated
+  two player game rates into the `correspondence` pool (`ratingPool`), and a
+  ladder computer game is kept out of friend stats (`GameSummary.ladder`).
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:
   Random opponent, the rating boards, Competitive Rush and the Daily Rush

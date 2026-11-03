@@ -2,17 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from './computerRatings';
 import { parsePvpRecord } from './records';
 import {
-  COMPUTER_PAUSE_MS, computerRating, ladderAverage, ladderComputer, planComputerGuesses,
+  COMPUTER_PAUSE_MS, computerRating, LADDER_CHOICE, ladderAverage, ladderComputer, planComputerGuesses,
 } from './ladder';
 import { createPvpGame, replayPvp, submitPvpGuess, toPvpRecord } from './pvp';
 import { NEW_RATING, rateVsComputer, updateRating } from './rating';
 import { scoreGuess } from './scoring';
+import { matchesFilter, summarizeGame } from './history';
+import { computeStats } from './stats';
 import { DAY, dailyWord, friend, solo } from './testGames';
 import { SECRET_WORDS } from './wordLists';
 
 const T = Date.UTC(2026, 10, 3);
 /** `n` guesses ending with the word (`beach`). */
 const guesses = (n: number) => [...Array(n - 1)].map(() => 'crane').concat('beach');
+
+describe('LADDER_CHOICE', () => {
+  it('is the one queue: Live 10 at Medium', () => {
+    expect(LADDER_CHOICE).toEqual({ timeControl: '10m', difficulty: 'medium' });
+  });
+});
 
 describe('ladderAverage', () => {
   it('needs five words found', () => {
@@ -81,7 +89,7 @@ describe('planComputerGuesses', () => {
 });
 
 describe('rateVsComputer', () => {
-  const computer = computerRating({ recall: 0.6, averageGuesses: 9.5, rating: 1673 });
+  const computer = computerRating({ rating: 1673 });
 
   it('moves a settled rating half as far as against a person, win or lose', () => {
     const settled = { rating: 1700, rd: 60, volatility: 0.06 };
@@ -120,5 +128,28 @@ describe('a ladder record', () => {
     expect(parsePvpRecord({ ...record, ladder: { computer: 2 } })).toBeNull();
     expect(parsePvpRecord({ ...record, ladder: 'yes' })).toBeNull();
     expect(parsePvpRecord({ ...record, ladder: undefined })?.ladder).toBeUndefined();
+  });
+});
+
+describe('ladder games in the history and stats (review of PR #65)', () => {
+  const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
+
+  it('marks a ladder game, and leaves a computer out of the name search', () => {
+    const computer = summarizeGame(friend('c', T, { ...won, opponent: '🤖 Computer', ladder: { computer: 0.5 } }).replayed);
+    expect(computer.ladder).toBe('computer');
+    expect(matchesFilter(computer, { name: 'comp' })).toBe(false);
+    const person = summarizeGame(friend('p', T, { ...won, opponent: 'Bob', ladder: {} }).replayed);
+    expect(person.ladder).toBe('person');
+    expect(matchesFilter(person, { name: 'bo' })).toBe(true);
+    expect(summarizeGame(friend('f', T, won).replayed).ladder).toBeUndefined();
+  });
+
+  it('keeps a ladder computer game out of friend stats, but in the overall win rate', () => {
+    const stats = computeStats([
+      friend('f', T, won),
+      friend('c', T + DAY, { you: ['crane'], them: ['storm'], ladder: { computer: 1 } }),
+    ], T + 2 * DAY);
+    expect(stats.modes.friend.played).toBe(1);
+    expect(stats.winPct).toBe(50);
   });
 });
