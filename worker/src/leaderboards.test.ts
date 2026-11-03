@@ -6,7 +6,7 @@ import { fetchRatingBoard, LeaderboardError, parseRatingBoard, type Circle } fro
 import { syncApi } from '../../src/app/syncApi';
 import { DAY_MS, type RatingPool } from '../../src/game';
 import { fakeD1 } from './fakeD1';
-import { NO_NAME } from './friends';
+import { NO_NAME } from './names';
 import { handle, type Env } from './index';
 
 // Switched off for the launch; these tests are for when it's on (launch.test.ts checks it's refused).

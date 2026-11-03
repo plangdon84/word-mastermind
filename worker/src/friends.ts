@@ -27,7 +27,6 @@ import { secureRandom } from './secure';
  * invite each other to a Rush with Friends lobby (`lobbyRoutes.ts`).
  */
 
-export { NO_NAME } from './names';
 
 
 /** `length` letters and digits from the join codes' alphabet. */

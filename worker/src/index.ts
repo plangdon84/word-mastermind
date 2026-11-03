@@ -154,8 +154,10 @@ export { Matchmaker } from './matchmaker';
 export { RushLobby } from './rushLobby';
 
 /**
- * The scheduled job's tidying, once an hour it runs (Dev Plan item 19n):
- * declined email requests are deleted once their week is over.
+ * The scheduled job's tidying (Dev Plan item 19n): declined email requests
+ * are deleted once their week is over. It runs on the job's runs at minute 0
+ * only, four times a day with today's crons, so the crons in `wrangler.toml`
+ * must keep minute 0.
  */
 export async function cleanUp(db: D1Database, now: number): Promise<void> {
   if (new Date(now).getUTCMinutes() !== 0) return;

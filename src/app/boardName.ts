@@ -94,7 +94,8 @@ interface Wanted {
 }
 
 let wanted: Wanted | null = null;
-let sending: Promise<void> | null = null;
+let busy = false;
+let done: Promise<void> = Promise.resolve();
 
 /**
  * Sends this guest's name if it's due (`boardNameDue`), after any send
@@ -103,7 +104,10 @@ let sending: Promise<void> | null = null;
  */
 export function syncBoardName(apiUrl: string, identity: ApiIdentity, name: string, fetchFn: typeof fetch = fetch): Promise<void> {
   wanted = { apiUrl, identity, name, fetchFn };
-  sending ??= (async () => {
+  if (busy) return done;
+  busy = true;
+  done = (async () => {
+    // Checked again after each send, and cleared in the same step as the last check, so no name asked for is missed.
     while (wanted) {
       const next: Wanted = wanted;
       wanted = null;
@@ -111,8 +115,7 @@ export function syncBoardName(apiUrl: string, identity: ApiIdentity, name: strin
       if (next.identity.token || !boardNameDue(id, next.name)) continue;
       await sendBoardName(next.apiUrl, next.identity, next.name, next.fetchFn).then(() => noteBoardName(id, next.name), () => {});
     }
-  })().finally(() => {
-    sending = null;
-  });
-  return sending;
+    busy = false;
+  })();
+  return done;
 }
