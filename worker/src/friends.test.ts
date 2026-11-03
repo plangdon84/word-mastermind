@@ -17,7 +17,7 @@ import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
 import { LINKED_GAMES_SQL, NEXT_LINKS_SQL, RETRY_PLAYED_SQL } from './friendProfiles';
 import { addFriend, EMAIL_DECLINE_MS, newFriendCode } from './friends';
-import { handle, type Env } from './index';
+import { cleanUp, handle, type Env } from './index';
 import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
 
 /*
@@ -348,6 +348,21 @@ describe('friend requests by email', () => {
     expect(sqlite.prepare('SELECT sender_id, declined_by FROM email_declines').all()).toEqual([{ sender_id: ANN, declined_by: CAT }]);
     await authApi('https://api.example', CAT, fetchFn).deleteAccount(cat.session!.token);
     expect(sqlite.prepare('SELECT * FROM email_declines').all()).toEqual([]);
+  });
+
+  it("are deleted by the scheduled job once their week is over, on the hour (item 19n)", async () => {
+    const { player, advance, now, sqlite, db } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    await ann.friends.requestByEmail('bob@example.com');
+    await bob.friends.remove((await ann.friends.list()).code);
+    const declined = () => sqlite.prepare('SELECT COUNT(*) AS n FROM email_declines').get();
+    advance(EMAIL_DECLINE_MS + 60 * 60 * 1000);
+    const hour = Math.floor(now() / (60 * 60 * 1000)) * 60 * 60 * 1000;
+    await cleanUp(db, hour + 60 * 1000);
+    expect(declined()).toEqual({ n: 1 });
+    await cleanUp(db, hour);
+    expect(declined()).toEqual({ n: 0 });
   });
 
   it("send nothing to a friend, or to someone who already asked you (who you'd accept on your list)", async () => {

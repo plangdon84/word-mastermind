@@ -1,4 +1,4 @@
-import { DAILY_MODES, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS, validateName } from '../../src/game';
+import { DAILY_MODES, dailyDay, isObject, LOBBY_CODE_ALPHABET, OPEN_LOBBY_MS } from '../../src/game';
 import { isCountry } from '../../src/app/countries';
 import {
   EMAIL_REQUESTS_PER_DAY, FRIEND_CODE_LENGTH, INVITE_KEY_LENGTH, isFriendCode, isInviteKey, MAX_FRIENDS, normalizeSearch,
@@ -15,6 +15,7 @@ import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
 import { vapidKeysOf } from './pushRoutes';
+import { checkedName, NO_NAME } from './names';
 import { currentNames, syncedName } from './sync';
 import { secureRandom } from './secure';
 
@@ -26,8 +27,7 @@ import { secureRandom } from './secure';
  * invite each other to a Rush with Friends lobby (`lobbyRoutes.ts`).
  */
 
-/** Shown for a player whose device hasn't sent a profile yet. */
-export const NO_NAME = 'A player';
+export { NO_NAME } from './names';
 
 
 /** `length` letters and digits from the join codes' alphabet. */
@@ -248,6 +248,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const EMAIL_DECLINE_MS = 7 * DAY_MS;
 
 /**
+ * Deletes the declines whose week is over, so none is kept long after
+ * (the privacy page's "deleted soon after"): run on each decline and by
+ * the worker's scheduled job (Dev Plan item 19n, `cleanUp` in `index.ts`).
+ */
+export const forgetOldDeclines = (db: D1Database, now: number) =>
+  db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS);
+
+/**
  * A friend request to whoever has an account with `email` (Dev Plan item
  * 18d), first counted against the sender's limits: whether anyone has
  * that email must never show, so every refusal is here, before the email
@@ -329,10 +337,10 @@ export async function searchPlayers(db: D1Database, accountId: string, search: s
     ({ results } = await find());
   }
   return results.flatMap((r): FoundPlayer[] => {
-    const shown = validateName(r.name);
-    if (!r.code || !shown.ok) return [];
+    const shown = checkedName(r.name);
+    if (!r.code || shown === null) return [];
     const state: FoundState = (['friends', 'sent', 'received'] as const).find((s) => s === r.state) ?? null;
-    return [{ code: r.code, name: shown.name, country: isCountry(r.country) ? r.country : null, state }];
+    return [{ code: r.code, name: shown, country: isCountry(r.country) ? r.country : null, state }];
   });
 }
 
@@ -388,7 +396,7 @@ async function removeFriend(db: D1Database, accountId: string, code: string, now
   }
   await db.batch([
     forget,
-    db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS),
+    forgetOldDeclines(db, now),
     db.prepare(`INSERT INTO email_declines (sender_id, declined_by, at) VALUES (?1, ?2, ?3)
       ON CONFLICT (sender_id, declined_by) DO UPDATE SET at = excluded.at`).bind(friendId, accountId, now),
   ]);
