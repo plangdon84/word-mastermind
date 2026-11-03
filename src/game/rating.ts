@@ -32,7 +32,8 @@ export const PROVISIONAL_RD = 110;
 export const IDLE_PERIOD_MS = 7 * DAY_MS;
 
 /** Glicko-2's internal scale: 400 / ln 10 rating points per unit. */
-const SCALE = 173.7178;
+export const GLICKO_SCALE = 173.7178;
+const SCALE = GLICKO_SCALE;
 const CONVERGENCE = 1e-6;
 
 /**

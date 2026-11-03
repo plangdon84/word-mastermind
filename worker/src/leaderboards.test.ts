@@ -113,6 +113,37 @@ describe('a rating board', () => {
     expect(board.top.map((r) => r.name)).toEqual([NO_NAME]);
   });
 
+  it('shows a player with no profile row as no name', async () => {
+    const { rate, guest, sqlite, fetchFn } = setup();
+    sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, 0)').run('acct-nameless', 'nameless@example.com');
+    rate('acct-nameless', 'correspondence', 1600, 80, 20);
+    const board = await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn);
+    expect(board.top).toEqual([{ rank: 1, name: NO_NAME, rating: 1600, games: 20, you: false, friendCode: null }]);
+  });
+
+  it('sends only the top 100, counting the rest, and finds your place below them, ties sharing it', async () => {
+    const { player, rate, guest, sqlite, fetchFn } = setup();
+    const add = sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, 0)');
+    // 110 others, 2000 down to 1891, and two more at 1850, one of them gone provisional after a long break.
+    for (let i = 0; i < 110; i++) {
+      add.run(`acct-${i}`, `p${i}@example.com`);
+      rate(`acct-${i}`, 'correspondence', 2000 - i, 60, 30);
+    }
+    add.run('acct-tied', 'tied@example.com');
+    rate('acct-tied', 'correspondence', 1850.2, 60, 30);
+    add.run('acct-away', 'away@example.com');
+    rate('acct-away', 'correspondence', 1950, 100, 30, NOW - 30 * 7 * DAY_MS);
+    const ann = await player('Ann');
+    rate(ann.id, 'correspondence', 1849.8, 60, 30);
+    const board = await ann.board('correspondence');
+    expect(board.total).toBe(112);
+    expect(board.top).toHaveLength(100);
+    expect(board.top[0]).toMatchObject({ rank: 1, rating: 2000 });
+    expect(board.top[99]).toMatchObject({ rank: 100, rating: 1901 });
+    expect(board.you).toMatchObject({ rank: 111, gamesToList: 0 });
+    expect(await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn)).toMatchObject({ total: 112, you: null });
+  });
+
   it("has Competitive Rush's board, apart from the PvP pools", async () => {
     const { player, rate } = setup();
     const ann = await player('Ann');

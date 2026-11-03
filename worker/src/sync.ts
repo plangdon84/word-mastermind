@@ -1,7 +1,8 @@
-import { isObject, isServerMode, parseHistoryEntry, validateName, type HistoryEntry } from '../../src/game';
+import { isObject, isServerMode, parseHistoryEntry, type HistoryEntry } from '../../src/game';
 import { DOWNLOAD_PAGE, parseSyncedProfile, UPLOAD_BATCH, type SyncedProfile } from '../../src/app/syncApi';
 import { identify } from './accounts';
 import { errorResponse, json, readJson } from './http';
+import { checkedName, NO_NAME } from './names';
 import type { Env } from './index';
 
 /*
@@ -73,8 +74,8 @@ export async function currentNames(db: D1Database, ids: readonly string[]): Prom
   ).bind(JSON.stringify([...new Set(ids)])).all<{ id: string; name: string }>();
   const names: Record<string, string> = {};
   for (const row of results) {
-    const shown = validateName(row.name);
-    if (shown.ok) names[row.id] = shown.name;
+    const shown = checkedName(row.name);
+    if (shown !== null) names[row.id] = shown;
   }
   return names;
 }
@@ -83,8 +84,9 @@ export async function currentNames(db: D1Database, ids: readonly string[]): Prom
  * The names the Daily boards show now for these player IDs (Dev Plan item
  * 18zw), in one query: an account's, as `currentNames` gives it, else a
  * guest's latest (`guests.name`, from starting a daily game or choosing a
- * new name). IDs with neither are left out, and so is a name the profanity
- * filter now refuses: the board keeps the row's own name for those.
+ * new name). IDs with neither are left out (the board shows the row's own
+ * name for those), and a name the profanity filter now refuses is
+ * `NO_NAME`, never the row's, as on every board (Dev Plan item 19n).
  */
 export async function boardNames(db: D1Database, ids: readonly string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
@@ -95,8 +97,7 @@ export async function boardNames(db: D1Database, ids: readonly string[]): Promis
   ).bind(JSON.stringify([...new Set(ids)])).all<{ id: string; name: string | null }>();
   const names: Record<string, string> = {};
   for (const row of results) {
-    const shown = row.name === null ? null : validateName(row.name);
-    if (shown?.ok) names[row.id] = shown.name;
+    if (row.name !== null) names[row.id] = checkedName(row.name) ?? NO_NAME;
   }
   return names;
 }

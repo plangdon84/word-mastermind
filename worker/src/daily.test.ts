@@ -7,6 +7,7 @@ import { calendarDays, themeDayProblems, themeDaysSql, type ThemeDay } from './t
 import { fakeD1 } from './fakeD1';
 import { fakeDaily } from './fakeDaily';
 import { TEST_THEMES, testThemeDays } from './testThemes';
+import { NO_NAME } from './names';
 import { handle, type Env } from './index';
 import { sendBoardName } from '../../src/app/boardName';
 
@@ -429,6 +430,28 @@ describe("each player's name now (item 18zw)", () => {
       VALUES ('acct-bob', 'Guest-1234', 'Bea', NULL, 0, '{}', 0)`).run();
     sqlite.prepare("UPDATE guests SET account_id = 'acct-bob' WHERE id = ?").run(BOB);
     expect(await names()).toEqual(['Bea', 'Ann']);
+  });
+
+  it('shows a name the profanity filter now refuses as no name, never the name from the day (item 19n)', async () => {
+    const { sqlite, names } = await played();
+    // Saved before a stricter filter, say: written straight to the tables.
+    sqlite.prepare('UPDATE guests SET name = ? WHERE id = ?').run('Shithead', BOB);
+    expect(await names()).toEqual([NO_NAME, 'Ann']);
+    // With no name now, the row's own is shown, checked the same way.
+    sqlite.prepare('UPDATE guests SET name = NULL WHERE id = ?').run(BOB);
+    expect(await names()).toEqual(['Guest-1234', 'Ann']);
+    sqlite.prepare('UPDATE daily_results SET name = ? WHERE player_id = ?').run('Shithead', BOB);
+    expect(await names()).toEqual([NO_NAME, 'Ann']);
+  });
+
+  it("keeps a guest's new name only once they've started a daily game (item 19n)", async () => {
+    const { rename, sqlite } = await played();
+    // Cat's device has been seen (a friend game, say) but never started a daily game.
+    sqlite.prepare('INSERT OR IGNORE INTO guests (id, created_at, last_seen_at) VALUES (?, 0, 0)').run(CAT);
+    await rename(CAT, 'Cat');
+    expect(sqlite.prepare('SELECT name FROM guests WHERE id = ?').get(CAT)).toEqual({ name: null });
+    await rename(BOB, 'Bobby');
+    expect(sqlite.prepare('SELECT name FROM guests WHERE id = ?').get(BOB)).toEqual({ name: 'Bobby' });
   });
 
   it('refuses a name that breaks the rule or the filter, and makes nothing for a guest never seen', async () => {
