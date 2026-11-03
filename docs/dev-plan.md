@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 2 November 2026.
+Last triaged with the owner: 2 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -41,6 +41,90 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     everything unlocked, badge collector, a veteran with thousands of
     games), checked by a test, with a picker in preview builds' profiles,
     shown only when signed out
+- [ ] **19o. Computer ratings table** (the owner, 3 November 2026; first
+  of three items for a rated ladder that never leaves you waiting; game
+  logic only)
+  - Agreed with the owner, 3 November 2026: one rated ladder, Live 10
+    minutes. A player in its queue who isn't matched with a person within
+    30 seconds plays a computer, labelled openly as one (a 🤖 and a
+    generic computer name, and "No one was free, so you're playing a
+    computer at about your level" at the start). People are always
+    matched first. The computer's strength is any recall from Expert's
+    0.38 (the floor) to 1.0 in steps of 0.1, each with a fixed rating
+    that never changes
+  - Also agreed, 3 November 2026: the ladder is Medium only (one queue;
+    nearly every player plays Medium), with queues per difficulty switched
+    on once there are enough players. Live 10 and correspondence share one
+    two player rating and one board (a production audit found half of
+    rated correspondence games end within an hour, with a median guess of
+    25 seconds, so they play much like live games); every rated game keeps
+    its record, so separate ratings could be rebuilt later. On the title
+    screen it's Two player's third opponent, renamed from Random opponent
+    to **Rated ladder**, so it isn't mistaken for a rated challenge to a
+    friend (which keeps its Rated switch and counts toward the same
+    rating)
+  - A script (`npm run calibrate`, by hand, not in `npm test`) plays
+    20,000 solves at each recall from 0.38 and 0.40 to 1.00 in steps of
+    0.05, and turns them into ratings with Expert pinned at 1500. Between
+    two computers the fewer guesses win and the same count draws, whoever
+    went first (the final-guess rule), so head-to-head results come from
+    each recall's spread of guess counts. A trial run on 3 November gave
+    1500 at 0.38 up to about 1885 at 1.0, Mastermind beating Expert about
+    90% of the time; steps of 0.05 were only 25 to 45 points apart, finer
+    than a rating can tell, so the table keeps steps of 0.1
+  - The table goes in `src/game/` as fixed data (recall, average guesses,
+    rating), with pure functions: the computer for a rating (the nearest,
+    never below the floor) and for an average guesses per word (the
+    nearest). A test checks a few rows still hold with a small seeded run
+  - A production audit (read-only, 3 November; totals only) found the
+    computers play the same against players' own words as against random
+    ones, and players at Medium average about 11.5 to 12.7 guesses on
+    words they play to the end, about Expert. Averages from friend games
+    and vs. Computer look about 3 guesses better than they are, since a
+    game often ends before you find the word
+- [ ] **19p. Computers in the Live 10 queue** (after 19o; worker, review
+  gate; Random opponent stays switched off until 19q)
+  - The queue (`worker/src/queue.ts`) is Live 10 at Medium alone, and
+    offers a computer after 30 seconds with no person to match. A provisional player's computer comes from
+    their average guesses per word: the last 20 words found in single
+    player and the Daily Word (games played to the end), without Suggest,
+    Easy included, sent with the device's shared summary; with fewer than
+    5 words found, Expert. A settled player's comes from their rating.
+    Never below Expert's 0.38
+  - The game room runs the computer's seat: its secret word is random
+    from the secret list, and its guesses are worked out when the game
+    starts (they depend only on its own scores against your word, as in
+    a lobby's `computerMoves`), each played on its turn after a short
+    pause, so records replay as they are
+  - Rating: the computer's rating never moves. A game against it moves
+    the player's rating by half as much as against a person, both ways,
+    and by the full amount while their rating is still provisional (the
+    owner, 3 November 2026). No cap for now
+  - History and badges: a game against a ladder computer is its own kind
+    in the history. It earns the VS CPU badges of the strongest of the
+    four named strengths it's at least as strong as, the win streak,
+    Clutch and every solve badge, never the friend badges. Ladder games
+    against a person stop earning **Win a game against a friend** and
+    the HARDER badges, which they earn today because a matched game is
+    kept as a friend game (the owner, 3 November 2026)
+  - Rating pools: Live 10 rates into the same pool as correspondence (one
+    two player rating, `ratingPool`); Live 15 and 5 keep their own,
+    unused while off
+  - README "Random opponent", "Rating" and "Achievements" record all of
+    the above
+- [ ] **19q. Switch on the Live 10 ladder** (after 19p)
+  - `FEATURES`: Random opponent on, shown as **Rated ladder** (Live 10
+    at Medium; "Live, 10 minutes each, at Medium. Matched with a player
+    near your rating, or a computer at your level after 30 seconds.
+    Signed in."),
+    and the Correspondence board renamed for the shared two player
+    rating. A board row shows how many of the player's rated games were
+    against computers
+  - The usage dashboard adds, per computer recall, players' actual score
+    against it beside the score their ratings expected (totals only), so
+    a computer whose rating is wrong can be retuned in 19o's table
+  - Later, if a player regularly beats the 1.0 computer: a stronger
+    guesser, as its own item
 
 **Later**
 
