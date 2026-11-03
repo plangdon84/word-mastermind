@@ -60,7 +60,9 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     25 seconds, so they play much like live games); every rated game keeps
     its record, so separate ratings could be rebuilt later. On the title
     screen it's Two player's third opponent, renamed from Random opponent
-    to **Rated match**
+    to **Rated ladder**, so it isn't mistaken for a rated challenge to a
+    friend (which keeps its Rated switch and counts toward the same
+    rating)
   - A script (`npm run calibrate`, by hand, not in `npm test`) plays
     20,000 solves at each recall from 0.38 and 0.40 to 1.00 in steps of
     0.05, and turns them into ratings with Expert pinned at 1500. Between
@@ -111,9 +113,10 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
   - README "Random opponent", "Rating" and "Achievements" record all of
     the above
 - [ ] **19q. Switch on the Live 10 ladder** (after 19p)
-  - `FEATURES`: Random opponent on, shown as **Rated match** (Live 10 at
-    Medium; "Live, 10 minutes each. Matched with a player near your
-    rating, or a computer at your level after 30 seconds. Signed in."),
+  - `FEATURES`: Random opponent on, shown as **Rated ladder** (Live 10
+    at Medium; "Live, 10 minutes each, at Medium. Matched with a player
+    near your rating, or a computer at your level after 30 seconds.
+    Signed in."),
     and the Correspondence board renamed for the shared two player
     rating. A board row shows how many of the player's rated games were
     against computers
