@@ -1,5 +1,5 @@
-import { FEATURES, isObject, ladderComputer, ratingPool } from '../../src/game';
-import { LADDER_CHOICE, type QueueChoice } from '../../src/app/queueApi';
+import { FEATURES, isObject, isProvisional, LADDER_CHOICE, ladderComputer, ratingPool } from '../../src/game';
+import type { QueueChoice } from '../../src/app/queueApi';
 import { identify } from './accounts';
 import { isShortString, nameOf } from './games';
 import { registerGuest } from './guests';
@@ -56,6 +56,7 @@ export async function routeQueue(request: Request, env: Env, now: number, pathna
   await registerGuest(env.DB, accountId, now);
   const rating = await currentRating(env.DB, accountId, ratingPool(choice.timeControl), now);
   // The computer they'd play if nobody is free: by rating once it's settled, else by their shared average.
-  const computer = ladderComputer(rating, await ladderAverageOf(env.DB, accountId)).recall;
+  // The average is read only while it's used: a settled rating picks the computer alone.
+  const computer = ladderComputer(rating, isProvisional(rating) ? await ladderAverageOf(env.DB, accountId) : null).recall;
   return toQueue(env, { ...choice, action: 'join', accountId, name, secret: body.secret, rating, computer });
 }

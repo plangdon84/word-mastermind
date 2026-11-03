@@ -187,9 +187,7 @@ export function pvpTurn(game: PvpGame): Seat | null {
 }
 
 /** When the current turn started: the last guess, or the start of the game. */
-export const pvpTurnStart = (game: PvpRecord): number => turnStart(game);
-
-function turnStart(game: PvpRecord): number {
+export function pvpTurnStart(game: PvpRecord): number {
   let since = game.startedAt;
   for (const move of game.moves) if (move.kind === 'guess') since = move.at;
   return since;
@@ -238,9 +236,9 @@ export function pvpFirstGuessDue(game: PvpGame): boolean {
 export function pvpDeadline(game: PvpGame): number | null {
   const turn = pvpTurn(game);
   if (turn === null) return null;
-  if (pvpFirstGuessDue(game)) return turnStart(game) + FIRST_GUESS_MS;
+  if (pvpFirstGuessDue(game)) return pvpTurnStart(game) + FIRST_GUESS_MS;
   const clocks = pvpClocks(game);
-  return turnStart(game) + (clocks ? clocks[turn] : (game.turnDays ?? 1) * DAY_MS);
+  return pvpTurnStart(game) + (clocks ? clocks[turn] : (game.turnDays ?? 1) * DAY_MS);
 }
 
 /** How much of a correspondence turn is left when its player is reminded (README "Reminders"): 5%. */

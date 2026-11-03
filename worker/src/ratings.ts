@@ -1,4 +1,4 @@
-import { ageRating, NEW_RATING, rateGame, rateGroup, type Rating, type RatingPool, type Seat } from '../../src/game';
+import { ageRating, NEW_RATING, rateGame, rateGroup, rateVsComputer, type Rating, type RatingPool, type Seat } from '../../src/game';
 import { showRating, type PoolRating } from '../../src/app/ratingsApi';
 import { identify } from './accounts';
 import { errorResponse, json } from './http';
@@ -62,6 +62,18 @@ export async function ratedGameChanges(
     { accountId: players.host, before: before.host, after: host },
     { accountId: players.guest, before: before.guest, after: guest },
   ];
+}
+
+/**
+ * The player's change in a ladder game against a computer (Dev Plan item
+ * 19p), whose own rating never moves (`rateVsComputer`): the player's
+ * current rating going in, as for a game against a person.
+ */
+export async function computerGameChanges(
+  db: D1Database, pool: RatingPool, accountId: string, computer: Rating, score: 0 | 0.5 | 1, now: number,
+): Promise<PlayerChange[]> {
+  const before = await currentRating(db, accountId, pool, now);
+  return [{ accountId, before, after: rateVsComputer(before, computer, score) }];
 }
 
 /**

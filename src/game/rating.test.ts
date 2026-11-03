@@ -75,9 +75,10 @@ describe('ageRating', () => {
 });
 
 describe('pools and results', () => {
-  it('rates each live clock on its own, and correspondence as one', () => {
-    expect(ratingPool('5m')).toBe('5m');
-    expect(ratingPool('15m')).toBe('15m');
+  it('rates every two player clock as one two player rating (Dev Plan item 19p)', () => {
+    expect(ratingPool('5m')).toBe('correspondence');
+    expect(ratingPool('10m')).toBe('correspondence');
+    expect(ratingPool('15m')).toBe('correspondence');
     expect(ratingPool('1d')).toBe('correspondence');
     expect(ratingPool('3d')).toBe('correspondence');
   });

@@ -1,5 +1,5 @@
 import {
-  FEATURES, isDifficulty, isObject, isTimeControl, parseMarks, isTurnDays, validateName, validateSecretWord, type Difficulty, type TimeControl,
+  COMPUTER_RECALL_FLOOR, FEATURES, isDifficulty, isObject, isTimeControl, parseMarks, isTurnDays, validateName, validateSecretWord, type Difficulty, type TimeControl,
 } from '../../src/game';
 import type { FriendGame } from '../../src/app/friendApi';
 import { isFriendCode } from '../../src/app/friendsApi';
@@ -153,7 +153,8 @@ export async function startComputerGame(
   const id = env.GAMES.newUniqueId();
   const created = await toRoom(env, id, {
     action: 'computer', id: id.toString(), guestId: seeker.accountId, name: seeker.name, secret: seeker.secret, difficulty, timeControl,
-    recall: seeker.computer, rating: seeker.rating,
+    // A seeker queued before 19p has no computer chosen: the floor, Expert.
+    recall: seeker.computer ?? COMPUTER_RECALL_FLOOR, rating: seeker.rating,
   });
   if (!created.ok) throw new Error(`Couldn't start a computer game: ${created.status}`);
   await addPlayer(env.DB, id.toString(), seeker.accountId, now);

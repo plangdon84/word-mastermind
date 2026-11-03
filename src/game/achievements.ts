@@ -292,6 +292,10 @@ function gameBadges(game: StatsGame, summary: GameSummary): string[] {
       for (const s of STRENGTHS.slice(0, beaten + 1)) {
         for (const d of DIFFICULTIES) if (harderOrEqual(summary.difficulty, d)) ids.push(cpuBadgeId(s, d));
       }
+      // Beating it in few guesses too, as against the computer (the owner, 3 November 2026), without Suggest.
+      if (replayed.game.suggested[replayed.seat] === 0) {
+        for (const n of FEW_GUESSES) if (summary.yourGuesses <= n) ids.push(`cpu-guesses-${n}`);
+      }
     }
   } else if (replayed.mode === 'friend') {
     if (summary.result === 'won') {

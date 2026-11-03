@@ -36,19 +36,18 @@ export const GLICKO_SCALE = 173.7178;
 const CONVERGENCE = 1e-6;
 
 /**
- * The rating pools. Live 10 minutes and correspondence (1 or 3 days per
- * guess) share one two player rating, `correspondence` (Dev Plan item 19p,
- * the owner, 3 November 2026: rated correspondence games play much like
- * live ones); Live 15 and 5 keep their own, unused while they're off, and
- * Competitive Rush has one. `10m` holds only ratings from before 19p.
+ * The rating pools. Every rated two player game, live on any clock or
+ * correspondence (1 or 3 days per guess), counts toward one two player
+ * rating, `correspondence` (Dev Plan item 19p, the owner, 3 November 2026:
+ * rated correspondence games play much like live ones), and Competitive
+ * Rush has its own. `15m`, `10m` and `5m` hold only ratings from before 19p.
  */
 export const RATING_POOLS = ['15m', '10m', '5m', 'correspondence', 'rush'] as const;
 export type RatingPool = (typeof RATING_POOLS)[number];
 
 export const isRatingPool = (value: unknown): value is RatingPool => RATING_POOLS.includes(value as RatingPool);
 
-export const ratingPool = (control: TimeControl): RatingPool =>
-  control.endsWith('d') || control === '10m' ? 'correspondence' : control as RatingPool;
+export const ratingPool = (_control: TimeControl): RatingPool => 'correspondence';
 
 export const isProvisional = (rating: Rating) => rating.rd > PROVISIONAL_RD;
 

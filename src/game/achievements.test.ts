@@ -188,7 +188,10 @@ describe("the server's games' badges", () => {
   it('give a ladder win against a computer the VS CPU badges of the strongest strength it reaches', () => {
     const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
     const vsCpu = (recall: number) => cpu(ids([friend('f', T, { ...won, ladder: { computer: recall } })]));
-    expect(vsCpu(0.38)).toEqual(['casual-cpu-easy', 'casual-cpu-medium', 'expert-cpu-easy', 'expert-cpu-medium', 'skilled-cpu-easy', 'skilled-cpu-medium']);
+    expect(vsCpu(0.38)).toEqual([
+      'casual-cpu-easy', 'casual-cpu-medium', 'cpu-guesses-10', 'cpu-guesses-15', 'cpu-guesses-20',
+      'expert-cpu-easy', 'expert-cpu-medium', 'skilled-cpu-easy', 'skilled-cpu-medium',
+    ]);
     expect(vsCpu(0.9)).toEqual(vsCpu(0.38));
     expect(vsCpu(1)).toContain('mastermind-cpu-medium');
     expect(vsCpu(1)).not.toContain('mastermind-cpu-hard');

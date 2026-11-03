@@ -341,7 +341,8 @@ export function computeStats(games: readonly StatsGame[], now: number): Stats {
       return { id, summary, replayed, found: wordsFound(replayed, summary), seconds: secondsPlayed(replayed, summary) };
     })
     .sort((a, b) => a.summary.endedAt - b.summary.endedAt);
-  const ofMode = (mode: HistoryMode) => rows.filter((r) => r.summary.mode === mode);
+  // A rated ladder game against a computer (Dev Plan item 19p) isn't a friend game: out of friend stats.
+  const ofMode = (mode: HistoryMode) => rows.filter((r) => r.summary.mode === mode && !(mode === 'friend' && r.summary.ladder === 'computer'));
   const opponentGames = rows.filter((r) => r.summary.mode === 'computer' || r.summary.mode === 'friend');
   return {
     played: rows.length,

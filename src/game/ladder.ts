@@ -1,6 +1,8 @@
 import { pickGuessWithRecall } from './computer';
 import { COMPUTER_RATINGS, computerForAverage, computerForRating, type RatedComputer } from './computerRatings';
+import type { Difficulty } from './difficulty';
 import type { ReplayedGame } from './history';
+import type { TimeControl } from './pvp';
 import { isProvisional, type Rating } from './rating';
 import { evaluateGuess, type GuessResult } from './scoring';
 
@@ -10,6 +12,12 @@ import { evaluateGuess, type GuessResult } from './scoring';
  * within 30 seconds plays a computer at about their level, labelled openly
  * as one. Its rating (`computerRatings.ts`) never changes.
  */
+
+/**
+ * The rated ladder's one queue: Live 10 minutes each at Medium (the owner,
+ * 3 November 2026), with queues per difficulty once there are enough players.
+ */
+export const LADDER_CHOICE: Readonly<{ timeControl: TimeControl; difficulty: Difficulty }> = { timeControl: '10m', difficulty: 'medium' };
 
 /** How long the queue looks for a person before offering a computer. */
 export const COMPUTER_AFTER_MS = 30_000;
@@ -21,7 +29,7 @@ export const LADDER_COMPUTER_NAME = '🤖 Computer';
 export const COMPUTER_RD = 50;
 
 /** A ladder computer's rating as Glicko-2 reads an opponent's. */
-export const computerRating = (computer: RatedComputer): Rating => ({ rating: computer.rating, rd: COMPUTER_RD, volatility: 0.06 });
+export const computerRating = (computer: Pick<RatedComputer, 'rating'>): Rating => ({ rating: computer.rating, rd: COMPUTER_RD, volatility: 0.06 });
 
 /** The most recent words an average guesses per word is taken over, and the fewest it needs. */
 export const LADDER_AVERAGE_WORDS = 20;

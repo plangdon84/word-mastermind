@@ -21,6 +21,14 @@ export interface Seeker {
   rating: Rating;
   /** The recall of the computer they'd play if no person is free (`ladderComputer`). */
   computer: number;
+  /**
+   * Their computer game is being started: they stay in the queue, out of
+   * matching, until it exists, so a check-in meanwhile keeps waiting rather
+   * than joining again (and maybe being matched with a person too).
+   */
+  starting?: true;
+  /** Computer games that failed to start; after `COMPUTER_TRIES`, only people. */
+  computerFails?: number;
   joinedAt: number;
   /** When they last checked in. */
   seenAt: number;
@@ -41,6 +49,9 @@ interface QueueState {
 export const STALE_MS = 30_000;
 /** How long a match waits to be picked up. */
 export const MATCH_KEEP_MS = 10 * 60 * 1000;
+/** How many times the queue tries to start a seeker's computer game before waiting for people alone. */
+export const COMPUTER_TRIES = 3;
+
 /** The rating gap allowed at once, and how much wider it gets each second the longer-waiting player has waited. */
 export const BASE_GAP = 200;
 export const GAP_PER_SECOND = 10;
@@ -56,7 +67,7 @@ export const allowedGap = (a: Seeker, b: Seeker, now: number) =>
 export function pickOpponent(seeker: Seeker, others: readonly Seeker[], now: number): Seeker | null {
   let best: Seeker | null = null;
   for (const other of others) {
-    if (other.accountId === seeker.accountId) continue;
+    if (other.accountId === seeker.accountId || other.starting) continue;
     const gap = Math.abs(other.rating.rating - seeker.rating.rating);
     if (gap > allowedGap(seeker, other, now)) continue;
     const bestGap = best && Math.abs(best.rating.rating - seeker.rating.rating);
@@ -101,8 +112,12 @@ const waiting = (state: QueueState, seeker: Seeker, now: number): QueueResponse 
  * fails, both go back.
  */
 async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueState, seeker: Seeker, now: number): Promise<QueueResponse> {
+  if (seeker.starting) return waiting(state, seeker, now);
   const opponent = pickOpponent(seeker, state.seekers, now);
-  if (!opponent) return now - seeker.joinedAt >= COMPUTER_AFTER_MS ? playComputer(storage, deps, state, seeker, now) : waiting(state, seeker, now);
+  if (!opponent) {
+    const offerComputer = now - seeker.joinedAt >= COMPUTER_AFTER_MS && (seeker.computerFails ?? 0) < COMPUTER_TRIES;
+    return offerComputer ? playComputer(storage, deps, state, seeker, now) : waiting(state, seeker, now);
+  }
   const without = state.seekers.filter((s) => s.accountId !== opponent.accountId && s.accountId !== seeker.accountId);
   await storage.put(KEY, { ...state, seekers: without });
   let gameId: string;
@@ -120,22 +135,29 @@ async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueStat
 }
 
 /**
- * Nobody was free for 30 seconds: the seeker plays their computer. They
- * leave the queue first, as a matched player does; if the game can't be
- * started, they go back and the next check-in tries again.
+ * Nobody was free for 30 seconds: the seeker plays their computer. They stay
+ * in the queue marked `starting` while its game is made, out of matching, so
+ * a check-in meanwhile keeps waiting. Then they leave with the match; if the
+ * game can't be started, the next check-in tries again, up to
+ * `COMPUTER_TRIES` times, then they wait for a person alone.
  */
 async function playComputer(storage: QueueStorage, deps: QueueDeps, state: QueueState, seeker: Seeker, now: number): Promise<QueueResponse> {
-  await storage.put(KEY, { ...state, seekers: state.seekers.filter((s) => s.accountId !== seeker.accountId) });
+  const others = (seekers: readonly Seeker[]) => seekers.filter((s) => s.accountId !== seeker.accountId);
+  await storage.put(KEY, { ...state, seekers: [...others(state.seekers), { ...seeker, starting: true }] });
   let gameId: string;
   try {
     gameId = await deps.startComputerGame(seeker, now);
   } catch {
     const current = await load(storage, now);
-    await storage.put(KEY, { ...current, seekers: [...current.seekers.filter((s) => s.accountId !== seeker.accountId), seeker] });
+    const failed: Seeker = { ...seeker, computerFails: (seeker.computerFails ?? 0) + 1 };
+    delete failed.starting;
+    await storage.put(KEY, { ...current, seekers: [...others(current.seekers), failed] });
     return waiting(state, seeker, now);
   }
   const current = await load(storage, now);
-  await storage.put(KEY, { ...current, matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } } });
+  await storage.put(KEY, {
+    seekers: others(current.seekers), matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } },
+  });
   return { status: 200, body: { state: 'matched', gameId } };
 }
 
@@ -163,6 +185,9 @@ export async function handleQueue(storage: QueueStorage, deps: QueueDeps, reques
     return tryMatch(storage, deps, next, seen, now);
   }
 
+  // Joining while their computer game is being made waits for it, rather than starting over.
+  const existing = state.seekers.find((s) => s.accountId === accountId);
+  if (existing?.starting) return waiting(state, existing, now);
   // Joining again starts over: a new word, a new place in the queue.
   const secret = validateSecretWord(request.secret);
   if (!secret.ok) return { status: 400, body: { error: secret.error } };

@@ -8,7 +8,8 @@ import { fakeD1 } from './fakeD1';
 import { fakeQueues } from './fakeQueues';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
-import { allowedGap, pickOpponent, STALE_MS, type Seeker } from './queue';
+import { allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, STALE_MS, type QueueDeps, type Seeker } from './queue';
+import { memoryStorage } from './fakeRooms';
 import { COMPUTER_ID } from './room';
 
 // Switched off for the launch; these tests are for when it's on (launch.test.ts checks it's refused).
@@ -236,6 +237,33 @@ describe('a computer when nobody is free (Dev Plan item 19p)', () => {
     expect(await ann.games.get(gameId)).toMatchObject({ state: 'over', ratings: { you: { after: { rating: Math.round(full.rating) } } } });
   });
 
+  it('times out the player in the same request that plays the computer\'s late guess', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    await ann.games.guess(gameId, 'crane');
+    // Nobody asks and no alarm runs until well past Ann's whole clock after the computer's guess was due.
+    context.tick(3_000 + 10 * 60_000 + 1_000);
+    const game = await ann.games.get(gameId);
+    expect(game.state).toBe('over');
+    expect(game.view?.theirGuesses).toHaveLength(1);
+    expect(game.view?.outcome).toMatchObject({ reason: 'timed-out' });
+  });
+
+  it('rates a computer game by the computer the game started with, even after the table changes', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    // As if the table were recalibrated mid-game, leaving this recall out.
+    const storage = context.rooms.rooms.get(gameId)!;
+    const room = (await storage.get<Record<string, unknown> & { computer: Record<string, unknown> }>('room'))!;
+    await storage.put('room', { ...room, computer: { ...room.computer, recall: 0.42, rating: 1520 } });
+    await ann.games.concede(gameId);
+    expect(ratedAfter(context.sqlite, gameId)).toMatchObject([{ account_id: ann.accountId, computer_recall: 0.42 }]);
+    expect(context.sqlite.prepare('SELECT account_id FROM ratings').all()).toEqual([{ account_id: ann.accountId }]);
+    expect(context.rooms.notices.map((n) => n.guestId)).not.toContain(COMPUTER_ID);
+  });
+
   it('picks a settled player\'s computer by rating, and moves their rating by half', async () => {
     const context = setup();
     const ann = await context.player(ANN, 'Ann');
@@ -293,5 +321,51 @@ describe('a computer when nobody is free (Dev Plan item 19p)', () => {
     const matched = await ann.queue.poll(LADDER);
     if (matched.state !== 'matched') throw new Error('not matched');
     expect(await ann.games.get(matched.gameId)).toMatchObject({ guestName: '🤖 Computer', computer: true });
+  });
+});
+
+describe('starting a computer game (review round 1)', () => {
+  const join = { action: 'join' as const, accountId: 'ann', name: 'Ann', secret: 'storm', rating: NEW_RATING, computer: 0.38 };
+  const poll = { action: 'poll' as const, accountId: 'ann' };
+
+  it('keeps the player waiting, out of matching, while their computer game is made', async () => {
+    const storage = memoryStorage();
+    let finish: (id: string) => void = () => {};
+    const started: string[] = [];
+    const deps: QueueDeps = {
+      startGame: async () => { throw new Error('no person game expected'); },
+      startComputerGame: (seeker) => {
+        started.push(seeker.accountId);
+        return new Promise((resolve) => { finish = resolve; });
+      },
+    };
+    await handleQueue(storage, deps, join, NOW);
+    await handleQueue(storage, deps, poll, NOW + 20_000);
+    const first = handleQueue(storage, deps, poll, NOW + 30_000);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // A check-in and a join while it's being made both keep waiting, and Bob can't be matched with Ann.
+    expect((await handleQueue(storage, deps, poll, NOW + 31_000)).body).toMatchObject({ state: 'waiting' });
+    expect((await handleQueue(storage, deps, join, NOW + 31_500)).body).toMatchObject({ state: 'waiting' });
+    expect((await handleQueue(storage, deps, { ...join, accountId: 'bob', name: 'Bob' }, NOW + 32_000)).body)
+      .toMatchObject({ state: 'waiting' });
+    finish('a'.repeat(64));
+    expect((await first).body).toEqual({ state: 'matched', gameId: 'a'.repeat(64) });
+    expect((await handleQueue(storage, deps, poll, NOW + 33_000)).body).toEqual({ state: 'matched', gameId: 'a'.repeat(64) });
+    expect(started).toEqual(['ann']);
+  });
+
+  it(`tries ${COMPUTER_TRIES} times, then waits for a person alone`, async () => {
+    const storage = memoryStorage();
+    let tries = 0;
+    const deps: QueueDeps = {
+      startGame: async () => 'b'.repeat(64),
+      startComputerGame: async () => { tries++; throw new Error('room down'); },
+    };
+    await handleQueue(storage, deps, join, NOW);
+    await handleQueue(storage, deps, poll, NOW + 20_000);
+    for (let i = 0; i < COMPUTER_TRIES + 2; i++) {
+      expect((await handleQueue(storage, deps, poll, NOW + 30_000 + i * 2_000)).body).toMatchObject({ state: 'waiting' });
+    }
+    expect(tries).toBe(COMPUTER_TRIES);
   });
 });
