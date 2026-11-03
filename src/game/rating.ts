@@ -32,7 +32,7 @@ export const PROVISIONAL_RD = 110;
 export const IDLE_PERIOD_MS = 7 * DAY_MS;
 
 /** Glicko-2's internal scale: 400 / ln 10 rating points per unit. */
-const SCALE = 173.7178;
+export const GLICKO_SCALE = 173.7178;
 const CONVERGENCE = 1e-6;
 
 /**
@@ -58,10 +58,10 @@ export interface RatedResult {
 const g = (phi: number) => 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
 const expected = (mu: number, muj: number, phij: number) => 1 / (1 + Math.exp(-g(phij) * (mu - muj)));
 
-/** Widens RD for `periods` rating periods without games, never past a new player's. */
+/** Widens RD for `periods` rating periods without games, never past a new player's. `LISTED` in `worker/src/leaderboards.ts` repeats this in SQL. */
 function widen(rating: Rating, periods: number): Rating {
-  const phi = rating.rd / SCALE;
-  const widened = Math.sqrt(phi * phi + periods * rating.volatility * rating.volatility) * SCALE;
+  const phi = rating.rd / GLICKO_SCALE;
+  const widened = Math.sqrt(phi * phi + periods * rating.volatility * rating.volatility) * GLICKO_SCALE;
   return { ...rating, rd: Math.min(widened, NEW_RATING.rd) };
 }
 
@@ -114,13 +114,13 @@ function newVolatility(phi: number, sigma: number, v: number, delta: number, tau
  */
 export function updateRating(player: Rating, results: readonly RatedResult[], tau = TAU): Rating {
   if (results.length === 0) return widen(player, 1);
-  const mu = (player.rating - NEW_RATING.rating) / SCALE;
-  const phi = player.rd / SCALE;
+  const mu = (player.rating - NEW_RATING.rating) / GLICKO_SCALE;
+  const phi = player.rd / GLICKO_SCALE;
   let vInverse = 0;
   let sum = 0;
   for (const { opponent, score } of results) {
-    const phij = opponent.rd / SCALE;
-    const e = expected(mu, (opponent.rating - NEW_RATING.rating) / SCALE, phij);
+    const phij = opponent.rd / GLICKO_SCALE;
+    const e = expected(mu, (opponent.rating - NEW_RATING.rating) / GLICKO_SCALE, phij);
     vInverse += g(phij) ** 2 * e * (1 - e);
     sum += g(phij) * (score - e);
   }
@@ -129,8 +129,8 @@ export function updateRating(player: Rating, results: readonly RatedResult[], ta
   const phiStar = Math.sqrt(phi * phi + volatility * volatility);
   const phiNew = 1 / Math.sqrt(1 / (phiStar * phiStar) + 1 / v);
   return {
-    rating: (mu + phiNew * phiNew * sum) * SCALE + NEW_RATING.rating,
-    rd: phiNew * SCALE,
+    rating: (mu + phiNew * phiNew * sum) * GLICKO_SCALE + NEW_RATING.rating,
+    rd: phiNew * GLICKO_SCALE,
     volatility,
   };
 }

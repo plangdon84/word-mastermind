@@ -7,7 +7,7 @@ import { routeAdmin } from './admin';
 import { routeAuth } from './authRoutes';
 import { routeDaily } from './dailyRoutes';
 import { routeProfileShare } from './friendProfiles';
-import { routeFriends } from './friends';
+import { forgetOldDeclines, routeFriends } from './friends';
 import { routeGames, routeLiveSocket } from './games';
 import { routeLeaderboards } from './leaderboards';
 import { routeLobbies } from './lobbyRoutes';
@@ -153,10 +153,22 @@ export { GameRoom } from './gameRoom';
 export { Matchmaker } from './matchmaker';
 export { RushLobby } from './rushLobby';
 
+/**
+ * The scheduled job's tidying (Dev Plan item 19n): declined email requests
+ * are deleted once their week is over. It runs on the job's runs at minute 0
+ * only, four times a day with today's crons, so the crons in `wrangler.toml`
+ * must keep minute 0.
+ */
+export async function cleanUp(db: D1Database, now: number): Promise<void> {
+  if (new Date(now).getUTCMinutes() !== 0) return;
+  await forgetOldDeclines(db, now).run();
+}
+
 export default {
   fetch: (request, env, ctx) => handle(request, env, Date.now(), fetch, (work) => ctx.waitUntil(work)),
-  // The Cron Trigger (wrangler.toml): the dailies and come-back reminders (`reminders.ts`).
+  // The Cron Trigger (wrangler.toml): the dailies and come-back reminders (`reminders.ts`), and tidying (`cleanUp`).
   scheduled: (controller, env, ctx) => {
     ctx.waitUntil(runReminders(env.DB, vapidKeysOf(env), controller.scheduledTime));
+    ctx.waitUntil(cleanUp(env.DB, controller.scheduledTime));
   },
 } satisfies ExportedHandler<Env>;

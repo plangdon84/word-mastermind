@@ -1,15 +1,16 @@
 import {
-  ageRating, FEATURES, gamesUntilListed, isProvisional, isRatingPool, NEW_RATING, PROVISIONAL_RD, validateName, type RatingPool,
+  ageRating, FEATURES, gamesUntilListed, GLICKO_SCALE, IDLE_PERIOD_MS, isProvisional, isRatingPool, NEW_RATING, PROVISIONAL_RD,
+  type RatingPool,
 } from '../../src/game';
 import {
   isCircle, RATING_BOARD_SIZE, type Circle, type RatingBoard, type RatingBoardRow, type YourRatingPlace,
 } from '../../src/app/leaderboardsApi';
 import { showRating } from '../../src/app/ratingsApi';
 import { identify } from './accounts';
-import { friendCodeSql, NO_NAME } from './friends';
+import { friendCodeSql } from './friends';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
-import { currentRating } from './ratings';
+import { shownName } from './names';
 
 /*
  * The Leaderboards page (README "Leaderboards"): a board per rating pool,
@@ -32,50 +33,65 @@ export function inCircle(column: string, param: string): string {
 interface BoardRow {
   account_id: string;
   rating: number;
-  rd: number;
-  volatility: number;
   games: number;
-  rated_at: number;
+  rank: number;
+  total: number;
   name: string | null;
   friend_code: string | null;
 }
 
 /**
- * A pool's board as of `now`: everyone (or you and your friends) whose
- * rating isn't provisional, highest first; ties on the rounded rating share
- * a rank. With `accountId`, your place too.
+ * SQL that a `ratings` row (`r`) in pool `?1` is listed as of `?2`, the
+ * time: its RD aged by `ageRating` (one empty period per whole idle week)
+ * isn't provisional, worked out on the squares so it needs no square root.
+ */
+const LISTED = `r.pool = ?1 AND r.rd * r.rd
+  + MAX(0, CAST((?2 - r.rated_at) / ${IDLE_PERIOD_MS} AS INTEGER)) * r.volatility * r.volatility * ${GLICKO_SCALE * GLICKO_SCALE}
+  <= ${PROVISIONAL_RD * PROVISIONAL_RD}`;
+
+/**
+ * A pool's board as of `now`: everyone (or you and your friends, `?3`
+ * being your account's ID) whose rating isn't provisional, highest first;
+ * ties on the rounded rating share a rank. The database ranks and counts
+ * them and sends only the top 100 (Dev Plan item 19n), whose names alone
+ * are checked. With `accountId`, your place too, from your own row and,
+ * if you're listed below the top, a count of those above you.
  */
 export async function ratingBoard(
   db: D1Database, pool: RatingPool, circle: Circle, accountId: string | null, now: number,
 ): Promise<RatingBoard> {
-  // RD only widens with time, so a rating provisional when stored still is.
+  const only = circle === 'friends' ? `AND ${inCircle('r.account_id', '?3')}` : '';
+  const args = [pool, now, ...(circle === 'friends' ? [accountId] : [])];
   const { results } = await db.prepare(
-    `SELECT r.account_id, r.rating, r.rd, r.volatility, r.games, r.rated_at, COALESCE(p.name, p.guest_name) AS name,
-       ${circle === 'friends' ? friendCodeSql('r.account_id', '?2') : 'NULL'} AS friend_code
-     FROM ratings r LEFT JOIN profiles p ON p.account_id = r.account_id
-     WHERE r.pool = ?1 AND r.rd <= ${PROVISIONAL_RD} ${circle === 'friends' ? `AND ${inCircle('r.account_id', '?2')}` : ''}
-     ORDER BY r.rating DESC`,
-  ).bind(pool, ...(circle === 'friends' ? [accountId] : [])).all<BoardRow>();
-  const listed = results.filter((r) => !isProvisional(ageRating(r, now - r.rated_at)));
-  const ranked: RatingBoardRow[] = [];
-  listed.forEach((r, i) => {
-    const rating = Math.round(r.rating);
-    const rank = i > 0 && ranked[i - 1].rating === rating ? ranked[i - 1].rank : i + 1;
-    // A name the profanity filter now refuses shows as no name, as on the daily boards.
-    const shown = r.name === null ? null : validateName(r.name);
-    ranked.push({
-      rank, name: shown?.ok ? shown.name : NO_NAME, rating, games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
-    });
-  });
+    `WITH top AS (
+       SELECT r.account_id, r.rating, r.games, RANK() OVER (ORDER BY ROUND(r.rating) DESC) AS rank, COUNT(*) OVER () AS total
+       FROM ratings r WHERE ${LISTED} ${only}
+       ORDER BY r.rating DESC, r.account_id LIMIT ${RATING_BOARD_SIZE})
+     SELECT t.account_id, t.rating, t.games, t.rank, t.total, COALESCE(p.name, p.guest_name) AS name,
+       ${circle === 'friends' ? friendCodeSql('t.account_id', '?3') : 'NULL'} AS friend_code
+     FROM top t LEFT JOIN profiles p ON p.account_id = t.account_id
+     ORDER BY t.rating DESC, t.account_id`,
+  ).bind(...args).all<BoardRow>();
+  const top = results.map((r): RatingBoardRow => ({
+    // A name the profanity filter now refuses shows as no name, as on every board (`names.ts`).
+    rank: r.rank, name: shownName(r.name), rating: Math.round(r.rating), games: r.games, you: r.account_id === accountId, friendCode: r.friend_code,
+  }));
   let you: YourRatingPlace | null = null;
   if (accountId) {
-    const mine = ranked.find((r) => r.you);
-    const row = await db.prepare('SELECT games FROM ratings WHERE account_id = ?1 AND pool = ?2')
-      .bind(accountId, pool).first<{ games: number }>();
-    const rating = row ? await currentRating(db, accountId, pool, now) : NEW_RATING;
-    you = { rating: showRating(rating), games: row?.games ?? 0, rank: mine?.rank ?? null, gamesToList: mine ? 0 : gamesUntilListed(rating) };
+    const row = await db.prepare('SELECT rating, rd, volatility, games, rated_at FROM ratings WHERE account_id = ?1 AND pool = ?2')
+      .bind(accountId, pool).first<{ rating: number; rd: number; volatility: number; games: number; rated_at: number }>();
+    const rating = row ? ageRating({ rating: row.rating, rd: row.rd, volatility: row.volatility }, now - row.rated_at) : NEW_RATING;
+    let rank = top.find((r) => r.you)?.rank ?? null;
+    if (rank === null && row && !isProvisional(rating)) {
+      // Below the top 100: one more than those listed with a higher rounded rating, so ties share your rank.
+      const above = await db.prepare(
+        `SELECT COUNT(*) AS n FROM ratings r WHERE ${LISTED} ${only} AND ROUND(r.rating) > ROUND(?${args.length + 1})`,
+      ).bind(...args, row.rating).first<number>('n');
+      rank = (above ?? 0) + 1;
+    }
+    you = { rating: showRating(rating), games: row?.games ?? 0, rank, gamesToList: rank !== null ? 0 : gamesUntilListed(rating) };
   }
-  return { pool, circle, total: ranked.length, top: ranked.slice(0, RATING_BOARD_SIZE), you };
+  return { pool, circle, total: results[0]?.total ?? 0, top, you };
 }
 
 /** Routes `/api/leaderboards…`, or returns null for any other path. */

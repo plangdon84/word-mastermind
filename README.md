@@ -1394,7 +1394,12 @@ there are enough rated players (see [Launch switches](#launch-switches)).
 - **Everyone / Friends:** signed in, a toggle narrows any board (Daily Rush
   included) to you and your [friends](#friends).
 - Names are profile names (or guest names), which pass the profanity filter;
-  rows never carry a player's ID, only whether a row is yours, as on the
+  the server checks each name again as it sends it (`worker/src/names.ts`),
+  so a name the filter has since come to refuse shows as **A player** on
+  every board, the Daily boards included, never an older name of the
+  player's (Dev Plan item 19n), as does a player with no name. A rating
+  board is ranked and cut to its top 100 by the database, which counts your
+  place below that. Rows never carry a player's ID, only whether a row is yours, as on the
   Daily Rush board. Boards are read from D1 when opened (ratings in a
   `ratings` table updated when a rated game ends), never from a cached copy.
 - **Choosing a name for the board** (Dev Plan item 18zy): when a game that
@@ -1413,11 +1418,14 @@ there are enough rated players (see [Launch switches](#launch-switches)).
   before signing in too, as the rating boards always did. A guest's is the
   name their last daily game started with, or a new one they chose since:
   the app sends it when it's chosen (`POST /api/daily/name`, guests only;
-  `src/app/boardName.ts`), only for a guest who has started a daily game on
-  that device, and the server keeps it with the guest ID (`guests.name`)
-  without making anything for a guest it hasn't seen. Each board reads them
-  in one query (`boardNames` in `worker/src/sync.ts`); a name the profanity
-  filter now refuses falls back to the row's own.
+  `src/app/boardName.ts`), and the server keeps it with the guest ID
+  (`guests.name`) only once that guest has started a daily game (Dev Plan
+  item 19n), making nothing for anyone else. The device keeps a rename to
+  send until the server takes it, so a rename made offline goes on the next
+  visit; renames go one at a time, the newest last; and signing out never
+  sends the account's name for the new guest. Each board reads them in one
+  query (`boardNames` in `worker/src/sync.ts`); a name the profanity filter
+  now refuses shows as **A player**, not the row's own.
 
 ### Rush with Friends
 

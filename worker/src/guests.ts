@@ -40,3 +40,19 @@ export async function setGuestName(db: D1Database, id: string, name: string): Pr
   const { meta } = await db.prepare('UPDATE guests SET name = ?2 WHERE id = ?1 AND account_id IS NULL').bind(id, name).run();
   return (meta.changes ?? 0) > 0;
 }
+
+/**
+ * A guest's new name, chosen since their last daily game (`POST
+ * /api/daily/name`): kept only for a guest who has started a daily game
+ * (Dev Plan item 19n), since only they are on a Daily board; one who never
+ * has sends their name when they start one. Returns whether it was kept.
+ */
+export async function renameGuest(db: D1Database, id: string, name: string): Promise<boolean> {
+  const { meta } = await db.prepare(
+    `UPDATE guests SET name = ?2 WHERE id = ?1 AND account_id IS NULL AND (
+       EXISTS (SELECT 1 FROM daily_played WHERE player_id = ?1)
+       OR EXISTS (SELECT 1 FROM daily_results WHERE player_id = ?1)
+       OR EXISTS (SELECT 1 FROM daily_word_results WHERE player_id = ?1))`,
+  ).bind(id, name).run();
+  return (meta.changes ?? 0) > 0;
+}

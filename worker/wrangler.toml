@@ -73,7 +73,8 @@ simple = { limit = 60, period = 60 }
 # Reminders (src/reminders.ts, README "Reminders"): every minute of the UTC
 # hours holding 8pm and noon in New York (00:00 or 01:00 and 16:00 or 17:00 UTC,
 # with daylight saving); each run checks the hour there and sends a small batch.
-# Cron Triggers are free (5 an account on the Free plan).
+# Cron Triggers are free (5 an account on the Free plan). The same runs at minute 0
+# also delete week-old declined email requests (`cleanUp` in index.ts): keep minute 0.
 [triggers]
 crons = ["* 0,1,16,17 * * *"]
 

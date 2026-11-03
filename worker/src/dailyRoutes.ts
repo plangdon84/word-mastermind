@@ -9,10 +9,11 @@ import { RESULTS_TABLE, type DailyRequest, type DailyResponse } from './dailyRoo
 import { themeFor } from './dailyThemes';
 import { DAILY_WORD_FROM, wordFor } from './dailyWords';
 import { friendCodeSql } from './friends';
-import { registerGuest, setGuestName } from './guests';
+import { registerGuest, renameGuest, setGuestName } from './guests';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
 import { inCircle } from './leaderboards';
+import { shownName } from './names';
 import { boardNames } from './sync';
 
 /*
@@ -226,7 +227,7 @@ async function board(
     total: total ?? 0,
     // Player IDs are credentials, so rows only say which one is yours, and (Friends) a friend's friend code.
     top: top.map((r): DailyBoardRow => ({
-      rank: r.rank, name: names[r.player_id] ?? r.name, guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id), friendCode: r.friend_code,
+      rank: r.rank, name: names[r.player_id] ?? shownName(r.name), guesses: r.guesses, ms: r.ms, you: ids.includes(r.player_id), friendCode: r.friend_code,
     })),
     you: mine ? { ...toPlacement(mine, rankBy, mode), guesses: mine.guesses, ms: mine.ms } : null,
   };
@@ -255,8 +256,8 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
     const name = isObject(body) && typeof body.name === 'string' && body.name.length <= 64 ? validateName(body.name) : null;
     if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
     if (!name?.ok) return errorResponse(400, 'bad-request');
-    // A guest who never started a daily game has no rows to rename, so nothing is made for them.
-    await setGuestName(env.DB, player.id, name.name);
+    // Kept only for a guest who has started a daily game (item 19n): nothing is made or kept for anyone else.
+    await renameGuest(env.DB, player.id, name.name);
     return json({ name: name.name });
   }
   if (pathname === '/api/daily/board') {
