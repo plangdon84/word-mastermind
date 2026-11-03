@@ -108,14 +108,17 @@ export function syncBoardName(apiUrl: string, identity: ApiIdentity, name: strin
   busy = true;
   done = (async () => {
     // Checked again after each send, and cleared in the same step as the last check, so no name asked for is missed.
-    while (wanted) {
-      const next: Wanted = wanted;
-      wanted = null;
-      const id = next.identity.guestId;
-      if (next.identity.token || !boardNameDue(id, next.name)) continue;
-      await sendBoardName(next.apiUrl, next.identity, next.name, next.fetchFn).then(() => noteBoardName(id, next.name), () => {});
+    try {
+      while (wanted) {
+        const next: Wanted = wanted;
+        wanted = null;
+        const id = next.identity.guestId;
+        if (next.identity.token || !boardNameDue(id, next.name)) continue;
+        await sendBoardName(next.apiUrl, next.identity, next.name, next.fetchFn).then(() => noteBoardName(id, next.name), () => {});
+      }
+    } finally {
+      busy = false;
     }
-    busy = false;
   })();
   return done;
 }

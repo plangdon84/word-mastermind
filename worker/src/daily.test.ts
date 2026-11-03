@@ -450,6 +450,10 @@ describe("each player's name now (item 18zw)", () => {
     sqlite.prepare('INSERT OR IGNORE INTO guests (id, created_at, last_seen_at) VALUES (?, 0, 0)').run(CAT);
     await rename(CAT, 'Cat');
     expect(sqlite.prepare('SELECT name FROM guests WHERE id = ?').get(CAT)).toEqual({ name: null });
+    // A name kept under the old rule, with no daily game, doesn't let them rename again.
+    sqlite.prepare('UPDATE guests SET name = ? WHERE id = ?').run('Cat', CAT);
+    await rename(CAT, 'Kit');
+    expect(sqlite.prepare('SELECT name FROM guests WHERE id = ?').get(CAT)).toEqual({ name: 'Cat' });
     await rename(BOB, 'Bobby');
     expect(sqlite.prepare('SELECT name FROM guests WHERE id = ?').get(BOB)).toEqual({ name: 'Bobby' });
   });
