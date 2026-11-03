@@ -84,7 +84,9 @@ interface Choice<T> {
 // Single player is Practice, and Rush is Word Sets, to players (Dev Plan item 18za); saved data keeps the old names.
 const MODES: Choice<Mode>[] = [
   { value: 'single', label: 'Practice', detail: 'Find a secret word on your own, at your own pace.' },
-  { value: 'two', label: 'Two player', detail: "Race an opponent to find each other's word: the computer or a friend." },
+  { value: 'two', label: 'Two player', detail: FEATURES.randomOpponent
+    ? "Race an opponent to find each other's word: the computer, a friend or the Rated ladder."
+    : "Race an opponent to find each other's word: the computer or a friend." },
   { value: 'rush', label: 'Word Sets', detail: 'Find 4 words in a row against the clock, on your own or with friends.' },
 ];
 

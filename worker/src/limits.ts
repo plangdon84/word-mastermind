@@ -37,6 +37,9 @@ export function limitOf(method: string, pathname: string): Limit | null {
   }
   // A rematch makes a game and a decline sends a notification, like a new invite.
   if (/^\/api\/games\/[0-9a-f]{64}\/(?:rematch|decline)$/.test(pathname)) return 'general';
+  // Joining the rated ladder's queue (Dev Plan item 19q) can start a game, against a computer after 30 seconds:
+  // its check-ins and Leave, every 2 seconds while waiting, aren't limited.
+  if (pathname === '/api/queue') return 'general';
   // So does inviting a friend to a lobby, each time it's sent.
   if (/^\/api\/lobbies\/[A-Z0-9]{6}\/invite$/.test(pathname)) return 'general';
   return null;

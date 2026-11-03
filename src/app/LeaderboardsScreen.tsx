@@ -44,7 +44,7 @@ const gamesText = (n: number) => `${n} rated ${n === 1 ? 'game' : 'games'}`;
 /** What a rating board says about you, below its rows. */
 function yourRatingText(board: RatingBoard, shown: boolean): string {
   const you = board.you;
-  if (!you) return 'Sign in to get rated: games against a random opponent, rated challenges to friends, and Competitive Rush.';
+  if (!you) return 'Sign in to get rated: the Rated ladder, rated challenges to friends, and Competitive Rush.';
   if (you.rank !== null) {
     const place = `${ordinal(you.rank)} of ${board.total}`;
     return shown ? `You're ${place}.` : `You: ${ratingText(you.rating)} · ${place}`;
@@ -93,7 +93,7 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
                   <span class="board-guesses" aria-label={`Rating ${r.rating}`}>{r.rating}</span>
                   <span class="board-time board-games"
                     aria-label={r.computerGames > 0 ? `${gamesText(r.games)}, ${r.computerGames} against computers` : gamesText(r.games)}>
-                    {r.games}{r.computerGames > 0 && <span class="board-cpu"> · 🤖{r.computerGames}</span>}
+                    {r.games}{r.computerGames > 0 && <span class="board-cpu">🤖{r.computerGames}</span>}
                   </span>
                 </li>
               ))}

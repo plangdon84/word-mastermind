@@ -200,10 +200,13 @@ describe('the figures', () => {
       (?, '2026-10-16', 'daily', ?), (?, '2026-10-16', 'dailyWord', ?)`)
       .run(account, at(0), guestId(3), at(0), guestId(6), at(0), guestId(3), at(0));
 
-    // Ladder games against computers (Dev Plan item 19q): a win, a loss and a draw against Expert, from 1500.
+    // Ladder games against computers (Dev Plan item 19q): a win, a loss and a draw against Expert, from a settled
+    // 1500, and a provisional player's game, which isn't counted.
+    sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
+      VALUES ('c0', ?, 'correspondence', 1500, 300, 1600, 280, ?, 0.38)`).run(account, NOW);
     for (const [id, after] of [['c1', 1520], ['c2', 1480], ['c3', 1500]] as const) {
       sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
-        VALUES (?, ?, 'correspondence', 1500, 300, ?, 280, ?, 0.38)`).run(id, account, after, NOW);
+        VALUES (?, ?, 'correspondence', 1500, 80, ?, 79, ?, 0.38)`).run(id, account, after, NOW);
     }
 
     const response = await figures(await key.sign(valid));

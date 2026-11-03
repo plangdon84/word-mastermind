@@ -136,7 +136,11 @@ function Figures({ usage }: { usage: Usage }) {
               ))}
             </tbody>
           </table>
-          <p class="notes">A computer players beat more often than expected is rated too high; less often, too low.</p>
+          <p class="notes">
+            Settled players' games only (a provisional player's computer is picked by their average guesses, not their
+            rating). A computer players beat more often than expected is rated too high; less often, too low. Each game is
+            judged against the computer's rating now, so just after a retune its older games lean the other way.
+          </p>
         </section>
       )}
 

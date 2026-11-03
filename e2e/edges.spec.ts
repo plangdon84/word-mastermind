@@ -804,7 +804,11 @@ test('Leaderboards has the Correspondence rating board and no other (item 19l)',
   await expect(modeButton(page, 'Two player rating')).toBeVisible();
 });
 
-test('the Rated ladder plays a computer when nobody is free for 30 seconds (item 19q)', async ({ page }) => {
+test('the Rated ladder plays a computer when nobody is free for 30 seconds (item 19q)', async ({ page, browserName }) => {
+  // Chromium alone: on main, both browsers run at once against one test server and its one queue, so their two
+  // copies of this test could be matched with each other instead of a computer (review of PR #66). Run by hand
+  // in WebKit with --project=webkit when the ladder changes.
+  test.skip(browserName !== 'chromium', 'one shared queue: run in one browser at a time');
   test.setTimeout(120_000);
   await unlockAll(page);
   await signIn(page, `ladder-${Date.now()}@example.com`);

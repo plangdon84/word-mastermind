@@ -15,6 +15,10 @@ Nothing queued: the next item comes from Later or the next triage.
 
 **Later**
 
+- [ ] **19r. A stronger ladder computer** (from 19q, 3 November 2026;
+  if a player regularly beats the 1.0 computer)
+  - A stronger guesser than full recall, rated by `npm run calibrate`
+    and added to the computer ratings table, as its own item
 - [ ] **19b. Test personas on preview builds** (issue #56; testing only,
   never on the real site)
   - Persona backups made by a script from real game records (new player,
@@ -78,8 +82,6 @@ Nothing queued: the next item comes from Later or the next triage.
   - The usage dashboard adds, per computer recall, players' actual score
     against it beside the score their ratings expected (totals only), so
     a computer whose rating is wrong can be retuned in 19o's table
-  - Later, if a player regularly beats the 1.0 computer: a stronger
-    guesser, as its own item
 - [x] **19p. Computers in the Live 10 queue** (after 19o; worker, review
   gate; Random opponent stays switched off until 19q)
   - The queue (`worker/src/queue.ts`) is Live 10 at Medium alone, and

@@ -867,6 +867,8 @@ button.bubble:active { transform: scale(0.94); }
 .rank-by .seg button { padding: 0 12px; white-space: nowrap; }
 .rating-rows li { grid-template-columns: 2.2em 1fr auto 3em; }
 .board-games { color: var(--muted); }
+/* A rating row's games against computers (Dev Plan item 19q), on a line of its own so the narrow column never overflows. */
+.board-cpu { display: block; font-size: 0.75rem; white-space: nowrap; }
 .info.placeholder { visibility: hidden; }
 
 /* Profile button: your initials in a letter bubble, or the logo */

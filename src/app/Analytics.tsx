@@ -132,7 +132,7 @@ function RatingTile({ ratings }: { ratings?: RatingsState }) {
   if (!ratings) value = soon('Needs the server', 'Ratings come from rated online games');
   else if (!ratings.signedIn) value = soon('Sign in to get rated', 'Rated games are for signed-in players');
   else if (!ratings.list) value = <dd>—</dd>;
-  else if (ratings.list.length === 0) value = soon('No rated games yet', FEATURES.randomOpponent ? 'Play a matched game, or a rated challenge' : 'Challenge a friend to a rated game');
+  else if (ratings.list.length === 0) value = soon('No rated games yet', FEATURES.randomOpponent ? 'Play the Rated ladder, or a rated challenge' : 'Challenge a friend to a rated game');
   else {
     const top = ratings.list.reduce((a, b) => (b.games > a.games ? b : a));
     value = <dd class="rating" title={top.provisional ? 'Provisional: it settles after a few more games' : undefined}>

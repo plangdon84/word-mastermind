@@ -1,5 +1,5 @@
 import type { DailyCounts, LadderComputerFigures, ModeCount, PeriodCount, PeriodKind, Periods, Usage } from '../../src/admin/usage';
-import { addDays, COMPUTER_RATINGS, COMPUTER_RD, DAY_MS, dailyDay, dayStart, GLICKO_SCALE } from '../../src/game';
+import { addDays, COMPUTER_RATINGS, COMPUTER_RD, DAY_MS, dailyDay, dayStart, GLICKO_SCALE, PROVISIONAL_RD } from '../../src/game';
 import { ACCESS_HEADER, verifyAccessToken } from './access';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -118,11 +118,13 @@ export async function usageAt(db: D1Database, now: number): Promise<Usage> {
     ).bind(firstDay)),
     db.prepare(`SELECT country, COUNT(*) AS count FROM profiles WHERE country IS NOT NULL GROUP BY country ORDER BY count DESC, country`),
     // Ladder games against a computer (Dev Plan item 19q): a win raised the player's rating, a loss lowered it and
-    // a draw left it alone, grouped by the rating they went in with, to the point.
+    // a draw left it alone, grouped by the rating they went in with, to the point. Settled players only: a
+    // provisional player's computer was picked by their average guesses, so their rating predicts badly.
+    // (A game read before rd_before was kept counts as provisional.)
     db.prepare(
       `SELECT computer_recall AS recall, ROUND(rating_before) AS rating, CASE WHEN rating_after > rating_before THEN 1 WHEN rating_after < rating_before THEN -1 ELSE 0 END AS result, COUNT(*) AS n
-       FROM rated_games WHERE computer_recall IS NOT NULL GROUP BY 1, 2, 3`,
-    ),
+       FROM rated_games WHERE computer_recall IS NOT NULL AND rd_before <= ?1 GROUP BY 1, 2, 3`,
+    ).bind(PROVISIONAL_RD),
   ]);
   const rows = <T>(i: number) => results[i].results as T[];
   const totals = rows<{
