@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 4 November 2026 (release 2.3.0 planned the same day). Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -11,9 +11,17 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19t. The rated ladder in history and stats** (issues
-  plangdon84/word-mastermind-archive#273 and
-  plangdon84/word-mastermind-archive#274; app only)
+Release 2.3.0, planned with the owner on 4 November 2026: one stack of
+three PRs that merges to `main` as one. 19t is the base (its PR targets
+`main`), 19e is stacked on 19t and 19w on 19e; each PR adds its notes to
+the one 2.3.0 release in `src/app/releases.ts`. 19e and 19w go through the
+review gate; the stack merges once every PR in it is ready.
+
+- [ ] **19t. The rated ladder in history and stats** (2.3.0, base of the
+  stack; issues
+  plangdon84/word-mastermind-archive#273,
+  plangdon84/word-mastermind-archive#274 and
+  plangdon84/word-mastermind-archive#277; app only)
   - Decided with the owner on 4 November 2026: rated ladder games count
     only as the ladder, never as "vs. a friend"
   - Issue 273: the game history gets a **Rated ladder** filter (games
@@ -24,14 +32,18 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     ladder games against people leave the friend stats as computer ones
     already do. Friends' head-to-head records are unchanged. README
     "Profile" updated
-- [ ] **19e. Friending your ladder opponent** (issue #78; split from 18d
-  on 9 October 2026; worker, review gate)
+  - Issue 277: the rating boards' column headings line up with their
+    columns (after 19s's header row): Games and the computer-games
+    heading right-aligned over their numbers, Rating centred over the
+    ratings. Checked at the browser tests' 11 sizes
+- [ ] **19e. Friending your ladder opponent** (2.3.0, stacked on 19t;
+  issue #78; split from 18d on 9 October 2026; worker, review gate)
   - Decided with the owner on 4 November 2026: once a rated ladder game
     against a person is over (never during it), an **Add friend** button
     sends them a friend request they accept or decline, as Find a friend
     does; nothing changes until they accept. Not offered against a
     computer or someone already a friend. README "Friends" updated
-- [ ] **19w. Who's on the ladder** (issue
+- [ ] **19w. Who's on the ladder** (2.3.0, stacked on 19e; issue
   plangdon84/word-mastermind-archive#270; worker, review gate)
   - Decided with the owner on 4 November 2026: opening the Rated ladder
     shows how busy it is, numbers only and never names, e.g. "2 waiting ·
