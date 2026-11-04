@@ -92,7 +92,7 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
               <div class="rating-head" aria-hidden="true">
                 <span />
                 <span>Player</span>
-                <span class="num">Rating</span>
+                <span class="num rating-head-rating">Rating</span>
                 <span class="num">Games</span>
                 {cpu && <span class="num rating-head-cpu">🤖 CPU</span>}
               </div>

@@ -637,7 +637,7 @@ test.describe(() => {
     }
   });
 
-  test('the rating board with listed players who played computers fits every size (item 19x)', async ({ page }) => {
+  test('the rating board with listed players who played computers fits every size, its headings over their numbers (items 19x and 19t)', async ({ page }) => {
     // A board the fresh test database can't have: players listed, two with computer games, one with a long name.
     const row = (rank: number, name: string, rating: number, games: number, computerGames: number) =>
       ({ rank, name, rating, games, computerGames, you: false, friendCode: null });
@@ -660,6 +660,26 @@ test.describe(() => {
       await page.setViewportSize({ width: size.width, height: size.height });
       await expect(page.getByText('🤖987')).toBeVisible();
       for (const problem of await layoutProblems(page)) failures.push(`${size.name}: ${problem.kind} ${problem.what} (${problem.detail})`);
+      // Each heading over its numbers (Issue 277): Rating centred, Games and CPU right-aligned, within a pixel.
+      const [heads, cells] = await page.evaluate(() => {
+        const text = (el: Element) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const r = range.getBoundingClientRect();
+          return { centre: (r.left + r.right) / 2, right: r.right };
+        };
+        const row = document.querySelector('.rating-rows li')!;
+        return [
+          [...document.querySelectorAll('.rating-head .num')].map(text),
+          ['.board-guesses', '.board-games', '.board-cpu'].map((s) => text(row.querySelector(s)!)),
+        ];
+      });
+      const off = (a: number, b: number, what: string) => {
+        if (Math.abs(a - b) > 1) failures.push(`${size.name}: ${what} off by ${Math.round(a - b)}px`);
+      };
+      off(heads[0].centre, cells[0].centre, 'Rating heading');
+      off(heads[1].right, cells[1].right, 'Games heading');
+      off(heads[2].right, cells[2].right, 'CPU heading');
     }
     expect(failures, 'layout problems').toEqual([]);
   });

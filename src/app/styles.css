@@ -869,18 +869,21 @@ button.bubble:active { transform: scale(0.94); }
 .rank-by .seg button { padding: 0 12px; white-space: nowrap; }
 /* A rating board (issue 268): a header row over the rows, on the same columns. The rating lines up with the
    games (baseline); a name too long for its column ends in …. Games against computers (Dev Plan item 19q) sit
-   under the games on a phone, and in a column of their own to the right where there's room. */
+   under the games on a phone, and in a column of their own to the right where there's room. The columns are
+   in rem, since the header's smaller text would make em columns narrower than the rows' (Issue 277): Rating
+   is centred over the ratings, and Games and CPU right-aligned over theirs. */
 .rating-board { width: 100%; display: flex; flex-direction: column; }
-.rating-head, .rating-rows li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) 3.6em 3.2em; gap: 0 10px; align-items: baseline; }
+.rating-head, .rating-rows li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3.6rem 3.2rem; gap: 0 10px; align-items: baseline; }
 .rating-head { padding: 0 8px 4px; border-bottom: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); text-align: left; }
 .rating-head .num { text-align: right; white-space: nowrap; }
+.rating-head .rating-head-rating, .rating-rows .board-guesses { text-align: center; }
 .rating-rows .board-name .friend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: baseline; }
 .board-games { color: var(--muted); }
 .board-cpu { grid-column: 4; font-size: 0.75rem; white-space: nowrap; color: var(--muted); font-family: var(--mono); text-align: right; }
 .board-cpu:empty { display: none; }
 .rating-head-cpu { grid-column: 4; }
 @media (min-width: 480px) {
-  .with-cpu .rating-head, .with-cpu .rating-rows li { grid-template-columns: 2.2em minmax(0, 1fr) 3.6em 3.2em 3.6em; }
+  .with-cpu .rating-head, .with-cpu .rating-rows li { grid-template-columns: 2.2rem minmax(0, 1fr) 3.6rem 3.2rem 3.6rem; }
   .with-cpu .board-cpu, .with-cpu .rating-head-cpu { grid-column: 5; }
   .board-cpu:empty { display: block; }
 }
