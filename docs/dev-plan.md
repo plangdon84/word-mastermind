@@ -24,13 +24,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     ladder games against people leave the friend stats as computer ones
     already do. Friends' head-to-head records are unchanged. README
     "Profile" updated
-- [ ] **19u. More room for guesses in a two player game** (issue
-  plangdon84/word-mastermind-archive#269; app only)
-  - Issue 269: a live game's ticking clocks move into the You / opponent
-    tabs (each clock in its player's tab, red when short), and the row that
-    held them goes, so more guesses fit above the keyboard; the same on the
-    two player screen vs. the computer where it has rows to spare. Checked
-    at the browser tests' 11 sizes; the tutorial's steps kept in line
 - [ ] **19v. Refused names in friend games and lobbies** (issue
   plangdon84/word-mastermind-archive#264; worker, review gate)
   - Decided with the owner on 4 November 2026: a name the profanity
@@ -71,6 +64,17 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Later**
 
+- [ ] **19y. One header row fewer in two player games** (from the owner,
+  4 November 2026, seeing 19u's screens; app only)
+  - The owner's idea: drop the "You vs. opponent" row in two player games,
+    since the tabs already name both players, and move the IN letters (or
+    your word, on their tab) up into its place, so another guess row fits
+  - Settle with the owner first: where the difficulty bubble (tap to
+    change) goes, perhaps the right of the IN row; where a rated game's
+    opponent rating goes; how a friend's name still opens their profile
+    (a tab can't hold a link); and whether single player, Rush and the
+    dailies keep their row 2, which no tab repeats. The tutorial's header
+    step kept in line; checked at the 11 sizes
 - [ ] **19r. A stronger ladder computer** (from 19q, 3 November 2026;
   if a player regularly beats the 1.0 computer)
   - A stronger guesser than full recall, rated by `npm run calibrate`
@@ -124,6 +128,17 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19u. More room for guesses in a two player game** (2.2.0, stacked on 19s; issue
+  plangdon84/word-mastermind-archive#269; app only)
+  - Issue 269: a live game's ticking clocks move into the You / opponent
+    tabs (each clock in its player's tab, red when short), and the row that
+    held them goes, so more guesses fit above the keyboard; the same on the
+    two player screen vs. the computer where it has rows to spare. Checked
+    at the browser tests' 11 sizes; the tutorial's steps kept in line
+  - Built: each clock sits under its player's name in the tab; the clock
+    row stays for wide screens (no tabs) and screen readers. The screen
+    vs. the computer has no clock row, so it's unchanged. About one guess
+    row more on phones; on the smallest the keyboard no longer scrolls
 - [x] **19s. Small fixes after 2.1.0** (2.2.0; issues
   plangdon84/word-mastermind-archive#263,
   plangdon84/word-mastermind-archive#272,

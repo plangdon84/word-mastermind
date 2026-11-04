@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { dailyDay } from '../src/game/dailyDays';
 import { TEST_DAILY_WORD, testThemeFor } from '../worker/src/testThemes';
+import { layoutProblems, SIZES } from './layout';
 import { getStorage, guess, historyCount, listening, modeButton, newPlayer, savedGame, startSolo, trackSockets, unlockAll } from './helpers';
 
 /*
@@ -264,8 +265,18 @@ test('a live game against a friend: each first guess is untimed, due within 2 mi
   // The player to move sees their 2 minutes; their clock stands at 5:00 and isn't running.
   await expect(first.getByRole('timer', { name: /^Make your first guess within [12]:\d\d, or the game is cancelled$/ })).toBeVisible();
   await expect(second.getByRole('timer', { name: /has [12]:\d\d to make their first guess$/ })).toBeVisible();
-  await expect(first.locator('.clock.running')).toHaveCount(0);
+  await expect(first.locator('.tab-clock.running')).toHaveCount(0);
   await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
+  // On a phone each clock is in its player's tab, and no row above the keyboard holds them (item 19u).
+  await expect(first.getByRole('tab', { name: /^You \(0\)/ }).locator('.tab-clock')).toHaveText('5:00');
+  await expect(first.locator('.tabs .tab-clock')).toHaveCount(2);
+  expect((await first.locator('.clocks').boundingBox())?.height).toBeLessThanOrEqual(1);
+  // A wide screen shows both boards and no tabs, so the clocks row comes back.
+  const phone = first.viewportSize()!;
+  await first.setViewportSize({ width: 1024, height: 800 });
+  await expect(first.locator('.clocks .clock')).toHaveCount(2);
+  await expect(first.locator('.clocks .clock').first()).toBeVisible();
+  await first.setViewportSize(phone);
   await expectAccessible(first);
   // After it, the other player's 2 minutes start, and the first player's clock is still full.
   await guess(first, 'crane');
@@ -273,8 +284,13 @@ test('a live game against a friend: each first guess is untimed, due within 2 mi
   await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
   // Once both have guessed, the clocks run as before.
   await guess(second, 'plant');
-  await expect(first.locator('.clock.running')).toHaveCount(1);
+  await expect(first.locator('.tab-clock.running')).toHaveCount(1);
   await expect(first.locator('.first-guess')).toHaveCount(0);
+  // The clocks in the tabs fit at every size (item 19u).
+  for (const size of SIZES) {
+    await first.setViewportSize({ width: size.width, height: size.height });
+    expect(await layoutProblems(first), `live game at ${size.name}`).toEqual([]);
+  }
 });
 
 test('a live game cancelled for a missing first guess: no winner, no words, and Rematch (item 18zv)', async ({ page, browser }) => {

@@ -1351,6 +1351,27 @@ button.bubble:active { transform: scale(0.94); }
 .clock-name { font-family: var(--font); max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock.running { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .clock.running.urgent { background: var(--err); border-color: var(--err); color: #fff; }
+/* Phones: each clock sits in its player's tab instead (Dev Plan item 19u), and the row is kept for
+   screen readers only, so more guesses fit above the keyboard. Wide screens hide the tabs and show it. */
+@media (max-width: 899.98px) {
+  .app.two .clocks {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}
+.tabs button { min-width: 0; white-space: nowrap; }
+.tab-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
+.tabs.has-clock button { flex-direction: column; gap: 1px; padding-block: 0; line-height: 1.15; }
+.tab-clock {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.8rem; line-height: 1.3; white-space: nowrap;
+}
+/* The running clock: bold, after a dot like Your turn's. */
+.tab-clock.running { font-weight: 700; }
+.tab-clock.running::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+/* Under 30 seconds the tab glows red, the softer form of a last chance's red (.slots.final). */
+.tabs button.low-time { border-color: var(--err); box-shadow: 0 0 10px color-mix(in srgb, var(--err) 45%, transparent); }
+.tabs button.low-time:not([aria-selected="true"]) .tab-clock { color: var(--err); }
 
 /* A challenge's Rated switch, under the step note. */
 .rated-toggle { align-items: flex-start; line-height: 1.35; margin-top: 10px; }
