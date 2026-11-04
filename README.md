@@ -1084,10 +1084,11 @@ be played from the device that joined it, or, once you've signed in (see
   next time the game is looked at. This follows every guest ID linked to
   the account, so a game played on a shared device shows the name of
   whoever signed in there since (owner, review round 1). A player without
-  an account keeps the name they played under, and so does a name the
-  profanity filter now refuses. Turn alerts, and a finished game already
-  in your profile's history, keep the name from when they were sent or
-  saved.
+  an account keeps the name they played under. A name the profanity filter
+  now refuses, their current one or the one they played under, shows as
+  **A player**, as on the leaderboards (Dev Plan item 19v), turn alerts
+  included. Turn alerts, and a finished game already in your profile's
+  history, keep the name from when they were sent or saved.
 - **Playing** looks like playing the computer, with your friend's name in
   place of "Computer": two tabs (or two columns on wide screens), and the
   final-guess banners. Above the input, one line on any phone: their latest
@@ -1529,8 +1530,11 @@ there are enough rated players (see [Launch switches](#launch-switches)).
 - **Joining:** type the code on the Rush with Friends step, or open the
   link: "Ann's Rush with Friends" shows the settings and who's in, and
   **Join** takes a seat under your profile name (which must pass the
-  profanity filter, as it's shown to the others). A lobby that has started
-  or closed says so.
+  profanity filter, as it's shown to the others). The lobby keeps that
+  name; the server checks it again whenever it sends it out (the lobby's
+  screen, its results, its notifications and history entries), so a name
+  the filter has since come to refuse shows as **A player**, old results
+  included (Dev Plan item 19v). A lobby that has started or closed says so.
 - **Playing:** header row 3 has one dot per word, **Players** (the
   standings so far) and the **time left**, counting down from the server's
   clock. Each word plays like Solo Rush's, with no Pause and a difficulty

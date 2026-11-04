@@ -6,6 +6,7 @@ import {
 } from '../../src/game';
 import type { FriendError, FriendGame, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
+import { shownName } from './names';
 import { declinedNotice, expiredNotice, joinedNotice, moveNotices, timeLowNotice, type Notice } from './notices';
 import { computerGameChanges, keptChanges, ratedGameChanges, ratingStatements, seatChanges, type RatingChange } from './ratings';
 
@@ -401,7 +402,9 @@ export async function handleRoom(
  * A game as the server describes it, by each player's current name (issue
  * #133): a guest who signed in, or a player who renamed their profile,
  * shows by the new name. The room keeps the names they played under, for
- * anyone without an account profile and if the lookup fails.
+ * anyone without an account profile and if the lookup fails, checked again
+ * (Dev Plan item 19v): a name the profanity filter now refuses is
+ * `NO_NAME`, whichever it is.
  */
 async function withCurrentNames(
   storage: RoomStorage, deps: RoomDeps, body: RoomResponse['body'], askerId: string,
@@ -418,7 +421,8 @@ async function withCurrentNames(
     deps.namesOf(players.map((p) => p.guestId)).catch(() => none),
     opponent ? deps.friendCodes(askerId, [opponent.guestId]).catch(() => none) : none,
   ]);
-  const nameOf = (player: Player | null | undefined, fallback: string | null) => (player && names[player.guestId]) ?? fallback;
+  const nameOf = (player: Player | null | undefined, fallback: string | null) =>
+    (player && names[player.guestId]) ?? (fallback === null ? null : shownName(fallback));
   return {
     ...body,
     hostName: nameOf(room.host, body.hostName)!,

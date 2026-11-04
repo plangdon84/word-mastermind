@@ -2,6 +2,7 @@ import {
   isLive, lobbyKind, pvpTurn, lobbyRankBy, lobbyStandings, ordinal, otherSeat, pvpView, rankByName, timeControlOf, timeControlText,
   wordSetName, type LobbyKind, type LobbyRecord, type LobbyStanding, type PvpGame, type RankBy, type Seat, type TimeControl,
 } from '../../src/game';
+import { checkedLobby, shownName } from './names';
 import type { PushMessage } from './push';
 import type { Room } from './room';
 
@@ -29,8 +30,9 @@ const upper = (word: string) => word.toUpperCase();
 const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
 const count = (n: number) => `${n} ${n === 1 ? 'guess' : 'guesses'}`;
 
+/** The names the room keeps, checked again (Dev Plan item 19v): one the profanity filter now refuses is `NO_NAME`. */
 function names(room: Room): Record<Seat, string> {
-  return { host: room.host.name, guest: room.guest?.name ?? 'Your friend' };
+  return { host: shownName(room.host.name), guest: room.guest ? shownName(room.guest.name) : 'Your friend' };
 }
 
 function guestIds(room: Room): Record<Seat, string> {
@@ -60,7 +62,7 @@ const inviteKind = (room: Room) => (room.rematchOf ? 'rematch' : room.invitee ? 
 
 /** Nobody accepted the host's invite in time. */
 export function expiredNotice(room: Room): Notice[] {
-  const who = room.invitee ? `${room.invitee.name} didn't accept` : 'Nobody accepted';
+  const who = room.invitee ? `${shownName(room.invitee.name)} didn't accept` : 'Nobody accepted';
   return [{
     guestId: room.host.guestId,
     message: {
@@ -73,7 +75,7 @@ export function expiredNotice(room: Room): Notice[] {
 
 /** The friend a challenge or rematch was for turned it down. */
 export function declinedNotice(room: Room): Notice[] {
-  const who = room.invitee?.name ?? 'Your friend';
+  const who = room.invitee ? shownName(room.invitee.name) : 'Your friend';
   return [{
     guestId: room.host.guestId,
     message: { title: `${who} declined your ${inviteKind(room)}`, body: 'Maybe another time.', gameId: room.id },
@@ -223,7 +225,8 @@ const score = (lobby: LobbyRecord, s: LobbyStanding) =>
 const people = (lobby: LobbyRecord) => lobby.game?.seats.filter((s) => s.strength === null) ?? [];
 
 /** A player finished (found or gave up every word) while others are still playing. */
-export function lobbyFinishedNotice(lobby: LobbyRecord, seatId: string, now: number): Notice[] {
+export function lobbyFinishedNotice(stored: LobbyRecord, seatId: string, now: number): Notice[] {
+  const lobby = checkedLobby(stored);
   const { game } = lobby;
   if (!game) return [];
   const finisher = game.seats.find((s) => s.id === seatId);
@@ -242,7 +245,8 @@ export function lobbyFinishedNotice(lobby: LobbyRecord, seatId: string, now: num
 }
 
 /** The game is over: everyone's final place. */
-export function lobbyOverNotice(lobby: LobbyRecord, now: number): Notice[] {
+export function lobbyOverNotice(stored: LobbyRecord, now: number): Notice[] {
+  const lobby = checkedLobby(stored);
   const { game } = lobby;
   if (!game) return [];
   return people(lobby).map((p) => {

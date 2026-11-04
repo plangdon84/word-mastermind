@@ -32,6 +32,7 @@ export const RELEASES: Release[] = [
       { text: 'Some very obscure words are no longer picked as secret words.' },
       { text: 'Clearer definition for a word that only showed an unkind meaning.' },
       { text: "In a live game, each clock now sits in its player's tab, leaving more room for your guesses." },
+      { text: 'A name that\'s no longer allowed now shows as "A player" in friend games and Rush lobbies too, old results included.' },
     ],
   },
   {
