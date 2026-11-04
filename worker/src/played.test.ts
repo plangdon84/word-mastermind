@@ -140,6 +140,22 @@ describe('your games the server refereed', () => {
     expect(summarizeGame(replayEntry(bob.entry)!)).toMatchObject({ place: { rank: 2, of: 2 }, gaveUp: true });
   });
 
+  it('name a lobby player whose name the profanity filter now refuses "A player" (Dev Plan item 19v)', async () => {
+    const s = setup();
+    const words = SECRET_WORDS.slice(0, 4);
+    const { lobby } = await s.lobby(ANN).create('Ann', 'medium');
+    await s.lobby(BOB).join(lobby.code, 'Bob');
+    await s.lobby(ANN).start(lobby.code);
+    for (const word of words) await s.lobby(ANN).guess(lobby.code, word);
+    await s.lobby(BOB).giveUp(lobby.code);
+    // The filter grew since Bob joined: the record keeps the name he joined under.
+    s.sqlite.prepare(`UPDATE games SET record = replace(record, '"Bob"', '"Shithead"') WHERE mode = 'lobby'`).run();
+
+    const [ann] = (await s.played(ANN)).games;
+    if (ann.entry.mode !== 'lobby') throw new Error('not a lobby');
+    expect(ann.entry.places.map((p) => p.name)).toEqual(['Ann', 'A player']);
+  });
+
   it('come a page at a time, and only after the cursor', async () => {
     const s = setup();
     const ann = s.daily(ANN);

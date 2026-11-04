@@ -1,4 +1,4 @@
-import { validateName } from '../../src/game';
+import { validateName, type LobbyRecord } from '../../src/game';
 
 /*
  * Names shown to other players (Dev Plan item 19n, README "Leaderboards"):
@@ -20,3 +20,19 @@ export function checkedName(name: string | null | undefined): string | null {
 
 /** A stored name as others see it now, `NO_NAME` for none or one the filter now refuses. */
 export const shownName = (name: string | null | undefined): string => checkedName(name) ?? NO_NAME;
+
+/**
+ * A lobby with every player's name as others see it now (Dev Plan item
+ * 19v): the names it keeps are the ones they joined under, checked then,
+ * so a name the profanity filter now refuses shows as `NO_NAME` on the
+ * lobby's screen, its results, its notifications and the history entries
+ * built from it. Computers keep theirs.
+ */
+export function checkedLobby(lobby: LobbyRecord): LobbyRecord {
+  const { game } = lobby;
+  return {
+    ...lobby,
+    players: lobby.players.map((p) => ({ ...p, name: shownName(p.name) })),
+    ...(game ? { game: { ...game, seats: game.seats.map((s) => (s.strength === null ? { ...s, name: shownName(s.name) } : s)) } } : {}),
+  };
+}

@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { layoutProblems } from './layout';
+import { layoutProblems, SIZES } from './layout';
 import { SCREENS, settle } from './screens';
 
 /*
@@ -10,23 +10,6 @@ import { SCREENS, settle } from './screens';
  * "Accessibility"): the layout checks at each size, axe once per screen,
  * and a screenshot of each for the gallery (e2e/gallery.ts).
  */
-
-export const SIZES = [
-  { name: 'small-phone', width: 320, height: 568 },
-  { name: 'iphone-se', width: 375, height: 667 },
-  { name: 'iphone', width: 390, height: 844 },
-  { name: 'android', width: 412, height: 915 },
-  { name: 'phone-landscape', width: 844, height: 390 },
-  { name: 'tablet', width: 768, height: 1024 },
-  { name: 'tablet-landscape', width: 1024, height: 768 },
-  { name: 'desktop', width: 1280, height: 800 },
-  // A laptop's browser window (1366×768 screen), short enough that the title screen scrolls.
-  { name: 'laptop', width: 1366, height: 625 },
-  // A desktop browser zoomed to 200%: what WCAG's "resize text" asks of a page.
-  { name: 'text-200', width: 640, height: 400 },
-  // A phone with its own keyboard open, which leaves this much of the screen.
-  { name: 'keyboard-open', width: 390, height: 450 },
-];
 
 export const GALLERY = join(import.meta.dirname, '..', 'e2e-gallery');
 

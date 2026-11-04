@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { layoutProblems } from './layout';
+import { layoutProblems, SIZES } from './layout';
 import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll } from './helpers';
 
 /*
@@ -636,6 +636,33 @@ test.describe(() => {
       }
     }
   });
+
+  test('the rating board with listed players who played computers fits every size (item 19x)', async ({ page }) => {
+    // A board the fresh test database can't have: players listed, two with computer games, one with a long name.
+    const row = (rank: number, name: string, rating: number, games: number, computerGames: number) =>
+      ({ rank, name, rating, games, computerGames, you: false, friendCode: null });
+    await page.route('**/api/leaderboards/ratings?**', (route) => route.fulfill({
+      headers: { 'access-control-allow-origin': '*' },
+      json: {
+        pool: 'correspondence', circle: 'everyone', total: 3, you: null, top: [
+          row(1, 'Wilhelmina Featherstonehaugh', 2088, 1234, 987), row(2, 'Bob', 1712, 31, 0), row(3, 'Cat', 1600, 12, 5),
+        ],
+      },
+    }));
+    await page.goto('/');
+    await unlockAll(page);
+    await button(page, 'Leaderboards').click();
+    await modeButton(page, 'Two player rating').click();
+    await expect(page.getByText('🤖987')).toBeVisible();
+    await expect(page.getByLabel('5 against computers')).toBeVisible();
+    const failures: string[] = [];
+    for (const size of SIZES) {
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await expect(page.getByText('🤖987')).toBeVisible();
+      for (const problem of await layoutProblems(page)) failures.push(`${size.name}: ${problem.kind} ${problem.what} (${problem.detail})`);
+    }
+    expect(failures, 'layout problems').toEqual([]);
+  });
 });
 
 test("a friend's profile: their stats, badges and games, and your record against them (Dev Plan item 18c)", async ({ page, browser }) => {
@@ -825,4 +852,41 @@ test('the Rated ladder plays a computer when nobody is free for 30 seconds (item
   // Whoever goes first, the computer guesses within its 8-second pause of its turn.
   if (await page.getByText('Your turn').isVisible()) await guess(page, 'crane');
   await expect(page.getByRole('tab', { name: /🤖 Computer \(1\)/ })).toBeVisible({ timeout: 15_000 });
+});
+
+test('a tapped difficulty is the only one that looks picked, with no ring left by the tap (issue 263)', async ({ page }) => {
+  await unlockAll(page);
+  await expect(modeButton(page, 'Practice')).toBeVisible();
+  await modeButton(page, 'Practice').tap();
+  const choices = page.locator('.choice').filter({ hasText: /^(Easy|Medium|Hard|Extreme)/ });
+  await expect(choices.first()).toBeVisible();
+  // Tap one, then another: a phone keeps :hover on the last thing tapped, which drew a second, thinner border.
+  await choices.filter({ hasText: /^Medium/ }).tap();
+  await choices.filter({ hasText: /^Hard/ }).tap();
+  await expect(choices.filter({ hasText: /^Hard/ })).toHaveAttribute('aria-pressed', 'true');
+  const looks = await choices.evaluateAll((els) => els.map((el) => {
+    const style = getComputedStyle(el);
+    return {
+      picked: el.getAttribute('aria-pressed') === 'true',
+      look: `${style.borderTopColor} ${style.boxShadow} ${style.outlineStyle}`,
+    };
+  }));
+  const picked = looks.filter((l) => l.picked);
+  const others = looks.filter((l) => !l.picked);
+  expect(picked).toHaveLength(1);
+  // Every other choice looks the same as each other, and none like the picked one.
+  expect(new Set(others.map((l) => l.look)).size).toBe(1);
+  expect(others[0].look).not.toBe(picked[0].look);
+  // And the picked one keeps its own border (ink) though the finger was last on it.
+  const ink = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--ink)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  expect(picked[0].look.startsWith(`${ink} `)).toBe(true);
+  // No focus ring after a tap either (issue 249).
+  expect(picked[0].look.endsWith(' none')).toBe(true);
 });

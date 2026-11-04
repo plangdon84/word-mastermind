@@ -675,13 +675,20 @@ export function FriendScreen({
 
       {!over && <TurnAlertsPrompt apiUrl={API_URL!} identity={identity} />}
 
-      <div class="tabs" role="tablist" aria-label="Guesses">
-        <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}>
-          You ({view.yourGuesses.length})
+      {/* A live game's clocks sit under the tabs' names (Dev Plan item 19u), in the tabs' own height. */}
+      <div class={clocks && !over ? 'tabs has-clock' : 'tabs'} role="tablist" aria-label="Guesses">
+        <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}
+          class={clocks && !over && clocks.you < URGENT_CLOCK_MS ? 'low-time' : undefined}>
+          <span class="tab-label">You ({view.yourGuesses.length})</span>
+          {clocks && !over && <TabClock ms={clocks.you} running={view.turn === 'you' && !firstDue} />}
         </button>
-        <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}>
-          <span class="tab-name">{opponent}</span> ({view.theirGuesses.length})
-          {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
+        <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}
+          class={clocks && !over && clocks.opponent < URGENT_CLOCK_MS ? 'low-time' : undefined}>
+          <span class="tab-label">
+            <span class="tab-name">{opponent}</span> ({view.theirGuesses.length})
+            {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
+          </span>
+          {clocks && !over && <TabClock ms={clocks.opponent} running={view.turn === 'opponent' && !firstDue} />}
         </button>
       </div>
 
@@ -721,6 +728,8 @@ export function FriendScreen({
       {!over && !confirming && (
         <>
           {clocks && (
+            // Phones show each clock in its player's tab (Dev Plan item 19u), so this row is for wide screens,
+            // where the tabs give way to both boards, and for screen readers everywhere.
             <div class="clocks" role="timer" aria-label={`Your clock ${clockText(clocks.you)}, ${opponent}'s ${clockText(clocks.opponent)}`}>
               <span class={['clock', view.turn === 'you' && !firstDue ? 'running' : '', clocks.you < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
                 <span class="clock-name">You</span> {clockText(clocks.you)}
@@ -867,5 +876,19 @@ export function FriendScreen({
       )}
       {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
     </div>
+  );
+}
+
+/**
+ * A live game's clock in its player's tab (Dev Plan item 19u): a dot and bold while it runs; under 30
+ * seconds its tab glows red, as a last chance does (`low-time`).
+ * Hidden from screen readers, which hear the clocks row's timer instead, so a tab's name doesn't tick.
+ */
+function TabClock({ ms, running }: { ms: number; running: boolean }) {
+  return (
+    <span class={['tab-clock', running ? 'running' : '', ms < URGENT_CLOCK_MS ? 'urgent' : ''].filter(Boolean).join(' ')}
+      aria-hidden="true">
+      {clockText(ms)}
+    </span>
   );
 }

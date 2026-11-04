@@ -5,6 +5,7 @@ import {
 import { opponentName, type FriendGame } from '../../src/app/friendApi';
 import { PLAYED_PAGE, PLAYED_RETRIES, type PlayedGame } from '../../src/app/playedApi';
 import { identify, isPlayers, type Player } from './accounts';
+import { checkedLobby } from './names';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
 import { parseJson, sha256Hex } from './secure';
@@ -102,7 +103,8 @@ export async function toPlayed(
   }
   if (row.mode === 'lobby') {
     if (!isObject(data) || !isObject(data.game)) return null;
-    const lobby = data as unknown as LobbyRecord;
+    // Names as others see them now (Dev Plan item 19v): one the profanity filter now refuses is "A player".
+    const lobby = checkedLobby(data as unknown as LobbyRecord);
     const game = lobby.game!;
     const index = game.seats.findIndex((s) => ids.includes(s.id));
     if (index < 0) return null;

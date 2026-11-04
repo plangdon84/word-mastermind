@@ -40,7 +40,8 @@ export interface DailyCounts {
  * The rated ladder's computers (Dev Plan item 19q): for each, how players
  * actually scored against it beside the score their ratings expected (a
  * win 1, a draw ½), so one whose rating is wrong can be retuned in the
- * computer ratings table. Totals over every settled player's game against it.
+ * computer ratings table. Totals over settled players' games against it in the
+ * last 90 days (Dev Plan item 19x).
  */
 export interface LadderComputerFigures {
   recall: number;

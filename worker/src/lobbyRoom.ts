@@ -5,6 +5,7 @@ import {
 } from '../../src/game';
 import type { LobbyAnswer, LobbyErrorCode } from '../../src/app/lobbyApi';
 import { showRating } from '../../src/app/ratingsApi';
+import { checkedLobby } from './names';
 import { lobbyFinishedNotice, lobbyOverNotice, type Notice } from './notices';
 import { rateGroupGame, type RatingChange } from './ratings';
 import type { RoomStorage } from './room';
@@ -105,7 +106,8 @@ async function answer(deps: LobbyDeps, room: LobbyRoom, asker: Asker, now: numbe
   const results = game && (lobbyEndedAt(room.lobby, now) !== null || (seat >= 0 && seatRun(game, seat, now).status === 'over'));
   const codes = results && asker.signedIn
     ? await deps.friendCodes(asker.playerId, game.seats.map((s) => s.id)).catch(() => ({})) : {};
-  return { status, body: { lobby: lobbyView(room.lobby, idsOf(asker), now, codes), now, rating } };
+  // Names as others see them now (Dev Plan item 19v): one the profanity filter now refuses is "A player".
+  return { status, body: { lobby: lobbyView(checkedLobby(room.lobby), idsOf(asker), now, codes), now, rating } };
 }
 
 /**

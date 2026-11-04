@@ -1,11 +1,12 @@
 import {
-  concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, ratingPool, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
+  concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, TWO_PLAYER_POOL, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
   isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
   type Marks, type Rating, type TimeControl, type TurnDays, computerRating, LADDER_COMPUTER_NAME, planComputerGuesses, pvpTurn, pvpTurnStart,
   ratedComputer, SECRET_WORDS, type PlannedGuess,
 } from '../../src/game';
 import type { FriendError, FriendGame, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
+import { shownName } from './names';
 import { declinedNotice, expiredNotice, joinedNotice, moveNotices, timeLowNotice, type Notice } from './notices';
 import { computerGameChanges, keptChanges, ratedGameChanges, ratingStatements, seatChanges, type RatingChange } from './ratings';
 
@@ -121,7 +122,7 @@ export interface RoomDeps {
   /** Which of these player IDs are friends of the account `accountId`: their friend codes, by ID (`friendCodes`). */
   friendCodes(accountId: string, ids: readonly string[]): Promise<Record<string, string>>;
   /** Both players' ratings as a rated game starts. */
-  ratingsOf(players: Record<Seat, string>, control: TimeControl, now: number): Promise<Record<Seat, Rating>>;
+  ratingsOf(players: Record<Seat, string>, now: number): Promise<Record<Seat, Rating>>;
   /** Picks who goes first: a number in [0, 1). */
   random(): number;
   /**
@@ -401,7 +402,9 @@ export async function handleRoom(
  * A game as the server describes it, by each player's current name (issue
  * #133): a guest who signed in, or a player who renamed their profile,
  * shows by the new name. The room keeps the names they played under, for
- * anyone without an account profile and if the lookup fails.
+ * anyone without an account profile and if the lookup fails, checked again
+ * (Dev Plan item 19v): a name the profanity filter now refuses is
+ * `NO_NAME`, whichever it is.
  */
 async function withCurrentNames(
   storage: RoomStorage, deps: RoomDeps, body: RoomResponse['body'], askerId: string,
@@ -418,7 +421,8 @@ async function withCurrentNames(
     deps.namesOf(players.map((p) => p.guestId)).catch(() => none),
     opponent ? deps.friendCodes(askerId, [opponent.guestId]).catch(() => none) : none,
   ]);
-  const nameOf = (player: Player | null | undefined, fallback: string | null) => (player && names[player.guestId]) ?? fallback;
+  const nameOf = (player: Player | null | undefined, fallback: string | null) =>
+    (player && names[player.guestId]) ?? (fallback === null ? null : shownName(fallback));
   return {
     ...body,
     hostName: nameOf(room.host, body.hostName)!,
@@ -533,7 +537,7 @@ async function answerRoom(
     // A ladder game against a person (Dev Plan item 19p): its record says so.
     if (room.matched) created.game = { ...created.game, ladder: {} };
     const ratings = room.rated
-      ? await deps.ratingsOf({ host: room.host.guestId, guest: request.guestId }, roomTimeControl(room), now) : undefined;
+      ? await deps.ratingsOf({ host: room.host.guestId, guest: request.guestId }, now) : undefined;
     const joined: Room = {
       ...room, guest: { guestId: request.guestId, name: request.name }, record: toPvpRecord(created.game),
       ...(ratings ? { ratings } : {}),
@@ -614,7 +618,7 @@ export async function saveFinishedGame(db: D1Database, room: Room, record: PvpRe
   if (record.moves.at(-1)?.kind === 'cancel') return null;
   const game = gameOf(room);
   const players = { host: room.host.guestId, guest: room.guest.guestId };
-  const pool = ratingPool(roomTimeControl(room));
+  const pool = TWO_PLAYER_POOL;
   // Its recall and rating as the game started, even if the table has been recalibrated since.
   // (A room from before the rating was kept there falls back to the one it started with.)
   const computer = room.computer && { ...room.computer, rating: room.computer.rating ?? room.ratings?.guest.rating ?? 1500 };

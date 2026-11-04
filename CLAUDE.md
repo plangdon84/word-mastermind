@@ -304,7 +304,7 @@ Run `npm test` and `npm run typecheck` before committing.
   at the start (`planComputerGuesses`), each played when due. Records carry
   `ladder`; a computer game rates the player alone (`rateVsComputer`, half
   the change once settled) with `rated_games.computer_recall`. Every rated
-  two player game rates into the `correspondence` pool (`ratingPool`), and a
+  two player game rates into the `correspondence` pool (`TWO_PLAYER_POOL`), and a
   ladder computer game is kept out of friend stats (`GameSummary.ladder`).
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:

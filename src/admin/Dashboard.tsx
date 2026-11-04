@@ -121,7 +121,7 @@ function Figures({ usage }: { usage: Usage }) {
 
       {usage.ladder && (
         <section>
-          <h2>Rated ladder computers</h2>
+          <h2>Rated ladder computers, last 90 days</h2>
           <table class="figures">
             <caption>Players' score against each computer (a win 1, a draw ½) beside what their ratings expected</caption>
             <thead><tr><th scope="col">Computer</th><th scope="col">Games</th><th scope="col">Players' score</th><th scope="col">Expected</th></tr></thead>

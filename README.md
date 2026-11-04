@@ -1084,10 +1084,11 @@ be played from the device that joined it, or, once you've signed in (see
   next time the game is looked at. This follows every guest ID linked to
   the account, so a game played on a shared device shows the name of
   whoever signed in there since (owner, review round 1). A player without
-  an account keeps the name they played under, and so does a name the
-  profanity filter now refuses. Turn alerts, and a finished game already
-  in your profile's history, keep the name from when they were sent or
-  saved.
+  an account keeps the name they played under. A name the profanity filter
+  now refuses, their current one or the one they played under, shows as
+  **A player**, as on the leaderboards (Dev Plan item 19v), turn alerts
+  included. Turn alerts, and a finished game already in your profile's
+  history, keep the name from when they were sent or saved.
 - **Playing** looks like playing the computer, with your friend's name in
   place of "Computer": two tabs (or two columns on wide screens), and the
   final-guess banners. Above the input, one line on any phone: their latest
@@ -1106,10 +1107,14 @@ be played from the device that joined it, or, once you've signed in (see
   nothing else, so it needs no sign-in, and it reconnects if it drops. The
   app also checks every 10 seconds and whenever you come back to the page,
   in case the socket is down.
-- **Live clocks:** above the input, both clocks (`You 4:32` and `Ann 3:10`),
-  counting down every second; the one running is filled, and turns red under
-  30 seconds. Opening your profile on your turn warns first that your clock
-  keeps running.
+- **Live clocks:** each clock sits under its player's name in the You /
+  opponent tabs (Dev Plan item 19u), so no row above the keyboard is spent
+  on them; on a wide screen, where both boards show and the tabs go, both
+  clocks (`You 4:32` and `Ann 3:10`) sit above the input instead. They count
+  down every second. In a tab, the running clock is bold after a dot, and
+  under 30 seconds its tab glows red; in the wide row, the running clock is
+  filled and turns red under 30 seconds. Opening your profile on your turn
+  warns first that your clock keeps running.
 - **Time per guess:** both players see how long the player to move has
   left, beside **Your turn** or **Their turn** (in red under 3 hours on
   your turn), and the title screen's list shows it too ("23 h left"). When it runs out, that player loses: the server's alarm for the game
@@ -1446,9 +1451,12 @@ there are enough rated players (see [Launch switches](#launch-switches)).
   - **Live PvP · 15 min**, **Live PvP · 10 min** and **Live PvP · 5 min**:
     rating, one per clock, as the [ratings](#rating) are.
   - **Two player rating**: the shared two player rating (the Rated ladder,
-    rated challenges, correspondence; the `correspondence` pool). Each row
-    shows how many of the player's rated games were against a ladder
-    computer (`· 🤖3`).
+    rated challenges, correspondence; the `correspondence` pool). A header
+    row names the columns (Player, Rating, Games); a long name ends in ….
+    When anyone listed has played a ladder computer, each row shows how
+    many of their rated games were against one (`🤖3`): under the games on
+    a phone, in a **🤖 CPU** column of its own where the screen is wide
+    enough (Dev Plan item 19s).
   - **Competitive Rush**: rating.
 - Every board has **← Back** in its header, returning to where it was opened
   from: the Leaderboards page, or the Daily Rush result or title-screen
@@ -1522,8 +1530,11 @@ there are enough rated players (see [Launch switches](#launch-switches)).
 - **Joining:** type the code on the Rush with Friends step, or open the
   link: "Ann's Rush with Friends" shows the settings and who's in, and
   **Join** takes a seat under your profile name (which must pass the
-  profanity filter, as it's shown to the others). A lobby that has started
-  or closed says so.
+  profanity filter, as it's shown to the others). The lobby keeps that
+  name; the server checks it again whenever it sends it out (the lobby's
+  screen, its results, its notifications and history entries), so a name
+  the filter has since come to refuse shows as **A player**, old results
+  included (Dev Plan item 19v). A lobby that has started or closed says so.
 - **Playing:** header row 3 has one dot per word, **Players** (the
   standings so far) and the **time left**, counting down from the server's
   clock. Each word plays like Solo Rush's, with no Pause and a difficulty

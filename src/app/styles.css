@@ -90,6 +90,8 @@ button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* After a tap or click, no ring: iPhone Safari can ring a tapped button (issue 249, src/app/inputKind.ts). */
 [data-input="pointer"] :focus-visible { outline: none; }
+/* Hover styles only where something can hover: a phone keeps :hover on whatever was last tapped, so
+   a choice under the tap looked picked too, beside the real one (issue 263). Each sits in @media (hover: hover). */
 
 .app {
   max-width: 520px;
@@ -161,7 +163,7 @@ h1 {
   white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn:hover:not(:disabled) { border-color: var(--muted); }
+@media (hover: hover) { .btn:hover:not(:disabled) { border-color: var(--muted); } }
 .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
 .icon-btn {
@@ -248,7 +250,7 @@ h1 {
 .bubble.in { background-color: var(--in-bg); color: var(--in-fg); box-shadow: none; }
 .bubble.out { background-color: var(--out-bg); color: var(--out-fg); box-shadow: none; }
 button.bubble { cursor: pointer; }
-button.bubble:hover { transform: scale(1.06); }
+@media (hover: hover) { button.bubble:hover { transform: scale(1.06); } }
 button.bubble:active { transform: scale(0.94); }
 
 /* History */
@@ -303,7 +305,7 @@ button.bubble:active { transform: scale(0.94); }
 .row .info { border-width: 9px 3px 9px 15px; margin: -9px -3px -9px -15px; border-radius: 28px 16px 16px 28px / 22px; }
 .info:focus-visible { outline-offset: -7px; }
 .info svg { width: 14px; height: 14px; }
-.info:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--muted); }
+@media (hover: hover) { .info:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--muted); } }
 .info[aria-expanded="true"] { background-color: var(--ink); box-shadow: none; color: var(--bg); }
 .definition {
   grid-column: 1 / -1;
@@ -462,7 +464,7 @@ button.bubble:active { transform: scale(0.94); }
   padding: 14px 16px;
   cursor: pointer;
 }
-.choice:hover:not(:disabled) { border-color: var(--muted); }
+@media (hover: hover) { .choice:hover:not(:disabled, [aria-pressed="true"]) { border-color: var(--muted); } }
 .choice[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .choice:disabled { cursor: not-allowed; opacity: 0.55; }
 .choice-label { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.02rem; }
@@ -601,7 +603,7 @@ button.bubble:active { transform: scale(0.94); }
 .result.folded .their-word { padding: 3px 6px; gap: 2px; }
 .result.folded .their-word .bubble { --bs: 26px; }
 .result.folded .folded-open { width: 20px; height: 20px; flex: none; stroke: currentColor; }
-.result.folded:hover { color: var(--ink); }
+@media (hover: hover) { .result.folded:hover { color: var(--ink); } }
 .panel .kicker {
   font-size: clamp(2rem, 11vw, 2.8rem);
   font-weight: 700;
@@ -865,10 +867,23 @@ button.bubble:active { transform: scale(0.94); }
 .rank-by { display: flex; flex-direction: column; align-items: center; gap: 4px; align-self: stretch; }
 .rank-by-label { font-size: 0.85rem; color: var(--muted); }
 .rank-by .seg button { padding: 0 12px; white-space: nowrap; }
-.rating-rows li { grid-template-columns: 2.2em 1fr auto 3em; }
+/* A rating board (issue 268): a header row over the rows, on the same columns. The rating lines up with the
+   games (baseline); a name too long for its column ends in …. Games against computers (Dev Plan item 19q) sit
+   under the games on a phone, and in a column of their own to the right where there's room. */
+.rating-board { width: 100%; display: flex; flex-direction: column; }
+.rating-head, .rating-rows li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) 3.6em 3.2em; gap: 0 10px; align-items: baseline; }
+.rating-head { padding: 0 8px 4px; border-bottom: 1px solid var(--line); font-size: 0.75rem; color: var(--muted); text-align: left; }
+.rating-head .num { text-align: right; white-space: nowrap; }
+.rating-rows .board-name .friend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: baseline; }
 .board-games { color: var(--muted); }
-/* A rating row's games against computers (Dev Plan item 19q), on a line of its own so the narrow column never overflows. */
-.board-cpu { display: block; font-size: 0.75rem; white-space: nowrap; }
+.board-cpu { grid-column: 4; font-size: 0.75rem; white-space: nowrap; color: var(--muted); font-family: var(--mono); text-align: right; }
+.board-cpu:empty { display: none; }
+.rating-head-cpu { grid-column: 4; }
+@media (min-width: 480px) {
+  .with-cpu .rating-head, .with-cpu .rating-rows li { grid-template-columns: 2.2em minmax(0, 1fr) 3.6em 3.2em 3.6em; }
+  .with-cpu .board-cpu, .with-cpu .rating-head-cpu { grid-column: 5; }
+  .board-cpu:empty { display: block; }
+}
 .info.placeholder { visibility: hidden; }
 
 /* Profile button: your initials in a letter bubble, or the logo */
@@ -890,7 +905,7 @@ button.bubble:active { transform: scale(0.94); }
 .avatar-logo { width: 86%; height: 86%; display: block; }
 .avatar-logo svg { display: block; width: 100%; height: 100%; }
 .profile-badge.big { --ps: 64px; }
-.profile-btn:hover .profile-badge { box-shadow: inset 0 0 0 1.5px var(--muted); }
+@media (hover: hover) { .profile-btn:hover .profile-badge { box-shadow: inset 0 0 0 1.5px var(--muted); } }
 /* Reviewing a past game: a small tag in the profile button's place, back to the history (issue #101). */
 .past-tag {
   /* Drawn 34px high, tapped anywhere in 44px, like the profile button. */
@@ -901,7 +916,7 @@ button.bubble:active { transform: scale(0.94); }
   /* A friend's game names them: a long name is cut short (…) rather than crowding the title. */
   max-width: 11rem; overflow: hidden; text-overflow: ellipsis;
 }
-.past-tag:hover { color: var(--ink); }
+@media (hover: hover) { .past-tag:hover { color: var(--ink); } }
 .menu-past { margin: 0 0 4px; }
 .title-screen { position: relative; }
 .title-top { position: absolute; top: 14px; right: 0; }
@@ -959,7 +974,7 @@ button.bubble:active { transform: scale(0.94); }
   text-align: left; cursor: pointer; background: var(--surface);
   border: 1.5px solid var(--tone); border-left-width: 6px; border-radius: 14px; padding: 8px 10px;
 }
-.history-row:hover { background: var(--bg); }
+@media (hover: hover) { .history-row:hover { background: var(--bg); } }
 .history-row.won { --tone: var(--in-bg); }
 .history-row.lost { --tone: #B3261E; }
 .history-row.drawn { --tone: #4A535D; }
@@ -976,7 +991,7 @@ button.bubble:active { transform: scale(0.94); }
     linear-gradient(var(--row-bg), var(--row-bg)) padding-box,
     linear-gradient(160deg, var(--hi), var(--lo) 60%) border-box;
 }
-.history-row[class*="metal-"]:hover { --row-bg: var(--bg); }
+@media (hover: hover) { .history-row[class*="metal-"]:hover { --row-bg: var(--bg); } }
 .history-row[class*="metal-"] .result-tag {
   background: linear-gradient(135deg, var(--hi), var(--lo) 75%);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
@@ -1336,6 +1351,27 @@ button.bubble:active { transform: scale(0.94); }
 .clock-name { font-family: var(--font); max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock.running { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .clock.running.urgent { background: var(--err); border-color: var(--err); color: #fff; }
+/* Phones: each clock sits in its player's tab instead (Dev Plan item 19u), and the row is kept for
+   screen readers only, so more guesses fit above the keyboard. Wide screens hide the tabs and show it. */
+@media (max-width: 899.98px) {
+  .app.two .clocks {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}
+.tabs button { min-width: 0; white-space: nowrap; }
+.tab-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
+.tabs.has-clock button { flex-direction: column; gap: 1px; padding-block: 0; line-height: 1.15; }
+.tab-clock {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.8rem; line-height: 1.3; white-space: nowrap;
+}
+/* The running clock: bold, after a dot like Your turn's. */
+.tab-clock.running { font-weight: 700; }
+.tab-clock.running::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+/* Under 30 seconds the tab glows red, the softer form of a last chance's red (.slots.final). */
+.tabs button.low-time { border-color: var(--err); box-shadow: 0 0 10px color-mix(in srgb, var(--err) 45%, transparent); }
+.tabs button.low-time:not([aria-selected="true"]) .tab-clock { color: var(--err); }
 
 /* A challenge's Rated switch, under the step note. */
 .rated-toggle { align-items: flex-start; line-height: 1.35; margin-top: 10px; }

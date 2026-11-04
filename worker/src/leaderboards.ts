@@ -65,11 +65,10 @@ export async function ratingBoard(
   const args = [pool, now, ...(circle === 'friends' ? [accountId] : [])];
   const { results } = await db.prepare(
     `WITH top AS (
-       SELECT r.account_id, r.rating, r.games, RANK() OVER (ORDER BY ROUND(r.rating) DESC) AS rank, COUNT(*) OVER () AS total
+       SELECT r.account_id, r.rating, r.games, r.computer_games, RANK() OVER (ORDER BY ROUND(r.rating) DESC) AS rank, COUNT(*) OVER () AS total
        FROM ratings r WHERE ${LISTED} ${only}
        ORDER BY r.rating DESC, r.account_id LIMIT ${RATING_BOARD_SIZE})
-     SELECT t.account_id, t.rating, t.games, t.rank, t.total, COALESCE(p.name, p.guest_name) AS name,
-       (SELECT COUNT(*) FROM rated_games g WHERE g.account_id = t.account_id AND g.pool = ?1 AND g.computer_recall IS NOT NULL) AS computer_games,
+     SELECT t.account_id, t.rating, t.games, t.computer_games, t.rank, t.total, COALESCE(p.name, p.guest_name) AS name,
        ${circle === 'friends' ? friendCodeSql('t.account_id', '?3') : 'NULL'} AS friend_code
      FROM top t LEFT JOIN profiles p ON p.account_id = t.account_id
      ORDER BY t.rating DESC, t.account_id`,

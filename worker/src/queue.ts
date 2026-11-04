@@ -150,21 +150,39 @@ async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueStat
  * a check-in meanwhile keeps waiting. Then they leave with the match; if the
  * game can't be started, the next check-in tries again, up to
  * `COMPUTER_TRIES` times, then they wait for a person alone.
+ *
+ * A player who leaves (Cancel) while it's made, and perhaps joins again, is
+ * no longer the one it was made for (Dev Plan item 19x): a failure doesn't
+ * put them back in the queue, and a game made meanwhile isn't handed to their
+ * new place. That game goes unplayed, so its room cancels it with no winner,
+ * history or rating when its first guess isn't made in time (item 18zv).
  */
 async function playComputer(storage: QueueStorage, deps: QueueDeps, state: QueueState, seeker: Seeker, now: number): Promise<QueueResponse> {
   const others = (seekers: readonly Seeker[]) => seekers.filter((s) => s.accountId !== seeker.accountId);
-  await storage.put(KEY, { ...state, seekers: [...others(state.seekers), { ...seeker, starting: now }] });
+  const marked: Seeker = { ...seeker, starting: now };
+  await storage.put(KEY, { ...state, seekers: [...others(state.seekers), marked] });
+  // The queue as it is once the game is made or has failed, and whether the seeker is still the one marked.
+  const settle = async () => {
+    const current = await load(storage, now);
+    const still = current.seekers.find((s) => s.accountId === seeker.accountId);
+    return { current, still, same: still?.joinedAt === marked.joinedAt && still.starting === marked.starting };
+  };
+  // What a player no longer waiting for this game hears: their new place, or that they're out of the queue.
+  const moved = (current: QueueState, still: Seeker | undefined): QueueResponse =>
+    still ? waiting(current, still, now) : { status: 200, body: { state: 'idle' } };
   let gameId: string;
   try {
     gameId = await deps.startComputerGame(seeker, now);
   } catch {
-    const current = await load(storage, now);
-    const failed: Seeker = { ...seeker, computerFails: (seeker.computerFails ?? 0) + 1 };
+    const { current, still, same } = await settle();
+    if (!same) return moved(current, still);
+    const failed: Seeker = { ...still!, computerFails: (seeker.computerFails ?? 0) + 1 };
     delete failed.starting;
     await storage.put(KEY, { ...current, seekers: [...others(current.seekers), failed] });
-    return waiting(state, seeker, now);
+    return waiting(current, failed, now);
   }
-  const current = await load(storage, now);
+  const { current, still, same } = await settle();
+  if (!same) return moved(current, still);
   await storage.put(KEY, {
     seekers: others(current.seekers), matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } },
   });

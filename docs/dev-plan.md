@@ -11,34 +11,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19s. Small fixes after 2.1.0** (issues
-  plangdon84/word-mastermind-archive#263,
-  plangdon84/word-mastermind-archive#272,
-  plangdon84/word-mastermind-archive#271,
-  plangdon84/word-mastermind-archive#268 and
-  plangdon84/word-mastermind-archive#265; app only)
-  - Issue 263: starting a new game, the difficulty choice can still look
-    like two are picked (a thin ring and a thick one), after 18zu's fix for
-    the Daily Word. Find where the keyboard focus ring still shows after a
-    tap (a dialog that moves focus itself, or a screen opened before any
-    tap) and show it only for keyboard use everywhere; add a browser check
-  - Issue 272: decided with the owner on 4 November 2026: the horseshoe
-    word from the report is never a secret word again but stays a valid
-    guess (`wordlist/rules/secret-exclude.txt`); old games holding it still
-    replay. The PR also lists other obscure secret words it finds, for the
-    owner to tick before any is moved to guess-only
-  - Issue 271: the reported word's definition (named in the archive
-    issue) leads with its everyday sense, a short note, voucher or token,
-    through `wordlist/rules/definitions.txt`, dropping the dismissive
-    sense WordNet gives alone
-  - Issue 268: the rating boards get a header row (Player, Rating, Games)
-    instead of the explaining text below the rows, which a long board hides.
-    The rating lines up with the game count; the computer-games count goes
-    to the right of the games where the screen is wide enough (below it on
-    a phone, as now); a long name is cut short with …
-  - Issue 265: when the server refuses a guest's rename for good (a 400),
-    the device drops it instead of resending it on every visit; network and
-    server errors are still retried
 - [ ] **19t. The rated ladder in history and stats** (issues
   plangdon84/word-mastermind-archive#273 and
   plangdon84/word-mastermind-archive#274; app only)
@@ -52,23 +24,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     ladder games against people leave the friend stats as computer ones
     already do. Friends' head-to-head records are unchanged. README
     "Profile" updated
-- [ ] **19u. More room for guesses in a two player game** (issue
-  plangdon84/word-mastermind-archive#269; app only)
-  - Issue 269: a live game's ticking clocks move into the You / opponent
-    tabs (each clock in its player's tab, red when short), and the row that
-    held them goes, so more guesses fit above the keyboard; the same on the
-    two player screen vs. the computer where it has rows to spare. Checked
-    at the browser tests' 11 sizes; the tutorial's steps kept in line
-- [ ] **19v. Refused names in friend games and lobbies** (issue
-  plangdon84/word-mastermind-archive#264; worker, review gate)
-  - Decided with the owner on 4 November 2026: a name the profanity
-    filter now refuses shows as "A player" everywhere, as on the
-    leaderboards since 19n
-  - Friend games: the name stored when the game started is checked too
-    (`checkedName` / `shownName`) before it's shown
-  - Rush with Friends and Competitive Rush lobbies: names are checked
-    wherever a lobby's names are sent out (screens, results, history
-    entries), so old results show "A player" for those players too
 - [ ] **19e. Friending your ladder opponent** (issue #78; split from 18d
   on 9 October 2026; worker, review gate)
   - Decided with the owner on 4 November 2026: once a rated ladder game
@@ -83,22 +38,20 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     6 in ladder games now" (0 too, so players expect a computer after 30
     seconds). Read from the queue and the games in play, kept cheap within
     the Workers Free plan. README "Random opponent" updated
-- [ ] **19x. Rated ladder review clean-ups** (issues
-  plangdon84/word-mastermind-archive#266 and
-  plangdon84/word-mastermind-archive#267; worker, review gate; no change
-  for players)
-  - Issue 266: Cancel during a computer game's setup that then fails
-    no longer puts the player back in the queue, and leaving and rejoining
-    during setup doesn't send them to the first game; `ratingPool` takes no
-    clock; one shared type for the ladder's queue choice
-  - Issue 267: the board's computer-games count kept on the rating row
-    instead of counted per row; the usage dashboard's ladder table limited
-    to a period; a screen test with a listed player who has computer games;
-    the tidy-ups it lists (`App.tsx`'s repeated "open the ladder", the
-    leftover `rated` name, the dashboard reusing `rating.ts`)
 
 **Later**
 
+- [ ] **19y. One header row fewer in two player games** (from the owner,
+  4 November 2026, seeing 19u's screens; app only)
+  - The owner's idea: drop the "You vs. opponent" row in two player games,
+    since the tabs already name both players, and move the IN letters (or
+    your word, on their tab) up into its place, so another guess row fits
+  - Settle with the owner first: where the difficulty bubble (tap to
+    change) goes, perhaps the right of the IN row; where a rated game's
+    opponent rating goes; how a friend's name still opens their profile
+    (a tab can't hold a link); and whether single player, Rush and the
+    dailies keep their row 2, which no tab repeats. The tutorial's header
+    step kept in line; checked at the 11 sizes
 - [ ] **19r. A stronger ladder computer** (from 19q, 3 November 2026;
   if a player regularly beats the 1.0 computer)
   - A stronger guesser than full recall, rated by `npm run calibrate`
@@ -152,6 +105,78 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19x. Rated ladder review clean-ups** (stacked on 19s; issues
+  plangdon84/word-mastermind-archive#266 and
+  plangdon84/word-mastermind-archive#267; worker, review gate; no change
+  for players)
+  - Issue 266: Cancel during a computer game's setup that then fails
+    no longer puts the player back in the queue, and leaving and rejoining
+    during setup doesn't send them to the first game; `ratingPool` takes no
+    clock; one shared type for the ladder's queue choice
+  - Issue 267: the board's computer-games count kept on the rating row
+    instead of counted per row; the usage dashboard's ladder table limited
+    to a period; a screen test with a listed player who has computer games;
+    the tidy-ups it lists (`App.tsx`'s repeated "open the ladder", the
+    leftover `rated` name, the dashboard reusing `rating.ts`)
+  - Done: a computer game made or failed after its player left is
+    dropped (an unplayed game cancels itself, item 18zv); the count is
+    `ratings.computer_games` (migration 0029, filled in from the games
+    already rated); the dashboard's ladder table covers the last 90 days
+    through a partial index; the screen test stands in for the server's
+    board, since a real listed row would list someone on the empty
+    board's tests
+- [x] **19v. Refused names in friend games and lobbies** (2.2.0, stacked on 19s; issue
+  plangdon84/word-mastermind-archive#264; worker, review gate)
+  - Decided with the owner on 4 November 2026: a name the profanity
+    filter now refuses shows as "A player" everywhere, as on the
+    leaderboards since 19n
+  - Friend games: the name stored when the game started is checked too
+    (`checkedName` / `shownName`) before it's shown
+  - Rush with Friends and Competitive Rush lobbies: names are checked
+    wherever a lobby's names are sent out (screens, results, history
+    entries), so old results show "A player" for those players too
+- [x] **19u. More room for guesses in a two player game** (2.2.0, stacked on 19s; issue
+  plangdon84/word-mastermind-archive#269; app only)
+  - Issue 269: a live game's ticking clocks move into the You / opponent
+    tabs (each clock in its player's tab, red when short), and the row that
+    held them goes, so more guesses fit above the keyboard; the same on the
+    two player screen vs. the computer where it has rows to spare. Checked
+    at the browser tests' 11 sizes; the tutorial's steps kept in line
+  - Built: each clock sits under its player's name in the tab; the clock
+    row stays for wide screens (no tabs) and screen readers. The screen
+    vs. the computer has no clock row, so it's unchanged. About one guess
+    row more on phones; on the smallest the keyboard no longer scrolls
+- [x] **19s. Small fixes after 2.1.0** (2.2.0; issues
+  plangdon84/word-mastermind-archive#263,
+  plangdon84/word-mastermind-archive#272,
+  plangdon84/word-mastermind-archive#271,
+  plangdon84/word-mastermind-archive#268 and
+  plangdon84/word-mastermind-archive#265; app only)
+  - Issue 263: starting a new game, the difficulty choice can still look
+    like two are picked (a thin ring and a thick one), after 18zu's fix for
+    the Daily Word. Find where the keyboard focus ring still shows after a
+    tap (a dialog that moves focus itself, or a screen opened before any
+    tap) and show it only for keyboard use everywhere; add a browser check
+  - Issue 272: decided with the owner on 4 November 2026: the horseshoe
+    word from the report is never a secret word again but stays a valid
+    guess (`wordlist/rules/secret-exclude.txt`); old games holding it still
+    replay. The PR also lists other obscure secret words it finds, for the
+    owner to tick before any is moved to guess-only
+  - Done: the owner moved four more from that list to guess-only; the
+    rest stay. 263 was the phone's sticky hover, not the focus ring: every
+    hover style now needs a device that hovers
+  - Issue 271: the reported word's definition (named in the archive
+    issue) leads with its everyday sense, a short note, voucher or token,
+    through `wordlist/rules/definitions.txt`, dropping the dismissive
+    sense WordNet gives alone
+  - Issue 268: the rating boards get a header row (Player, Rating, Games)
+    instead of the explaining text below the rows, which a long board hides.
+    The rating lines up with the game count; the computer-games count goes
+    to the right of the games where the screen is wide enough (below it on
+    a phone, as now); a long name is cut short with …
+  - Issue 265: when the server refuses a guest's rename for good (a 400),
+    the device drops it instead of resending it on every visit; network and
+    server errors are still retried
 - [x] **19q. Switch on the Live 10 ladder** (after 19p)
   - `FEATURES`: Random opponent on, shown as **Rated ladder** (Live 10
     at Medium; "Live, 10 minutes each, at Medium. Matched with a player

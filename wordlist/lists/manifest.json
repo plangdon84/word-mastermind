@@ -9,7 +9,7 @@
     "sha256": "9ca6d1dcb75f822fdd66617f7d9da48142ace38dd544d6ad5e2feca1674ad3fe"
   },
   "counts": {
-    "secret": 2214,
+    "secret": 2209,
     "guess": 8665,
     "banned": 50,
     "definitions": 6062
