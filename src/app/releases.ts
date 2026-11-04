@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.3.0',
+    notes: [
+      { text: 'Your game history has a Rated ladder filter, and Stats shows your ladder record and rating.' },
+      { text: "The rating board's column headings now line up with their numbers." },
+    ],
+  },
+  {
     version: '2.2.0',
     notes: [
       { text: 'Picking a difficulty on a phone no longer leaves a second choice looking picked.' },

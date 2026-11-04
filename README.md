@@ -1297,9 +1297,11 @@ isn't mistaken for a rated challenge to a friend).
 - **History and badges:** a ladder game is kept in the friend-game layout
   (its record and review), marked as a ladder game: the history shows
   **Rated ladder · 🤖 Computer** or **Rated ladder · Bob**. A game against
-  a computer is kept out of the friend stats (win %, best, fastest) and the
-  history's search by name (the owner, 3 November 2026, review of PR #65),
-  but counts in the overall win %. Against a computer, a win earns the
+  a computer is kept out of the history's search by name (the owner,
+  3 November 2026, review of PR #65). Since Dev Plan item 19t, every ladder
+  game, against a person or a computer, has its own **Rated ladder** filter
+  and Stats card and is left out of **vs. a friend**'s; all count in the
+  overall win %. Against a computer, a win earns the
   **VS CPU** badges of the strongest of the four named strengths it's at
   least as strong as (Expert up to 90%, Mastermind at 100%), at your
   difficulty or easier, and **Beat the computer in 20, 15 or 10 guesses or
@@ -1918,7 +1920,16 @@ up); a game counts at the easiest difficulty used.
    - modes with an opponent: **win %** with its trend, the wins–draws–losses
      count, and the current and best **win streak**. Giving up counts as a
      loss. vs. Computer has a row per strength. The headline's win % counts
-     games against the computer and against friends.
+     games against the computer and against friends, the Rated ladder's
+     included.
+   - **Rated ladder** (Dev Plan item 19t, issue 274; decided with the owner
+     on 4 November 2026): ladder games count only here, never on the vs. a
+     friend card, whether against a person or a computer. Games played,
+     win % and won–drawn–lost, your **two player rating** (your own
+     profile only; every rated two player game moves it), and a row each
+     for **People** and **Computers** (W–D–L and win %). A friend's
+     shared stats show their card without the rating. Head-to-head records
+     against friends are unchanged.
 3. **Games by difficulty.**
 4. **Top 10 guesses** across all modes; a tie for 10th is cut alphabetically.
 5. **Time played:** the time you spent playing. Single player: the game's
@@ -2106,7 +2117,11 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   (given up, or no word found) has a plain border and "No score". Rows are
   dated by the game's last move, and load 20 at a time (**Show more**).
 - **Filters:** mode, result and difficulty (the easiest used). A Rush has no
-  result, so a result filter leaves Rushes out. **Search names** finds games
+  result, so a result filter leaves Rushes out. The mode filter has
+  **Rated ladder** after **vs. a friend** (Dev Plan item 19t, issue 273):
+  your ladder games against people and computers, which **vs. a friend**
+  leaves out. A friend's history, filtered on the server by mode alone,
+  doesn't offer it. **Search names** finds games
   by who you played (issue 219): your opponent in a game against a friend,
   or the other people in a Word Set with friends (not computers), matching
   the start of a name and ignoring case. Search by word went away; search
