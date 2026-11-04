@@ -1351,6 +1351,28 @@ button.bubble:active { transform: scale(0.94); }
 .clock-name { font-family: var(--font); max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock.running { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .clock.running.urgent { background: var(--err); border-color: var(--err); color: #fff; }
+/* Phones: each clock sits in its player's tab instead (Dev Plan item 19u), and the row is kept for
+   screen readers only, so more guesses fit above the keyboard. Wide screens hide the tabs and show it. */
+@media (max-width: 899.98px) {
+  .app.two .clocks {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+}
+.tabs button { min-width: 0; white-space: nowrap; }
+.tab-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
+.tabs.has-clock button { flex-direction: column; gap: 1px; padding-block: 0; line-height: 1.15; }
+.tab-clock {
+  padding: 0 7px; border-radius: 999px; border: 1px solid currentColor;
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; line-height: 1.3; white-space: nowrap;
+}
+.tab-clock.running { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.tabs button[aria-selected="true"] .tab-clock.running { background: var(--bg); border-color: var(--bg); color: var(--ink); }
+.tab-clock.urgent { color: var(--err); border-color: var(--err); font-weight: 600; }
+.tabs button[aria-selected="true"] .tab-clock.urgent { color: var(--bg); border-color: var(--err); box-shadow: inset 0 0 0 1px var(--err); }
+.tab-clock.running.urgent, .tabs button[aria-selected="true"] .tab-clock.running.urgent {
+  background: var(--err); border-color: var(--err); color: #fff;
+}
 
 /* A challenge's Rated switch, under the step note. */
 .rated-toggle { align-items: flex-start; line-height: 1.35; margin-top: 10px; }

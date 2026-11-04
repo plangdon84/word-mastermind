@@ -1106,10 +1106,13 @@ be played from the device that joined it, or, once you've signed in (see
   nothing else, so it needs no sign-in, and it reconnects if it drops. The
   app also checks every 10 seconds and whenever you come back to the page,
   in case the socket is down.
-- **Live clocks:** above the input, both clocks (`You 4:32` and `Ann 3:10`),
-  counting down every second; the one running is filled, and turns red under
-  30 seconds. Opening your profile on your turn warns first that your clock
-  keeps running.
+- **Live clocks:** each clock sits under its player's name in the You /
+  opponent tabs (Dev Plan item 19u), so no row above the keyboard is spent
+  on them; on a wide screen, where both boards show and the tabs go, both
+  clocks (`You 4:32` and `Ann 3:10`) sit above the input instead. They count
+  down every second; the one running is filled, and a clock under 30
+  seconds turns red. Opening your profile on your turn warns first that your
+  clock keeps running.
 - **Time per guess:** both players see how long the player to move has
   left, beside **Your turn** or **Their turn** (in red under 3 hours on
   your turn), and the title screen's list shows it too ("23 h left"). When it runs out, that player loses: the server's alarm for the game

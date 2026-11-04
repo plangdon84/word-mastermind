@@ -31,6 +31,7 @@ export const RELEASES: Release[] = [
       { text: 'The two player rating board has column headings, and long names end in … to fit.' },
       { text: 'Some very obscure words are no longer picked as secret words.' },
       { text: 'Clearer definition for a word that only showed an unkind meaning.' },
+      { text: "In a live game, each clock now sits in its player's tab, leaving more room for your guesses." },
     ],
   },
   {
