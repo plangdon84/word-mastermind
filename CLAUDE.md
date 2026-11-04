@@ -173,8 +173,9 @@ Run `npm test` and `npm run typecheck` before committing.
   Plan item 19e): `POST /api/games/ID/friend` asks the room who the other
   person is (`opponent`, only once it's over and never a computer), then
   `addLadderOpponent`; the game's `ladderFriend` (`friendStateOf`, which
-  hides a request sent by email) drives the button. Declining any request
-  rests the sender's Add friend to that player for a week (D1
+  hides a request sent by email) drives the button. Declining a request
+  (not one by email, which would give the email away) rests the sender's
+  Add friend to that player for a week (D1
   `friend_declines`, `FRIEND_DECLINE_MS`).
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,

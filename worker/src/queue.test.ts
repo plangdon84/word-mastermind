@@ -559,6 +559,19 @@ describe('friending your ladder opponent (Dev Plan item 19e)', () => {
     expect(await gameRefusal(ann.games.addFriend(invite.id))).toBe('bad-request');
   });
 
+  it("doesn't rest Add friend after a decline of a request by email, which would tell whose email it was", async () => {
+    const { ann, cat, gameId } = await ladderGame();
+    await ann.friends.requestByEmail('cat@example.com');
+    const annCode = (await ann.friends.list()).code;
+    await cat.friends.remove(annCode);
+    await ann.games.concede(gameId);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    // One request from the game reaches her; declining that one rests it as usual.
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
+    await cat.friends.remove(annCode);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'declined' });
+  });
+
   it("keeps a request sent by email out of sight, so the game can't tell whose email it was", async () => {
     const { ann, cat, gameId } = await ladderGame();
     await ann.friends.requestByEmail('cat@example.com');

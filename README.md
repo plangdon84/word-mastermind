@@ -2345,10 +2345,12 @@ first.
   email still doesn't show there, as in a search. Each request counts
   towards the same 200 friends and requests.
   - **After a decline** (the owner, review of PR #75): once a player
-    declines any friend request from you, however it came, your ladder
-    games with them stop offering **Add friend** for a week, so a stranger
-    can't send the request and its alert again and again. They can still
-    add you, and you can still accept theirs from the game.
+    declines a friend request from you, your ladder games with them stop
+    offering **Add friend** for a week, so a stranger can't send the
+    request and its alert again and again. They can still add you, and you
+    can still accept theirs from the game. A request you sent by email
+    doesn't count: if its decline hid the button, a game with them would
+    tell you whose email it was (its repeats by email still wait a week).
   - **Let players find me by name** switched off covers search only: a
     player you met on the ladder can still send you a request, since you
     played each other (the owner, review of PR #75).

@@ -1,7 +1,7 @@
 -- Friend requests from a Rated ladder game after a decline (Dev Plan item
--- 19e, the owner on PR #75): once a player declines anyone's friend request,
--- however it came, the games they played on the ladder stop offering that
--- sender Add friend for a week. One row per sender and player, cleared after
+-- 19e, the owner on PR #75): once a player declines a friend request (not
+-- one by email, which email_declines keeps), the games they played on the
+-- ladder stop offering that sender Add friend for a week. One row per sender and player, cleared after
 -- 7 days and when either account is deleted.
 CREATE TABLE friend_declines (
   sender_id TEXT NOT NULL REFERENCES accounts (id),

@@ -305,7 +305,8 @@ export const forgetOldDeclines = (db: D1Database, now: number) => [
 ];
 
 /**
- * How long a declined request, however it came, keeps the ladder's Add
+ * How long a declined request (never one by email, which would tell its
+ * sender whose email it was) keeps the ladder's Add
  * friend from its sender to that player (Dev Plan item 19e, the owner on
  * PR #75): the games stop offering it, so a stranger met on the ladder
  * can't send a request, and its alert, again and again.
@@ -437,8 +438,9 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
  * both sides forget it. Removing a friend also renews your invite link, so
  * one they still have can't make them your friend again. Declining a
  * request that came by email remembers the sender for a week
- * (`EMAIL_DECLINE_MS`), and declining any request does for the ladder's
- * Add friend (`FRIEND_DECLINE_MS`), clearing older declines as it goes.
+ * (`EMAIL_DECLINE_MS`), and declining any other request does for the
+ * ladder's Add friend (`FRIEND_DECLINE_MS`), clearing older declines as it
+ * goes.
  */
 async function removeFriend(db: D1Database, accountId: string, code: string, now: number): Promise<void> {
   const friendId = await accountByCode(db, code);
@@ -456,12 +458,9 @@ async function removeFriend(db: D1Database, accountId: string, code: string, now
     `INSERT INTO ${table} (sender_id, declined_by, at) VALUES (?1, ?2, ?3)
      ON CONFLICT (sender_id, declined_by) DO UPDATE SET at = excluded.at`,
   ).bind(friendId, accountId, now);
-  await db.batch([
-    forget,
-    ...forgetOldDeclines(db, now),
-    remember('friend_declines'),
-    ...(row.by_email ? [remember('email_declines')] : []),
-  ]);
+  // A request by email rests only repeats by email: if it rested the ladder's Add friend too, a game with
+  // them would show the sender whose email it was (review round 2 of PR #75, the owner's decision).
+  await db.batch([forget, ...forgetOldDeclines(db, now), remember(row.by_email ? 'email_declines' : 'friend_declines')]);
 }
 
 /**
