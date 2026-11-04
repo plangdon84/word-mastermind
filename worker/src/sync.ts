@@ -64,7 +64,8 @@ export async function syncedName(db: D1Database, accountId: string): Promise<str
  * The names others see now for these player IDs (issue #133), in one query:
  * each ID's account, whether the ID is the account's own or a guest ID it
  * linked, by its synced name or guest name. IDs with no account profile are
- * left out, and so is a name the profanity filter now refuses.
+ * left out, and a name the profanity filter now refuses is `NO_NAME` (Dev
+ * Plan item 19v), so nobody falls back to an older name of theirs.
  */
 export async function currentNames(db: D1Database, ids: readonly string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
@@ -73,10 +74,7 @@ export async function currentNames(db: D1Database, ids: readonly string[]): Prom
      JOIN profiles p ON p.account_id = COALESCE((SELECT account_id FROM guests WHERE id = ids.value), ids.value)`,
   ).bind(JSON.stringify([...new Set(ids)])).all<{ id: string; name: string }>();
   const names: Record<string, string> = {};
-  for (const row of results) {
-    const shown = checkedName(row.name);
-    if (shown !== null) names[row.id] = shown;
-  }
+  for (const row of results) names[row.id] = checkedName(row.name) ?? NO_NAME;
   return names;
 }
 
@@ -85,8 +83,8 @@ export async function currentNames(db: D1Database, ids: readonly string[]): Prom
  * 18zw), in one query: an account's, as `currentNames` gives it, else a
  * guest's latest (`guests.name`, from starting a daily game or choosing a
  * new name). IDs with neither are left out (the board shows the row's own
- * name for those), and a name the profanity filter now refuses is
- * `NO_NAME`, never the row's, as on every board (Dev Plan item 19n).
+ * name for those, checked again), and a name the profanity filter now
+ * refuses is `NO_NAME`, never the row's, as on every board (Dev Plan item 19n).
  */
 export async function boardNames(db: D1Database, ids: readonly string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};

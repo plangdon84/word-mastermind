@@ -15,7 +15,7 @@ import { toLobby } from './lobbyRoutes';
 import { friendAcceptedNotice, friendRequestNotice, type Notice } from './notices';
 import { notifyGuest } from './push';
 import { vapidKeysOf } from './pushRoutes';
-import { checkedName, NO_NAME } from './names';
+import { checkedName, NO_NAME, shownName } from './names';
 import { currentNames, syncedName } from './sync';
 import { secureRandom } from './secure';
 
@@ -147,7 +147,7 @@ async function openLobbyInvites(env: Env, accountId: string, now: number): Promi
   const invites = await Promise.all(results.map(async (r): Promise<LobbyInvite | null> => {
     const response = await toLobby(env, r.code, { action: 'get', playerId: accountId });
     const answer = response.ok ? parseLobbyAnswer(await response.json()) : null;
-    if (answer && answer.lobby.state === 'open' && !answer.lobby.joined) return { code: r.code, fromName: r.from_name, at: r.created_at };
+    if (answer && answer.lobby.state === 'open' && !answer.lobby.joined) return { code: r.code, fromName: shownName(r.from_name), at: r.created_at };
     await env.DB.prepare('DELETE FROM lobby_invites WHERE account_id = ?1 AND code = ?2').bind(accountId, r.code).run();
     return null;
   }));

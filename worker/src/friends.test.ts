@@ -670,14 +670,14 @@ describe("a friend game's names", () => {
     expect(await cat.games.get(id)).toMatchObject({ guestName: 'Guest-1234' });
   });
 
-  it('keep the name played under when the current one no longer passes the filter', async () => {
+  it('show "A player", never the name played under, when the current one no longer passes the filter (Dev Plan item 19v)', async () => {
     const { player, sqlite } = await setup();
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
     const { id } = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d' });
     await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
     sqlite.prepare("UPDATE profiles SET name = 'Shithead' WHERE name = 'Ann'").run();
-    expect(await bob.games.get(id)).toMatchObject({ hostName: 'Ann' });
+    expect(await bob.games.get(id)).toMatchObject({ hostName: 'A player' });
   });
 });
 
