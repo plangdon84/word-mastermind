@@ -4,7 +4,7 @@ import {
 import type { FriendGame } from '../../src/app/friendApi';
 import { isFriendCode } from '../../src/app/friendsApi';
 import { identify, isPlayers, type Player } from './accounts';
-import { friendByCode, sendNotices } from './friends';
+import { addLadderOpponent, friendByCode, sendNotices } from './friends';
 import { registerGuest } from './guests';
 import { corsHeaders, errorResponse, json, readJson } from './http';
 import type { Env } from './index';
@@ -21,7 +21,7 @@ import type { RematchPlan, Player as RoomPlayer, RoomRequest } from './room';
 /** A Durable Object ID as `newUniqueId` makes them: 64 hex digits, long enough that nobody guesses an invite. */
 const GAME_ID = /^[0-9a-f]{64}$/;
 
-const GAME_PATH = /^\/api\/games\/([^/]+)(?:\/(join|guess|concede|decline|difficulty|suggest|rematch))?$/;
+const GAME_PATH = /^\/api\/games\/([^/]+)(?:\/(join|guess|concede|decline|difficulty|suggest|rematch|friend))?$/;
 
 // Longer than any word or name by far; not worth normalizing.
 export const isShortString = (value: unknown, max = 64): value is string => typeof value === 'string' && value.length <= max;
@@ -242,6 +242,28 @@ async function askForRematch(
   return response;
 }
 
+/**
+ * A friend request to the other person in a finished rated ladder game
+ * (Dev Plan item 19e, README "Friends"), or accepting theirs: the room says
+ * who they are only once the game is over, never against a computer, and
+ * only to a player in it. Answers with the game, its `ladderFriend` as it
+ * now stands.
+ */
+async function friendOpponent(
+  env: Env, id: DurableObjectId, player: Player, now: number, fetchFn: typeof fetch,
+): Promise<Response> {
+  if (!player.accountId) return errorResponse(401, 'signed-out');
+  const asker = { guestId: player.id, aliases: player.aliases };
+  const found = await toRoom(env, id, { action: 'opponent', ...asker });
+  if (!found.ok) return found;
+  const { opponentId } = await found.json<{ opponentId: string }>();
+  const added = await addLadderOpponent(env.DB, player.accountId, opponentId, now);
+  if (!added.ok) return errorResponse(added.status, added.error);
+  await sendNotices(env, added.notices, now, fetchFn);
+  // The other player's open page looks again, so its button follows (Accept friend request, or none once friends).
+  return toRoom(env, id, { action: 'get', tell: true, ...asker });
+}
+
 /** Routes `/api/games…`, or returns null for any other path. */
 export async function routeGames(
   request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
@@ -313,6 +335,7 @@ export async function routeGames(
   // Easy's Suggest is behind a launch switch (`features.ts`).
   if (action === 'suggest' && !FEATURES.suggest) return errorResponse(404, 'off');
   if (action === 'rematch') return rematch(env, id, player, await readJson(request), now, fetchFn);
+  if (action === 'friend') return friendOpponent(env, id, player, now, fetchFn);
   const roomRequest = parseAction(action, await readJson(request), player);
   if (!roomRequest) return errorResponse(400, 'bad-request');
   if (roomRequest.action !== 'join') return toRoom(env, id, roomRequest);

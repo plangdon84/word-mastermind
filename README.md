@@ -1291,7 +1291,8 @@ isn't mistaken for a rated challenge to a friend).
   the coin toss decides who goes first as usual. It then plays like a game
   against a friend (clocks, turn alerts, **Online games** on the title
   screen), with **Find another opponent** in place of New invite and no
-  rematch. The waiting player also gets a **Matched with Bob** alert. The
+  rematch. Once a game against a person is over, its result offers **Add
+  friend** (see [Friends](#friends)). The waiting player also gets a **Matched with Bob** alert. The
   record says it's a ladder game (`ladder`, with the computer's recall
   against a computer).
 - **History and badges:** a ladder game is kept in the friend-game layout
@@ -2333,6 +2334,26 @@ first.
   - A phone's contacts and social accounts are left out: a web app can't
     read an iPhone's contacts, and each social account needs its own
     sign-in setup.
+- **From a Rated ladder game** (Dev Plan item 19e, decided with the owner
+  on 4 November 2026): once a [ladder](#random-opponent) game against a
+  person is over (never during it), its result has **Add friend**. It
+  sends them a friend request, as adding them by code does: they **Accept**
+  or **Decline** it on their friends list, or from the same game's result
+  (**Accept friend request**), and nothing changes until they accept. Your
+  side then shows **Friend request sent**, and the button is gone once
+  you're friends. Not offered against a computer. A request you sent by
+  email still doesn't show there, as in a search. Each request counts
+  towards the same 200 friends and requests.
+  - **After a decline** (the owner, review of PR #75): once a player
+    declines a friend request from you, your ladder games with them stop
+    offering **Add friend** for a week, so a stranger can't send the
+    request and its alert again and again. They can still add you, and you
+    can still accept theirs from the game. A request you sent by email
+    doesn't count: if its decline hid the button, a game with them would
+    tell you whose email it was (its repeats by email still wait a week).
+  - **Let players find me by name** switched off covers search only: a
+    player you met on the ladder can still send you a request, since you
+    played each other (the owner, review of PR #75).
 - **Adding a friend by code:** type their code (any case, with or without the dash)
   and **Add friend**. That sends a request; you're friends once they **Accept**
   it (or add your code too). They can **Decline**, and you can **Cancel** a

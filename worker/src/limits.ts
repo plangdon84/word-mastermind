@@ -35,8 +35,9 @@ export function limitOf(method: string, pathname: string): Limit | null {
   if (/^\/api\/(guests|games|lobbies|daily\/start|daily\/word\/start|daily\/name|auth\/google|auth\/link|auth\/session|friends\/add|friends\/invite\/(?:peek|accept|reset)|push\/subscribe)$/.test(pathname)) {
     return 'general';
   }
-  // A rematch makes a game and a decline sends a notification, like a new invite.
-  if (/^\/api\/games\/[0-9a-f]{64}\/(?:rematch|decline)$/.test(pathname)) return 'general';
+  // A rematch makes a game, and a decline or a friend request from a ladder game (item 19e) sends a
+  // notification, like a new invite.
+  if (/^\/api\/games\/[0-9a-f]{64}\/(?:rematch|decline|friend)$/.test(pathname)) return 'general';
   // So does inviting a friend to a lobby, each time it's sent.
   if (/^\/api\/lobbies\/[A-Z0-9]{6}\/invite$/.test(pathname)) return 'general';
   // Joining the rated ladder's queue (Dev Plan item 19q) can start a game, against a computer after 30 seconds:

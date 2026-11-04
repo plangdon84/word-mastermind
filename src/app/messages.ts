@@ -135,6 +135,10 @@ export function friendErrorMessage(error: FriendError | 'unreachable', word = ''
       return 'After your first guess you can only switch to an easier level.';
     case 'easy-unrated':
       return 'A rated game can’t be played at Easy. Pick another difficulty, or play it unrated.';
+    case 'too-many-friends':
+      return 'One of you already has 200 friends and requests. Remove some from the friends list first.';
+    case 'declined':
+      return "They've turned down a friend request from you lately. You can ask again within a week.";
     case 'bad-request':
     case 'bad-guest-id':
       return 'Something went wrong. Reload the page and try again.';

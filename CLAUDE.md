@@ -169,6 +169,14 @@ Run `npm test` and `npm run typecheck` before committing.
   (`forgetEmailRequest`). Never store an email typed there. Declining a
   request by email keeps its sender's repeats by email away for a week
   (Dev Plan item 19a, D1 `email_declines`, checked in `deliverEmailRequest`).
+  A finished rated ladder game against a person offers **Add friend** (Dev
+  Plan item 19e): `POST /api/games/ID/friend` asks the room who the other
+  person is (`opponent`, only once it's over and never a computer), then
+  `addLadderOpponent`; the game's `ladderFriend` (`friendStateOf`, which
+  hides a request sent by email) drives the button. Declining a request
+  (not one by email, which would give the email away) rests the sender's
+  Add friend to that player for a week (D1
+  `friend_declines`, `FRIEND_DECLINE_MS`).
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
   read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { authApi } from '../../src/app/account';
-import { friendApi } from '../../src/app/friendApi';
+import { friendApi, FriendApiError } from '../../src/app/friendApi';
+import { friendsApi } from '../../src/app/friendsApi';
 import type { QueueChoice } from '../../src/game';
 import { queueApi, QueueApiError } from '../../src/app/queueApi';
 import { sharedSummary } from '../../src/app/sharedSummary';
@@ -84,6 +85,7 @@ function setup() {
       accountId: session.account.id,
       queue: queueApi('https://api.example', identity, fetchFn),
       games: friendApi('https://api.example', identity, fetchFn),
+      friends: friendsApi('https://api.example', identity, fetchFn),
     };
   };
   return { db, sqlite, player, fetchFn, rooms, tick: (ms: number) => { clock += ms; } };
@@ -463,5 +465,122 @@ describe('review round 2 fixes', () => {
         .run(ann.accountId, pool, games, NOW);
     }
     expect((await listRatings(context.db, ann.accountId, NOW)).map((r) => r.pool).sort()).toEqual(['correspondence', 'rush']);
+  });
+});
+
+describe('friending your ladder opponent (Dev Plan item 19e)', () => {
+  const gameRefusal = (call: Promise<unknown>) => call.then(() => 'accepted', (e: FriendApiError) => e.code);
+
+  /** Ann and Cat matched in the ladder: Ann waited, so she's the host. */
+  async function ladderGame() {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const cat = await context.player(CAT, 'Cat');
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    const matched = await cat.queue.join(LADDER, 'Cat', 'beach');
+    if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
+    return { ...context, ann, cat, gameId: matched.gameId };
+  }
+
+  it('is offered once the game is over, never during it, and sends a request the other player answers', async () => {
+    const { ann, cat, gameId } = await ladderGame();
+    expect(await ann.games.get(gameId)).toMatchObject({ state: 'playing', ladderFriend: null });
+    expect(await gameRefusal(ann.games.addFriend(gameId))).toBe('not-over');
+    expect((await ann.friends.list()).sent).toEqual([]);
+
+    await ann.games.concede(gameId);
+    expect(await ann.games.get(gameId)).toMatchObject({ state: 'over', ladderFriend: 'none', opponentCode: null });
+    expect(await cat.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+
+    // Neither had opened their friends list, so neither had a code: the request still shows on both.
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent', opponentCode: null });
+    const [annCode, catCode] = [(await ann.friends.list()).code, (await cat.friends.list()).code];
+    expect((await ann.friends.list()).sent.map((f) => f.code)).toEqual([catCode]);
+    expect((await cat.friends.list()).received.map((f) => f.code)).toEqual([annCode]);
+    expect(await cat.games.get(gameId)).toMatchObject({ ladderFriend: 'received' });
+    // Asking again changes nothing.
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
+
+    // Cat accepts from the game: friends, and Ann's name now opens her profile.
+    expect(await cat.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'friends', opponentCode: annCode });
+    expect((await ann.friends.list()).friends.map((f) => f.code)).toEqual([catCode]);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'friends', opponentCode: catCode });
+  });
+
+  it('can be declined from the friends list, and then rests for a week (the owner, review of PR #75)', async () => {
+    const { ann, cat, gameId, tick, sqlite } = await ladderGame();
+    await cat.games.concede(gameId);
+    await ann.games.addFriend(gameId);
+    const annCode = (await ann.friends.list()).code;
+    expect((await cat.friends.remove(annCode)).received).toEqual([]);
+    expect((await ann.friends.list()).sent).toEqual([]);
+    // Ann's game stops offering Add friend for a week, and refuses one sent anyway; Cat can still ask Ann.
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'declined' });
+    expect(await gameRefusal(ann.games.addFriend(gameId))).toBe('declined');
+    expect((await cat.friends.list()).received).toEqual([]);
+    expect(await cat.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    tick(7 * 24 * 60 * 60 * 1000 - 1);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'declined' });
+    tick(1);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
+    // A request that Cat sends Ann in the week is still Ann's to accept from the game.
+    await cat.friends.remove(annCode);
+    await cat.friends.add(annCode);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'received' });
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'friends' });
+    // One row per sender and player, however often they declined.
+    expect(sqlite.prepare('SELECT sender_id FROM friend_declines').all()).toHaveLength(1);
+  });
+
+  it('is never offered against a computer, nor to anyone outside the game', async () => {
+    const context = await ladderGame();
+    const bob = await context.player(BOB, 'Bob');
+    await context.ann.games.concede(context.gameId);
+    expect(await gameRefusal(bob.games.addFriend(context.gameId))).toBe('not-a-player');
+
+    await bob.queue.join(LADDER, 'Bob', 'crane');
+    context.tick(29_999);
+    await bob.queue.poll(LADDER);
+    context.tick(1);
+    const vsComputer = await bob.queue.poll(LADDER);
+    if (vsComputer.state !== 'matched') throw new Error(`not matched: ${vsComputer.state}`);
+    await bob.games.concede(vsComputer.gameId);
+    expect(await bob.games.get(vsComputer.gameId)).toMatchObject({ computer: true, state: 'over', ladderFriend: null });
+    expect(await gameRefusal(bob.games.addFriend(vsComputer.gameId))).toBe('bad-request');
+  });
+
+  it("isn't offered in a game that didn't come from the ladder", async () => {
+    const { ann, cat } = await ladderGame();
+    const invite = await ann.games.create({ name: 'Ann', secret: 'storm', difficulty: 'medium', timeControl: '1d' });
+    await cat.games.join(invite.id, { name: 'Cat', secret: 'beach', difficulty: 'medium' });
+    await ann.games.concede(invite.id);
+    expect(await ann.games.get(invite.id)).toMatchObject({ state: 'over', ladderFriend: null });
+    expect(await gameRefusal(ann.games.addFriend(invite.id))).toBe('bad-request');
+  });
+
+  it("doesn't rest Add friend after a decline of a request by email, which would tell whose email it was", async () => {
+    const { ann, cat, gameId } = await ladderGame();
+    await ann.friends.requestByEmail('cat@example.com');
+    const annCode = (await ann.friends.list()).code;
+    await cat.friends.remove(annCode);
+    await ann.games.concede(gameId);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    // One request from the game reaches her; declining that one rests it as usual.
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
+    await cat.friends.remove(annCode);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'declined' });
+  });
+
+  it("keeps a request sent by email out of sight, so the game can't tell whose email it was", async () => {
+    const { ann, cat, gameId } = await ladderGame();
+    await ann.friends.requestByEmail('cat@example.com');
+    await ann.games.concede(gameId);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    // Cat sees it, as she would on her list.
+    expect(await cat.games.get(gameId)).toMatchObject({ ladderFriend: 'received' });
+    // Adding her from the game starts a request as if the email never was.
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
+    expect((await ann.friends.list()).sent.map((f) => f.code)).toEqual([(await cat.friends.list()).code]);
   });
 });

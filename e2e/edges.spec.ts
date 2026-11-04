@@ -851,27 +851,70 @@ test('Leaderboards has the Correspondence rating board and no other (item 19l)',
   await expect(modeButton(page, 'Two player rating')).toBeVisible();
 });
 
-test('the Rated ladder plays a computer when nobody is free for 30 seconds (item 19q)', async ({ page, browserName }) => {
-  // Chromium alone: on main, both browsers run at once against one test server and its one queue, so their two
-  // copies of this test could be matched with each other instead of a computer (review of PR #66). Run by hand
-  // in WebKit with --project=webkit when the ladder changes.
-  test.skip(browserName !== 'chromium', 'one shared queue: run in one browser at a time');
-  test.setTimeout(120_000);
-  await unlockAll(page);
-  await signIn(page, `ladder-${Date.now()}@example.com`);
-  await page.goto('/');
-  await modeButton(page, 'Two player').click();
-  await modeButton(page, 'Rated ladder').click();
-  await expect(page.getByRole('heading', { name: 'Rated ladder' })).toBeVisible();
-  await page.keyboard.type('storm');
-  await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Looking for an opponent…' })).toBeVisible();
-  // Alone in the queue: after 30 seconds, a computer at about your level, said openly.
-  await expect(page.getByText("No one was free, so you're playing a computer at about your level.")).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByRole('tab', { name: /🤖 Computer/ })).toBeVisible();
-  // Whoever goes first, the computer guesses within its 8-second pause of its turn.
-  if (await page.getByText('Your turn').isVisible()) await guess(page, 'crane');
-  await expect(page.getByRole('tab', { name: /🤖 Computer \(1\)/ })).toBeVisible({ timeout: 15_000 });
+// The ladder's one queue is shared: these run one after the other, so two of their players are never matched
+// across tests (a lone player waiting for a computer, or two who should meet each other).
+test.describe('the Rated ladder', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test('the Rated ladder plays a computer when nobody is free for 30 seconds (item 19q)', async ({ page, browserName }) => {
+    // Chromium alone: on main, both browsers run at once against one test server and its one queue, so their two
+    // copies of this test could be matched with each other instead of a computer (review of PR #66). Run by hand
+    // in WebKit with --project=webkit when the ladder changes.
+    test.skip(browserName !== 'chromium', 'one shared queue: run in one browser at a time');
+    test.setTimeout(120_000);
+    await unlockAll(page);
+    await signIn(page, `ladder-${Date.now()}@example.com`);
+    await page.goto('/');
+    await modeButton(page, 'Two player').click();
+    await modeButton(page, 'Rated ladder').click();
+    await expect(page.getByRole('heading', { name: 'Rated ladder' })).toBeVisible();
+    await page.keyboard.type('storm');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Looking for an opponent…' })).toBeVisible();
+    // Alone in the queue: after 30 seconds, a computer at about your level, said openly.
+    await expect(page.getByText("No one was free, so you're playing a computer at about your level.")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('tab', { name: /🤖 Computer/ })).toBeVisible();
+    // Whoever goes first, the computer guesses within its 8-second pause of its turn.
+    if (await page.getByText('Your turn').isVisible()) await guess(page, 'crane');
+    await expect(page.getByRole('tab', { name: /🤖 Computer \(1\)/ })).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('two people who met on the ladder can friend each other once it is over (item 19e)', async ({ page, browser, browserName }) => {
+    test.skip(browserName !== 'chromium', 'one shared queue: run in one browser at a time');
+    test.setTimeout(120_000);
+    const stamp = Date.now();
+    const join = async (player: Page, email: string, word: string) => {
+      await unlockAll(player);
+      await signIn(player, email);
+      await player.goto('/');
+      await modeButton(player, 'Two player').click();
+      await modeButton(player, 'Rated ladder').click();
+      await player.keyboard.type(word);
+      await player.keyboard.press('Enter');
+    };
+    await join(page, `ladder-a-${stamp}@example.com`, 'storm');
+    await expect(page.getByRole('heading', { name: 'Looking for an opponent…' })).toBeVisible();
+    const other = await newPlayer(browser, page);
+    await join(other, `ladder-b-${stamp}@example.com`, 'beach');
+    for (const player of [page, other]) await expect(player.getByText(/Your turn|Their turn/)).toBeVisible({ timeout: 20_000 });
+    // No Add friend while the game is on.
+    await expect(page.getByRole('button', { name: /as a friend/ })).toHaveCount(0);
+
+    await button(page, 'Menu').click();
+    await button(page, 'Give up').click();
+    await button(page, 'Give up').click();
+    await expect(page.locator('.panel.result')).toBeVisible();
+    await expect(other.locator('.panel.result')).toBeVisible({ timeout: 20_000 });
+
+    await other.getByRole('button', { name: /as a friend$/ }).click();
+    await expect(button(other, 'Friend request sent')).toBeDisabled();
+    // The other page hears of it over its live socket, and offers to accept.
+    await page.getByRole('button', { name: /friend request$/ }).click();
+    // Friends now: the button is gone on both.
+    for (const player of [page, other]) {
+      await expect(player.getByRole('button', { name: /friend request|as a friend/ })).toHaveCount(0);
+    }
+  });
 });
 
 test('a tapped difficulty is the only one that looks picked, with no ring left by the tap (issue 263)', async ({ page }) => {

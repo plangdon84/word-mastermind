@@ -12,7 +12,9 @@ import { API_URL } from './config';
 import { NO_GUESSES, useOpponentMarks, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useDefinitions } from './definitions';
-import { friendApi, FriendApiError, liveSocketUrl, opponentName, type FriendApi, type FriendGame, type RatingLine } from './friendApi';
+import {
+  friendApi, FriendApiError, liveSocketUrl, opponentName, type FriendApi, type FriendGame, type LadderFriend, type RatingLine,
+} from './friendApi';
 import { ratingText } from './ratingsApi';
 import type { Friend } from './friendsApi';
 import { addFriendGame, findFriendGame, updateFriendGame } from './friendGames';
@@ -409,6 +411,11 @@ export function FriendScreen({
     setDraft('');
     setMessage(null);
     setRematching(true);
+  };
+
+  // A friend request to a finished ladder game's other person (Dev Plan item 19e), or accepting theirs.
+  const addOpponent = () => {
+    if (api && gameId) void send(() => api.addFriend(gameId), '');
   };
 
   const confirmGiveUp = async () => {
@@ -865,6 +872,7 @@ export function FriendScreen({
                     {opponent} wants a rematch →
                   </button>
             )}
+          {!review && <LadderFriendButton state={game.ladderFriend} opponent={opponent} busy={busy} onAdd={addOpponent} />}
           {(outcome === 'won' || outcome === 'won-held' || outcome === 'clutch' || outcome === 'tied') && !review && (
             <ShareResult text={friendShareText({
               opponent, difficulty, guesses: view.yourGuesses.length,
@@ -877,6 +885,26 @@ export function FriendScreen({
       {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
     </div>
   );
+}
+
+/**
+ * Friending your opponent once a rated ladder game against a person is over
+ * (Dev Plan item 19e): **Add friend** sends a request they accept or
+ * decline, as Find a friend does; one they sent you is accepted here. Not
+ * shown against a computer, during the game, once you're friends, or for a
+ * week after they declined a request of yours.
+ */
+function LadderFriendButton({ state, opponent, busy, onAdd }: {
+  state: LadderFriend | null; opponent: string; busy: boolean; onAdd: () => void;
+}) {
+  if (state === 'none') {
+    return <button class="btn ladder-friend" type="button" disabled={busy} onClick={onAdd} aria-label={`Add ${opponent} as a friend`}>Add friend</button>;
+  }
+  if (state === 'received') {
+    return <button class="btn ladder-friend" type="button" disabled={busy} onClick={onAdd} aria-label={`Accept ${opponent}'s friend request`}>Accept friend request</button>;
+  }
+  if (state === 'sent') return <button class="btn ladder-friend" type="button" disabled>Friend request sent</button>;
+  return null;
 }
 
 /**
