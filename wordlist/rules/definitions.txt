@@ -22,6 +22,7 @@ hyper | adjective | very excited, nervous or full of energy
 
 # WordNet's first sense is the unusual one.
 bunny | noun | a child's word for a rabbit, especially a young one
+chits | noun | short notes or vouchers, such as a signed note for a small debt; also, tokens used in place of money
 
 # Secret words whose generated definition is misleading or missing.
 runts | noun | the smallest and weakest animals in a litter
