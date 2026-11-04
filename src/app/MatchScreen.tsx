@@ -56,7 +56,7 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   const [busy, setBusy] = useState(false);
   /** Waiting in the queue with this word, since this time by the server's clock, and how busy it was at the last check-in. */
   const [waiting, setWaiting] = useState<{ word: string; since: number; offset: number; busy: QueueBusy | null } | null>(null);
-  /** How busy the ladder is, for the word step; null until known (or if it can't be read). */
+  /** How busy the ladder is, for the word step; null until first known. */
   const [ladderBusy, setLadderBusy] = useState<QueueBusy | null>(null);
   const draftRef = useRef(draft);
   const setDraft = (d: string) => {
@@ -116,17 +116,23 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   }, [api, waitingWord]);
 
   // On the word step: how busy the ladder is, on opening and every little while after, never while waiting
-  // (each check-in says then). A failure just leaves the line off.
+  // (each check-in says then), and not while the page is hidden: it looks again on coming back (review
+  // round 1). A failed look keeps the last numbers, so the line doesn't flicker off.
   const onWordStep = signedIn && !waitingWord;
   useEffect(() => {
     if (!api || !onWordStep) return;
     let live = true;
-    const look = () => api.busy(choice).then((b) => live && setLadderBusy(b), () => live && setLadderBusy(null));
-    void look();
-    const timer = setInterval(() => void look(), BUSY_MS);
+    const look = () => {
+      if (document.visibilityState === 'hidden') return;
+      api.busy(choice).then((b) => live && setLadderBusy(b), () => {});
+    };
+    look();
+    const timer = setInterval(look, BUSY_MS);
+    document.addEventListener('visibilitychange', look);
     return () => {
       live = false;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', look);
     };
   }, [api, onWordStep]);
 

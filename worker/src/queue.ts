@@ -229,7 +229,9 @@ export async function handleQueue(storage: QueueStorage, deps: QueueDeps, reques
   const state = await load(storage, now);
   if (request.action === 'busy') return { status: 200, body: { waiting: state.seekers.length, playing: peoplePlaying(state) } };
   if (request.action === 'ended') {
-    const { [request.gameId]: _ended, ...playing } = state.playing ?? {};
+    // A game it isn't counting (started before item 19w, or already gone) needs no write (review round 1).
+    if (!state.playing?.[request.gameId]) return { status: 200, body: { state: 'idle' } };
+    const { [request.gameId]: _ended, ...playing } = state.playing;
     await storage.put(KEY, { ...state, playing });
     return { status: 200, body: { state: 'idle' } };
   }
