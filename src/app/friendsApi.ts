@@ -299,6 +299,11 @@ const isTally = (value: unknown) =>
 /** Modes added since summaries were first shared, which an older app's summary leaves out. */
 const LATER_MODES: readonly HistoryMode[] = ['dailyWord'];
 
+/** The Rated ladder's stats, with every number its card shows. */
+const isLadderStats = (value: unknown) =>
+  isObject(value) && Number.isSafeInteger(value.played)
+  && [value.record, value.people, value.computers].every((r) => isTally(r) && isObject(r) && (r.winPct === null || typeof r.winPct === 'number'));
+
 /**
  * A shared summary, checked as far as the app relies on it (the server
  * checks what a device sends with it too), or null if it isn't one.
@@ -318,7 +323,9 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     || !HISTORY_MODES.every((m) => isObject(modes[m]))) {
     return null;
   }
-  // Only badges this version knows, each once.
+  // The Rated ladder's stats (Dev Plan item 19t), kept only whole: a summary from an older app has none.
+  const { ladder: _ladder, ...statsWithoutLadder } = stats;
+    // Only badges this version knows, each once.
   const badges = new Map<string, EarnedBadge>();
   for (const b of value.badges) {
     if (isObject(b) && typeof b.id === 'string' && BADGE_BY_ID.has(b.id) && !badges.has(b.id) && isTime(b.at)
@@ -327,7 +334,8 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     }
   }
   return {
-    format: SHARED_FORMAT, games: value.games as number, stats: { ...stats, modes } as unknown as Stats, badges: [...badges.values()],
+    format: SHARED_FORMAT, games: value.games as number, stats: { ...statsWithoutLadder, modes, ...(isLadderStats(stats.ladder) ? { ladder: stats.ladder } : {}) } as unknown as Stats,
+    badges: [...badges.values()],
     featured: parseEntries(value.featured),
     ...(typeof value.ladderAverage === 'number' && value.ladderAverage >= 1 && value.ladderAverage <= 1000
       ? { ladderAverage: value.ladderAverage } : {}),

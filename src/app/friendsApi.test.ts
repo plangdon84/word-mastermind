@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { computeStats } from '../game';
+import { sharedSummary } from './sharedSummary';
 import {
-  parseFriendProfileAnswer,
+  parseFriendProfileAnswer, parseSharedSummary,
   friendGamesAfter, friendGamesParams, parseFriendGamesAfter, parseFriendGamesPage, parseFriendGamesParams, parseFriendsList,
   parsePendingInvite, PENDING_INVITE_MS,
 } from './friendsApi';
@@ -70,5 +72,25 @@ describe("a friend's profile (Dev Plan item 19t)", () => {
 
   it("reads an older server's answer, without ratings, as none", () => {
     expect(parseFriendProfileAnswer(answer)?.ratings).toEqual([]);
+  });
+});
+
+describe("a friend's shared Rated ladder stats (Dev Plan item 19t)", () => {
+  const summary = (ladder: unknown) => ({ ...sharedSummary([], [], 0, (ms: number) => Math.floor(ms / 86_400_000)), stats: {
+    ...computeStats([], 0), ladder,
+  } });
+  const tally = { wins: 1, draws: 0, losses: 1, winPct: 50 };
+
+  it('keeps them whole', () => {
+    const ladder = { played: 2, record: tally, people: tally, computers: { wins: 0, draws: 0, losses: 0, winPct: null } };
+    expect(parseSharedSummary(summary(ladder))?.stats.ladder).toEqual(ladder);
+  });
+
+  it('drops them when broken, so the rest still shows', () => {
+    for (const ladder of [{ played: 2 }, { played: 'x', record: tally, people: tally, computers: tally }, 'nope']) {
+      const parsed = parseSharedSummary(summary(ladder));
+      expect(parsed).not.toBeNull();
+      expect(parsed!.stats.ladder).toBeUndefined();
+    }
   });
 });
