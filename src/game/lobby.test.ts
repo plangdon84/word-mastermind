@@ -239,7 +239,7 @@ describe('computer players', () => {
     const lobby = ok(startLobby(
       ok(configureLobby(createLobby('ABCDEF', ANN, 'medium', T), 'ann', { ...SETTINGS, minutes: 90, computers: 1, strength: 'mastermind' }, T)),
       // A seed where the computer finds all 4 words in time (it depends on the word lists).
-      'ann', WORDS, T, seeded(3)));
+      'ann', WORDS, T, seeded(12)));
     const game = lobby.game!;
     expect(seatRun(game, 1, T + 90 * MINUTE).results.every((r) => r.outcome === 'solved')).toBe(true);
     const last = game.seats[1].moves[game.seats[1].moves.length - 1].at;

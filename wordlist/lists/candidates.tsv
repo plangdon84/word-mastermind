@@ -1546,7 +1546,7 @@ calfs	rejected	excluded spelling, variant, region, category or part of speech	35
 calid	rejected	size 85 > 80	85	aj0	_		[ukacd]	
 calif	rejected	excluded spelling, variant, region, category or part of speech	50	n0	_			
 calix	guess	size 70 > 35	70	n0	_		[5d+2a],[moby]	
-calks	secret		35	ns,vs	A		[3of6]	ns~
+calks	guess	secret-exclude.txt	35	ns,vs	A		[3of6]	ns~
 calla	guess	repeated letters	60	n0	_			
 calli	rejected	excluded spelling, variant, region, category or part of speech	80	pre	_		[moby]	
 calls	guess	repeated letters	35	ms	_			
@@ -3393,7 +3393,7 @@ fiber	secret		35	n0	A
 fibre	guess	spelling, variant or region not allowed for secrets	35	n0	B,C,D,Z			
 fibro	guess	size 70 > 35	70	n0	_		[5d+2a],[ukacd]	
 fices	guess	size 80 > 35	80	ns	_			
-fiche	secret		35	n0	_		[ukfreq]	
+fiche	guess	secret-exclude.txt	35	n0	_		[ukfreq]	
 fichu	guess	size 60 > 35	60	n0	_			
 ficin	guess	repeated letters	80	n0	_			
 ficos	rejected	excluded spelling, variant, region, category or part of speech	70	ns	_		[moby]	ns!
@@ -5605,7 +5605,7 @@ leses	guess	repeated letters	80	ns	_
 lesso	guess	repeated letters	70	?	_		[5d+2a]	
 letch	guess	size 70 > 35	70	n0,v0	_		[brif],[moby]	
 lethe	guess	repeated letters	70	n0	_		[5d+2a]	
-letup	secret		35	n0	_			
+letup	guess	secret-exclude.txt	35	n0	_			
 leuch	rejected	size 85 > 80	85	?	_		[ukacd]	
 leuco	rejected	excluded spelling, variant, region, category or part of speech	80	pre	_		[moby]	
 leuds	rejected	size 85 > 80	85	ns	_		[stale]	
@@ -9108,7 +9108,7 @@ skees	guess	repeated letters	80	vs	_
 skeet	guess	repeated letters	50	n0	_			
 skegg	rejected	size 85 > 80	85	n0	_		[ukacd]	
 skegs	guess	repeated letters	70	ns	_		[moby]	
-skein	secret		35	n0,v0	_			
+skein	guess	secret-exclude.txt	35	n0,v0	_			
 skelf	rejected	size 85 > 80	85	n0	_		[ukacd]	
 skell	guess	repeated letters	80	n0	_			
 skelm	guess	size 70 > 35	70	n0	_		[5d+2a],[stale],[ukacd]	
@@ -10277,7 +10277,7 @@ tikes	rejected	excluded spelling, variant, region, category or part of speech	40
 tikis	guess	repeated letters	70	ns	_		[moby]	
 tikka	guess	repeated letters	60	n0	_		[3of6],[5d+2a],[coca-llm]	
 tilak	guess	size 70 > 35	70	n0	_		[5d+2a]	
-tilde	secret		35	n0	_		[ukfreq]	
+tilde	guess	secret-exclude.txt	35	n0	_		[ukfreq]	
 tiled	secret		35	aj0,vd	_		[5d+2a]	
 tiler	guess	size 60 > 35	60	n0	_			
 tiles	secret		35	ms	_			
