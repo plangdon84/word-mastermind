@@ -677,11 +677,13 @@ export function FriendScreen({
 
       {/* A live game's clocks sit under the tabs' names (Dev Plan item 19u), in the tabs' own height. */}
       <div class={clocks && !over ? 'tabs has-clock' : 'tabs'} role="tablist" aria-label="Guesses">
-        <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}>
+        <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}
+          class={clocks && !over && clocks.you < URGENT_CLOCK_MS ? 'low-time' : undefined}>
           <span class="tab-label">You ({view.yourGuesses.length})</span>
           {clocks && !over && <TabClock ms={clocks.you} running={view.turn === 'you' && !firstDue} />}
         </button>
-        <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}>
+        <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}
+          class={clocks && !over && clocks.opponent < URGENT_CLOCK_MS ? 'low-time' : undefined}>
           <span class="tab-label">
             <span class="tab-name">{opponent}</span> ({view.theirGuesses.length})
             {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
@@ -878,7 +880,8 @@ export function FriendScreen({
 }
 
 /**
- * A live game's clock in its player's tab (Dev Plan item 19u): filled while it runs, red when short.
+ * A live game's clock in its player's tab (Dev Plan item 19u): a dot and bold while it runs; under 30
+ * seconds its tab glows red, as a last chance does (`low-time`).
  * Hidden from screen readers, which hear the clocks row's timer instead, so a tab's name doesn't tick.
  */
 function TabClock({ ms, running }: { ms: number; running: boolean }) {

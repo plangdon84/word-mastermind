@@ -1363,16 +1363,15 @@ button.bubble:active { transform: scale(0.94); }
 .tab-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
 .tabs.has-clock button { flex-direction: column; gap: 1px; padding-block: 0; line-height: 1.15; }
 .tab-clock {
-  padding: 0 7px; border-radius: 999px; border: 1px solid currentColor;
-  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.78rem; line-height: 1.3; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.8rem; line-height: 1.3; white-space: nowrap;
 }
-.tab-clock.running { background: var(--ink); border-color: var(--ink); color: var(--bg); }
-.tabs button[aria-selected="true"] .tab-clock.running { background: var(--bg); border-color: var(--bg); color: var(--ink); }
-.tab-clock.urgent { color: var(--err); border-color: var(--err); font-weight: 600; }
-.tabs button[aria-selected="true"] .tab-clock.urgent { color: var(--bg); border-color: var(--err); box-shadow: inset 0 0 0 1px var(--err); }
-.tab-clock.running.urgent, .tabs button[aria-selected="true"] .tab-clock.running.urgent {
-  background: var(--err); border-color: var(--err); color: #fff;
-}
+/* The running clock: bold, after a dot like Your turn's. */
+.tab-clock.running { font-weight: 700; }
+.tab-clock.running::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+/* Under 30 seconds the tab glows red, the softer form of a last chance's red (.slots.final). */
+.tabs button.low-time { border-color: var(--err); box-shadow: 0 0 10px color-mix(in srgb, var(--err) 45%, transparent); }
+.tabs button.low-time:not([aria-selected="true"]) .tab-clock { color: var(--err); }
 
 /* A challenge's Rated switch, under the step note. */
 .rated-toggle { align-items: flex-start; line-height: 1.35; margin-top: 10px; }
