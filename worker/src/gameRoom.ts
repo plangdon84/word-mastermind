@@ -1,4 +1,4 @@
-import { friendCodes } from './friends';
+import { friendCodes, friendStateOf } from './friends';
 import { json } from './http';
 import type { Env } from './index';
 import { notifyGuest } from './push';
@@ -31,6 +31,7 @@ export class GameRoom implements DurableObject {
       saveFinished: (room, record, now) => saveFinishedGame(env.DB, room, record, now),
       namesOf: (ids) => currentNames(env.DB, ids),
       friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
+      friendStateOf: (accountId, playerId) => friendStateOf(env.DB, accountId, playerId),
       ratingsOf: (players, now) => ratingsOf(env.DB, players, TWO_PLAYER_POOL, now),
       random: Math.random,
       played: (playerId, now) => notePlayed(env.DB, playerId, now),

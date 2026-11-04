@@ -5,6 +5,7 @@ import {
   parseFriendGamesParams, SEARCH_MAX, type FoundPlayer, type FoundState, type Friend, type FriendProfile,
   type FriendProfileAnswer, type FriendsList, type LobbyInvite,
 } from '../../src/app/friendsApi';
+import type { LadderFriend } from '../../src/app/friendApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
 import { identify, normalizeEmail, playerOfAccount } from './accounts';
 import { pastPlacements } from './dailyRoutes';
@@ -177,7 +178,7 @@ export async function listFriends(env: Env, accountId: string, now: number): Pro
   return list;
 }
 
-type Added = { ok: true; notices: Notice[] } | { ok: false; status: number; error: string };
+export type Added = { ok: true; notices: Notice[] } | { ok: false; status: number; error: string };
 
 /**
  * How many friends and requests count against `accountId`'s limit: a
@@ -216,6 +217,11 @@ type Accepted = { ok: true; notices: Notice[]; code: string } | { ok: false; sta
 export async function addFriend(db: D1Database, accountId: string, code: string, now: number): Promise<Added> {
   const friendId = await accountByCode(db, code);
   if (!friendId) return { ok: false, status: 404, error: 'not-found' };
+  return addFriendById(db, accountId, friendId, now);
+}
+
+/** `addFriend` for the account `friendId`, however the app knows them. */
+async function addFriendById(db: D1Database, accountId: string, friendId: string, now: number): Promise<Added> {
   if (friendId === accountId) return { ok: false, status: 400, error: 'own-code' };
   await forgetEmailRequest(db, accountId, friendId);
   const existing = await visibleState(db, accountId, friendId);
@@ -236,6 +242,40 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
      WHERE friends.by_email = 1`,
   ).bind(accountId, friendId, now).run();
   return { ok: true, notices: [friendRequestNotice(friendId, name)] };
+}
+
+/**
+ * SQL for the account of the player `param`: an account's ID as it is, a
+ * guest ID linked to an account as that account's.
+ */
+const accountOfSql = (param: string) => `COALESCE((SELECT account_id FROM guests WHERE id = ${param}), ${param})`;
+
+/**
+ * Where `accountId` stands with the player `playerId` (an account's ID, or
+ * a guest ID linked to one) as their friends list shows it (Dev Plan item
+ * 19e): a request they sent by email, still off their list, is none, as in
+ * a search, so a game can't tell them whose email it was.
+ */
+export async function friendStateOf(db: D1Database, accountId: string, playerId: string): Promise<LadderFriend> {
+  const row = await db.prepare(
+    `SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ${accountOfSql('?2')}
+       AND NOT (state = 'sent' AND by_email = 1)`,
+  ).bind(accountId, playerId).first<{ state: string }>();
+  return row?.state === 'friends' || row?.state === 'sent' || row?.state === 'received' ? row.state : 'none';
+}
+
+/**
+ * A friend request from a finished rated ladder game (Dev Plan item 19e)
+ * to the other person in it, `playerId`: as adding them by code would
+ * (or accepting theirs), so it's theirs to accept or decline. They may
+ * never have opened their friends list, so each side's code is made first:
+ * the request shows on each list by the other's code.
+ */
+export async function addLadderOpponent(db: D1Database, accountId: string, playerId: string, now: number): Promise<Added> {
+  const row = await db.prepare(`SELECT id FROM accounts WHERE id = ${accountOfSql('?1')}`).bind(playerId).first<{ id: string }>();
+  if (!row) return { ok: false, status: 404, error: 'not-found' };
+  await Promise.all([friendCodeOf(db, accountId), friendCodeOf(db, row.id)]);
+  return addFriendById(db, accountId, row.id, now);
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

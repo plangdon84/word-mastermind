@@ -1,6 +1,6 @@
 // A stand-in for the GAMES Durable Object namespace in tests: each game ID
 // gets an in-memory room, refereed by the same code as a real GameRoom.
-import { friendCodes } from './friends';
+import { friendCodes, friendStateOf } from './friends';
 import { json } from './http';
 import type { Notice } from './notices';
 import { TWO_PLAYER_POOL } from '../../src/game';
@@ -61,6 +61,7 @@ export function fakeRooms({ db, now, random = () => 0 }: FakeRoomsOptions) {
     saveFinished: saveFinishedGame.bind(null, db), random,
     namesOf: (ids) => currentNames(db, ids),
     friendCodes: (accountId, ids) => friendCodes(db, accountId, ids),
+    friendStateOf: (accountId, playerId) => friendStateOf(db, accountId, playerId),
     ratingsOf: (players, at) => ratingsOf(db, players, TWO_PLAYER_POOL, at),
     notify: (sent: readonly Notice[]) => notices.push(...sent),
     played: (playerId, at) => notePlayed(db, playerId, at),

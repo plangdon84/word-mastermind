@@ -4,7 +4,7 @@ import {
   type Marks, type Rating, type TimeControl, type TurnDays, computerRating, LADDER_COMPUTER_NAME, planComputerGuesses, pvpTurn, pvpTurnStart,
   ratedComputer, SECRET_WORDS, type PlannedGuess,
 } from '../../src/game';
-import type { FriendError, FriendGame, RatingLine } from '../../src/app/friendApi';
+import type { FriendError, FriendGame, LadderFriend, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
 import { shownName } from './names';
 import { declinedNotice, expiredNotice, joinedNotice, moveNotices, timeLowNotice, type Notice } from './notices';
@@ -121,6 +121,12 @@ export interface RoomDeps {
   namesOf(ids: readonly string[]): Promise<Record<string, string>>;
   /** Which of these player IDs are friends of the account `accountId`: their friend codes, by ID (`friendCodes`). */
   friendCodes(accountId: string, ids: readonly string[]): Promise<Record<string, string>>;
+  /**
+   * Where the account `accountId` stands with player `playerId` as their
+   * friends list shows it (`friendStateOf`): a request sent by email, still
+   * off the list, is none (Dev Plan item 19e).
+   */
+  friendStateOf(accountId: string, playerId: string): Promise<LadderFriend>;
   /** Both players' ratings as a rated game starts. */
   ratingsOf(players: Record<Seat, string>, now: number): Promise<Record<Seat, Rating>>;
   /** Picks who goes first: a number in [0, 1). */
@@ -159,7 +165,14 @@ export type RoomRequest =
     recall: number; rating: Rating;
   }
   | Asker & (
-    | { action: 'get' }
+    /** `tell`: open pages look again too, after a friend request from the game (Dev Plan item 19e). */
+    | { action: 'get'; tell?: boolean }
+    /**
+     * Who a finished ladder game's other person is (Dev Plan item 19e), for
+     * a friend request from the game: never during the game, nor against a
+     * computer, and only to a player in it.
+     */
+    | { action: 'opponent' }
     | { action: 'join'; name: string; secret: string; difficulty: Difficulty }
     | { action: 'guess'; word: string; marks?: Marks }
     | { action: 'suggest'; word: string }
@@ -184,10 +197,13 @@ export type RematchPlan =
   | { kind: 'new'; id: string; invitee: Player; timeControl: TimeControl; rated: boolean; difficulty: Difficulty }
   | { kind: 'existing'; id: string; byYou: boolean; difficulty: Difficulty };
 
-export type RoomResponse = { status: number; body: FriendGame | RematchPlan | { error: FriendError } };
+export type RoomResponse = {
+  status: number; body: FriendGame | RematchPlan | { opponentId: string } | { error: FriendError };
+};
 
 /** Whether a request can change the game, so the room tells open pages (its WebSockets) to look again. */
-export const mayChange = (request: RoomRequest) => request.action !== 'get';
+export const mayChange = (request: RoomRequest) =>
+  request.action === 'get' ? request.tell === true : request.action !== 'opponent';
 
 const ROOM_KEY = 'room';
 
@@ -236,6 +252,7 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
     hostName: room.host.name,
     guestName: room.guest?.name ?? null,
     opponentCode: null,
+    ladderFriend: null,
     inviteeName: room.invitee?.name ?? null,
     invitedYou: !seat && isOpenInvite(room) && !!room.invitee && ids.includes(room.invitee.guestId),
     rematchOf: room.rematchOf ?? null,
@@ -417,9 +434,12 @@ async function withCurrentNames(
   // account's once signed in, and a guest has no friends. Looked up alongside the names.
   const opponent = body.seat === 'host' ? room.guest : body.seat === 'guest' ? room.host : null;
   const none = {} as Record<string, string>;
-  const [names, codes] = await Promise.all([
+  // A finished ladder game against a person offers Add friend (Dev Plan item 19e): where you stand with them.
+  const offersFriend = opponent && body.state === 'over' && room.matched === true && !room.computer;
+  const [names, codes, ladderFriend] = await Promise.all([
     deps.namesOf(players.map((p) => p.guestId)).catch(() => none),
     opponent ? deps.friendCodes(askerId, [opponent.guestId]).catch(() => none) : none,
+    offersFriend ? deps.friendStateOf(askerId, opponent.guestId).catch(() => null) : null,
   ]);
   const nameOf = (player: Player | null | undefined, fallback: string | null) =>
     (player && names[player.guestId]) ?? (fallback === null ? null : shownName(fallback));
@@ -428,8 +448,23 @@ async function withCurrentNames(
     hostName: nameOf(room.host, body.hostName)!,
     guestName: nameOf(room.guest, body.guestName),
     opponentCode: opponent ? codes[opponent.guestId] ?? null : null,
+    ladderFriend,
     inviteeName: nameOf(room.invitee, body.inviteeName),
   };
+}
+
+/**
+ * The other person in a finished ladder game (Dev Plan item 19e), for the
+ * player with these IDs to send a friend request to: refused during the
+ * game, against a computer, outside the ladder and to anyone not in it.
+ */
+function ladderOpponent(room: Room, ids: readonly string[]): RoomResponse {
+  const seat = seatOf(room, ids);
+  if (!seat) return refuse(403, 'not-a-player');
+  const game = gameOf(room);
+  if (!room.matched || room.computer || !room.guest || !game) return refuse(400, 'bad-request');
+  if (game.status !== 'over') return refuse(409, 'not-over');
+  return { status: 200, body: { opponentId: (seat === 'host' ? room.guest : room.host).guestId } };
 }
 
 /**
@@ -520,6 +555,7 @@ async function answerRoom(
   const room = await settle(storage, deps, stored, now);
   const ids = idsOf(request);
   if (request.action === 'get') return { status: 200, body: describeRoom(room, ids, now) };
+  if (request.action === 'opponent') return ladderOpponent(room, ids);
 
   if (request.action === 'join') {
     if (ids.includes(room.host.guestId)) return refuse(409, 'own-invite');

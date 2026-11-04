@@ -30,6 +30,13 @@ export interface FriendGame {
   guestName: string | null;
   /** Your opponent, when they're on your friends list: their friend code, which opens their profile. Null otherwise. */
   opponentCode: string | null;
+  /**
+   * A finished rated ladder game against a person (Dev Plan item 19e): where
+   * you stand with them, for **Add friend** (`none`), **Request sent**
+   * (`sent`), **Accept friend request** (`received`) or nothing (`friends`).
+   * Null for any other game, and from an older server.
+   */
+  ladderFriend: LadderFriend | null;
   /** A challenge to a friend (README "Friends"): the friend it's for, who alone can accept it; null for an invite link. */
   inviteeName: string | null;
   /** A challenge you may accept or decline: you're the friend it's for, and haven't answered. */
@@ -57,13 +64,18 @@ export interface FriendGame {
   view: PvpView | null;
 }
 
+/** Where you stand with a ladder opponent, as your friends list shows it. */
+export type LadderFriend = 'none' | 'sent' | 'received' | 'friends';
+
+const LADDER_FRIENDS: readonly LadderFriend[] = ['none', 'sent', 'received', 'friends'];
+
 /** The server's reasons for refusing a request, beyond a word the rules refuse. */
 export type FriendError =
   | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'not-found' | 'not-a-player' | 'own-invite' | 'invite-taken'
   | 'not-invited' | 'not-a-friend'
   | 'invite-closed' | 'invite-expired' | 'not-started' | 'not-over' | 'game-over' | 'not-your-turn' | 'time-up' | 'time-left'
   | 'wrong-length' | 'not-letters' | 'repeated-letters' | 'not-in-word-list' | 'difficulty-fixed' | 'difficulty-harder'
-  | 'easy-unrated' | 'not-easy' | 'no-suggestions';
+  | 'easy-unrated' | 'not-easy' | 'no-suggestions' | 'too-many-friends';
 
 /** The opponent's name, from your seat. */
 export const opponentName = (game: FriendGame): string | null =>
@@ -157,8 +169,9 @@ export function parseFriendGame(value: unknown): FriendGame | null {
   const rematch = isObject(r) && typeof r.id === 'string' && GAME_ID.test(r.id) ? { id: r.id, byYou: r.byYou === true } : null;
   // An older server sends none.
   const opponentCode = typeof value.opponentCode === 'string' ? value.opponentCode : null;
+  const ladderFriend = LADDER_FRIENDS.find((f) => f === value.ladderFriend) ?? null;
   return {
-    id, seat, state: state as FriendGameState, hostName, guestName, opponentCode, inviteeName, invitedYou: value.invitedYou === true,
+    id, seat, state: state as FriendGameState, hostName, guestName, opponentCode, ladderFriend, inviteeName, invitedYou: value.invitedYou === true,
     rematchOf, rematch, timeControl, createdAt, expiresAt, serverNow,
     rated: value.rated === true, matched: value.matched === true, computer: value.computer === true, ratings, view,
   };
@@ -224,6 +237,12 @@ export interface FriendApi {
   rematch(id: string, answer: { name: string; secret: string; difficulty: Difficulty }): Promise<FriendGame>;
   /** Turns down a challenge or rematch sent to you. */
   decline(id: string): Promise<FriendGame>;
+  /**
+   * Sends a friend request to your opponent in finished ladder game `id`
+   * (Dev Plan item 19e), or accepts theirs: the game, with `ladderFriend` as
+   * it now stands.
+   */
+  addFriend(id: string): Promise<FriendGame>;
 }
 
 /**
@@ -253,5 +272,6 @@ export function friendApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof
     suggest: (id, word) => call('POST', `${game(id)}/suggest`, { word }),
     rematch: (id, answer) => call('POST', `${game(id)}/rematch`, answer),
     decline: (id) => call('POST', `${game(id)}/decline`, {}),
+    addFriend: (id) => call('POST', `${game(id)}/friend`, {}),
   };
 }

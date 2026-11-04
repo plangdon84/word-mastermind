@@ -29,7 +29,7 @@ describe('a game against a friend', () => {
     const storage = memoryStorage();
     const { saves, save } = flakySave(1);
     const deps: RoomDeps = {
-      saveFinished: save, namesOf: async () => ({}), friendCodes: async () => ({}),
+      saveFinished: save, namesOf: async () => ({}), friendCodes: async () => ({}), friendStateOf: async () => 'none',
       ratingsOf: async () => { throw new Error('unrated'); }, random: () => 0, notify: () => {}, played: async () => {},
     };
     const host = { guestId: 'host-id' };
