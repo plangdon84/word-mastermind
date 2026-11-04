@@ -2426,7 +2426,10 @@ history**.
   higher place than theirs is a win, the same place a draw; not placed
   comes last, and one neither of you placed in isn't counted). The server
   counts it from the games in both your indexes: a game it refereed has
-  the same history ID in both histories.
+  the same history ID in both histories. A Rated ladder game that paired you
+  with a friend counts in it too (the owner, 4 November 2026, review of
+  Dev Plan item 19t), though ladder games count only as the ladder in
+  history and Stats.
 - **Game history** has the same filters as yours, **Rated ladder**
   included (Dev Plan item 19t), without **Export CSV** or the name search, and loads 20 games at a time as you scroll, the
   server doing the filtering. A best or fastest game on their **Stats**
