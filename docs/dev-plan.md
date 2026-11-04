@@ -24,16 +24,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     ladder games against people leave the friend stats as computer ones
     already do. Friends' head-to-head records are unchanged. README
     "Profile" updated
-- [ ] **19v. Refused names in friend games and lobbies** (issue
-  plangdon84/word-mastermind-archive#264; worker, review gate)
-  - Decided with the owner on 4 November 2026: a name the profanity
-    filter now refuses shows as "A player" everywhere, as on the
-    leaderboards since 19n
-  - Friend games: the name stored when the game started is checked too
-    (`checkedName` / `shownName`) before it's shown
-  - Rush with Friends and Competitive Rush lobbies: names are checked
-    wherever a lobby's names are sent out (screens, results, history
-    entries), so old results show "A player" for those players too
 - [ ] **19e. Friending your ladder opponent** (issue #78; split from 18d
   on 9 October 2026; worker, review gate)
   - Decided with the owner on 4 November 2026: once a rated ladder game
@@ -128,6 +118,16 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19v. Refused names in friend games and lobbies** (2.2.0, stacked on 19s; issue
+  plangdon84/word-mastermind-archive#264; worker, review gate)
+  - Decided with the owner on 4 November 2026: a name the profanity
+    filter now refuses shows as "A player" everywhere, as on the
+    leaderboards since 19n
+  - Friend games: the name stored when the game started is checked too
+    (`checkedName` / `shownName`) before it's shown
+  - Rush with Friends and Competitive Rush lobbies: names are checked
+    wherever a lobby's names are sent out (screens, results, history
+    entries), so old results show "A player" for those players too
 - [x] **19u. More room for guesses in a two player game** (2.2.0, stacked on 19s; issue
   plangdon84/word-mastermind-archive#269; app only)
   - Issue 269: a live game's ticking clocks move into the You / opponent
