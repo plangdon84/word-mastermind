@@ -185,7 +185,10 @@ Run `npm test` and `npm run typecheck` before committing.
   server games built by `playedPage` with `copy`). `GET /api/friends/profile`
   reads the shared summary and counts your record in SQL (`versusOf`,
   matching `headToHead`), and `/api/friends/profile/games` pages the
-  index. Never work stats out on the server. A friend's name in a game against them, a lobby's
+  index. Never work stats out on the server. Since item 19t the index marks
+  rated ladder games (`profile_games.ladder`) for the history's Rated ladder
+  filter, and the profile answer carries the friend's ratings
+  (`listRatings`), provisional ones too. A friend's name in a game against them, a lobby's
   results or a board's Friends view opens it too (item 18ca): the server
   marks it with their friend code (`friendCodes` / `friendCodeSql` in
   `worker/src/friends.ts`; `opponentCode`, `friendCode`), shown by

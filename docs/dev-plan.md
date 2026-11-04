@@ -12,10 +12,12 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 **Next, in this order**
 
 Release 2.3.0, planned with the owner on 4 November 2026: one stack of
-three PRs that merges to `main` as one. 19t (done, below) is the base
-(its PR targets `main`), 19e is stacked on 19t and 19w on 19e; each PR adds its notes to
-the one 2.3.0 release in `src/app/releases.ts`. 19e and 19w go through the
-review gate; the stack merges once every PR in it is ready.
+three PRs that merges to `main` as one, as 2.2.0 did. 19t (done, below)
+is the base (its PR targets `main`); 19e and 19w are each stacked on it,
+their PRs merging into its branch, and 19t's PR then ships the stack. Each
+PR adds its notes to the one 2.3.0 release in `src/app/releases.ts`. 19e and 19w go through the
+review gate, as does 19t since the owner added its server part; the stack
+merges once every PR in it is ready.
 
 - [ ] **19e. Friending your ladder opponent** (2.3.0, stacked on 19t;
   issue #78; split from 18d on 9 October 2026; worker, review gate)
@@ -24,7 +26,7 @@ review gate; the stack merges once every PR in it is ready.
     sends them a friend request they accept or decline, as Find a friend
     does; nothing changes until they accept. Not offered against a
     computer or someone already a friend. README "Friends" updated
-- [ ] **19w. Who's on the ladder** (2.3.0, stacked on 19e; issue
+- [ ] **19w. Who's on the ladder** (2.3.0, stacked on 19t; issue
   plangdon84/word-mastermind-archive#270; worker, review gate)
   - Decided with the owner on 4 November 2026: opening the Rated ladder
     shows how busy it is, numbers only and never names, e.g. "2 waiting ·
@@ -102,7 +104,7 @@ review gate; the stack merges once every PR in it is ready.
   stack; issues
   plangdon84/word-mastermind-archive#273,
   plangdon84/word-mastermind-archive#274 and
-  plangdon84/word-mastermind-archive#277; app only)
+  plangdon84/word-mastermind-archive#277; worker, review gate)
   - Decided with the owner on 4 November 2026: rated ladder games count
     only as the ladder, never as "vs. a friend"
   - Issue 273: the game history gets a **Rated ladder** filter (games
@@ -117,13 +119,15 @@ review gate; the stack merges once every PR in it is ready.
     columns (after 19s's header row): Games and the computer-games
     heading right-aligned over their numbers, Rating centred over the
     ratings. Checked at the browser tests' 11 sizes
+  - Added with the owner on 4 November 2026, on the PR: a friend's
+    history offers the Rated ladder filter too (the server marks each
+    indexed game, migration 0030), and a friend's Stats headline and
+    ladder card show their rating once they have one, provisional or not
   - Built: ladder games (people and computers) left the friend stats and
-    the "vs. a friend" filter; the **Rated ladder** filter is in your own
-    history only, since a friend's is filtered on the server by mode alone
-    (their "vs. a friend" still lists their ladder games until the server
-    learns the filter). The Stats card shows the two player rating, which
-    the ladder shares. The boards' columns were sized in em, so the
-    smaller header text made them narrower than the rows'; now in rem
+    the "vs. a friend" filter; the ladder card comes just after vs. a
+    friend and shows the two player rating, which the ladder shares. The
+    boards' columns were sized in em, so the smaller header text made them
+    narrower than the rows'; now in rem
 - [x] **19x. Rated ladder review clean-ups** (stacked on 19s; issues
   plangdon84/word-mastermind-archive#266 and
   plangdon84/word-mastermind-archive#267; worker, review gate; no change

@@ -1925,10 +1925,10 @@ up); a game counts at the easiest difficulty used.
    - **Rated ladder** (Dev Plan item 19t, issue 274; decided with the owner
      on 4 November 2026): ladder games count only here, never on the vs. a
      friend card, whether against a person or a computer. Games played,
-     win % and won–drawn–lost, your **two player rating** (your own
-     profile only; every rated two player game moves it), and a row each
-     for **People** and **Computers** (W–D–L and win %). A friend's
-     shared stats show their card without the rating. Head-to-head records
+     win % and won–drawn–lost, your **two player rating** (your
+     own or a friend's, once they have one; every rated two player game
+     moves it), and a row each for **People** and **Computers** (W–D–L and
+     win %). It comes just after the vs. a friend card. Head-to-head records
      against friends are unchanged.
 3. **Games by difficulty.**
 4. **Top 10 guesses** across all modes; a tie for 10th is cut alphabetically.
@@ -2120,8 +2120,8 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   result, so a result filter leaves Rushes out. The mode filter has
   **Rated ladder** after **vs. a friend** (Dev Plan item 19t, issue 273):
   your ladder games against people and computers, which **vs. a friend**
-  leaves out. A friend's history, filtered on the server by mode alone,
-  doesn't offer it. **Search names** finds games
+  leaves out. A friend's history offers it too, the server filtering
+  theirs. **Search names** finds games
   by who you played (issue 219): your opponent in a game against a friend,
   or the other people in a Word Set with friends (not computers), matching
   the start of a name and ignoring case. Search by word went away; search
@@ -2416,16 +2416,19 @@ history**.
   be read off a friend before you've played it. Their Daily Rush places
   (for the top 10 badges and each Daily Set's place) are only for days that
   are over too.
-- **Stats** are theirs, with their top guesses, but not their rating,
-  which their rated games in the history leave out too. At
+- **Stats** are theirs, with their top guesses. Since Dev Plan item 19t
+  (the owner, 4 November 2026) their headline and **Rated ladder** card
+  show their rating once they have one, provisional ("?") or settled,
+  from the server; with none, the headline has no Rating tile. Their
+  rated games in the history still leave out each game's rating change. At
   the top, **You vs. Bob** is your record against them: won–drawn–lost for
   two player games against them, and for Word Sets you both played (a
   higher place than theirs is a win, the same place a draw; not placed
   comes last, and one neither of you placed in isn't counted). The server
   counts it from the games in both your indexes: a game it refereed has
   the same history ID in both histories.
-- **Game history** has the same filters as yours, without **Export CSV**
-  or the name search, and loads 20 games at a time as you scroll, the
+- **Game history** has the same filters as yours, **Rated ladder**
+  included (Dev Plan item 19t), without **Export CSV** or the name search, and loads 20 games at a time as you scroll, the
   server doing the filtering. A best or fastest game on their **Stats**
   comes with what they shared, so it opens without loading their history. A game opens to review with a **← Bob's game** tag
   instead of **← Past game**, back to their history.
