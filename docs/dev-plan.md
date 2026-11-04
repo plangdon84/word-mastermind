@@ -38,12 +38,12 @@ merges once every PR in it is ready.
 
 - [ ] **19y. One header row fewer in two player games** (from the owner,
   4 November 2026, seeing 19u's screens; app only)
-  - The owner's idea: drop the "You vs. opponent" row in two player games,
+  - The owner's idea: drop the "You vs. opponent" component in the second row of two player games,
     since the tabs already name both players, and move the IN letters (or
-    your word, on their tab) up into its place, so another guess row fits
-  - Settle with the owner first: where the difficulty bubble (tap to
-    change) goes, perhaps the right of the IN row; where a rated game's
-    opponent rating goes; how a friend's name still opens their profile
+    your word, on their tab) up into its place, so another guess row fits. 
+    The difficulty bubble (tap to change) stays where it is on the second row right justified.
+  - Settle with the owner first:  where a rated game's opponent rating goes; 
+    how a friend's name still opens their profile
     (a tab can't hold a link); and whether single player, Rush and the
     dailies keep their row 2, which no tab repeats. The tutorial's header
     step kept in line; checked at the 11 sizes
