@@ -19,13 +19,6 @@ PR adds its notes to the one 2.3.0 release in `src/app/releases.ts`. 19e and 19w
 review gate, as does 19t since the owner added its server part; the stack
 merges once every PR in it is ready.
 
-- [ ] **19e. Friending your ladder opponent** (2.3.0, stacked on 19t;
-  issue #78; split from 18d on 9 October 2026; worker, review gate)
-  - Decided with the owner on 4 November 2026: once a rated ladder game
-    against a person is over (never during it), an **Add friend** button
-    sends them a friend request they accept or decline, as Find a friend
-    does; nothing changes until they accept. Not offered against a
-    computer or someone already a friend. README "Friends" updated
 - [ ] **19w. Who's on the ladder** (2.3.0, stacked on 19t; issue
   plangdon84/word-mastermind-archive#270; worker, review gate)
   - Decided with the owner on 4 November 2026: opening the Rated ladder
@@ -99,6 +92,19 @@ merges once every PR in it is ready.
     card for the words
 
 ## Done, latest first
+
+- [x] **19e. Friending your ladder opponent** (2.3.0, stacked on 19t;
+  issue #78; split from 18d on 9 October 2026; worker, review gate)
+  - Decided with the owner on 4 November 2026: once a rated ladder game
+    against a person is over (never during it), an **Add friend** button
+    sends them a friend request they accept or decline, as Find a friend
+    does; nothing changes until they accept. Not offered against a
+    computer or someone already a friend. README "Friends" updated
+  - Built: the result of a finished ladder game against a person offers
+    **Add friend**, **Friend request sent** or **Accept friend request**,
+    by where you stand (the server says, `ladderFriend`, and tells the
+    other open page when it changes); a request sent by email stays out of
+    sight, as in a search
 
 - [x] **19t. The rated ladder in history and stats** (2.3.0, base of the
   stack; issues
