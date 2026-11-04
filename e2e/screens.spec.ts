@@ -60,7 +60,12 @@ for (const screen of SCREENS) {
       await settle(page);
       const dir = join(GALLERY, browserName, size.name);
       mkdirSync(dir, { recursive: true });
-      await page.screenshot({ path: join(dir, `${screen.name}.jpg`), fullPage: true, type: 'jpeg', quality: 70 });
+      // A browser can't take a picture over 32,767 pixels tall (device pixels): What's new outgrew it in WebKit's
+      // iPhone at 3x. The gallery keeps the top of so long a page; the layout checks below still cover all of it.
+      const shape = await page.evaluate(() => ({ height: document.documentElement.scrollHeight, ratio: devicePixelRatio }));
+      const tallest = Math.floor(32_000 / shape.ratio);
+      const clip = shape.height > tallest ? { clip: { x: 0, y: 0, width: size.width, height: tallest } } : {};
+      await page.screenshot({ path: join(dir, `${screen.name}.jpg`), fullPage: true, type: 'jpeg', quality: 70, ...clip });
       for (const problem of await layoutProblems(page)) {
         failures.push(`${size.name}: ${problem.kind} ${problem.what} (${problem.detail})`);
       }
