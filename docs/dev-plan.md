@@ -11,34 +11,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19s. Small fixes after 2.1.0** (issues
-  plangdon84/word-mastermind-archive#263,
-  plangdon84/word-mastermind-archive#272,
-  plangdon84/word-mastermind-archive#271,
-  plangdon84/word-mastermind-archive#268 and
-  plangdon84/word-mastermind-archive#265; app only)
-  - Issue 263: starting a new game, the difficulty choice can still look
-    like two are picked (a thin ring and a thick one), after 18zu's fix for
-    the Daily Word. Find where the keyboard focus ring still shows after a
-    tap (a dialog that moves focus itself, or a screen opened before any
-    tap) and show it only for keyboard use everywhere; add a browser check
-  - Issue 272: decided with the owner on 4 November 2026: the horseshoe
-    word from the report is never a secret word again but stays a valid
-    guess (`wordlist/rules/secret-exclude.txt`); old games holding it still
-    replay. The PR also lists other obscure secret words it finds, for the
-    owner to tick before any is moved to guess-only
-  - Issue 271: the reported word's definition (named in the archive
-    issue) leads with its everyday sense, a short note, voucher or token,
-    through `wordlist/rules/definitions.txt`, dropping the dismissive
-    sense WordNet gives alone
-  - Issue 268: the rating boards get a header row (Player, Rating, Games)
-    instead of the explaining text below the rows, which a long board hides.
-    The rating lines up with the game count; the computer-games count goes
-    to the right of the games where the screen is wide enough (below it on
-    a phone, as now); a long name is cut short with …
-  - Issue 265: when the server refuses a guest's rename for good (a 400),
-    the device drops it instead of resending it on every visit; network and
-    server errors are still retried
 - [ ] **19t. The rated ladder in history and stats** (issues
   plangdon84/word-mastermind-archive#273 and
   plangdon84/word-mastermind-archive#274; app only)
@@ -152,6 +124,37 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19s. Small fixes after 2.1.0** (2.2.0; issues
+  plangdon84/word-mastermind-archive#263,
+  plangdon84/word-mastermind-archive#272,
+  plangdon84/word-mastermind-archive#271,
+  plangdon84/word-mastermind-archive#268 and
+  plangdon84/word-mastermind-archive#265; app only)
+  - Issue 263: starting a new game, the difficulty choice can still look
+    like two are picked (a thin ring and a thick one), after 18zu's fix for
+    the Daily Word. Find where the keyboard focus ring still shows after a
+    tap (a dialog that moves focus itself, or a screen opened before any
+    tap) and show it only for keyboard use everywhere; add a browser check
+  - Issue 272: decided with the owner on 4 November 2026: the horseshoe
+    word from the report is never a secret word again but stays a valid
+    guess (`wordlist/rules/secret-exclude.txt`); old games holding it still
+    replay. The PR also lists other obscure secret words it finds, for the
+    owner to tick before any is moved to guess-only
+  - Done: the owner moved four more from that list to guess-only; the
+    rest stay. 263 was the phone's sticky hover, not the focus ring: every
+    hover style now needs a device that hovers
+  - Issue 271: the reported word's definition (named in the archive
+    issue) leads with its everyday sense, a short note, voucher or token,
+    through `wordlist/rules/definitions.txt`, dropping the dismissive
+    sense WordNet gives alone
+  - Issue 268: the rating boards get a header row (Player, Rating, Games)
+    instead of the explaining text below the rows, which a long board hides.
+    The rating lines up with the game count; the computer-games count goes
+    to the right of the games where the screen is wide enough (below it on
+    a phone, as now); a long name is cut short with …
+  - Issue 265: when the server refuses a guest's rename for good (a 400),
+    the device drops it instead of resending it on every visit; network and
+    server errors are still retried
 - [x] **19q. Switch on the Live 10 ladder** (after 19p)
   - `FEATURES`: Random opponent on, shown as **Rated ladder** (Live 10
     at Medium; "Live, 10 minutes each, at Medium. Matched with a player

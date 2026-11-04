@@ -25,6 +25,15 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.2.0',
+    notes: [
+      { text: 'Picking a difficulty on a phone no longer leaves a second choice looking picked.' },
+      { text: 'The two player rating board has column headings, and long names end in … to fit.' },
+      { text: 'Some very obscure words are no longer picked as secret words.' },
+      { text: 'Clearer definition for a word that only showed an unkind meaning.' },
+    ],
+  },
+  {
     version: '2.1.0',
     notes: [
       { text: 'New: the Rated ladder. Play live, 10 minutes each, at Medium against a player near your rating, or a computer at your level if no one is free after 30 seconds.' },
