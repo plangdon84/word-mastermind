@@ -1392,6 +1392,8 @@ button.bubble:active { transform: scale(0.94); }
 
 /* Waiting in the matchmaking queue. */
 .searching .search-time { margin: 0; font-family: var(--mono); font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+/* How busy the rated ladder is (Dev Plan item 19w): numbers only, on the word step and while waiting. */
+.ladder-busy { margin: 0; font-size: 0.88rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* The game has moved (issue #92): the steps on the old address. */
 .moved-steps { margin: 0 0 12px; padding-left: 22px; }

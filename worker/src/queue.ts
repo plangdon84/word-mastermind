@@ -1,5 +1,5 @@
 import { COMPUTER_AFTER_MS, validateSecretWord, type Rating } from '../../src/game';
-import type { QueueError, QueueStatus } from '../../src/app/queueApi';
+import type { QueueBusy, QueueError, QueueStatus } from '../../src/app/queueApi';
 
 /*
  * The matchmaking queue's referee (README "Random opponent"), run by one
@@ -40,15 +40,34 @@ interface Match {
   at: number;
 }
 
+/**
+ * A ladder game the queue started that hasn't ended yet (Dev Plan item 19w):
+ * how many people play in it (2, or 1 against a computer) and when it began.
+ * Its room tells the queue when it ends (`ended`).
+ */
+interface InPlay {
+  people: number;
+  at: number;
+}
+
 interface QueueState {
   seekers: Seeker[];
   matches: Record<string, Match>;
+  /** By game ID. Absent in a queue stored before item 19w. */
+  playing?: Record<string, InPlay>;
 }
 
 /** A player who hasn't checked in for this long has left (closed the page), and loses their place. */
 export const STALE_MS = 30_000;
 /** How long a match waits to be picked up. */
 export const MATCH_KEEP_MS = 10 * 60 * 1000;
+/**
+ * The longest a ladder game can last: both 10-minute clocks and both
+ * 2-minute first guesses (24 minutes), with room to spare. A game whose end
+ * the queue never heard of (its room's notice failed) stops counting after
+ * this, so a lost notice can't leave the count high.
+ */
+export const PLAYING_KEEP_MS = 30 * 60 * 1000;
 /**
  * How long a `starting` mark holds: if the queue stops while a computer game
  * is being made (a deploy), the mark is never cleared, so after this it's
@@ -101,20 +120,34 @@ export interface QueueDeps {
 export type QueueRequest =
   | { action: 'join'; accountId: string; name: string; secret: string; rating: Rating; computer: number }
   | { action: 'poll'; accountId: string }
-  | { action: 'leave'; accountId: string };
+  | { action: 'leave'; accountId: string }
+  /** How busy the ladder is (Dev Plan item 19w): counts only, read without changing anything. */
+  | { action: 'busy' }
+  /** From a game room the queue started: its game is over (or cancelled), so it stops counting. */
+  | { action: 'ended'; gameId: string };
 
-export type QueueResponse = { status: number; body: QueueStatus | { error: QueueError } };
+export type QueueResponse = { status: number; body: QueueStatus | QueueBusy | { error: QueueError } };
 
 const KEY = 'queue';
 
 async function load(storage: QueueStorage, now: number): Promise<QueueState> {
   const state = (await storage.get<QueueState>(KEY)) ?? { seekers: [], matches: {} };
   const matches = Object.fromEntries(Object.entries(state.matches).filter(([, m]) => now - m.at < MATCH_KEEP_MS));
-  return { seekers: state.seekers.filter((s) => now - s.seenAt < STALE_MS), matches };
+  const playing = Object.fromEntries(Object.entries(state.playing ?? {}).filter(([, g]) => now - g.at < PLAYING_KEEP_MS));
+  return { seekers: state.seekers.filter((s) => now - s.seenAt < STALE_MS), matches, playing };
 }
 
-const waiting = (state: QueueState, seeker: Seeker, now: number): QueueResponse =>
-  ({ status: 200, body: { state: 'waiting', since: seeker.joinedAt, waiting: state.seekers.length - 1, now } });
+/** How many people are in the ladder's games now: never who, just how many. */
+const peoplePlaying = (state: QueueState) => Object.values(state.playing ?? {}).reduce((sum, g) => sum + g.people, 0);
+
+/** The queue with a game it just started counted as in play. */
+const withGame = (state: QueueState, gameId: string, people: number, now: number): Record<string, InPlay> =>
+  ({ ...state.playing, [gameId]: { people, at: now } });
+
+const waiting = (state: QueueState, seeker: Seeker, now: number): QueueResponse => ({
+  status: 200,
+  body: { state: 'waiting', since: seeker.joinedAt, waiting: state.seekers.length - 1, playing: peoplePlaying(state), now },
+});
 
 /**
  * Matches `seeker` if anyone fits. The opponent leaves the queue before the
@@ -140,7 +173,9 @@ async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueStat
   }
   const current = await load(storage, now);
   const at = { gameId, at: now };
-  await storage.put(KEY, { ...current, matches: { ...current.matches, [opponent.accountId]: at, [seeker.accountId]: at } });
+  await storage.put(KEY, {
+    ...current, matches: { ...current.matches, [opponent.accountId]: at, [seeker.accountId]: at }, playing: withGame(current, gameId, 2, now),
+  });
   return { status: 200, body: { state: 'matched', gameId } };
 }
 
@@ -184,19 +219,26 @@ async function playComputer(storage: QueueStorage, deps: QueueDeps, state: Queue
   const { current, still, same } = await settle();
   if (!same) return moved(current, still);
   await storage.put(KEY, {
-    seekers: others(current.seekers), matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } },
+    ...current, seekers: others(current.seekers), matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } },
+    playing: withGame(current, gameId, 1, now),
   });
   return { status: 200, body: { state: 'matched', gameId } };
 }
 
 export async function handleQueue(storage: QueueStorage, deps: QueueDeps, request: QueueRequest, now: number): Promise<QueueResponse> {
   const state = await load(storage, now);
+  if (request.action === 'busy') return { status: 200, body: { waiting: state.seekers.length, playing: peoplePlaying(state) } };
+  if (request.action === 'ended') {
+    const { [request.gameId]: _ended, ...playing } = state.playing ?? {};
+    await storage.put(KEY, { ...state, playing });
+    return { status: 200, body: { state: 'idle' } };
+  }
   const { accountId } = request;
   const others = state.seekers.filter((s) => s.accountId !== accountId);
   const { [accountId]: match, ...otherMatches } = state.matches;
 
   if (request.action === 'leave') {
-    await storage.put(KEY, { seekers: others, matches: otherMatches });
+    await storage.put(KEY, { ...state, seekers: others, matches: otherMatches });
     return { status: 200, body: { state: 'idle' } };
   }
 
@@ -222,7 +264,7 @@ export async function handleQueue(storage: QueueStorage, deps: QueueDeps, reques
   const seeker: Seeker = {
     accountId, name: request.name, secret: secret.word, rating: request.rating, computer: request.computer, joinedAt: now, seenAt: now,
   };
-  const next = { seekers: [...others, seeker], matches: otherMatches };
+  const next = { ...state, seekers: [...others, seeker], matches: otherMatches };
   await storage.put(KEY, next);
   return tryMatch(storage, deps, next, seeker, now);
 }

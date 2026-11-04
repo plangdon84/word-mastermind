@@ -2,6 +2,7 @@
 // gets an in-memory room, refereed by the same code as a real GameRoom.
 import { friendCodes, friendStateOf } from './friends';
 import { json } from './http';
+import { ladderEnded } from './matchmaker';
 import type { Notice } from './notices';
 import { TWO_PLAYER_POOL } from '../../src/game';
 import { ratingsOf } from './ratings';
@@ -35,9 +36,11 @@ export interface FakeRoomsOptions {
   now: () => number;
   /** Who goes first: below 0.5 the host. */
   random?: () => number;
+  /** The queues a ladder game's end is told to (Dev Plan item 19w), read when one ends. */
+  queues?: () => DurableObjectNamespace;
 }
 
-export function fakeRooms({ db, now, random = () => 0 }: FakeRoomsOptions) {
+export function fakeRooms({ db, now, random = () => 0, queues }: FakeRoomsOptions) {
   const rooms = new Map<string, ReturnType<typeof memoryStorage>>();
   let next = 0;
   const idOf = (hex: string) => ({ toString: () => hex, equals: (other: { toString(): string }) => other.toString() === hex });
@@ -51,14 +54,20 @@ export function fakeRooms({ db, now, random = () => 0 }: FakeRoomsOptions) {
         rooms.set(key, storage);
         const request = JSON.parse(init.body as string) as RoomRequest;
         const { status, body } = await handleRoom(storage, deps, request, now());
+        await Promise.all(ended.splice(0));
         return json(body, status);
       },
     }),
   };
+  const ended: Promise<void>[] = [];
   /** Every notification the rooms sent, in order. */
   const notices: Notice[] = [];
   const deps: RoomDeps = {
     saveFinished: saveFinishedGame.bind(null, db), random,
+    // Awaited here, unlike the real room's `waitUntil`, so a test sees the count once the move returns.
+    ladderEnded: (gameId) => {
+      if (queues) ended.push(ladderEnded(queues(), gameId));
+    },
     namesOf: (ids) => currentNames(db, ids),
     friendCodes: (accountId, ids) => friendCodes(db, accountId, ids),
     friendStateOf: (accountId, playerId) => friendStateOf(db, accountId, playerId, now()),
@@ -72,6 +81,7 @@ export function fakeRooms({ db, now, random = () => 0 }: FakeRoomsOptions) {
       if (storage.alarm !== null && storage.alarm <= now()) {
         storage.alarm = null;
         await handleAlarm(storage, deps, now());
+        await Promise.all(ended.splice(0));
       }
     }
   };

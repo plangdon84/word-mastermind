@@ -19,14 +19,6 @@ PR adds its notes to the one 2.3.0 release in `src/app/releases.ts`. 19e and 19w
 review gate, as does 19t since the owner added its server part; the stack
 merges once every PR in it is ready.
 
-- [ ] **19w. Who's on the ladder** (2.3.0, stacked on 19t; issue
-  plangdon84/word-mastermind-archive#270; worker, review gate)
-  - Decided with the owner on 4 November 2026: opening the Rated ladder
-    shows how busy it is, numbers only and never names, e.g. "2 waiting ·
-    6 in ladder games now" (0 too, so players expect a computer after 30
-    seconds). Read from the queue and the games in play, kept cheap within
-    the Workers Free plan. README "Random opponent" updated
-
 **Later**
 
 - [ ] **19y. One header row fewer in two player games** (from the owner,
@@ -92,6 +84,18 @@ merges once every PR in it is ready.
     card for the words
 
 ## Done, latest first
+
+- [x] **19w. Who's on the ladder** (2.3.0, stacked on 19t; issue
+  plangdon84/word-mastermind-archive#270; worker, review gate)
+  - Decided with the owner on 4 November 2026: opening the Rated ladder
+    shows how busy it is, numbers only and never names, e.g. "2 waiting ·
+    6 in ladder games now" (0 too, so players expect a computer after 30
+    seconds). Read from the queue and the games in play, kept cheap within
+    the Workers Free plan. README "Random opponent" updated
+  - Built: the queue counts the people in each ladder game it started (2,
+    or 1 against a computer) until the game's room says it's over; the
+    word step reads it (`POST /api/queue/busy`) on opening and every 15
+    seconds, and each check-in while waiting carries it
 
 - [x] **19e. Friending your ladder opponent** (2.3.0, stacked on 19t;
   issue #78; split from 18d on 9 October 2026; worker, review gate)

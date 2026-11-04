@@ -8,14 +8,17 @@ import { API_URL } from './config';
 import { addFriendGame } from './friendGames';
 import { SecretStep } from './friendParts';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
-import { clockText, secretErrorMessage } from './messages';
+import { busyText, clockText, secretErrorMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
-import { queueApi, QueueApiError, type QueueError, type QueueStatus } from './queueApi';
+import { queueApi, QueueApiError, type QueueBusy, type QueueError, type QueueStatus } from './queueApi';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
 import type { Settings } from './settings';
 
 /** How often to check in while waiting: the server drops a player it hasn't heard from in 30 seconds. */
 const POLL_MS = 2_000;
+
+/** How often the word step looks again at how busy the ladder is (Dev Plan item 19w). */
+const BUSY_MS = 15_000;
 
 const WORD_ERRORS: readonly QueueError[] = ['wrong-length', 'not-letters', 'repeated-letters', 'not-in-word-list'];
 
@@ -51,8 +54,10 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   const [message, setMessage] = useMessage();
   const [shake, setShake] = useState(false);
   const [busy, setBusy] = useState(false);
-  /** Waiting in the queue with this word, since this time by the server's clock. */
-  const [waiting, setWaiting] = useState<{ word: string; since: number; offset: number } | null>(null);
+  /** Waiting in the queue with this word, since this time by the server's clock, and how busy it was at the last check-in. */
+  const [waiting, setWaiting] = useState<{ word: string; since: number; offset: number; busy: QueueBusy | null } | null>(null);
+  /** How busy the ladder is, for the word step; null until known (or if it can't be read). */
+  const [ladderBusy, setLadderBusy] = useState<QueueBusy | null>(null);
   const draftRef = useRef(draft);
   const setDraft = (d: string) => {
     draftRef.current = d;
@@ -69,7 +74,8 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
   const follow = (status: QueueStatus, word: string) => {
     if (status.state === 'matched') matched(status.gameId, word);
     else if (status.state === 'waiting') {
-      setWaiting({ word, since: status.since, offset: status.now - Date.now() });
+      const counts = status.playing === undefined ? null : { waiting: status.waiting, playing: status.playing };
+      setWaiting({ word, since: status.since, offset: status.now - Date.now(), busy: counts });
     } else setWaiting(null);
   };
 
@@ -108,6 +114,21 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
       clearInterval(timer);
     };
   }, [api, waitingWord]);
+
+  // On the word step: how busy the ladder is, on opening and every little while after, never while waiting
+  // (each check-in says then). A failure just leaves the line off.
+  const onWordStep = signedIn && !waitingWord;
+  useEffect(() => {
+    if (!api || !onWordStep) return;
+    let live = true;
+    const look = () => api.busy(choice).then((b) => live && setLadderBusy(b), () => live && setLadderBusy(null));
+    void look();
+    const timer = setInterval(() => void look(), BUSY_MS);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [api, onWordStep]);
 
   // Leaving the screen while waiting leaves the queue.
   const leaveRef = useRef<(() => void) | null>(null);
@@ -164,6 +185,7 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
           <p class="search-time" role="timer">{clockText(now + waiting.offset - waiting.since)}</p>
           <p>Rated · {timing} · {DIFFICULTY_LABEL[difficulty]}. You'll be matched with a player of a similar
             rating, or a computer at about your level if no one is free after 30 seconds. Keep this page open.</p>
+          {waiting.busy && <p class="ladder-busy">{busyText(waiting.busy, true)}</p>}
           <p class="field-note">Your word: <b>{waiting.word.toUpperCase()}</b></p>
           <div class="row-btns"><button class="btn" type="button" onClick={cancel}>Cancel</button></div>
         </section>
@@ -175,6 +197,7 @@ export function MatchScreen({ settings, profile, identity, signedIn, onProfile, 
     <SecretStep title="Rated ladder" draft={draft} shake={shake} onShakeEnd={() => setShake(false)}
       note={`Your opponent will try to guess your secret word. 5 letters, no repeated letters. Rated: ${timing}, `
         + `at ${DIFFICULTY_LABEL[difficulty]}, which stays fixed for the game.`}
+      extra={ladderBusy && <p class="ladder-busy">{busyText(ladderBusy)}</p>}
       message={message} busy={busy} onDraft={setDraft} onBack={onExit}
       keyboard={<Keyboard ready={draft.length === 5} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} />} />
   );

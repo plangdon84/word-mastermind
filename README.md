@@ -1263,6 +1263,18 @@ isn't mistaken for a rated challenge to a friend).
   it hasn't heard from in 30 seconds (the page was closed), and the app
   joins again by itself if it was dropped while in the background. Leaving
   the screen leaves the queue.
+- **How busy it is** (Dev Plan item 19w, agreed with the owner on 4
+  November 2026): the word step shows how many people are waiting and how
+  many are in ladder games now, as numbers only and never names, e.g. **2
+  waiting · 6 in ladder games now**, zeros too, so a player alone expects a
+  computer after 30 seconds. It's read on opening and every 15 seconds
+  while the word step is open; while you wait, each check-in carries it,
+  counting the others waiting (**1 other waiting · 6 in ladder games
+  now**). A game against a person counts 2, one against a computer 1. The
+  queue keeps the count itself: it notes each game it starts, and the
+  game's room tells it when the game is over (or cancelled), so nothing is
+  read from D1; a game it never hears about stops counting after 30
+  minutes, longer than any ladder game can last.
 - **Matching:** two players are paired when their ratings are within **200
   points**, a gap that widens by 10 points each second the longer-waiting
   of the two has waited (500 after 30 seconds); the closest rating wins, the
