@@ -1,4 +1,4 @@
-import { isObject, isTime, type Difficulty, type TimeControl, type WordError } from '../game';
+import { isObject, isTime, type QueueChoice, type WordError } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 
 /*
@@ -18,12 +18,6 @@ export type QueueStatus =
   | { state: 'idle' };
 
 export type QueueError = WordError | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'unreachable';
-
-/** Which queue: a time control and a difficulty. */
-export interface QueueChoice {
-  timeControl: TimeControl;
-  difficulty: Difficulty;
-}
 
 
 export function parseQueueStatus(value: unknown): QueueStatus | null {

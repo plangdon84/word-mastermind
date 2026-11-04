@@ -1,4 +1,4 @@
-import type { QueueChoice } from '../../src/app/queueApi';
+import type { QueueChoice } from '../../src/game';
 import { startComputerGame, startMatchedGame } from './games';
 import { json } from './http';
 import type { Env } from './index';

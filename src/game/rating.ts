@@ -1,4 +1,4 @@
-import { DAY_MS, type PvpOutcome, type Seat, type TimeControl } from './pvp';
+import { DAY_MS, type PvpOutcome, type Seat } from './pvp';
 
 /*
  * Ratings (README "Rating"): Glicko-2 (Mark Glickman,
@@ -54,7 +54,8 @@ export const SHOWN_POOLS: readonly RatingPool[] = ['correspondence', 'rush'];
 
 export const isRatingPool = (value: unknown): value is RatingPool => RATING_POOLS.includes(value as RatingPool);
 
-export const ratingPool = (_control: TimeControl): RatingPool => 'correspondence';
+/** The pool every rated two player game rates into, whatever its clock (Dev Plan item 19p). */
+export const TWO_PLAYER_POOL: RatingPool = 'correspondence';
 
 export const isProvisional = (rating: Rating) => rating.rd > PROVISIONAL_RD;
 

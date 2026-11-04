@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { authApi } from '../../src/app/account';
 import { friendApi } from '../../src/app/friendApi';
-import { queueApi, QueueApiError, type QueueChoice } from '../../src/app/queueApi';
+import type { QueueChoice } from '../../src/game';
+import { queueApi, QueueApiError } from '../../src/app/queueApi';
 import { sharedSummary } from '../../src/app/sharedSummary';
 import { COMPUTER_RATINGS, NEW_RATING, updateRating } from '../../src/game';
 import { fakeD1 } from './fakeD1';
@@ -368,6 +369,73 @@ describe('starting a computer game (review round 1)', () => {
       expect((await handleQueue(storage, deps, poll, NOW + 30_000 + i * 2_000)).body).toMatchObject({ state: 'waiting' });
     }
     expect(tries).toBe(COMPUTER_TRIES);
+  });
+});
+
+describe('leaving while a computer game is made (Dev Plan item 19x)', () => {
+  const join = { action: 'join' as const, accountId: 'ann', name: 'Ann', secret: 'storm', rating: NEW_RATING, computer: 0.38 };
+  const poll = { action: 'poll' as const, accountId: 'ann' };
+  const leave = { action: 'leave' as const, accountId: 'ann' };
+
+  /** A queue whose computer game is held until `finish` or `fail` is called. */
+  function held() {
+    const storage = memoryStorage();
+    let finish: (id: string) => void = () => {};
+    let fail: () => void = () => {};
+    const deps: QueueDeps = {
+      startGame: async () => { throw new Error('no person game expected'); },
+      startComputerGame: () => new Promise((resolve, reject) => { finish = resolve; fail = () => reject(new Error('room down')); }),
+    };
+    const starting = async () => {
+      await handleQueue(storage, deps, join, NOW);
+      await handleQueue(storage, deps, poll, NOW + 20_000);
+      const first = handleQueue(storage, deps, poll, NOW + 30_000);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return { first };
+    };
+    return { storage, deps, starting, finish: (id: string) => finish(id), fail: () => fail() };
+  }
+
+  it("doesn't put a player who cancelled back in the queue when the game then fails", async () => {
+    const queue = held();
+    const { first } = await queue.starting();
+    expect((await handleQueue(queue.storage, queue.deps, leave, NOW + 31_000)).body).toEqual({ state: 'idle' });
+    queue.fail();
+    expect((await first).body).toEqual({ state: 'idle' });
+    expect((await handleQueue(queue.storage, queue.deps, poll, NOW + 32_000)).body).toEqual({ state: 'idle' });
+  });
+
+  it("doesn't hand a game made after they cancelled to a player who joined again", async () => {
+    const queue = held();
+    const { first } = await queue.starting();
+    await handleQueue(queue.storage, queue.deps, leave, NOW + 31_000);
+    expect((await handleQueue(queue.storage, queue.deps, { ...join, secret: 'plant' }, NOW + 32_000)).body)
+      .toMatchObject({ state: 'waiting', since: NOW + 32_000 });
+    queue.finish('a'.repeat(64));
+    expect((await first).body).toMatchObject({ state: 'waiting', since: NOW + 32_000 });
+    expect((await handleQueue(queue.storage, queue.deps, poll, NOW + 33_000)).body).toMatchObject({ state: 'waiting', since: NOW + 32_000 });
+  });
+
+  it('keeps a player who rejoined in their new place when the first game fails', async () => {
+    const queue = held();
+    const { first } = await queue.starting();
+    await handleQueue(queue.storage, queue.deps, leave, NOW + 31_000);
+    await handleQueue(queue.storage, queue.deps, { ...join, secret: 'plant' }, NOW + 32_000);
+    queue.fail();
+    expect((await first).body).toMatchObject({ state: 'waiting', since: NOW + 32_000 });
+    const stored = await queue.storage.get<{ seekers: Seeker[] }>('queue');
+    expect(stored?.seekers).toEqual([expect.objectContaining({ accountId: 'ann', secret: 'plant', joinedAt: NOW + 32_000 })]);
+    expect(stored?.seekers[0].computerFails).toBeUndefined();
+  });
+
+  it('still counts a failure for a player who kept waiting', async () => {
+    const queue = held();
+    const { first } = await queue.starting();
+    queue.fail();
+    expect((await first).body).toMatchObject({ state: 'waiting', since: NOW });
+    const stored = await queue.storage.get<{ seekers: Seeker[] }>('queue');
+    expect(stored?.seekers[0]).toMatchObject({ accountId: 'ann', computerFails: 1 });
+    expect(stored?.seekers[0].starting).toBeUndefined();
   });
 });
 

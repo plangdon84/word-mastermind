@@ -6,7 +6,7 @@ import { notePlayed } from './reminders';
 import { vapidKeysOf } from './pushRoutes';
 import { ratingsOf } from './ratings';
 import { currentNames } from './sync';
-import { ratingPool } from '../../src/game';
+import { TWO_PLAYER_POOL } from '../../src/game';
 import { handleAlarm, handleRoom, mayChange, saveFinishedGame, type RoomDeps, type RoomRequest } from './room';
 
 /** Most open pages one game tells about its moves; a new one past this closes the oldest. */
@@ -31,7 +31,7 @@ export class GameRoom implements DurableObject {
       saveFinished: (room, record, now) => saveFinishedGame(env.DB, room, record, now),
       namesOf: (ids) => currentNames(env.DB, ids),
       friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
-      ratingsOf: (players, control, now) => ratingsOf(env.DB, players, ratingPool(control), now),
+      ratingsOf: (players, now) => ratingsOf(env.DB, players, TWO_PLAYER_POOL, now),
       random: Math.random,
       played: (playerId, now) => notePlayed(env.DB, playerId, now),
       // Sent after the answer; the Durable Object stays alive until they're done.
