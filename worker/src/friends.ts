@@ -8,6 +8,7 @@ import {
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
 import { identify, normalizeEmail, playerOfAccount } from './accounts';
 import { pastPlacements } from './dailyRoutes';
+import { listRatings } from './ratings';
 import { friendGamesPage, sharedSummaryOf, versusOf } from './friendProfiles';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
@@ -459,10 +460,12 @@ export async function routeFriends(
     const friendId = await friendIdByCode(env.DB, accountId, code);
     if (!friendId) return errorResponse(404, 'not-found');
     if (query) return json(await friendGamesPage(env.DB, friendId, query, now));
-    const [profile, summary, versus] = await Promise.all([
+    // Their ratings too, provisional or not (Dev Plan item 19t): friends see what the boards leave out.
+    const [profile, summary, versus, ratings] = await Promise.all([
       friendProfile(env.DB, friendId, now), sharedSummaryOf(env.DB, friendId), versusOf(env.DB, accountId, friendId),
+      listRatings(env.DB, friendId, now),
     ]);
-    const answer: FriendProfileAnswer = { profile, summary, versus };
+    const answer: FriendProfileAnswer = { profile, summary, versus, ratings };
     return json(answer);
   }
   if (pathname === '/api/friends/search') {

@@ -54,6 +54,8 @@ function indexRow(entry: HistoryEntry, gameSeq: number | null, replayed = replay
     id: entry.id, startedAt: entry.record.startedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
     words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
     rank: you ? you.rank ?? NOT_PLACED : null,
+    // A rated ladder game (Dev Plan item 19t), which a friend's history filters apart from games against friends.
+    ladder: summary.ladder ? 1 : 0,
     gameSeq,
     // A synced game's entry stays in history_entries alone.
     entry: gameSeq === null ? null : JSON.stringify(withoutRating(entry)),
@@ -67,8 +69,8 @@ async function insertRows(db: D1Database, accountId: string, rows: readonly (Ret
   const field = (name: string) => `json_extract(value, '$.${name}')`;
   await db.prepare(
     `INSERT OR IGNORE INTO profile_games
-       (account_id, id, started_at, mode, result, difficulty, words, daily_day, rank, game_seq, entry)
-     SELECT ?1, ${['id', 'startedAt', 'mode', 'result', 'difficulty', 'words', 'dailyDay', 'rank', 'gameSeq', 'entry']
+       (account_id, id, started_at, mode, result, difficulty, words, daily_day, rank, ladder, game_seq, entry)
+     SELECT ?1, ${['id', 'startedAt', 'mode', 'result', 'difficulty', 'words', 'dailyDay', 'rank', 'ladder', 'gameSeq', 'entry']
     .map(field).join(', ')} FROM json_each(?2)`,
   ).bind(accountId, JSON.stringify(kept)).run();
 }
@@ -288,7 +290,8 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 
 /**
  * A page of a friend's game history, newest first, matching the history's
- * filters (as `matchesFilter` does), from the game after `after` (newer
+ * filters (as `matchesFilter` does: the rated ladder's games apart from
+ * every mode's, Dev Plan item 19t), from the game after `after` (newer
  * first, then by history ID). A Daily Set or Daily Word is left out until
  * the day after it is over.
  */
@@ -303,7 +306,8 @@ export async function friendGamesPage(
     `SELECT g.started_at, g.id, COALESCE(g.entry, h.entry) AS entry FROM profile_games g
      LEFT JOIN history_entries h ON g.entry IS NULL AND h.account_id = g.account_id AND h.id = g.id
      WHERE g.account_id = ?1 AND (g.daily_day IS NULL OR g.daily_day < ?2)
-       AND (?3 IS NULL OR g.mode = ?3) AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
+       AND (?3 IS NULL OR (?3 = 'ladder' AND g.ladder = 1) OR (g.mode = ?3 AND g.ladder = 0))
+       AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
        AND instr(g.words, ' ' || ?6) > 0
        ${from === null ? '' : 'AND g.started_at <= ?8 AND (g.started_at < ?8 OR g.id > ?9)'}
      ORDER BY g.started_at DESC, g.id LIMIT ?7`,

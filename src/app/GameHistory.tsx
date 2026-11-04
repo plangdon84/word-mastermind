@@ -148,13 +148,13 @@ export const LADDER_LABEL = 'Rated ladder';
 
 /**
  * The Mode filter's choices: the server's modes only with a server, and the
- * Rated ladder (Dev Plan item 19t) after "vs. a friend", in your own history
- * only, since a friend's is filtered on the server by mode alone.
+ * Rated ladder (Dev Plan item 19t) after "vs. a friend", in your history and
+ * a friend's (the server filters theirs).
  */
-const modeOptions = (friend: boolean): { value: HistoryFilterMode; label: string }[] =>
+const modeOptions = (): { value: HistoryFilterMode; label: string }[] =>
   HISTORY_MODES.filter((m) => !isServerMode(m) || API_URL).flatMap((m) => [
     { value: m, label: MODE_LABEL[m] },
-    ...(m === 'friend' && !friend && FEATURES.randomOpponent ? [{ value: 'ladder' as const, label: LADDER_LABEL }] : []),
+    ...(m === 'friend' && FEATURES.randomOpponent ? [{ value: 'ladder' as const, label: LADDER_LABEL }] : []),
   ]);
 
 /** This browser's games, by offset. */
@@ -249,7 +249,7 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadYou
       {csvMessage && <p class="field-note error" role="alert">{csvMessage}</p>}
       <div class="history-filters">
         <Filter label="Mode" value={filter.mode} onChange={(mode) => onFilter({ ...filter, mode })}
-          options={modeOptions(Boolean(friend))} />
+          options={modeOptions()} />
         <Filter label="Result" value={filter.result} onChange={(result) => onFilter({ ...filter, result })}
           options={(['won', 'lost', 'drawn'] as const).map((r) => ({ value: r, label: RESULT_LABEL[r] }))} />
         <Filter<Difficulty> label="Difficulty" value={filter.difficulty}

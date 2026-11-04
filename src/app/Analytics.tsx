@@ -121,8 +121,9 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
 
 /**
  * The Rated ladder's card (Dev Plan item 19t): its games, which the "vs. a
- * friend" card leaves out, against people and computers apart, and your two
- * player rating, which every rated two player game moves. A friend's has no rating.
+ * friend" card leaves out, against people and computers apart, and the two
+ * player rating, which every rated two player game moves (a friend's too,
+ * once they have one).
  */
 function LadderCard({ ladder, rating }: { ladder: LadderStats; rating?: PoolRating }) {
   const wdl = (r: WinRecord) => `${r.wins}–${r.draws}–${r.losses}`;
@@ -155,6 +156,10 @@ function LadderCard({ ladder, rating }: { ladder: LadderStats; rating?: PoolRati
     </div>
   );
 }
+
+/** Where a card goes: the modes in order, with the Rated ladder's (Dev Plan item 19t) just after "vs. a friend". */
+const cardOrder = (card: HistoryMode | 'ladder') =>
+  card === 'ladder' ? HISTORY_MODES.indexOf('friend') + 0.5 : HISTORY_MODES.indexOf(card);
 
 /** A card for each mode you've played: one saying "No games yet" for each of the rest is clutter. */
 const shownModes = (stats: Stats) => HISTORY_MODES.filter((m) => stats.modes[m].played > 0);
@@ -192,11 +197,16 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
   onOpen: (game: HistoryGame) => void;
   /** Your ratings, where there's a server; undefined without one. */
   ratings?: RatingsState;
-  /** A friend's stats, from their profile (Dev Plan item 18c): their name. Their rating isn't shown. */
+  /**
+   * A friend's stats, from their profile (Dev Plan item 18c): their name. Their
+   * rating shows only once they have one (Dev Plan item 19t), provisional or not.
+   */
   friend?: string;
   /** Shown before the stats: your record against a friend. */
   children?: ComponentChildren;
 }) {
+  // A friend with no rating has no Rating tile: "No rated games yet" and the like are written for you.
+  const friendUnrated = Boolean(friend) && !ratings?.list?.length;
   const open = (id: string) => {
     const game = games.find((g) => g.entry.id === id);
     if (game) onOpen(game);
@@ -208,8 +218,8 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
       ) : (
         <>
           {children}
-          <dl class={friend ? 'headline three' : 'headline'}>
-            {!friend && <RatingTile ratings={ratings} />}
+          <dl class={friendUnrated ? 'headline three' : 'headline'}>
+            {!friendUnrated && <RatingTile ratings={ratings} />}
             <div><dt>Games</dt><dd>{stats.played}</dd></div>
             <div><dt>Win %</dt><dd>{percent(stats.winPct)}</dd></div>
             <div><dt>Guesses</dt><dd>{stats.totalGuesses.toLocaleString()}</dd></div>
@@ -225,10 +235,12 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
           ) : (
             <>
               <div class="mode-cards">
-                {shownModes(stats).map((m) => <ModeCard key={m} stats={stats.modes[m]} onOpen={open} />)}
-                {stats.ladder && stats.ladder.played > 0 && (
-                  <LadderCard ladder={stats.ladder} rating={ratings?.list?.find((r) => r.pool === TWO_PLAYER_POOL)} />
-                )}
+                {/* The Rated ladder's card where "vs. a friend" is in the list, whether or not that has one. */}
+                {[...shownModes(stats), ...(stats.ladder?.played ? ['ladder' as const] : [])]
+                  .sort((a, b) => cardOrder(a) - cardOrder(b))
+                  .map((m) => (m === 'ladder'
+                    ? <LadderCard key={m} ladder={stats.ladder!} rating={ratings?.list?.find((r) => r.pool === TWO_PLAYER_POOL)} />
+                    : <ModeCard key={m} stats={stats.modes[m]} onOpen={open} />))}
               </div>
               <div class="stat-block">
                 <h4>Games by difficulty</h4>

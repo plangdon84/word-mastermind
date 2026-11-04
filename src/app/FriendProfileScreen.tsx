@@ -15,6 +15,7 @@ import { GameHistory } from './GameHistory';
 import { toHistoryGame, type HistoryCursor, type HistoryGame, type HistoryPage } from './historyDb';
 import { plural } from './messages';
 import { BackIcon } from './panels';
+import type { PoolRating } from './ratingsApi';
 
 /*
  * A friend's profile (Dev Plan item 18c, README "Friends' profiles"): their
@@ -39,6 +40,8 @@ export interface LoadedFriend {
   /** What they share; null until a device of theirs on this version has sent it. */
   summary: SharedSummary | null;
   versus: HeadToHead;
+  /** Their ratings (Dev Plan item 19t), for their Stats headline and Rated ladder card. */
+  ratings: PoolRating[];
   /** The games their stats point at, to open from the stats. */
   featured: HistoryGame[];
 }
@@ -87,8 +90,8 @@ function useFriendProfile(apiUrl: string, identity: ApiIdentity, code: string, a
       };
     }
     setState({ status: 'loading' });
-    api.profile(code).then(({ profile, summary, versus }) => {
-      const friend = { profile, summary, versus, featured: toHistoryGames(summary?.featured ?? []) };
+    api.profile(code).then(({ profile, summary, versus, ratings }) => {
+      const friend = { profile, summary, versus, ratings, featured: toHistoryGames(summary?.featured ?? []) };
       loaded.set(key, { at: Date.now(), friend });
       if (live) setState({ status: 'ready', ...friend });
     }, (e: unknown) => {
@@ -221,7 +224,8 @@ export function FriendProfileScreen({
       }
       return (
         <Shared fallback={<><YouVersus name={name} record={state.versus} />{notShared}</>}>
-          <Analytics stats={summary.stats} games={state.featured} onOpen={open} friend={name}>
+          <Analytics stats={summary.stats} games={state.featured} onOpen={open} friend={name}
+            ratings={{ signedIn: true, list: state.ratings }}>
             <YouVersus name={name} record={state.versus} />
           </Analytics>
         </Shared>

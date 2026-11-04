@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  parseFriendProfileAnswer,
   friendGamesAfter, friendGamesParams, parseFriendGamesAfter, parseFriendGamesPage, parseFriendGamesParams, parseFriendsList,
   parsePendingInvite, PENDING_INVITE_MS,
 } from './friendsApi';
@@ -54,5 +55,20 @@ describe("paging a friend's history from the last game shown (Issue 206)", () =>
     expect(parseFriendGamesPage({ games: [], next: '1:x' })).toEqual({ games: [], next: '1:x' });
     expect(parseFriendGamesPage({ games: [], next: null })).toEqual({ games: [], next: null });
     expect(parseFriendGamesPage({ games: [], next: 20 })).toBeNull();
+  });
+});
+
+describe("a friend's profile (Dev Plan item 19t)", () => {
+  const profile = { name: 'Bob', country: null, memberSince: 0, placements: [] };
+  const tally = { wins: 0, draws: 0, losses: 0 };
+  const answer = { profile, summary: null, versus: { friend: tally, lobby: tally } };
+
+  it('reads their ratings, provisional ones included', () => {
+    const ratings = [{ pool: 'correspondence', rating: 1512, provisional: true, games: 3 }];
+    expect(parseFriendProfileAnswer({ ...answer, ratings })?.ratings).toEqual(ratings);
+  });
+
+  it("reads an older server's answer, without ratings, as none", () => {
+    expect(parseFriendProfileAnswer(answer)?.ratings).toEqual([]);
   });
 });
