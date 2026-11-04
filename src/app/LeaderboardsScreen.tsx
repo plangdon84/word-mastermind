@@ -74,6 +74,8 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
     };
   }, [pool, identity, circle]);
   const youShown = board?.top.some((r) => r.you) ?? false;
+  // A column for games against computers (Dev Plan item 19q) only when someone listed has played one.
+  const cpu = board?.top.some((r) => r.computerGames > 0) ?? false;
   return (
     <section class="panel daily-board" aria-label={`${BOARD_TITLE[pool]} leaderboard`}>
       {error && <p class="board-note">{error}</p>}
@@ -85,23 +87,34 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
               {circle === 'friends' ? 'Neither you nor your friends are listed yet.' : 'Nobody is listed yet.'}
             </p>
           ) : (
-            <ol class="board-rows rating-rows">
-              {board.top.map((r, i) => (
-                <li key={i} class={r.you ? 'you' : ''}>
-                  <span class="board-rank">{r.rank}</span>
-                  <span class="board-name"><PlayerName name={r.name} code={r.friendCode} />{r.you && <span class="visually-hidden"> (you)</span>}</span>
-                  <span class="board-guesses" aria-label={`Rating ${r.rating}`}>{r.rating}</span>
-                  <span class="board-time board-games"
-                    aria-label={r.computerGames > 0 ? `${gamesText(r.games)}, ${r.computerGames} against computers` : gamesText(r.games)}>
-                    {r.games}{r.computerGames > 0 && <span class="board-cpu">🤖{r.computerGames}</span>}
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <div class={`rating-board${cpu ? ' with-cpu' : ''}`}>
+              {/* Column names above the rows, where a long board can't hide them (issue 268). Each cell names itself to a screen reader. */}
+              <div class="rating-head" aria-hidden="true">
+                <span />
+                <span>Player</span>
+                <span class="num">Rating</span>
+                <span class="num">Games</span>
+                {cpu && <span class="num rating-head-cpu">🤖 CPU</span>}
+              </div>
+              <ol class="board-rows rating-rows">
+                {board.top.map((r, i) => (
+                  <li key={i} class={r.you ? 'you' : ''}>
+                    <span class="board-rank">{r.rank}</span>
+                    <span class="board-name"><PlayerName name={r.name} code={r.friendCode} />{r.you && <span class="visually-hidden"> (you)</span>}</span>
+                    <span class="board-guesses" aria-label={`Rating ${r.rating}`}>{r.rating}</span>
+                    <span class="board-time board-games" aria-label={gamesText(r.games)}>{r.games}</span>
+                    {cpu && (
+                      <span class="board-cpu" aria-label={`${r.computerGames} against computers`}>
+                        {r.computerGames > 0 ? `🤖${r.computerGames}` : ''}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
           )}
           <p class="board-you">{yourRatingText(board, youShown)}</p>
           <p class="board-note">
-            {board.top.length > 0 && `Rank, name, rating and rated games${board.top.some((r) => r.computerGames > 0) ? ' (🤖 against computers)' : ''}. `}
             Players are listed once their rating isn't provisional (a "?" after it), which also comes back after a long
             break.
           </p>

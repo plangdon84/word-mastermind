@@ -1446,9 +1446,12 @@ there are enough rated players (see [Launch switches](#launch-switches)).
   - **Live PvP · 15 min**, **Live PvP · 10 min** and **Live PvP · 5 min**:
     rating, one per clock, as the [ratings](#rating) are.
   - **Two player rating**: the shared two player rating (the Rated ladder,
-    rated challenges, correspondence; the `correspondence` pool). Each row
-    shows how many of the player's rated games were against a ladder
-    computer (`· 🤖3`).
+    rated challenges, correspondence; the `correspondence` pool). A header
+    row names the columns (Player, Rating, Games); a long name ends in ….
+    When anyone listed has played a ladder computer, each row shows how
+    many of their rated games were against one (`🤖3`): under the games on
+    a phone, in a **🤖 CPU** column of its own where the screen is wide
+    enough (Dev Plan item 19s).
   - **Competitive Rush**: rating.
 - Every board has **← Back** in its header, returning to where it was opened
   from: the Leaderboards page, or the Daily Rush result or title-screen
