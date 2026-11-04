@@ -38,19 +38,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     6 in ladder games now" (0 too, so players expect a computer after 30
     seconds). Read from the queue and the games in play, kept cheap within
     the Workers Free plan. README "Random opponent" updated
-- [ ] **19x. Rated ladder review clean-ups** (issues
-  plangdon84/word-mastermind-archive#266 and
-  plangdon84/word-mastermind-archive#267; worker, review gate; no change
-  for players)
-  - Issue 266: Cancel during a computer game's setup that then fails
-    no longer puts the player back in the queue, and leaving and rejoining
-    during setup doesn't send them to the first game; `ratingPool` takes no
-    clock; one shared type for the ladder's queue choice
-  - Issue 267: the board's computer-games count kept on the rating row
-    instead of counted per row; the usage dashboard's ladder table limited
-    to a period; a screen test with a listed player who has computer games;
-    the tidy-ups it lists (`App.tsx`'s repeated "open the ladder", the
-    leftover `rated` name, the dashboard reusing `rating.ts`)
 
 **Later**
 
@@ -118,6 +105,26 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19x. Rated ladder review clean-ups** (stacked on 19s; issues
+  plangdon84/word-mastermind-archive#266 and
+  plangdon84/word-mastermind-archive#267; worker, review gate; no change
+  for players)
+  - Issue 266: Cancel during a computer game's setup that then fails
+    no longer puts the player back in the queue, and leaving and rejoining
+    during setup doesn't send them to the first game; `ratingPool` takes no
+    clock; one shared type for the ladder's queue choice
+  - Issue 267: the board's computer-games count kept on the rating row
+    instead of counted per row; the usage dashboard's ladder table limited
+    to a period; a screen test with a listed player who has computer games;
+    the tidy-ups it lists (`App.tsx`'s repeated "open the ladder", the
+    leftover `rated` name, the dashboard reusing `rating.ts`)
+  - Done: a computer game made or failed after its player left is
+    dropped (an unplayed game cancels itself, item 18zv); the count is
+    `ratings.computer_games` (migration 0029, filled in from the games
+    already rated); the dashboard's ladder table covers the last 90 days
+    through a partial index; the screen test stands in for the server's
+    board, since a real listed row would list someone on the empty
+    board's tests
 - [x] **19v. Refused names in friend games and lobbies** (2.2.0, stacked on 19s; issue
   plangdon84/word-mastermind-archive#264; worker, review gate)
   - Decided with the owner on 4 November 2026: a name the profanity

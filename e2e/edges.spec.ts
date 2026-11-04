@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { layoutProblems } from './layout';
+import { layoutProblems, SIZES } from './layout';
 import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll } from './helpers';
 
 /*
@@ -635,6 +635,33 @@ test.describe(() => {
         expect(right, `${what}'s right at ${width}px`).toBeLessThanOrEqual(tile[1]);
       }
     }
+  });
+
+  test('the rating board with listed players who played computers fits every size (item 19x)', async ({ page }) => {
+    // A board the fresh test database can't have: players listed, two with computer games, one with a long name.
+    const row = (rank: number, name: string, rating: number, games: number, computerGames: number) =>
+      ({ rank, name, rating, games, computerGames, you: false, friendCode: null });
+    await page.route('**/api/leaderboards/ratings?**', (route) => route.fulfill({
+      headers: { 'access-control-allow-origin': '*' },
+      json: {
+        pool: 'correspondence', circle: 'everyone', total: 3, you: null, top: [
+          row(1, 'Wilhelmina Featherstonehaugh', 2088, 1234, 987), row(2, 'Bob', 1712, 31, 0), row(3, 'Cat', 1600, 12, 5),
+        ],
+      },
+    }));
+    await page.goto('/');
+    await unlockAll(page);
+    await button(page, 'Leaderboards').click();
+    await modeButton(page, 'Two player rating').click();
+    await expect(page.getByText('🤖987')).toBeVisible();
+    await expect(page.getByLabel('5 against computers')).toBeVisible();
+    const failures: string[] = [];
+    for (const size of SIZES) {
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await expect(page.getByText('🤖987')).toBeVisible();
+      for (const problem of await layoutProblems(page)) failures.push(`${size.name}: ${problem.kind} ${problem.what} (${problem.detail})`);
+    }
+    expect(failures, 'layout problems').toEqual([]);
   });
 });
 

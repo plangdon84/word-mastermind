@@ -1,5 +1,5 @@
 import type { DailyCounts, LadderComputerFigures, ModeCount, PeriodCount, PeriodKind, Periods, Usage } from '../../src/admin/usage';
-import { addDays, COMPUTER_RATINGS, COMPUTER_RD, DAY_MS, dailyDay, dayStart, GLICKO_SCALE, PROVISIONAL_RD } from '../../src/game';
+import { addDays, COMPUTER_RATINGS, COMPUTER_RD, DAY_MS, dailyDay, dayStart, ratingExpectedScore, PROVISIONAL_RD } from '../../src/game';
 import { ACCESS_HEADER, verifyAccessToken } from './access';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -21,6 +21,8 @@ import type { Env } from './index';
 const DAYS = 30;
 const WEEKS = 12;
 const MONTHS = 12;
+/** The days of ladder computer games the dashboard judges the computers' ratings by (Dev Plan item 19x). */
+export const LADDER_DAYS = 90;
 
 const PERIOD_KEY: Record<PeriodKind, string> = {
   day: `date((at - ?1) / 1000, 'unixepoch')`,
@@ -120,11 +122,12 @@ export async function usageAt(db: D1Database, now: number): Promise<Usage> {
     // Ladder games against a computer (Dev Plan item 19q): a win raised the player's rating, a loss lowered it and
     // a draw left it alone, grouped by the rating they went in with, to the point. Settled players only: a
     // provisional player's computer was picked by their average guesses, so their rating predicts badly.
-    // (A game read before rd_before was kept counts as provisional.)
+    // (A game read before rd_before was kept counts as provisional.) The last 90 days only (item 19x), read
+    // through their index (migration 0029), so a refresh never reads every computer game ever played.
     db.prepare(
       `SELECT computer_recall AS recall, ROUND(rating_before) AS rating, CASE WHEN rating_after > rating_before THEN 1 WHEN rating_after < rating_before THEN -1 ELSE 0 END AS result, COUNT(*) AS n
-       FROM rated_games WHERE computer_recall IS NOT NULL AND rd_before <= ?1 GROUP BY 1, 2, 3`,
-    ).bind(PROVISIONAL_RD),
+       FROM rated_games WHERE computer_recall IS NOT NULL AND rated_at >= ?2 AND rd_before <= ?1 GROUP BY 1, 2, 3`,
+    ).bind(PROVISIONAL_RD, now - LADDER_DAYS * DAY_MS),
   ]);
   const rows = <T>(i: number) => results[i].results as T[];
   const totals = rows<{
@@ -175,15 +178,13 @@ interface LadderRow {
  * computer's RD).
  */
 export function ladderFigures(rows: readonly LadderRow[]): LadderComputerFigures[] {
-  const phi = COMPUTER_RD / GLICKO_SCALE;
-  const g = 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
   return COMPUTER_RATINGS.map((computer) => {
     const figures: LadderComputerFigures = { recall: computer.recall, rating: computer.rating, games: 0, score: 0, expected: 0 };
     for (const row of rows) {
       if (row.recall !== computer.recall) continue;
       figures.games += row.n;
       figures.score += row.n * (row.result > 0 ? 1 : row.result === 0 ? 0.5 : 0);
-      figures.expected += row.n / (1 + Math.exp(-g * (row.rating - computer.rating) / GLICKO_SCALE));
+      figures.expected += row.n * ratingExpectedScore(row.rating, { rating: computer.rating, rd: COMPUTER_RD });
     }
     return figures;
   });

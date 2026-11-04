@@ -13,11 +13,17 @@ import { evaluateGuess, type GuessResult } from './scoring';
  * as one. Its rating (`computerRatings.ts`) never changes.
  */
 
+/** Which matchmaking queue: a time control and a difficulty. */
+export interface QueueChoice {
+  timeControl: TimeControl;
+  difficulty: Difficulty;
+}
+
 /**
  * The rated ladder's one queue: Live 10 minutes each at Medium (the owner,
  * 3 November 2026), with queues per difficulty once there are enough players.
  */
-export const LADDER_CHOICE: Readonly<{ timeControl: TimeControl; difficulty: Difficulty }> = { timeControl: '10m', difficulty: 'medium' };
+export const LADDER_CHOICE: Readonly<QueueChoice> = { timeControl: '10m', difficulty: 'medium' };
 
 /** How long the queue looks for a person before offering a computer. */
 export const COMPUTER_AFTER_MS = 30_000;

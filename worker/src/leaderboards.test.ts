@@ -4,8 +4,9 @@ import { dailyApi, DailyApiError } from '../../src/app/dailyApi';
 import { friendsApi } from '../../src/app/friendsApi';
 import { fetchRatingBoard, LeaderboardError, parseRatingBoard, type Circle } from '../../src/app/leaderboardsApi';
 import { syncApi } from '../../src/app/syncApi';
-import { DAY_MS, type RatingPool } from '../../src/game';
-import { fakeD1 } from './fakeD1';
+import { DAY_MS, NEW_RATING, type RatingPool } from '../../src/game';
+import { fakeD1, migrationSql } from './fakeD1';
+import { ratingStatements } from './ratings';
 import { NO_NAME } from './names';
 import { handle, type Env } from './index';
 
@@ -64,7 +65,7 @@ function setup() {
     sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, ?, ?, ?, 0.06, ?, ?)`)
       .run(accountId, pool, rating, rd, games, ratedAt);
   const guest = (n: number) => ({ guestId: guestId(1000 + n), token: null });
-  return { sqlite, fetchFn, player, rate, guest };
+  return { db, sqlite, fetchFn, player, rate, guest };
 }
 
 /** The error code a call rejects with. */
@@ -79,20 +80,41 @@ async function refusal(call: Promise<unknown>): Promise<string> {
 }
 
 describe('a rating board', () => {
-  it('counts each player\'s rated games against a ladder computer in the pool (Dev Plan item 19q)', async () => {
-    const { player, rate, guest, fetchFn, sqlite } = setup();
+  it('counts each player\'s rated games against a ladder computer in the pool, kept on their rating (Dev Plan items 19q and 19x)', async () => {
+    const { player, guest, fetchFn, db, sqlite } = setup();
     const ann = await player('Ann');
-    rate(ann.id, 'correspondence', 1600, 80, 20);
-    const ratedGame = (id: string, pool: string, recall: number | null) => sqlite.prepare(
+    // Rated as the rooms rate them: two against computers, one against a person, one in a retired pool.
+    const rated = async (id: string, pool: RatingPool, recall?: number) =>
+      db.batch(ratingStatements(db, id, pool, [{ accountId: ann.id, before: NEW_RATING, after: { ...NEW_RATING, rd: 80 } }], NOW, recall));
+    await rated('a', 'correspondence', 0.38);
+    await rated('b', 'correspondence', 1);
+    await rated('c', 'correspondence');
+    await rated('d', '10m', 0.5);
+    // Rating a game again (a retry) counts nothing twice.
+    await rated('a', 'correspondence', 0.38);
+    sqlite.prepare(`UPDATE ratings SET rating = 1600, games = 20 WHERE pool = 'correspondence'`).run();
+    const board = await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn);
+    expect(board.top).toEqual([{ rank: 1, name: 'Ann', rating: 1600, games: 20, computerGames: 2, you: false, friendCode: null }]);
+    expect(sqlite.prepare(`SELECT computer_games FROM ratings WHERE pool = '10m'`).get()).toEqual({ computer_games: 1 });
+  });
+
+  it('fills in the computer-games count from the games rated before it was kept (Dev Plan item 19x)', async () => {
+    const { sqlite, player, rate } = setup();
+    const { id } = await player('Ann');
+    rate(id, 'correspondence', 1600, 80, 3);
+    const ratedGame = (game: string, pool: string, recall: number | null) => sqlite.prepare(
       `INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
        VALUES (?, ?, ?, 1600, 80, 1610, 79, 0, ?)`,
-    ).run(id, ann.id, pool, recall);
+    ).run(game, id, pool, recall);
     ratedGame('a', 'correspondence', 0.38);
     ratedGame('b', 'correspondence', 1);
     ratedGame('c', 'correspondence', null);
     ratedGame('d', '10m', 0.5);
-    const board = await fetchRatingBoard(API, guest(1), 'correspondence', 'everyone', fetchFn);
-    expect(board.top).toEqual([{ rank: 1, name: 'Ann', rating: 1600, games: 20, computerGames: 2, you: false, friendCode: null }]);
+    const fill = migrationSql().find((sql) => sql.includes('ADD COLUMN computer_games'))!;
+    // The migration's fill alone: its statement from UPDATE to the closing `);`.
+    const update = fill.slice(fill.indexOf('UPDATE ratings'));
+    sqlite.exec(update.slice(0, update.indexOf(');') + 2));
+    expect(sqlite.prepare(`SELECT computer_games FROM ratings WHERE account_id = ?`).get(id)).toEqual({ computer_games: 2 });
   });
 
   it('lists established ratings, highest first, ties sharing a rank, and hides provisional ones', async () => {

@@ -147,17 +147,19 @@ async function storedChanges(db: D1Database, gameId: string): Promise<Record<str
  * batch. Each rating changes only while the game has no changes kept yet,
  * so a game is rated once even if two saves of it overlap (D1 runs a batch
  * as one transaction): the second changes nothing. `computerRecall` marks a
- * ladder game against a computer (Dev Plan item 19p).
+ * ladder game against a computer (Dev Plan item 19p), also counted on the
+ * player's rating row for the boards (`computer_games`, item 19x).
  */
 export function ratingStatements(
   db: D1Database, gameId: string, pool: RatingPool, changes: readonly PlayerChange[], now: number, computerRecall?: number,
 ): D1PreparedStatement[] {
   return [
     ...changes.map(({ accountId, after: { rating, rd, volatility } }) => db.prepare(
-      `INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at)
-       SELECT ?1, ?2, ?3, ?4, ?5, 1, ?6 WHERE NOT EXISTS (SELECT 1 FROM rated_games WHERE game_id = ?7)
-       ON CONFLICT (account_id, pool) DO UPDATE SET rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6`,
-    ).bind(accountId, pool, rating, rd, volatility, now, gameId)),
+      `INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at, computer_games)
+       SELECT ?1, ?2, ?3, ?4, ?5, 1, ?6, ?8 WHERE NOT EXISTS (SELECT 1 FROM rated_games WHERE game_id = ?7)
+       ON CONFLICT (account_id, pool) DO UPDATE SET
+         rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6, computer_games = computer_games + ?8`,
+    ).bind(accountId, pool, rating, rd, volatility, now, gameId, computerRecall === undefined ? 0 : 1)),
     ...changes.map(({ accountId, before, after }) => db.prepare(
       `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,

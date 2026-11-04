@@ -1,4 +1,4 @@
-import { DAY_MS, type PvpOutcome, type Seat, type TimeControl } from './pvp';
+import { DAY_MS, type PvpOutcome, type Seat } from './pvp';
 
 /*
  * Ratings (README "Rating"): Glicko-2 (Mark Glickman,
@@ -54,7 +54,8 @@ export const SHOWN_POOLS: readonly RatingPool[] = ['correspondence', 'rush'];
 
 export const isRatingPool = (value: unknown): value is RatingPool => RATING_POOLS.includes(value as RatingPool);
 
-export const ratingPool = (_control: TimeControl): RatingPool => 'correspondence';
+/** The pool every rated two player game rates into, whatever its clock (Dev Plan item 19p). */
+export const TWO_PLAYER_POOL: RatingPool = 'correspondence';
 
 export const isProvisional = (rating: Rating) => rating.rd > PROVISIONAL_RD;
 
@@ -66,6 +67,10 @@ export interface RatedResult {
 
 const g = (phi: number) => 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
 const expected = (mu: number, muj: number, phij: number) => 1 / (1 + Math.exp(-g(phij) * (mu - muj)));
+
+/** The score Glicko-2 expects of a player rated `rating` against `opponent` (1 a sure win, 0 a sure loss). */
+export const ratingExpectedScore = (rating: number, opponent: Pick<Rating, 'rating' | 'rd'>): number =>
+  expected((rating - NEW_RATING.rating) / GLICKO_SCALE, (opponent.rating - NEW_RATING.rating) / GLICKO_SCALE, opponent.rd / GLICKO_SCALE);
 
 /** Widens RD for `periods` rating periods without games, never past a new player's. `LISTED` in `worker/src/leaderboards.ts` repeats this in SQL. */
 function widen(rating: Rating, periods: number): Rating {

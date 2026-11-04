@@ -548,8 +548,6 @@ export function TitleScreen({
   };
   const two = settings.mode === 'two';
   const friend = two && settings.opponent === 'friend';
-  // Rated play leaves Easy out: with Easy as your default, it plays at Medium (`ratedDifficultyFor`).
-  const rated = competitiveChosen;
   const back: Record<Step, Step> = {
     home: 'home',
     rush: 'home',
@@ -759,9 +757,9 @@ export function TitleScreen({
           {settings.mode === 'rush' && !dailyChosen && (
             <RankBySwitch label rankBy={settings.rankBy} onPick={(rankBy) => onSettings({ ...settings, rankBy })} />
           )}
-          <Choices label="Your difficulty" selected={rated ? ratedDifficultyFor(settings.difficulty) : settings.difficulty}
-            // Competitive Rush is rated, so it leaves Easy out.
-            choices={rated ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}
+          <Choices label="Your difficulty" selected={competitiveChosen ? ratedDifficultyFor(settings.difficulty) : settings.difficulty}
+            // Competitive Rush is rated, so it leaves Easy out: with Easy as your default, it plays at Medium (`ratedDifficultyFor`).
+            choices={competitiveChosen ? DIFFICULTIES.filter((c) => isRatedDifficulty(c.value)) : DIFFICULTIES}
             onPick={(difficulty) => onSettings({ ...settings, difficulty })} />
           <button type="button" class="btn primary big" onClick={onStart}>
             {friend || competitiveChosen ? 'Next: your word' : dailyChosen ? `Start ${dailyName}` : lobbyChosen ? 'Open lobby' : 'Start game'}
