@@ -254,14 +254,19 @@ const accountOfSql = (param: string) => `COALESCE((SELECT account_id FROM guests
  * Where `accountId` stands with the player `playerId` (an account's ID, or
  * a guest ID linked to one) as their friends list shows it (Dev Plan item
  * 19e): a request they sent by email, still off their list, is none, as in
- * a search, so a game can't tell them whose email it was.
+ * a search, so a game can't tell them whose email it was. With nothing
+ * between them, `declined` if that player declined a request of theirs in
+ * the past week (`FRIEND_DECLINE_MS`): the game offers no Add friend.
  */
-export async function friendStateOf(db: D1Database, accountId: string, playerId: string): Promise<LadderFriend> {
+export async function friendStateOf(db: D1Database, accountId: string, playerId: string, now: number): Promise<LadderFriend> {
   const row = await db.prepare(
-    `SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ${accountOfSql('?2')}
-       AND NOT (state = 'sent' AND by_email = 1)`,
-  ).bind(accountId, playerId).first<{ state: string }>();
-  return row?.state === 'friends' || row?.state === 'sent' || row?.state === 'received' ? row.state : 'none';
+    `SELECT (SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ${accountOfSql('?2')}
+         AND NOT (state = 'sent' AND by_email = 1)) AS state,
+       EXISTS (SELECT 1 FROM friend_declines WHERE sender_id = ?1 AND declined_by = ${accountOfSql('?2')} AND at > ?3) AS declined`,
+  ).bind(accountId, playerId, now - FRIEND_DECLINE_MS).first<{ state: string | null; declined: number }>();
+  const state = row?.state;
+  if (state === 'friends' || state === 'sent' || state === 'received') return state;
+  return row?.declined ? 'declined' : 'none';
 }
 
 /**
@@ -274,6 +279,8 @@ export async function friendStateOf(db: D1Database, accountId: string, playerId:
 export async function addLadderOpponent(db: D1Database, accountId: string, playerId: string, now: number): Promise<Added> {
   const row = await db.prepare(`SELECT id FROM accounts WHERE id = ${accountOfSql('?1')}`).bind(playerId).first<{ id: string }>();
   if (!row) return { ok: false, status: 404, error: 'not-found' };
+  // Accepting their request still works; a new one waits out a week after they declined one (`FRIEND_DECLINE_MS`).
+  if (await friendStateOf(db, accountId, row.id, now) === 'declined') return { ok: false, status: 409, error: 'declined' };
   await Promise.all([friendCodeOf(db, accountId), friendCodeOf(db, row.id)]);
   return addFriendById(db, accountId, row.id, now);
 }
@@ -292,8 +299,18 @@ export const EMAIL_DECLINE_MS = 7 * DAY_MS;
  * (the privacy page's "deleted soon after"): run on each decline and by
  * the worker's scheduled job (Dev Plan item 19n, `cleanUp` in `index.ts`).
  */
-export const forgetOldDeclines = (db: D1Database, now: number) =>
-  db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS);
+export const forgetOldDeclines = (db: D1Database, now: number) => [
+  db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS),
+  db.prepare('DELETE FROM friend_declines WHERE at <= ?1').bind(now - FRIEND_DECLINE_MS),
+];
+
+/**
+ * How long a declined request, however it came, keeps the ladder's Add
+ * friend from its sender to that player (Dev Plan item 19e, the owner on
+ * PR #75): the games stop offering it, so a stranger met on the ladder
+ * can't send a request, and its alert, again and again.
+ */
+export const FRIEND_DECLINE_MS = 7 * DAY_MS;
 
 /**
  * A friend request to whoever has an account with `email` (Dev Plan item
@@ -420,7 +437,8 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
  * both sides forget it. Removing a friend also renews your invite link, so
  * one they still have can't make them your friend again. Declining a
  * request that came by email remembers the sender for a week
- * (`EMAIL_DECLINE_MS`), clearing older declines as it goes.
+ * (`EMAIL_DECLINE_MS`), and declining any request does for the ladder's
+ * Add friend (`FRIEND_DECLINE_MS`), clearing older declines as it goes.
  */
 async function removeFriend(db: D1Database, accountId: string, code: string, now: number): Promise<void> {
   const friendId = await accountByCode(db, code);
@@ -430,15 +448,19 @@ async function removeFriend(db: D1Database, accountId: string, code: string, now
   if (row?.state === 'friends') await inviteKeyOf(db, accountId, true);
   const forget = db.prepare('DELETE FROM friends WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)')
     .bind(accountId, friendId);
-  if (row?.state !== 'received' || !row.by_email) {
+  if (row?.state !== 'received') {
     await forget.run();
     return;
   }
+  const remember = (table: 'email_declines' | 'friend_declines') => db.prepare(
+    `INSERT INTO ${table} (sender_id, declined_by, at) VALUES (?1, ?2, ?3)
+     ON CONFLICT (sender_id, declined_by) DO UPDATE SET at = excluded.at`,
+  ).bind(friendId, accountId, now);
   await db.batch([
     forget,
-    forgetOldDeclines(db, now),
-    db.prepare(`INSERT INTO email_declines (sender_id, declined_by, at) VALUES (?1, ?2, ?3)
-      ON CONFLICT (sender_id, declined_by) DO UPDATE SET at = excluded.at`).bind(friendId, accountId, now),
+    ...forgetOldDeclines(db, now),
+    remember('friend_declines'),
+    ...(row.by_email ? [remember('email_declines')] : []),
   ]);
 }
 

@@ -33,7 +33,8 @@ export interface FriendGame {
   /**
    * A finished rated ladder game against a person (Dev Plan item 19e): where
    * you stand with them, for **Add friend** (`none`), **Request sent**
-   * (`sent`), **Accept friend request** (`received`) or nothing (`friends`).
+   * (`sent`), **Accept friend request** (`received`) or nothing (`friends`,
+   * or `declined`: they declined a request of yours in the past week).
    * Null for any other game, and from an older server.
    */
   ladderFriend: LadderFriend | null;
@@ -65,9 +66,9 @@ export interface FriendGame {
 }
 
 /** Where you stand with a ladder opponent, as your friends list shows it. */
-export type LadderFriend = 'none' | 'sent' | 'received' | 'friends';
+export type LadderFriend = 'none' | 'sent' | 'received' | 'friends' | 'declined';
 
-const LADDER_FRIENDS: readonly LadderFriend[] = ['none', 'sent', 'received', 'friends'];
+const LADDER_FRIENDS: readonly LadderFriend[] = ['none', 'sent', 'received', 'friends', 'declined'];
 
 /** The server's reasons for refusing a request, beyond a word the rules refuse. */
 export type FriendError =
@@ -75,7 +76,7 @@ export type FriendError =
   | 'not-invited' | 'not-a-friend'
   | 'invite-closed' | 'invite-expired' | 'not-started' | 'not-over' | 'game-over' | 'not-your-turn' | 'time-up' | 'time-left'
   | 'wrong-length' | 'not-letters' | 'repeated-letters' | 'not-in-word-list' | 'difficulty-fixed' | 'difficulty-harder'
-  | 'easy-unrated' | 'not-easy' | 'no-suggestions' | 'too-many-friends';
+  | 'easy-unrated' | 'not-easy' | 'no-suggestions' | 'too-many-friends' | 'declined';
 
 /** The opponent's name, from your seat. */
 export const opponentName = (game: FriendGame): string | null =>

@@ -61,7 +61,7 @@ export function fakeRooms({ db, now, random = () => 0 }: FakeRoomsOptions) {
     saveFinished: saveFinishedGame.bind(null, db), random,
     namesOf: (ids) => currentNames(db, ids),
     friendCodes: (accountId, ids) => friendCodes(db, accountId, ids),
-    friendStateOf: (accountId, playerId) => friendStateOf(db, accountId, playerId),
+    friendStateOf: (accountId, playerId) => friendStateOf(db, accountId, playerId, now()),
     ratingsOf: (players, at) => ratingsOf(db, players, TWO_PLAYER_POOL, at),
     notify: (sent: readonly Notice[]) => notices.push(...sent),
     played: (playerId, at) => notePlayed(db, playerId, at),

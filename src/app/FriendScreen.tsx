@@ -891,7 +891,8 @@ export function FriendScreen({
  * Friending your opponent once a rated ladder game against a person is over
  * (Dev Plan item 19e): **Add friend** sends a request they accept or
  * decline, as Find a friend does; one they sent you is accepted here. Not
- * shown against a computer, during the game, or once you're friends.
+ * shown against a computer, during the game, once you're friends, or for a
+ * week after they declined a request of yours.
  */
 function LadderFriendButton({ state, opponent, busy, onAdd }: {
   state: LadderFriend | null; opponent: string; busy: boolean; onAdd: () => void;

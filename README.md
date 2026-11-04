@@ -2344,6 +2344,14 @@ first.
   you're friends. Not offered against a computer. A request you sent by
   email still doesn't show there, as in a search. Each request counts
   towards the same 200 friends and requests.
+  - **After a decline** (the owner, review of PR #75): once a player
+    declines any friend request from you, however it came, your ladder
+    games with them stop offering **Add friend** for a week, so a stranger
+    can't send the request and its alert again and again. They can still
+    add you, and you can still accept theirs from the game.
+  - **Let players find me by name** switched off covers search only: a
+    player you met on the ladder can still send you a request, since you
+    played each other (the owner, review of PR #75).
 - **Adding a friend by code:** type their code (any case, with or without the dash)
   and **Add friend**. That sends a request; you're friends once they **Accept**
   it (or add your code too). They can **Decline**, and you can **Cancel** a

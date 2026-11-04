@@ -31,7 +31,7 @@ export class GameRoom implements DurableObject {
       saveFinished: (room, record, now) => saveFinishedGame(env.DB, room, record, now),
       namesOf: (ids) => currentNames(env.DB, ids),
       friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
-      friendStateOf: (accountId, playerId) => friendStateOf(env.DB, accountId, playerId),
+      friendStateOf: (accountId, playerId) => friendStateOf(env.DB, accountId, playerId, Date.now()),
       ratingsOf: (players, now) => ratingsOf(env.DB, players, TWO_PLAYER_POOL, now),
       random: Math.random,
       played: (playerId, now) => notePlayed(env.DB, playerId, now),

@@ -507,14 +507,30 @@ describe('friending your ladder opponent (Dev Plan item 19e)', () => {
     expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'friends', opponentCode: catCode });
   });
 
-  it('can be declined from the friends list, as any request', async () => {
-    const { ann, cat, gameId } = await ladderGame();
+  it('can be declined from the friends list, and then rests for a week (the owner, review of PR #75)', async () => {
+    const { ann, cat, gameId, tick, sqlite } = await ladderGame();
     await cat.games.concede(gameId);
     await ann.games.addFriend(gameId);
     const annCode = (await ann.friends.list()).code;
     expect((await cat.friends.remove(annCode)).received).toEqual([]);
-    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
     expect((await ann.friends.list()).sent).toEqual([]);
+    // Ann's game stops offering Add friend for a week, and refuses one sent anyway; Cat can still ask Ann.
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'declined' });
+    expect(await gameRefusal(ann.games.addFriend(gameId))).toBe('declined');
+    expect((await cat.friends.list()).received).toEqual([]);
+    expect(await cat.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    tick(7 * 24 * 60 * 60 * 1000 - 1);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'declined' });
+    tick(1);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
+    // A request that Cat sends Ann in the week is still Ann's to accept from the game.
+    await cat.friends.remove(annCode);
+    await cat.friends.add(annCode);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'received' });
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'friends' });
+    // One row per sender and player, however often they declined.
+    expect(sqlite.prepare('SELECT sender_id FROM friend_declines').all()).toHaveLength(1);
   });
 
   it('is never offered against a computer, nor to anyone outside the game', async () => {
