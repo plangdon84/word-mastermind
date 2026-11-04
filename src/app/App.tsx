@@ -636,6 +636,11 @@ export function App() {
         : screen.name === 'friend' || screen.name === 'lobby' || screen.name === 'match' ? screen
           : screen.name === 'daily' ? { ...screen, start: false }
             : { name: screen.name, resume: true };
+  /** Opens the rated ladder (Dev Plan item 19p): from the title screen, or a ladder game's Find another opponent. */
+  const openLadder = () => {
+    setSettings({ ...settings, mode: 'two', opponent: 'random' });
+    setScreen({ name: 'match' });
+  };
   const openProfile: OpenProfile = (page) => setScreen({
     name: 'profile',
     // Some callers pass a click event; only a section name opens a subpage.
@@ -822,10 +827,7 @@ export function App() {
           identity={identity} challenge={screen.challenge ?? null} onProfile={openProfile}
           onExit={exit} gameId={screen.id} onGameId={(id) => setScreen({ name: 'friend', id })}
           onNewInvite={() => setScreen({ name: 'friend', id: null })}
-          onNewMatch={() => {
-            setSettings({ ...settings, mode: 'two', opponent: 'random' });
-            setScreen({ name: 'match' });
-          }}
+          onNewMatch={openLadder}
           onOpenGame={(id) => setScreen({ name: 'friend', id })} />
       );
     }
@@ -883,10 +885,7 @@ export function App() {
           setSettings({ ...settings, mode: 'two', opponent: 'friend' });
           setScreen({ name: 'friend', id: null, challenge: friend });
         }}
-        onLadder={() => {
-          setSettings({ ...settings, mode: 'two', opponent: 'random' });
-          setScreen({ name: 'match' });
-        }}
+        onLadder={openLadder}
         onStart={() => setScreen(settings.mode === 'two' && settings.opponent === 'friend' ? { name: 'friend', id: null }
           : settings.mode === 'two' && settings.opponent === 'random' ? { name: 'match' }
           : settings.mode === 'rush' && (settings.rushKind === 'daily' || settings.rushKind === 'dailyWord')

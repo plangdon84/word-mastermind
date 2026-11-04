@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DAY_MS } from './pvp';
 import {
-  ageRating, gamesUntilListed, hostScore, isProvisional, placeScore, rateGroup, MAX_GAMES_UNTIL_LISTED, NEW_RATING, rateGame, TWO_PLAYER_POOL, updateRating, type Rating,
+  ageRating, ratingExpectedScore, gamesUntilListed, hostScore, isProvisional, placeScore, rateGroup, MAX_GAMES_UNTIL_LISTED, NEW_RATING, rateGame, TWO_PLAYER_POOL, updateRating, type Rating,
 } from './rating';
 
 describe('updateRating', () => {
@@ -77,6 +77,12 @@ describe('ageRating', () => {
 describe('pools and results', () => {
   it('rates every two player clock as one two player rating (Dev Plan item 19p)', () => {
     expect(TWO_PLAYER_POOL).toBe('correspondence');
+  });
+
+  it("expects an even score between equal ratings, and more of the stronger player (Dev Plan item 19x)", () => {
+    expect(ratingExpectedScore(1500, NEW_RATING)).toBe(0.5);
+    expect(ratingExpectedScore(1700, { rating: 1500, rd: 50 })).toBeCloseTo(0.76, 2);
+    expect(ratingExpectedScore(1300, { rating: 1500, rd: 50 })).toBeCloseTo(0.24, 2);
   });
 
   it('marks ratings provisional until RD falls to 110', () => {

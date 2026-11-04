@@ -68,6 +68,10 @@ export interface RatedResult {
 const g = (phi: number) => 1 / Math.sqrt(1 + (3 * phi * phi) / (Math.PI * Math.PI));
 const expected = (mu: number, muj: number, phij: number) => 1 / (1 + Math.exp(-g(phij) * (mu - muj)));
 
+/** The score Glicko-2 expects of a player rated `rating` against `opponent` (1 a sure win, 0 a sure loss). */
+export const ratingExpectedScore = (rating: number, opponent: Pick<Rating, 'rating' | 'rd'>): number =>
+  expected((rating - NEW_RATING.rating) / GLICKO_SCALE, (opponent.rating - NEW_RATING.rating) / GLICKO_SCALE, opponent.rd / GLICKO_SCALE);
+
 /** Widens RD for `periods` rating periods without games, never past a new player's. `LISTED` in `worker/src/leaderboards.ts` repeats this in SQL. */
 function widen(rating: Rating, periods: number): Rating {
   const phi = rating.rd / GLICKO_SCALE;

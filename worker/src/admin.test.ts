@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { isUsage, type Usage } from '../../src/admin/usage';
 import { DAY_MS } from '../../src/game';
 import { forgetAccessKeys, teamHost, verifyAccessToken } from './access';
-import { KEEP_FIGURES_MS, periodsTo } from './admin';
+import { KEEP_FIGURES_MS, LADDER_DAYS, periodsTo } from './admin';
 import { fakeD1 } from './fakeD1';
 import { handle, type Env } from './index';
 import { limitOf } from './limits';
@@ -208,6 +208,9 @@ describe('the figures', () => {
       sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
         VALUES (?, ?, 'correspondence', 1500, 80, ?, 79, ?, 0.38)`).run(id, account, after, NOW);
     }
+    // A game from before the last 90 days isn't counted either (Dev Plan item 19x).
+    sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
+      VALUES ('c4', ?, 'correspondence', 1500, 80, 1520, 79, ?, 0.38)`).run(account, NOW - LADDER_DAYS * DAY_MS - 1);
 
     const response = await figures(await key.sign(valid));
     expect(response.headers.get('cache-control')).toBe('no-store');

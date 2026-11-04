@@ -424,7 +424,9 @@ don't count again, keeping it well within D1's free 5 million rows a day.
 **Rated ladder computers** (Dev Plan item 19q): for each computer in the
 computer ratings table, its games and players' actual score against it (a
 win raised their rating, a draw left it alone) beside the score their
-ratings going in expected, from `rated_games.computer_recall`. Settled
+ratings going in expected, from `rated_games.computer_recall`, over the
+last 90 days (Dev Plan item 19x; a partial index from migration 0029, so a
+refresh reads only that period's computer games). Settled
 players' games only, since a provisional player's computer is picked by
 their average guesses; each game is judged against the computer's rating
 now, so just after a retune its older games lean the other way. A computer
