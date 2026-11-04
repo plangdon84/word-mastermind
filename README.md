@@ -1110,9 +1110,10 @@ be played from the device that joined it, or, once you've signed in (see
   opponent tabs (Dev Plan item 19u), so no row above the keyboard is spent
   on them; on a wide screen, where both boards show and the tabs go, both
   clocks (`You 4:32` and `Ann 3:10`) sit above the input instead. They count
-  down every second; the one running is filled, and a clock under 30
-  seconds turns red. Opening your profile on your turn warns first that your
-  clock keeps running.
+  down every second. In a tab, the running clock is bold after a dot, and
+  under 30 seconds its tab glows red; in the wide row, the running clock is
+  filled and turns red under 30 seconds. Opening your profile on your turn
+  warns first that your clock keeps running.
 - **Time per guess:** both players see how long the player to move has
   left, beside **Your turn** or **Their turn** (in red under 3 hours on
   your turn), and the title screen's list shows it too ("23 h left"). When it runs out, that player loses: the server's alarm for the game
