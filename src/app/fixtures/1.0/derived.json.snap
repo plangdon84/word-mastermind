@@ -196,7 +196,28 @@
         "count": 1
       }
     ],
-    "secondsPlayed": 2160
+    "secondsPlayed": 2160,
+    "ladder": {
+      "played": 0,
+      "record": {
+        "wins": 0,
+        "draws": 0,
+        "losses": 0,
+        "winPct": null
+      },
+      "people": {
+        "wins": 0,
+        "draws": 0,
+        "losses": 0,
+        "winPct": null
+      },
+      "computers": {
+        "wins": 0,
+        "draws": 0,
+        "losses": 0,
+        "winPct": null
+      }
+    }
   },
   "badges": [
     {

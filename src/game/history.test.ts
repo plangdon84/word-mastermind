@@ -119,6 +119,19 @@ describe('matchesFilter', () => {
     expect(matchesFilter(won, { difficulty: 'medium' })).toBe(false);
   });
 
+  it('filters the rated ladder apart from "vs. a friend" (Dev Plan item 19t)', () => {
+    const game = (ladder?: { computer?: number }) => summarizeGame(replayEntry(friendEntry('f1', T, {
+      you: ['crane', 'beach'], them: ['house', 'crane'], ...(ladder ? { ladder } : {}),
+    }))!);
+    expect(matchesFilter(game(), { mode: 'friend' })).toBe(true);
+    expect(matchesFilter(game(), { mode: 'ladder' })).toBe(false);
+    for (const ladder of [{}, { computer: 0.38 }]) {
+      expect(matchesFilter(game(ladder), { mode: 'ladder' })).toBe(true);
+      expect(matchesFilter(game(ladder), { mode: 'friend' })).toBe(false);
+    }
+    expect(matchesFilter(won, { mode: 'ladder' })).toBe(false);
+  });
+
   it('searches secret words and guesses by how they start, ignoring case', () => {
     expect(matchesFilter(won, { search: 'BUN' })).toBe(true);
     expect(matchesFilter(won, { search: ' beach ' })).toBe(true);

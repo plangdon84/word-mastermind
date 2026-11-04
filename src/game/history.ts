@@ -382,8 +382,16 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
 }
 
 /** The history list's filters; a missing field matches everything. */
+/**
+ * The history's Mode filter: a mode, or the rated ladder (Dev Plan item 19t),
+ * whose games are friend games that the "vs. a friend" filter leaves out.
+ * Only your own history offers the ladder: a friend's is filtered on the
+ * server, by mode alone.
+ */
+export type HistoryFilterMode = HistoryMode | 'ladder';
+
 export interface HistoryFilter {
-  mode?: HistoryMode;
+  mode?: HistoryFilterMode;
   result?: HistoryResult;
   difficulty?: Difficulty;
   /**
@@ -399,7 +407,8 @@ export interface HistoryFilter {
 const searchName = (name: string) => normalizeName(name).toLocaleLowerCase();
 
 export function matchesFilter(summary: GameSummary, filter: HistoryFilter): boolean {
-  if (filter.mode && summary.mode !== filter.mode) return false;
+  if (filter.mode === 'ladder' ? !summary.ladder
+    : filter.mode && (summary.mode !== filter.mode || (filter.mode === 'friend' && summary.ladder))) return false;
   if (filter.result && summary.result !== filter.result) return false;
   if (filter.difficulty && isDifficulty(filter.difficulty) && summary.difficulty !== filter.difficulty) return false;
   const search = normalizeWord(filter.search ?? '');

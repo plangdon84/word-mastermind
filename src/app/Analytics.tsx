@@ -1,7 +1,10 @@
 import type { ComponentChildren } from 'preact';
-import { DIFFICULTIES, FEATURES, HISTORY_MODES, STRENGTHS, type HistoryMode, type ModeStats, type Stats, type Trend } from '../game';
+import {
+  DIFFICULTIES, FEATURES, HISTORY_MODES, STRENGTHS, TWO_PLAYER_POOL, type HistoryMode, type LadderStats, type ModeStats, type Stats,
+  type Trend, type WinRecord,
+} from '../game';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
-import { MODE_LABEL } from './GameHistory';
+import { LADDER_LABEL, MODE_LABEL } from './GameHistory';
 import type { HistoryGame } from './historyDb';
 import { POOL_LABEL, POOL_SHORT_LABEL, ratingText, type PoolRating } from './ratingsApi';
 import { formatClock, formatClockUp, rushScoreText } from './rushParts';
@@ -116,6 +119,43 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
   );
 }
 
+/**
+ * The Rated ladder's card (Dev Plan item 19t): its games, which the "vs. a
+ * friend" card leaves out, against people and computers apart, and your two
+ * player rating, which every rated two player game moves. A friend's has no rating.
+ */
+function LadderCard({ ladder, rating }: { ladder: LadderStats; rating?: PoolRating }) {
+  const wdl = (r: WinRecord) => `${r.wins}–${r.draws}–${r.losses}`;
+  return (
+    <div class="mode-card ladder-card">
+      <h4>{LADDER_LABEL}</h4>
+      <dl class="stat-list">
+        <Stat label="Played">{ladder.played}</Stat>
+        <Stat label="Win %">{percent(ladder.record.winPct)}</Stat>
+        <Stat label="Won–drawn–lost">{wdl(ladder.record)}</Stat>
+        {rating && (
+          <Stat label="Rating">
+            <span title={rating.provisional ? 'Provisional: it settles after a few more games' : undefined}>{ratingText(rating)}</span>
+          </Stat>
+        )}
+      </dl>
+      <table class="strength-table">
+        <caption class="visually-hidden">Rated ladder results against people and computers</caption>
+        <thead><tr><th scope="col">Against</th><th scope="col">W–D–L</th><th scope="col">Win %</th></tr></thead>
+        <tbody>
+          {([['People', ladder.people], ['Computers', ladder.computers]] as const).map(([label, r]) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              <td>{wdl(r)}</td>
+              <td>{percent(r.winPct)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** A card for each mode you've played: one saying "No games yet" for each of the rest is clutter. */
 const shownModes = (stats: Stats) => HISTORY_MODES.filter((m) => stats.modes[m].played > 0);
 
@@ -186,6 +226,9 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
             <>
               <div class="mode-cards">
                 {shownModes(stats).map((m) => <ModeCard key={m} stats={stats.modes[m]} onOpen={open} />)}
+                {stats.ladder && stats.ladder.played > 0 && (
+                  <LadderCard ladder={stats.ladder} rating={ratings?.list?.find((r) => r.pool === TWO_PLAYER_POOL)} />
+                )}
               </div>
               <div class="stat-block">
                 <h4>Games by difficulty</h4>
