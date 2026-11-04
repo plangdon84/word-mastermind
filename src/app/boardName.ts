@@ -101,7 +101,7 @@ let done: Promise<void> = Promise.resolve();
  * Sends this guest's name if it's due (`boardNameDue`), after any send
  * already going, and only the newest name asked for meanwhile. A send that
  * fails stays due, for the next visit, unless the server refused the name
- * for good (a 400), which is never sent again.
+ * for good (`offensive-name`), which is never sent again.
  */
 export function syncBoardName(apiUrl: string, identity: ApiIdentity, name: string, fetchFn: typeof fetch = fetch): Promise<void> {
   wanted = { apiUrl, identity, name, fetchFn };
@@ -116,9 +116,9 @@ export function syncBoardName(apiUrl: string, identity: ApiIdentity, name: strin
         const id = next.identity.guestId;
         if (next.identity.token || !boardNameDue(id, next.name)) continue;
         await sendBoardName(next.apiUrl, next.identity, next.name, next.fetchFn).then(() => noteBoardName(id, next.name), (error: unknown) => {
-          // Refused for good (a 400: a name the server's filter turns down): settled as if sent, so it isn't
-          // sent again on every visit (Issue 265); the name never reaches the boards. Others are retried.
-          if (error instanceof DailyApiError && error.status === 400) noteBoardName(id, next.name);
+          // Refused for good (a name the server's filter turns down): settled as if sent, so it isn't sent again
+          // on every visit (Issue 265); the name never reaches the boards. Others, any other 400 too, are retried.
+          if (error instanceof DailyApiError && error.code === 'offensive-name') noteBoardName(id, next.name);
         });
       }
     } finally {

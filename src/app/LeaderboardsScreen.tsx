@@ -104,7 +104,7 @@ export function RatingBoardPanel({ pool, identity, circle }: { pool: RatingPool;
                     <span class="board-guesses" aria-label={`Rating ${r.rating}`}>{r.rating}</span>
                     <span class="board-time board-games" aria-label={gamesText(r.games)}>{r.games}</span>
                     {cpu && (
-                      <span class="board-cpu" aria-label={`${r.computerGames} against computers`}>
+                      <span class="board-cpu" aria-label={r.computerGames > 0 ? `${r.computerGames} against computers` : undefined}>
                         {r.computerGames > 0 ? `🤖${r.computerGames}` : ''}
                       </span>
                     )}

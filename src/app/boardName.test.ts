@@ -65,7 +65,7 @@ describe("a guest's name on the Daily boards", () => {
 
   describe('sending', () => {
     /** A server whose answers wait until `answer` is called, recording each name sent. */
-    function server(fail: false | true | 'refuse' = false) {
+    function server(fail: false | true | 'refuse' | 'bad' = false) {
       const sent: string[] = [];
       const waiting: (() => void)[] = [];
       const fetchFn = (async (_url: RequestInfo | URL, init?: RequestInit) => {
@@ -73,6 +73,7 @@ describe("a guest's name on the Daily boards", () => {
         sent.push(name);
         await new Promise<void>((resolve) => waiting.push(resolve));
         if (fail === 'refuse') return new Response('{"error":"offensive-name"}', { status: 400 });
+        if (fail === 'bad') return new Response('{"error":"bad-request"}', { status: 400 });
         return fail ? new Response('{"error":"unavailable"}', { status: 503 }) : new Response(JSON.stringify({ name }));
       }) as typeof fetch;
       const answer = async () => {
@@ -97,6 +98,16 @@ describe("a guest's name on the Daily boards", () => {
       await again;
       expect(online.sent).toEqual(['Wren']);
       expect(boardNameDue('guest-a', 'Wren')).toBe(false);
+    });
+
+    it('keeps a rename the server answers with any other 400, to send again (review of PR #68)', async () => {
+      noteBoardName('guest-b', 'Guest-1234');
+      noteRename('guest-b', 'Wren');
+      const bad = server('bad');
+      const done = syncBoardName(API, guest('guest-b'), 'Wren', bad.fetchFn);
+      await bad.answer();
+      await done;
+      expect(boardNameDue('guest-b', 'Wren')).toBe(true);
     });
 
     it('drops a rename the server refuses for good, and sends a later one (Issue 265)', async () => {
