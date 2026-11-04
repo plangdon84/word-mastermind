@@ -826,3 +826,40 @@ test('the Rated ladder plays a computer when nobody is free for 30 seconds (item
   if (await page.getByText('Your turn').isVisible()) await guess(page, 'crane');
   await expect(page.getByRole('tab', { name: /🤖 Computer \(1\)/ })).toBeVisible({ timeout: 15_000 });
 });
+
+test('a tapped difficulty is the only one that looks picked, with no ring left by the tap (issue 263)', async ({ page }) => {
+  await unlockAll(page);
+  await expect(modeButton(page, 'Practice')).toBeVisible();
+  await modeButton(page, 'Practice').tap();
+  const choices = page.locator('.choice').filter({ hasText: /^(Easy|Medium|Hard|Extreme)/ });
+  await expect(choices.first()).toBeVisible();
+  // Tap one, then another: a phone keeps :hover on the last thing tapped, which drew a second, thinner border.
+  await choices.filter({ hasText: /^Medium/ }).tap();
+  await choices.filter({ hasText: /^Hard/ }).tap();
+  await expect(choices.filter({ hasText: /^Hard/ })).toHaveAttribute('aria-pressed', 'true');
+  const looks = await choices.evaluateAll((els) => els.map((el) => {
+    const style = getComputedStyle(el);
+    return {
+      picked: el.getAttribute('aria-pressed') === 'true',
+      look: `${style.borderTopColor} ${style.boxShadow} ${style.outlineStyle}`,
+    };
+  }));
+  const picked = looks.filter((l) => l.picked);
+  const others = looks.filter((l) => !l.picked);
+  expect(picked).toHaveLength(1);
+  // Every other choice looks the same as each other, and none like the picked one.
+  expect(new Set(others.map((l) => l.look)).size).toBe(1);
+  expect(others[0].look).not.toBe(picked[0].look);
+  // And the picked one keeps its own border (ink) though the finger was last on it.
+  const ink = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--ink)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  expect(picked[0].look.startsWith(`${ink} `)).toBe(true);
+  // No focus ring after a tap either (issue 249).
+  expect(picked[0].look.endsWith(' none')).toBe(true);
+});

@@ -90,6 +90,8 @@ button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* After a tap or click, no ring: iPhone Safari can ring a tapped button (issue 249, src/app/inputKind.ts). */
 [data-input="pointer"] :focus-visible { outline: none; }
+/* Hover styles only where something can hover: a phone keeps :hover on whatever was last tapped, so
+   a choice under the tap looked picked too, beside the real one (issue 263). Each sits in @media (hover: hover). */
 
 .app {
   max-width: 520px;
@@ -161,7 +163,7 @@ h1 {
   white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn:hover:not(:disabled) { border-color: var(--muted); }
+@media (hover: hover) { .btn:hover:not(:disabled) { border-color: var(--muted); } }
 .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
 .icon-btn {
@@ -248,7 +250,7 @@ h1 {
 .bubble.in { background-color: var(--in-bg); color: var(--in-fg); box-shadow: none; }
 .bubble.out { background-color: var(--out-bg); color: var(--out-fg); box-shadow: none; }
 button.bubble { cursor: pointer; }
-button.bubble:hover { transform: scale(1.06); }
+@media (hover: hover) { button.bubble:hover { transform: scale(1.06); } }
 button.bubble:active { transform: scale(0.94); }
 
 /* History */
@@ -303,7 +305,7 @@ button.bubble:active { transform: scale(0.94); }
 .row .info { border-width: 9px 3px 9px 15px; margin: -9px -3px -9px -15px; border-radius: 28px 16px 16px 28px / 22px; }
 .info:focus-visible { outline-offset: -7px; }
 .info svg { width: 14px; height: 14px; }
-.info:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--muted); }
+@media (hover: hover) { .info:hover { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--muted); } }
 .info[aria-expanded="true"] { background-color: var(--ink); box-shadow: none; color: var(--bg); }
 .definition {
   grid-column: 1 / -1;
@@ -462,7 +464,7 @@ button.bubble:active { transform: scale(0.94); }
   padding: 14px 16px;
   cursor: pointer;
 }
-.choice:hover:not(:disabled) { border-color: var(--muted); }
+@media (hover: hover) { .choice:hover:not(:disabled, [aria-pressed="true"]) { border-color: var(--muted); } }
 .choice[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .choice:disabled { cursor: not-allowed; opacity: 0.55; }
 .choice-label { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.02rem; }
@@ -601,7 +603,7 @@ button.bubble:active { transform: scale(0.94); }
 .result.folded .their-word { padding: 3px 6px; gap: 2px; }
 .result.folded .their-word .bubble { --bs: 26px; }
 .result.folded .folded-open { width: 20px; height: 20px; flex: none; stroke: currentColor; }
-.result.folded:hover { color: var(--ink); }
+@media (hover: hover) { .result.folded:hover { color: var(--ink); } }
 .panel .kicker {
   font-size: clamp(2rem, 11vw, 2.8rem);
   font-weight: 700;
@@ -890,7 +892,7 @@ button.bubble:active { transform: scale(0.94); }
 .avatar-logo { width: 86%; height: 86%; display: block; }
 .avatar-logo svg { display: block; width: 100%; height: 100%; }
 .profile-badge.big { --ps: 64px; }
-.profile-btn:hover .profile-badge { box-shadow: inset 0 0 0 1.5px var(--muted); }
+@media (hover: hover) { .profile-btn:hover .profile-badge { box-shadow: inset 0 0 0 1.5px var(--muted); } }
 /* Reviewing a past game: a small tag in the profile button's place, back to the history (issue #101). */
 .past-tag {
   /* Drawn 34px high, tapped anywhere in 44px, like the profile button. */
@@ -901,7 +903,7 @@ button.bubble:active { transform: scale(0.94); }
   /* A friend's game names them: a long name is cut short (…) rather than crowding the title. */
   max-width: 11rem; overflow: hidden; text-overflow: ellipsis;
 }
-.past-tag:hover { color: var(--ink); }
+@media (hover: hover) { .past-tag:hover { color: var(--ink); } }
 .menu-past { margin: 0 0 4px; }
 .title-screen { position: relative; }
 .title-top { position: absolute; top: 14px; right: 0; }
@@ -959,7 +961,7 @@ button.bubble:active { transform: scale(0.94); }
   text-align: left; cursor: pointer; background: var(--surface);
   border: 1.5px solid var(--tone); border-left-width: 6px; border-radius: 14px; padding: 8px 10px;
 }
-.history-row:hover { background: var(--bg); }
+@media (hover: hover) { .history-row:hover { background: var(--bg); } }
 .history-row.won { --tone: var(--in-bg); }
 .history-row.lost { --tone: #B3261E; }
 .history-row.drawn { --tone: #4A535D; }
@@ -976,7 +978,7 @@ button.bubble:active { transform: scale(0.94); }
     linear-gradient(var(--row-bg), var(--row-bg)) padding-box,
     linear-gradient(160deg, var(--hi), var(--lo) 60%) border-box;
 }
-.history-row[class*="metal-"]:hover { --row-bg: var(--bg); }
+@media (hover: hover) { .history-row[class*="metal-"]:hover { --row-bg: var(--bg); } }
 .history-row[class*="metal-"] .result-tag {
   background: linear-gradient(135deg, var(--hi), var(--lo) 75%);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
