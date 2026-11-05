@@ -226,6 +226,31 @@ describe('friend request alerts (Dev Plan item 19za)', () => {
   });
 });
 
+describe('accepting a request withdrawn meanwhile (review round 1 of PR #79)', () => {
+  it('accepts nothing, alerts no one and keeps the declines', async () => {
+    const { db, sqlite, player, now } = await setup();
+    await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?, ?, 'sent', ?, 0), (?, ?, 'received', ?, 0)`)
+      .run(BOB, ANN, now(), ANN, BOB, now());
+    sqlite.prepare('INSERT INTO friend_declines (sender_id, declined_by, at) VALUES (?, ?, ?)').run(ANN, BOB, now());
+    // Bob withdraws his request just after Ann's add saw it.
+    let withdrawn = false;
+    const racing = { ...db, prepare: (sql: string) => {
+      if (!withdrawn && sql.startsWith('UPDATE friends')) {
+        withdrawn = true;
+        sqlite.prepare('DELETE FROM friends').run();
+      }
+      return db.prepare(sql);
+    } } as D1Database;
+    expect(await addFriend(racing, ANN, bobCode, now())).toEqual({ ok: true, notices: [] });
+    expect(withdrawn).toBe(true);
+    expect(sqlite.prepare('SELECT * FROM friends').all()).toEqual([]);
+    expect(sqlite.prepare('SELECT sender_id FROM friend_declines').all()).toHaveLength(1);
+  });
+});
+
 describe('friend requests by email', () => {
   const refusal = (call: Promise<unknown>) => call.then(() => 'sent', (e: FriendsApiError) => e.code);
 

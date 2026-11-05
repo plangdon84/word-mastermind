@@ -422,7 +422,10 @@ export function FriendScreen({
       throw e;
     }), '');
     // Turned down lately, on a page loaded before that: the game, read again, stops offering Add friend (Dev Plan item 19za).
-    if (declined) await refresh();
+    // If it can't be read just now, the game stays as it is, rather than giving way to a load error (review round 1 of PR #79).
+    if (!declined) return;
+    const seq = ++sequence.current;
+    await api.get(gameId).then((next) => setGame(next, seq), () => {});
   };
 
   const confirmGiveUp = async () => {

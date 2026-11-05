@@ -283,6 +283,10 @@ describe('a live game, first guesses untimed (item 18zv)', () => {
     expect(cancelPvp(guessAt(guessAt(newGame('host', '10m'), 'crane', T), 'moist', T), T).ok).toBe(false);
     expect(cancelPvp(newGame('host', '10m', true), T).ok).toBe(false);
     expect(cancelPvp(cancelled.game, T + 6_000)).toEqual({ ok: false, error: 'game-over' });
+    // Never dated before the turn began; once the 2 minutes are up, it's the timeout's own cancel (review round 1 of PR #79).
+    const second = guessAt(newGame('host', '10m'), 'crane', T + 30_000);
+    expect(cancelPvp(second, T + 10_000)).toEqual({ ok: false, error: 'time-left' });
+    expect(cancelPvp(second, T + 30_000 + FIRST_GUESS_MS + 9_000)).toEqual(timeOutPvp(second, T + 30_000 + FIRST_GUESS_MS + 9_000));
     // An early cancel in a record where none was allowed still doesn't replay.
     const older = newGame('host', '10m', true);
     const forged = { ...toPvpRecord(older), moves: [{ seat: 'host' as const, kind: 'cancel' as const, at: T + 5_000 }] };

@@ -207,11 +207,12 @@ const forgetEmailRequest = async (db: D1Database, accountId: string, friendId: s
  * at once. Returns the "accepted" alert for `friendId`.
  */
 async function acceptRequest(db: D1Database, accountId: string, friendId: string, now: number): Promise<Notice[]> {
-  await db.batch([
-    db.prepare(`UPDATE friends SET state = 'friends', since = ?3
-      WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)`).bind(accountId, friendId, now),
-    forgetDeclinesBetween(db, accountId, friendId),
-  ]);
+  // Only a request still there: one withdrawn meanwhile accepts nothing, alerts no one and forgets nothing (review round 1 of PR #79).
+  const { meta } = await db.prepare(`UPDATE friends SET state = 'friends', since = ?3
+    WHERE ((account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)) AND state <> 'friends'`)
+    .bind(accountId, friendId, now).run();
+  if (!meta.changes) return [];
+  await forgetDeclinesBetween(db, accountId, friendId).run();
   return [friendAcceptedNotice(friendId, await nameOrDefault(db, accountId))];
 }
 

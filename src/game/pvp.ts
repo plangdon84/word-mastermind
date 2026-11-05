@@ -413,6 +413,9 @@ export function cancelPvp(game: PvpGame, now: number): PvpResult {
   const turn = pvpTurn(game);
   if (turn === null) return { ok: false, error: 'game-over' };
   if (!pvpFirstGuessDue(game)) return { ok: false, error: 'not-your-turn' };
+  // Never dated before the turn began (review round 1 of PR #79); once its time is up, it's the usual timeout's cancel.
+  if (now < pvpTurnStart(game)) return { ok: false, error: 'time-left' };
+  if (now >= pvpDeadline(game)!) return timeOutPvp(game, now);
   return {
     ok: true,
     game: {
@@ -450,7 +453,7 @@ export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
     case 'cancel': {
       if (pvpTurn(game) !== move.seat) return { ok: false, error: 'not-your-turn' };
       // Cancelled before the first guess's time was up (`cancelPvp`, Dev Plan item 19za).
-      if (move.kind === 'cancel' && move.at < (pvpDeadline(game) ?? Infinity)) return cancelPvp(game, move.at);
+      if (move.kind === 'cancel' && move.at < pvpDeadline(game)!) return cancelPvp(game, move.at);
       const result = timeOutPvp(game, move.at);
       // A timeout replays as a timeout and a cancel as a cancel, or the record is refused ('time-left': the
       // move recorded isn't the one the rules give at that moment).

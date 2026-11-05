@@ -281,6 +281,11 @@ describe('a computer when nobody is free (Dev Plan item 19p)', () => {
     expect((await ann.games.get(gameId)).state).toBe('playing');
   });
 
+  it('reports a cancel the room refuses for any other reason (review round 1 of PR #79)', async () => {
+    const context = setup();
+    await expect(abandonComputerGame({ GAMES: context.rooms.namespace } as Env, 'f'.repeat(64))).rejects.toThrow();
+  });
+
   it('rates a computer game by the computer the game started with, even after the table changes', async () => {
     const context = setup();
     const ann = await context.player(ANN, 'Ann');

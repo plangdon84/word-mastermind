@@ -168,7 +168,10 @@ export async function startComputerGame(
  */
 export async function abandonComputerGame(env: Env, gameId: string): Promise<void> {
   const response = await toRoom(env, env.GAMES.idFromString(gameId), { action: 'abandon' });
-  if (!response.ok && response.status !== 409) throw new Error(`Couldn't cancel a computer game: ${response.status}`);
+  if (response.ok) return;
+  // Already guessed in, or over: left alone. Anything else is a mistake worth seeing (review round 1 of PR #79).
+  const { error } = await response.json<{ error?: string }>().catch(() => ({ error: undefined }));
+  if (error !== 'game-over') throw new Error(`Couldn't cancel a computer game: ${response.status} ${error ?? ''}`);
 }
 
 /**

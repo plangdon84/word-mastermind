@@ -542,7 +542,7 @@ async function startComputerGame(
  */
 async function abandonComputerGame(storage: RoomStorage, deps: RoomDeps, room: Room, now: number): Promise<RoomResponse> {
   const game = gameOf(room);
-  if (!room.computer || !game) return refuse(409, 'bad-request');
+  if (!room.computer || !game || room.unsaved) return refuse(409, room.unsaved ? 'game-over' : 'bad-request');
   if (game.guesses.host.length > 0) return refuse(409, 'game-over');
   const cancelled = cancelPvp(game, now);
   if (!cancelled.ok) return refuse(409, cancelled.error === 'game-over' ? 'game-over' : 'bad-request');
@@ -585,8 +585,9 @@ async function answerRoom(
   }
 
   if (!stored) return refuse(404, 'not-found');
+  // Before the usual catch-up, which could play the computer's due guess and tell the player it's their turn.
+  if (request.action === 'abandon') return abandonComputerGame(storage, deps, stored, now);
   const room = await settle(storage, deps, stored, now);
-  if (request.action === 'abandon') return abandonComputerGame(storage, deps, room, now);
   const ids = idsOf(request);
   if (request.action === 'get') return { status: 200, body: describeRoom(room, ids, now) };
   if (request.action === 'opponent') return ladderOpponent(room, ids);
