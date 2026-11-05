@@ -378,7 +378,11 @@ Run `npm test` and `npm run typecheck` before committing.
   (`src/app/tabSync.ts`) and never save back what they took (`adopted`);
   only the leading tab (`useTabLeader`, a Web Lock the shown tab takes)
   plays the computer's turn, and a Solo Rush save's `away` marks an
-  automatic pause, resumed by whichever tab is shown.
+  automatic pause, resumed by whichever tab is shown. Solo Rush saves
+  only what the page holds now (its refs), never a render's older copy,
+  and merges a late save from the other tab with its own run (`mergeRuns`
+  in `src/game/run.ts`) rather than dropping either's guesses (Dev Plan
+  item 19z).
 - The move to `wordmastermind.app` (Dev Plan item 18f, issue #92):
   `src/app/moved.ts` shows `MovedNotice.tsx` on `word-mastermind.pages.dev`
   itself (never a preview) until Done, and from `REDIRECT_FROM` sends that

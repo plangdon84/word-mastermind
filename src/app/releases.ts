@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.4.0',
+    notes: [
+      { text: 'A solo Word Set open in two tabs no longer loses a guess when you switch between them quickly.' },
+    ],
+  },
+  {
     version: '2.3.0',
     notes: [
       { text: 'Your game history has a Rated ladder filter, and Stats shows your ladder record and rating.' },

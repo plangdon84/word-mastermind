@@ -12,23 +12,13 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 **Next, in this order**
 
 Release 2.4.0, planned with the owner on 5 November 2026: one stack of
-two PRs that merges to `main` as one, as 2.3.0 did. 19z is the base (its
+two PRs that merges to `main` as one, as 2.3.0 did. 19z (done, below) is the base (its
 PR targets `main`); 19za is stacked on it, its PR merging into 19z's
 branch, and 19z's PR then ships the stack. Each PR adds its notes to the
 one 2.4.0 release in `src/app/releases.ts`. 19za goes through the review
 gate (19z is app only and skips it); the stack merges once both PRs are
 ready.
 
-- [ ] **19z. A guess lost switching Solo Rush tabs** (2.4.0, base of the
-  stack; issue plangdon84/word-mastermind-archive#275; app only)
-  - Issue 275: the two-tabs Solo Rush browser test loses a guess about 1
-    run in 20. First confirm the cause (likely the hidden tab's automatic
-    pause save reaching the shown tab after it has already taken over and
-    resumed, so the shown tab takes the paused copy back and drops a
-    guess typed in between), then fix it in the app so a late pause save
-    never overwrites newer moves. It's a real bug for a player switching
-    tabs quickly. The test is never skipped or loosened: it passes 20
-    repeats (`--repeat-each=20`) in Chromium and WebKit
 - [ ] **19za. Friend request and ladder clean-ups** (2.4.0, stacked on
   19z; issues
   plangdon84/word-mastermind-archive#280,
@@ -124,6 +114,26 @@ ready.
 
 ## Done, latest first
 
+- [x] **19z. A guess lost switching Solo Rush tabs** (2.4.0, base of the
+  stack; issue plangdon84/word-mastermind-archive#275; app only)
+  - Issue 275: the two-tabs Solo Rush browser test loses a guess about 1
+    run in 20. First confirm the cause (likely the hidden tab's automatic
+    pause save reaching the shown tab after it has already taken over and
+    resumed, so the shown tab takes the paused copy back and drops a
+    guess typed in between), then fix it in the app so a late pause save
+    never overwrites newer moves. It's a real bug for a player switching
+    tabs quickly. The test is never skipped or loosened: it passes 20
+    repeats (`--repeat-each=20`) in Chromium and WebKit
+  - Built: the cause was a little different. While typing, each key
+    scheduled a save of that moment's copy of the run, from before the
+    guess; Enter saved the guess at once, then the scheduled save wrote
+    the older copy back, and the other tab followed it. Solo Rush now saves
+    only what the page holds now, and never writes the same thing twice.
+    A second, rarer race (a tab shown again resumes its own copy before
+    the other tab's last saves reach it) is closed by merging the two
+    copies' moves in time order (`mergeRuns` in `src/game/run.ts`), so
+    neither tab's guesses are lost. The test passed 60 repeats in Chromium
+    and 100 in WebKit, unchanged
 - [x] **19w. Who's on the ladder** (2.3.0, stacked on 19t; issue
   plangdon84/word-mastermind-archive#270; worker, review gate)
   - Decided with the owner on 4 November 2026: opening the Rated ladder
