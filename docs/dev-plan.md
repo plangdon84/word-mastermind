@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -11,8 +11,27 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-Nothing: release 2.4.0 (19z, with 19za stacked on it, both in Done
-below) ships to `main` as one in PR #78, as 2.3.0 did.
+Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
+shipped to `main` in PR #78.
+
+- [ ] **19zb. Review follow-ups from 2.4.0** (issue
+  plangdon84/word-mastermind-archive#281; worker, review gate; no
+  release note, nothing players see)
+  - Decided with the owner on 5 November 2026: its own PR to `main` once
+    2.4.0 had shipped, rather than a third PR in the stack
+  - Issue 281, items 1 to 6: becoming friends and forgetting the declines
+    between the two are one database write again, the delete running only
+    when the friendship is there; the queue logs a failed cancel of a
+    ladder computer game; a test of the room refusing that cancel for a
+    reason other than an unknown game; the reload after "turned down
+    lately" shares the page's normal reload; `cancelPvp`'s comment says
+    a cancel past the 2 minutes is timed at the deadline; an accept
+    changes only the rows that still run the right way (your "received"
+    and their "sent"), so a request withdrawn and sent again from another
+    tab at that moment isn't turned into a friendship
+  - Item 7 is accepted as is (the owner): the computer finding the word
+    with its very first guess as the player cancels gives no winner,
+    rating or history
 
 **Later**
 
@@ -68,7 +87,11 @@ below) ships to `main` as one in PR #78, as 2.3.0 did.
     test (issue 191's) once waited out its minute for the friend's **Add**
     button on CI, then passed on a re-run. The friend's profile test
     (item 18c's) fails when run alongside the other friend tests, on
-    `main` too, and passes on its own. Find each one's cause and fix it
+    `main` too, and passes on its own. Added on 5 November 2026 (issue
+    plangdon84/word-mastermind-archive#282): a join to the 5-player Rush
+    with Friends lobby once didn't land within 10 seconds on CI, then
+    passed on a re-run, and 10 of 10 locally. Find each one's cause and
+    fix it; never skip or loosen a test
   - The cancelled live game test waits out the real 2 minutes (about 2.5
     minutes of CI a full run). If CI time matters, let the test server use
     a shorter first-guess deadline, defaulting to 2 minutes everywhere else
