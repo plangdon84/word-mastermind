@@ -1,7 +1,10 @@
 import type { ComponentChildren } from 'preact';
-import { DIFFICULTIES, FEATURES, HISTORY_MODES, STRENGTHS, type HistoryMode, type ModeStats, type Stats, type Trend } from '../game';
+import {
+  DIFFICULTIES, FEATURES, HISTORY_MODES, STRENGTHS, TWO_PLAYER_POOL, type HistoryMode, type LadderStats, type ModeStats, type Stats,
+  type Trend, type WinRecord,
+} from '../game';
 import { DIFFICULTY_LABEL, STRENGTH_LABEL } from './components';
-import { MODE_LABEL } from './GameHistory';
+import { LADDER_LABEL, MODE_LABEL } from './GameHistory';
 import type { HistoryGame } from './historyDb';
 import { POOL_LABEL, POOL_SHORT_LABEL, ratingText, type PoolRating } from './ratingsApi';
 import { formatClock, formatClockUp, rushScoreText } from './rushParts';
@@ -116,6 +119,48 @@ function ModeCard({ stats, onOpen }: { stats: ModeStats; onOpen: (id: string) =>
   );
 }
 
+/**
+ * The Rated ladder's card (Dev Plan item 19t): its games, which the "vs. a
+ * friend" card leaves out, against people and computers apart, and the two
+ * player rating, which every rated two player game moves (a friend's too,
+ * once they have one).
+ */
+function LadderCard({ ladder, rating }: { ladder: LadderStats; rating?: PoolRating }) {
+  const wdl = (r: WinRecord) => `${r.wins}–${r.draws}–${r.losses}`;
+  return (
+    <div class="mode-card ladder-card">
+      <h4>{LADDER_LABEL}</h4>
+      <dl class="stat-list">
+        <Stat label="Played">{ladder.played}</Stat>
+        <Stat label="Win %">{percent(ladder.record.winPct)}</Stat>
+        <Stat label="Won–drawn–lost">{wdl(ladder.record)}</Stat>
+        {rating && (
+          <Stat label="Rating">
+            <span title={rating.provisional ? 'Provisional: it settles after a few more games' : undefined}>{ratingText(rating)}</span>
+          </Stat>
+        )}
+      </dl>
+      <table class="strength-table">
+        <caption class="visually-hidden">Rated ladder results against people and computers</caption>
+        <thead><tr><th scope="col">Against</th><th scope="col">W–D–L</th><th scope="col">Win %</th></tr></thead>
+        <tbody>
+          {([['People', ladder.people], ['Computers', ladder.computers]] as const).map(([label, r]) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              <td>{wdl(r)}</td>
+              <td>{percent(r.winPct)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Where a card goes: the modes in order, with the Rated ladder's (Dev Plan item 19t) just after "vs. a friend". */
+const cardOrder = (card: HistoryMode | 'ladder') =>
+  card === 'ladder' ? HISTORY_MODES.indexOf('friend') + 0.5 : HISTORY_MODES.indexOf(card);
+
 /** A card for each mode you've played: one saying "No games yet" for each of the rest is clutter. */
 const shownModes = (stats: Stats) => HISTORY_MODES.filter((m) => stats.modes[m].played > 0);
 
@@ -152,11 +197,16 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
   onOpen: (game: HistoryGame) => void;
   /** Your ratings, where there's a server; undefined without one. */
   ratings?: RatingsState;
-  /** A friend's stats, from their profile (Dev Plan item 18c): their name. Their rating isn't shown. */
+  /**
+   * A friend's stats, from their profile (Dev Plan item 18c): their name. Their
+   * rating shows only once they have one (Dev Plan item 19t), provisional or not.
+   */
   friend?: string;
   /** Shown before the stats: your record against a friend. */
   children?: ComponentChildren;
 }) {
+  // A friend with no rating has no Rating tile: "No rated games yet" and the like are written for you.
+  const friendUnrated = Boolean(friend) && !ratings?.list?.length;
   const open = (id: string) => {
     const game = games.find((g) => g.entry.id === id);
     if (game) onOpen(game);
@@ -168,8 +218,8 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
       ) : (
         <>
           {children}
-          <dl class={friend ? 'headline three' : 'headline'}>
-            {!friend && <RatingTile ratings={ratings} />}
+          <dl class={friendUnrated ? 'headline three' : 'headline'}>
+            {!friendUnrated && <RatingTile ratings={ratings} />}
             <div><dt>Games</dt><dd>{stats.played}</dd></div>
             <div><dt>Win %</dt><dd>{percent(stats.winPct)}</dd></div>
             <div><dt>Guesses</dt><dd>{stats.totalGuesses.toLocaleString()}</dd></div>
@@ -185,7 +235,12 @@ export function Analytics({ stats, games, onOpen, ratings, friend, children }: {
           ) : (
             <>
               <div class="mode-cards">
-                {shownModes(stats).map((m) => <ModeCard key={m} stats={stats.modes[m]} onOpen={open} />)}
+                {/* The Rated ladder's card where "vs. a friend" is in the list, whether or not that has one. */}
+                {[...shownModes(stats), ...(stats.ladder?.played ? ['ladder' as const] : [])]
+                  .sort((a, b) => cardOrder(a) - cardOrder(b))
+                  .map((m) => (m === 'ladder'
+                    ? <LadderCard key={m} ladder={stats.ladder!} rating={ratings?.list?.find((r) => r.pool === TWO_PLAYER_POOL)} />
+                    : <ModeCard key={m} stats={stats.modes[m]} onOpen={open} />))}
               </div>
               <div class="stat-block">
                 <h4>Games by difficulty</h4>

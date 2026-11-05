@@ -1,12 +1,13 @@
 import {
   BADGE_BY_ID, computeStats, HEAD_TO_HEAD_MODES, HISTORY_MODES, isDifficulty, isLobbyCode, isObject, isTime, LOBBY_CODE_ALPHABET, NAME_MAX, normalizeWord,
   parseHistoryEntry, type DailyPlacement, type Difficulty, type EarnedBadge, type HeadToHead, type HistoryEntry,
-  type HistoryFilter, type HistoryMode, type HistoryResult, type Stats,
+  type HistoryFilter, type HistoryFilterMode, type HistoryMode, type HistoryResult, type Stats,
 } from '../game';
 import { apiRequester, type ApiIdentity } from './apiIdentity';
 import { isCountry } from './countries';
 import { parsePlacement } from './dailyApi';
 import { removeStored, writeStored } from './localStore';
+import { parseRatings, type PoolRating } from './ratingsApi';
 
 /*
  * Friends (README "Friends"): signed-in players add each other by friend
@@ -214,6 +215,8 @@ export interface FriendProfileAnswer {
   profile: FriendProfile;
   summary: SharedSummary | null;
   versus: HeadToHead;
+  /** Their ratings, provisional ones included (Dev Plan item 19t); none from an older server. */
+  ratings: PoolRating[];
 }
 
 /**
@@ -274,12 +277,12 @@ export function parseFriendGamesParams(params: URLSearchParams): FriendGamesQuer
     return null;
   }
   const [mode, result, difficulty, search] = ['mode', 'result', 'difficulty', 'search'].map((k) => params.get(k));
-  if (mode !== null && !HISTORY_MODES.includes(mode as HistoryMode)) return null;
+  if (mode !== null && mode !== 'ladder' && !HISTORY_MODES.includes(mode as HistoryMode)) return null;
   if (result !== null && !['won', 'lost', 'drawn'].includes(result)) return null;
   if (difficulty !== null && !isDifficulty(difficulty)) return null;
   if (search !== null && (search.length === 0 || search.length > 32)) return null;
   const filter: HistoryFilter = {};
-  if (mode !== null) filter.mode = mode as HistoryMode;
+  if (mode !== null) filter.mode = mode as HistoryFilterMode;
   if (result !== null) filter.result = result as HistoryResult;
   if (difficulty !== null) filter.difficulty = difficulty as Difficulty;
   if (search !== null) filter.search = search;
@@ -295,6 +298,11 @@ const isTally = (value: unknown) =>
 
 /** Modes added since summaries were first shared, which an older app's summary leaves out. */
 const LATER_MODES: readonly HistoryMode[] = ['dailyWord'];
+
+/** The Rated ladder's stats, with every number its card shows. */
+const isLadderStats = (value: unknown) =>
+  isObject(value) && Number.isSafeInteger(value.played)
+  && [value.record, value.people, value.computers].every((r) => isTally(r) && isObject(r) && (r.winPct === null || typeof r.winPct === 'number'));
 
 /**
  * A shared summary, checked as far as the app relies on it (the server
@@ -315,7 +323,9 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     || !HISTORY_MODES.every((m) => isObject(modes[m]))) {
     return null;
   }
-  // Only badges this version knows, each once.
+  // The Rated ladder's stats (Dev Plan item 19t), kept only whole: a summary from an older app has none.
+  const { ladder: _ladder, ...statsWithoutLadder } = stats;
+    // Only badges this version knows, each once.
   const badges = new Map<string, EarnedBadge>();
   for (const b of value.badges) {
     if (isObject(b) && typeof b.id === 'string' && BADGE_BY_ID.has(b.id) && !badges.has(b.id) && isTime(b.at)
@@ -324,7 +334,8 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     }
   }
   return {
-    format: SHARED_FORMAT, games: value.games as number, stats: { ...stats, modes } as unknown as Stats, badges: [...badges.values()],
+    format: SHARED_FORMAT, games: value.games as number, stats: { ...statsWithoutLadder, modes, ...(isLadderStats(stats.ladder) ? { ladder: stats.ladder } : {}) } as unknown as Stats,
+    badges: [...badges.values()],
     featured: parseEntries(value.featured),
     ...(typeof value.ladderAverage === 'number' && value.ladderAverage >= 1 && value.ladderAverage <= 1000
       ? { ladderAverage: value.ladderAverage } : {}),
@@ -338,7 +349,7 @@ export function parseFriendProfileAnswer(value: unknown): FriendProfileAnswer | 
   const summary = value.summary === null ? null : parseSharedSummary(value.summary);
   const { versus } = value;
   if (!profile || !isObject(versus) || !HEAD_TO_HEAD_MODES.every((m) => isTally(versus[m]))) return null;
-  return { profile, summary, versus: versus as unknown as HeadToHead };
+  return { profile, summary, versus: versus as unknown as HeadToHead, ratings: parseRatings({ ratings: value.ratings ?? [] }) ?? [] };
 }
 
 export function parseFriendGamesPage(value: unknown): FriendGamesPage | null {

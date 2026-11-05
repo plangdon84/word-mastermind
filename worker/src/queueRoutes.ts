@@ -14,7 +14,7 @@ import { currentRating } from './ratings';
  * hands the request to the queue's Durable Object (`Matchmaker`).
  */
 
-const QUEUE_PATH = /^\/api\/queue(?:\/(poll|leave))?$/;
+const QUEUE_PATH = /^\/api\/queue(?:\/(poll|leave|busy))?$/;
 
 /**
  * The queue's time control and difficulty: Live 10 at Medium alone since
@@ -49,6 +49,7 @@ export async function routeQueue(request: Request, env: Env, now: number, pathna
   if (!isObject(body) || !choice) return errorResponse(400, 'bad-request');
 
   const action = match[1];
+  if (action === 'busy') return toQueue(env, { ...choice, action });
   if (action === 'poll' || action === 'leave') return toQueue(env, { ...choice, action, accountId });
   const name = nameOf(body.name);
   if (!name || !isShortString(body.secret)) return errorResponse(400, 'bad-request');

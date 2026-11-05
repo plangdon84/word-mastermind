@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 4 November 2026 (release 2.3.0 planned the same day). Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -11,33 +11,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19t. The rated ladder in history and stats** (issues
-  plangdon84/word-mastermind-archive#273 and
-  plangdon84/word-mastermind-archive#274; app only)
-  - Decided with the owner on 4 November 2026: rated ladder games count
-    only as the ladder, never as "vs. a friend"
-  - Issue 273: the game history gets a **Rated ladder** filter (games
-    against people and computers); those games leave the "vs. a friend"
-    filter
-  - Issue 274: Stats gets a Rated ladder section (games, wins, losses,
-    draws, with a people / computers split and the ladder rating), and
-    ladder games against people leave the friend stats as computer ones
-    already do. Friends' head-to-head records are unchanged. README
-    "Profile" updated
-- [ ] **19e. Friending your ladder opponent** (issue #78; split from 18d
-  on 9 October 2026; worker, review gate)
-  - Decided with the owner on 4 November 2026: once a rated ladder game
-    against a person is over (never during it), an **Add friend** button
-    sends them a friend request they accept or decline, as Find a friend
-    does; nothing changes until they accept. Not offered against a
-    computer or someone already a friend. README "Friends" updated
-- [ ] **19w. Who's on the ladder** (issue
-  plangdon84/word-mastermind-archive#270; worker, review gate)
-  - Decided with the owner on 4 November 2026: opening the Rated ladder
-    shows how busy it is, numbers only and never names, e.g. "2 waiting ·
-    6 in ladder games now" (0 too, so players expect a computer after 30
-    seconds). Read from the queue and the games in play, kept cheap within
-    the Workers Free plan. README "Random opponent" updated
+Nothing: release 2.3.0 (19t, with 19e and 19w stacked on it, all in
+Done below) ships to `main` as one in PR #74, as 2.2.0 did.
 
 **Later**
 
@@ -105,6 +80,59 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 ## Done, latest first
 
+- [x] **19w. Who's on the ladder** (2.3.0, stacked on 19t; issue
+  plangdon84/word-mastermind-archive#270; worker, review gate)
+  - Decided with the owner on 4 November 2026: opening the Rated ladder
+    shows how busy it is, numbers only and never names, e.g. "2 waiting ·
+    6 in ladder games now" (0 too, so players expect a computer after 30
+    seconds). Read from the queue and the games in play, kept cheap within
+    the Workers Free plan. README "Random opponent" updated
+  - Built: the queue counts the people in each ladder game it started (2,
+    or 1 against a computer) until the game's room says it's over; the
+    word step reads it (`POST /api/queue/busy`) on opening and every 15
+    seconds, and each check-in while waiting carries it
+
+- [x] **19e. Friending your ladder opponent** (2.3.0, stacked on 19t;
+  issue #78; split from 18d on 9 October 2026; worker, review gate)
+  - Decided with the owner on 4 November 2026: once a rated ladder game
+    against a person is over (never during it), an **Add friend** button
+    sends them a friend request they accept or decline, as Find a friend
+    does; nothing changes until they accept. Not offered against a
+    computer or someone already a friend. README "Friends" updated
+  - Built: the result of a finished ladder game against a person offers
+    **Add friend**, **Friend request sent** or **Accept friend request**,
+    by where you stand (the server says, `ladderFriend`, and tells the
+    other open page when it changes); a request sent by email stays out of
+    sight, as in a search
+
+- [x] **19t. The rated ladder in history and stats** (2.3.0, base of the
+  stack; issues
+  plangdon84/word-mastermind-archive#273,
+  plangdon84/word-mastermind-archive#274 and
+  plangdon84/word-mastermind-archive#277; worker, review gate)
+  - Decided with the owner on 4 November 2026: rated ladder games count
+    only as the ladder, never as "vs. a friend"
+  - Issue 273: the game history gets a **Rated ladder** filter (games
+    against people and computers); those games leave the "vs. a friend"
+    filter
+  - Issue 274: Stats gets a Rated ladder section (games, wins, losses,
+    draws, with a people / computers split and the ladder rating), and
+    ladder games against people leave the friend stats as computer ones
+    already do. Friends' head-to-head records are unchanged. README
+    "Profile" updated
+  - Issue 277: the rating boards' column headings line up with their
+    columns (after 19s's header row): Games and the computer-games
+    heading right-aligned over their numbers, Rating centred over the
+    ratings. Checked at the browser tests' 11 sizes
+  - Added with the owner on 4 November 2026, on the PR: a friend's
+    history offers the Rated ladder filter too (the server marks each
+    indexed game, migration 0030), and a friend's Stats headline and
+    ladder card show their rating once they have one, provisional or not
+  - Built: ladder games (people and computers) left the friend stats and
+    the "vs. a friend" filter; the ladder card comes just after vs. a
+    friend and shows the two player rating, which the ladder shares. The
+    boards' columns were sized in em, so the smaller header text made them
+    narrower than the rows'; now in rem
 - [x] **19x. Rated ladder review clean-ups** (stacked on 19s; issues
   plangdon84/word-mastermind-archive#266 and
   plangdon84/word-mastermind-archive#267; worker, review gate; no change

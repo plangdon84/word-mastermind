@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { computeStats } from '../game';
+import { sharedSummary } from './sharedSummary';
 import {
+  parseFriendProfileAnswer, parseSharedSummary,
   friendGamesAfter, friendGamesParams, parseFriendGamesAfter, parseFriendGamesPage, parseFriendGamesParams, parseFriendsList,
   parsePendingInvite, PENDING_INVITE_MS,
 } from './friendsApi';
@@ -54,5 +57,40 @@ describe("paging a friend's history from the last game shown (Issue 206)", () =>
     expect(parseFriendGamesPage({ games: [], next: '1:x' })).toEqual({ games: [], next: '1:x' });
     expect(parseFriendGamesPage({ games: [], next: null })).toEqual({ games: [], next: null });
     expect(parseFriendGamesPage({ games: [], next: 20 })).toBeNull();
+  });
+});
+
+describe("a friend's profile (Dev Plan item 19t)", () => {
+  const profile = { name: 'Bob', country: null, memberSince: 0, placements: [] };
+  const tally = { wins: 0, draws: 0, losses: 0 };
+  const answer = { profile, summary: null, versus: { friend: tally, lobby: tally } };
+
+  it('reads their ratings, provisional ones included', () => {
+    const ratings = [{ pool: 'correspondence', rating: 1512, provisional: true, games: 3 }];
+    expect(parseFriendProfileAnswer({ ...answer, ratings })?.ratings).toEqual(ratings);
+  });
+
+  it("reads an older server's answer, without ratings, as none", () => {
+    expect(parseFriendProfileAnswer(answer)?.ratings).toEqual([]);
+  });
+});
+
+describe("a friend's shared Rated ladder stats (Dev Plan item 19t)", () => {
+  const summary = (ladder: unknown) => ({ ...sharedSummary([], [], 0, (ms: number) => Math.floor(ms / 86_400_000)), stats: {
+    ...computeStats([], 0), ladder,
+  } });
+  const tally = { wins: 1, draws: 0, losses: 1, winPct: 50 };
+
+  it('keeps them whole', () => {
+    const ladder = { played: 2, record: tally, people: tally, computers: { wins: 0, draws: 0, losses: 0, winPct: null } };
+    expect(parseSharedSummary(summary(ladder))?.stats.ladder).toEqual(ladder);
+  });
+
+  it('drops them when broken, so the rest still shows', () => {
+    for (const ladder of [{ played: 2 }, { played: 'x', record: tally, people: tally, computers: tally }, 'nope']) {
+      const parsed = parseSharedSummary(summary(ladder));
+      expect(parsed).not.toBeNull();
+      expect(parsed!.stats.ladder).toBeUndefined();
+    }
   });
 });

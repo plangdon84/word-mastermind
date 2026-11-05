@@ -1263,6 +1263,18 @@ isn't mistaken for a rated challenge to a friend).
   it hasn't heard from in 30 seconds (the page was closed), and the app
   joins again by itself if it was dropped while in the background. Leaving
   the screen leaves the queue.
+- **How busy it is** (Dev Plan item 19w, agreed with the owner on 4
+  November 2026): the word step shows how many people are waiting and how
+  many are in ladder games now, as numbers only and never names, e.g. **2
+  waiting · 6 in ladder games now**, zeros too, so a player alone expects a
+  computer after 30 seconds. It's read on opening and every 15 seconds
+  while the word step is open; while you wait, each check-in carries it,
+  counting the others waiting (**1 other waiting · 6 in ladder games
+  now**). A game against a person counts 2, one against a computer 1. The
+  queue keeps the count itself: it notes each game it starts, and the
+  game's room tells it when the game is over (or cancelled), so nothing is
+  read from D1; a game it never hears about stops counting after 30
+  minutes, longer than any ladder game can last.
 - **Matching:** two players are paired when their ratings are within **200
   points**, a gap that widens by 10 points each second the longer-waiting
   of the two has waited (500 after 30 seconds); the closest rating wins, the
@@ -1291,15 +1303,18 @@ isn't mistaken for a rated challenge to a friend).
   the coin toss decides who goes first as usual. It then plays like a game
   against a friend (clocks, turn alerts, **Online games** on the title
   screen), with **Find another opponent** in place of New invite and no
-  rematch. The waiting player also gets a **Matched with Bob** alert. The
+  rematch. Once a game against a person is over, its result offers **Add
+  friend** (see [Friends](#friends)). The waiting player also gets a **Matched with Bob** alert. The
   record says it's a ladder game (`ladder`, with the computer's recall
   against a computer).
 - **History and badges:** a ladder game is kept in the friend-game layout
   (its record and review), marked as a ladder game: the history shows
   **Rated ladder · 🤖 Computer** or **Rated ladder · Bob**. A game against
-  a computer is kept out of the friend stats (win %, best, fastest) and the
-  history's search by name (the owner, 3 November 2026, review of PR #65),
-  but counts in the overall win %. Against a computer, a win earns the
+  a computer is kept out of the history's search by name (the owner,
+  3 November 2026, review of PR #65). Since Dev Plan item 19t, every ladder
+  game, against a person or a computer, has its own **Rated ladder** filter
+  and Stats card and is left out of **vs. a friend**'s; all count in the
+  overall win %. Against a computer, a win earns the
   **VS CPU** badges of the strongest of the four named strengths it's at
   least as strong as (Expert up to 90%, Mastermind at 100%), at your
   difficulty or easier, and **Beat the computer in 20, 15 or 10 guesses or
@@ -1918,7 +1933,16 @@ up); a game counts at the easiest difficulty used.
    - modes with an opponent: **win %** with its trend, the wins–draws–losses
      count, and the current and best **win streak**. Giving up counts as a
      loss. vs. Computer has a row per strength. The headline's win % counts
-     games against the computer and against friends.
+     games against the computer and against friends, the Rated ladder's
+     included.
+   - **Rated ladder** (Dev Plan item 19t, issue 274; decided with the owner
+     on 4 November 2026): ladder games count only here, never on the vs. a
+     friend card, whether against a person or a computer. Games played,
+     win % and won–drawn–lost, your **two player rating** (your
+     own or a friend's, once they have one; every rated two player game
+     moves it), and a row each for **People** and **Computers** (W–D–L and
+     win %). It comes just after the vs. a friend card. Head-to-head records
+     against friends are unchanged.
 3. **Games by difficulty.**
 4. **Top 10 guesses** across all modes; a tie for 10th is cut alphabetically.
 5. **Time played:** the time you spent playing. Single player: the game's
@@ -2106,7 +2130,11 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   (given up, or no word found) has a plain border and "No score". Rows are
   dated by the game's last move, and load 20 at a time (**Show more**).
 - **Filters:** mode, result and difficulty (the easiest used). A Rush has no
-  result, so a result filter leaves Rushes out. **Search names** finds games
+  result, so a result filter leaves Rushes out. The mode filter has
+  **Rated ladder** after **vs. a friend** (Dev Plan item 19t, issue 273):
+  your ladder games against people and computers, which **vs. a friend**
+  leaves out. A friend's history offers it too, the server filtering
+  theirs. **Search names** finds games
   by who you played (issue 219): your opponent in a game against a friend,
   or the other people in a Word Set with friends (not computers), matching
   the start of a name and ignoring case. Search by word went away; search
@@ -2318,6 +2346,26 @@ first.
   - A phone's contacts and social accounts are left out: a web app can't
     read an iPhone's contacts, and each social account needs its own
     sign-in setup.
+- **From a Rated ladder game** (Dev Plan item 19e, decided with the owner
+  on 4 November 2026): once a [ladder](#random-opponent) game against a
+  person is over (never during it), its result has **Add friend**. It
+  sends them a friend request, as adding them by code does: they **Accept**
+  or **Decline** it on their friends list, or from the same game's result
+  (**Accept friend request**), and nothing changes until they accept. Your
+  side then shows **Friend request sent**, and the button is gone once
+  you're friends. Not offered against a computer. A request you sent by
+  email still doesn't show there, as in a search. Each request counts
+  towards the same 200 friends and requests.
+  - **After a decline** (the owner, review of PR #75): once a player
+    declines a friend request from you, your ladder games with them stop
+    offering **Add friend** for a week, so a stranger can't send the
+    request and its alert again and again. They can still add you, and you
+    can still accept theirs from the game. A request you sent by email
+    doesn't count: if its decline hid the button, a game with them would
+    tell you whose email it was (its repeats by email still wait a week).
+  - **Let players find me by name** switched off covers search only: a
+    player you met on the ladder can still send you a request, since you
+    played each other (the owner, review of PR #75).
 - **Adding a friend by code:** type their code (any case, with or without the dash)
   and **Add friend**. That sends a request; you're friends once they **Accept**
   it (or add your code too). They can **Decline**, and you can **Cancel** a
@@ -2401,16 +2449,22 @@ history**.
   be read off a friend before you've played it. Their Daily Rush places
   (for the top 10 badges and each Daily Set's place) are only for days that
   are over too.
-- **Stats** are theirs, with their top guesses, but not their rating,
-  which their rated games in the history leave out too. At
+- **Stats** are theirs, with their top guesses. Since Dev Plan item 19t
+  (the owner, 4 November 2026) their headline and **Rated ladder** card
+  show their rating once they have one, provisional ("?") or settled,
+  from the server; with none, the headline has no Rating tile. Their
+  rated games in the history still leave out each game's rating change. At
   the top, **You vs. Bob** is your record against them: won–drawn–lost for
   two player games against them, and for Word Sets you both played (a
   higher place than theirs is a win, the same place a draw; not placed
   comes last, and one neither of you placed in isn't counted). The server
   counts it from the games in both your indexes: a game it refereed has
-  the same history ID in both histories.
-- **Game history** has the same filters as yours, without **Export CSV**
-  or the name search, and loads 20 games at a time as you scroll, the
+  the same history ID in both histories. A Rated ladder game that paired you
+  with a friend counts in it too (the owner, 4 November 2026, review of
+  Dev Plan item 19t), though ladder games count only as the ladder in
+  history and Stats.
+- **Game history** has the same filters as yours, **Rated ladder**
+  included (Dev Plan item 19t), without **Export CSV** or the name search, and loads 20 games at a time as you scroll, the
   server doing the filtering. A best or fastest game on their **Stats**
   comes with what they shared, so it opens without loading their history. A game opens to review with a **← Bob's game** tag
   instead of **← Past game**, back to their history.

@@ -50,6 +50,7 @@ describe('rate limits by address', () => {
     }
     expect(limitOf('POST', `/api/games/${'a'.repeat(64)}/rematch`)).toBe('general');
     expect(limitOf('POST', `/api/games/${'a'.repeat(64)}/decline`)).toBe('general');
+    expect(limitOf('POST', `/api/games/${'a'.repeat(64)}/friend`)).toBe('general');
     expect(limitOf('POST', '/api/lobbies/ABC123/invite')).toBe('general');
     for (const path of ['/api/history', '/api/games/abc/guess', '/api/daily/guess', '/api/lobbies/ABC123/guess', '/api/friends/remove']) {
       expect(limitOf('POST', path)).toBeNull();

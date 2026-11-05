@@ -221,6 +221,25 @@ describe("the server's modes", () => {
     expect(stats.modes.friend.best).toEqual({ id: 'f2', value: 2 });
   });
 
+  it('count rated ladder games only as the ladder, people and computers apart (Dev Plan item 19t)', () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
+    const lost = { first: 'them' as const, them: ['storm'], you: ['crane'] };
+    const stats = computeStats([
+      friend('f1', T, won),
+      friend('p1', T + DAY, { ...won, ladder: {} }),
+      friend('p2', T + 2 * DAY, { ...lost, ladder: {} }),
+      friend('c1', T + 3 * DAY, { ...won, ladder: { computer: 0.38 } }),
+    ], NOW);
+    expect(stats.modes.friend).toMatchObject({ played: 1, record: { wins: 1, losses: 0 } });
+    expect(stats.ladder).toEqual({
+      played: 3,
+      record: { wins: 2, draws: 0, losses: 1, winPct: (2 / 3) * 100 },
+      people: { wins: 1, draws: 0, losses: 1, winPct: 50 },
+      computers: { wins: 1, draws: 0, losses: 0, winPct: 100 },
+    });
+    expect(stats.played).toBe(4);
+  });
+
   it("count a Daily Rush's total guesses as its best, and a lobby's first places", () => {
     const words = [['beach'], ['crane', 'crane'], ['storm'], ['house']];
     const stats = computeStats([

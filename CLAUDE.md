@@ -169,6 +169,14 @@ Run `npm test` and `npm run typecheck` before committing.
   (`forgetEmailRequest`). Never store an email typed there. Declining a
   request by email keeps its sender's repeats by email away for a week
   (Dev Plan item 19a, D1 `email_declines`, checked in `deliverEmailRequest`).
+  A finished rated ladder game against a person offers **Add friend** (Dev
+  Plan item 19e): `POST /api/games/ID/friend` asks the room who the other
+  person is (`opponent`, only once it's over and never a computer), then
+  `addLadderOpponent`; the game's `ladderFriend` (`friendStateOf`, which
+  hides a request sent by email) drives the button. Declining a request
+  (not one by email, which would give the email away) rests the sender's
+  Add friend to that player for a week (D1
+  `friend_declines`, `FRIEND_DECLINE_MS`).
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
   read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends
@@ -185,7 +193,10 @@ Run `npm test` and `npm run typecheck` before committing.
   server games built by `playedPage` with `copy`). `GET /api/friends/profile`
   reads the shared summary and counts your record in SQL (`versusOf`,
   matching `headToHead`), and `/api/friends/profile/games` pages the
-  index. Never work stats out on the server. A friend's name in a game against them, a lobby's
+  index. Never work stats out on the server. Since item 19t the index marks
+  rated ladder games (`profile_games.ladder`) for the history's Rated ladder
+  filter, and the profile answer carries the friend's ratings
+  (`listRatings`), provisional ones too. A friend's name in a game against them, a lobby's
   results or a board's Friends view opens it too (item 18ca): the server
   marks it with their friend code (`friendCodes` / `friendCodeSql` in
   `worker/src/friends.ts`; `opponentCode`, `friendCode`), shown by
@@ -305,7 +316,10 @@ Run `npm test` and `npm run typecheck` before committing.
   `ladder`; a computer game rates the player alone (`rateVsComputer`, half
   the change once settled) with `rated_games.computer_recall`. Every rated
   two player game rates into the `correspondence` pool (`TWO_PLAYER_POOL`), and a
-  ladder computer game is kept out of friend stats (`GameSummary.ladder`).
+  ladder computer game is kept out of friend stats (`GameSummary.ladder`). How busy the ladder is (Dev Plan item 19w) is
+  counts only (`QueueBusy`, `POST /api/queue/busy`, and `playing` on each
+  check-in): the queue notes each game it starts (`playing`) and the room
+  tells it when one is over (`ladderEnded`), never a D1 read.
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:
   Random opponent, the rating boards, Competitive Rush and the Daily Rush

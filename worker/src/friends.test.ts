@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { authApi, type Session } from '../../src/app/account';
 import { dailyApi } from '../../src/app/dailyApi';
@@ -800,6 +802,8 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     const before = await ann.friends.profile(bobCode);
     expect(before.profile).toEqual({ name: 'Bob', country: 'GB', memberSince: NOW, placements: [] });
     expect(before.summary).toBeNull();
+    // Their rating shows to friends, provisional too (Dev Plan item 19t); a friend with none has none.
+    expect(before.ratings).toEqual([{ pool: 'correspondence', rating: expect.any(Number), provisional: true, games: 1 }]);
     expect((await ann.friends.profileGames(bobCode, everything)).games).toEqual([]);
 
     // Bob's device indexes his games and shares his summary; Ann's indexes hers.
@@ -924,6 +928,25 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     expect(await count({ search: 'cra' })).toBe(13);
     expect(await count({ search: 'BEACH ' })).toBe(25);
     expect(await count({ search: 'nope!' })).toBe(0);
+  });
+
+  it('filters their rated ladder games apart from their games against friends (Dev Plan item 19t)', async () => {
+    const { ann, bob, bobCode, sqlite } = await friends();
+    await annBeatsBob(ann, bob, bobCode);
+    const ladder = await annBeatsBob(ann, bob, bobCode);
+    // A ladder game, as the queue's room records it (a pair found by the queue rather than a challenge).
+    sqlite.prepare(`UPDATE games SET record = json_set(record, '$.ladder', json('{}')) WHERE id = ?`).run(ladder.id);
+    await index(bob);
+    const ids = async (filter: HistoryFilter) => (await ann.friends.profileGames(bobCode, { filter, after: null, limit: 50 })).games
+      .map((g) => g.mode === 'friend' && g.record.ladder ? 'ladder' : 'friend');
+    expect(await ids({ mode: 'friend' })).toEqual(['friend']);
+    expect(await ids({ mode: 'ladder' })).toEqual(['ladder']);
+    expect((await ids({})).sort()).toEqual(['friend', 'ladder']);
+    // The migration marks the games indexed before it.
+    sqlite.exec('UPDATE profile_games SET ladder = 0');
+    sqlite.exec(readFileSync(join(import.meta.dirname, '..', 'migrations', '0030_profile_games_ladder.sql'), 'utf8')
+      .replace(/^ALTER TABLE.*$/m, ''));
+    expect(await ids({ mode: 'ladder' })).toEqual(['ladder']);
   });
 
   it('loads only the synced games the size cap keeps, and always the first however long (Issue 211)', async () => {

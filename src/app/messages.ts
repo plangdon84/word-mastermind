@@ -3,6 +3,7 @@ import type { DailyMode, Difficulty, EarlierGuess, GuessResult, NameError, RunEr
 import type { DailyError } from './dailyApi';
 import type { FriendError } from './friendApi';
 import type { LobbyErrorCode } from './lobbyApi';
+import type { QueueBusy } from './queueApi';
 
 /** Why a name can't be used (`validateName`), for the profile and the leaderboard's name prompt. */
 export const NAME_ERROR: Record<NameError, string> = {
@@ -135,6 +136,10 @@ export function friendErrorMessage(error: FriendError | 'unreachable', word = ''
       return 'After your first guess you can only switch to an easier level.';
     case 'easy-unrated':
       return 'A rated game can’t be played at Easy. Pick another difficulty, or play it unrated.';
+    case 'too-many-friends':
+      return 'One of you already has 200 friends and requests. Remove some from the friends list first.';
+    case 'declined':
+      return "They've turned down a friend request from you lately. You can ask again within a week.";
     case 'bad-request':
     case 'bad-guest-id':
       return 'Something went wrong. Reload the page and try again.';
@@ -312,4 +317,13 @@ export function lobbyErrorMessage(error: LobbyErrorCode, word = '', secret = fal
     case 'bad-guest-id':
       return 'Something went wrong. Reload the page and try again.';
   }
+}
+
+/**
+ * How busy the ladder is, in numbers only (Dev Plan item 19w): "2 waiting ·
+ * 6 in ladder games now", zeros too, so a player expects a computer after
+ * 30 seconds when nobody waits. While you wait, the others waiting.
+ */
+export function busyText({ waiting, playing }: QueueBusy, youWait = false): string {
+  return `${waiting} ${youWait ? (waiting === 1 ? 'other' : 'others') + ' ' : ''}waiting · ${playing} in ladder games now`;
 }

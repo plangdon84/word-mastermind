@@ -98,6 +98,17 @@ export interface ModeStats {
   firsts: number | null;
 }
 
+/**
+ * Rated ladder games (Dev Plan item 19t): kept out of the "vs. a friend"
+ * stats and counted here, against people and computers apart.
+ */
+export interface LadderStats {
+  played: number;
+  record: WinRecord;
+  people: WinRecord;
+  computers: WinRecord;
+}
+
 export interface Stats {
   played: number;
   /** Win % over games with an opponent (the computer or a friend); null with none. */
@@ -115,6 +126,8 @@ export interface Stats {
    * than `IDLE_CAP_MS`.
    */
   secondsPlayed: number;
+  /** Absent from a friend's summary shared by an app older than Dev Plan item 19t. */
+  ladder?: LadderStats;
 }
 
 /** One game, reduced to what the stats need, in the order games ended. */
@@ -341,8 +354,9 @@ export function computeStats(games: readonly StatsGame[], now: number): Stats {
       return { id, summary, replayed, found: wordsFound(replayed, summary), seconds: secondsPlayed(replayed, summary) };
     })
     .sort((a, b) => a.summary.endedAt - b.summary.endedAt);
-  // A rated ladder game against a computer (Dev Plan item 19p) isn't a friend game: out of friend stats.
-  const ofMode = (mode: HistoryMode) => rows.filter((r) => r.summary.mode === mode && !(mode === 'friend' && r.summary.ladder === 'computer'));
+  // A rated ladder game (Dev Plan items 19p and 19t) isn't a friend game: out of friend stats, into the ladder's.
+  const ofMode = (mode: HistoryMode) => rows.filter((r) => r.summary.mode === mode && !r.summary.ladder);
+  const ladder = rows.filter((r) => r.summary.ladder);
   const opponentGames = rows.filter((r) => r.summary.mode === 'computer' || r.summary.mode === 'friend');
   return {
     played: rows.length,
@@ -362,5 +376,11 @@ export function computeStats(games: readonly StatsGame[], now: number): Stats {
     ) as Record<Difficulty, number>,
     topGuesses: topGuesses(rows),
     secondsPlayed: rows.reduce((sum, r) => sum + r.seconds, 0),
+    ladder: {
+      played: ladder.length,
+      record: winRecord(ladder),
+      people: winRecord(ladder.filter((r) => r.summary.ladder === 'person')),
+      computers: winRecord(ladder.filter((r) => r.summary.ladder === 'computer')),
+    },
   };
 }

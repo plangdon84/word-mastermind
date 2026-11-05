@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
-  DIFFICULTIES, HISTORY_MODES, NAME_MAX, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
-  type DailyPlacement, type HistoryMode, type HistoryResult, type RatingChange,
+  DIFFICULTIES, FEATURES, HISTORY_MODES, NAME_MAX, isServerMode, ordinal, runRankBy, wordSetName, type Difficulty, type HistoryFilter,
+  type DailyPlacement, type HistoryFilterMode, type HistoryMode, type HistoryResult, type RatingChange,
 } from '../game';
 import { API_URL } from './config';
 import { usePlacements } from './dailyStorage';
@@ -90,8 +90,8 @@ function rowParts(game: HistoryGame, placements: readonly DailyPlacement[]): { t
         tag: RESULT_LETTER[result],
         tagLabel: `${RESULT_LABEL[result]}${summary.gaveUp ? ' (gave up)' : ''}`,
         who: summary.mode === 'computer' ? `vs. Computer · ${STRENGTH_LABEL[summary.strength!]}`
-          : summary.ladder === 'computer' ? 'Rated ladder · 🤖 Computer'
-          : summary.ladder === 'person' ? `Rated ladder · ${summary.opponent}`
+          : summary.ladder === 'computer' ? `${LADDER_LABEL} · 🤖 Computer`
+          : summary.ladder === 'person' ? `${LADDER_LABEL} · ${summary.opponent}`
           : summary.mode === 'friend' ? `vs. ${summary.opponent}` : MODE_LABEL[summary.mode],
         // Turns alternate, so both players make the same number of guesses: yours is enough.
         detail: `${played}${summary.gaveUp ? ' · gave up' : ''}${rating}`,
@@ -142,6 +142,20 @@ function Filter<T extends string>({ label, value, options, onChange }: {
     </label>
   );
 }
+
+/** The Rated ladder's label, in the Mode filter and on Stats (Dev Plan item 19t). */
+export const LADDER_LABEL = 'Rated ladder';
+
+/**
+ * The Mode filter's choices: the server's modes only with a server, and the
+ * Rated ladder (Dev Plan item 19t) after "vs. a friend", in your history and
+ * a friend's (the server filters theirs).
+ */
+const modeOptions = (): { value: HistoryFilterMode; label: string }[] =>
+  HISTORY_MODES.filter((m) => !isServerMode(m) || API_URL).flatMap((m) => [
+    { value: m, label: MODE_LABEL[m] },
+    ...(m === 'friend' && FEATURES.randomOpponent ? [{ value: 'ladder' as const, label: LADDER_LABEL }] : []),
+  ]);
 
 /** This browser's games, by offset. */
 const loadYours = (filter: HistoryFilter, from: HistoryCursor | null, limit: number) =>
@@ -235,7 +249,7 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadYou
       {csvMessage && <p class="field-note error" role="alert">{csvMessage}</p>}
       <div class="history-filters">
         <Filter label="Mode" value={filter.mode} onChange={(mode) => onFilter({ ...filter, mode })}
-          options={HISTORY_MODES.filter((m) => !isServerMode(m) || API_URL).map((m) => ({ value: m, label: MODE_LABEL[m] }))} />
+          options={modeOptions()} />
         <Filter label="Result" value={filter.result} onChange={(result) => onFilter({ ...filter, result })}
           options={(['won', 'lost', 'drawn'] as const).map((r) => ({ value: r, label: RESULT_LABEL[r] }))} />
         <Filter<Difficulty> label="Difficulty" value={filter.difficulty}
