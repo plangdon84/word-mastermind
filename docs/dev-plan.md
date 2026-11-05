@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 5 November 2026 (items 19z and 19za). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -11,8 +11,16 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-- [ ] **19z. A guess lost switching Solo Rush tabs** (issue
-  plangdon84/word-mastermind-archive#275; app only)
+Release 2.4.0, planned with the owner on 5 November 2026: one stack of
+two PRs that merges to `main` as one, as 2.3.0 did. 19z is the base (its
+PR targets `main`); 19za is stacked on it, its PR merging into 19z's
+branch, and 19z's PR then ships the stack. Each PR adds its notes to the
+one 2.4.0 release in `src/app/releases.ts`. 19za goes through the review
+gate (19z is app only and skips it); the stack merges once both PRs are
+ready.
+
+- [ ] **19z. A guess lost switching Solo Rush tabs** (2.4.0, base of the
+  stack; issue plangdon84/word-mastermind-archive#275; app only)
   - Issue 275: the two-tabs Solo Rush browser test loses a guess about 1
     run in 20. First confirm the cause (likely the hidden tab's automatic
     pause save reaching the shown tab after it has already taken over and
@@ -21,7 +29,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
     never overwrites newer moves. It's a real bug for a player switching
     tabs quickly. The test is never skipped or loosened: it passes 20
     repeats (`--repeat-each=20`) in Chromium and WebKit
-- [ ] **19za. Friend request and ladder clean-ups** (issues
+- [ ] **19za. Friend request and ladder clean-ups** (2.4.0, stacked on
+  19z; issues
   plangdon84/word-mastermind-archive#280,
   plangdon84/word-mastermind-archive#279,
   plangdon84/word-mastermind-archive#276 and
