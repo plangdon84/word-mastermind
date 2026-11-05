@@ -1,5 +1,5 @@
 import { LADDER_CHOICE, type QueueChoice } from '../../src/game';
-import { startComputerGame, startMatchedGame } from './games';
+import { abandonComputerGame, startComputerGame, startMatchedGame } from './games';
 import { json } from './http';
 import type { Env } from './index';
 import { handleQueue, type QueueDeps, type QueueRequest } from './queue';
@@ -26,6 +26,7 @@ export async function ladderEnded(queues: DurableObjectNamespace, gameId: string
 export const queueDeps = (env: Env, { timeControl, difficulty }: QueueChoice): QueueDeps => ({
   startGame: (host, guest, now) => startMatchedGame(env, host, guest, timeControl, difficulty, now),
   startComputerGame: (seeker, now) => startComputerGame(env, seeker, timeControl, difficulty, now),
+  abandonComputerGame: (gameId) => abandonComputerGame(env, gameId),
 });
 
 /**

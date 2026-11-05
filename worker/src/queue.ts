@@ -115,6 +115,8 @@ export interface QueueDeps {
   startGame(host: Seeker, guest: Seeker, now: number): Promise<string>;
   /** Starts a rated game against the seeker's computer. Returns its ID. */
   startComputerGame(seeker: Seeker, now: number): Promise<string>;
+  /** Cancels a computer game made for a player who left meanwhile, so it never shows in their games (Dev Plan item 19za). */
+  abandonComputerGame(gameId: string): Promise<void>;
 }
 
 export type QueueRequest =
@@ -189,8 +191,10 @@ async function tryMatch(storage: QueueStorage, deps: QueueDeps, state: QueueStat
  * A player who leaves (Cancel) while it's made, and perhaps joins again, is
  * no longer the one it was made for (Dev Plan item 19x): a failure doesn't
  * put them back in the queue, and a game made meanwhile isn't handed to their
- * new place. That game goes unplayed, so its room cancels it with no winner,
- * history or rating when its first guess isn't made in time (item 18zv).
+ * new place. Its room is told to cancel that game at once, with no winner,
+ * history or rating (Dev Plan item 19za), so it never shows in their games;
+ * if that fails, the room still cancels it once its first guess isn't made
+ * in time (item 18zv).
  */
 async function playComputer(storage: QueueStorage, deps: QueueDeps, state: QueueState, seeker: Seeker, now: number): Promise<QueueResponse> {
   const others = (seekers: readonly Seeker[]) => seekers.filter((s) => s.accountId !== seeker.accountId);
@@ -217,7 +221,10 @@ async function playComputer(storage: QueueStorage, deps: QueueDeps, state: Queue
     return waiting(current, failed, now);
   }
   const { current, still, same } = await settle();
-  if (!same) return moved(current, still);
+  if (!same) {
+    await deps.abandonComputerGame(gameId).catch(() => {});
+    return moved(current, still);
+  }
   await storage.put(KEY, {
     ...current, seekers: others(current.seekers), matches: { ...current.matches, [seeker.accountId]: { gameId, at: now } },
     playing: withGame(current, gameId, 1, now),

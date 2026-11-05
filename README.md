@@ -1293,6 +1293,11 @@ isn't mistaken for a rated challenge to a friend).
     its [shared summary](#friends-profiles) (`ladderAverage`; the server
     keeps it from friends). With fewer than 5 such words, Expert.
   - **once it's settled**, the computer nearest your **rating**.
+  - **Cancel while it's being set up** (Dev Plan items 19x and 19za): the
+    game isn't yours, and the queue has its room cancel it at once (no
+    winner, history or rating), so it never shows under **Games in
+    progress**. If that step fails, it's cancelled once its first guess
+    isn't made within 2 minutes, as any live game is.
 - **The computer's game:** it takes the guest's seat with a random
   secret-list word (never yours). All its guesses at your word are worked
   out when the game starts, since they depend only on its own scores
@@ -2363,6 +2368,10 @@ first.
     can still accept theirs from the game. A request you sent by email
     doesn't count: if its decline hid the button, a game with them would
     tell you whose email it was (its repeats by email still wait a week).
+    Becoming friends forgets any such decline between the two of you
+    (Dev Plan item 19za), so if you part later, either can use **Add
+    friend** again at once. A game page opened before the decline shows
+    the refusal and then drops **Add friend**.
   - **Let players find me by name** switched off covers search only: a
     player you met on the ladder can still send you a request, since you
     played each other (the owner, review of PR #75).
@@ -2393,13 +2402,24 @@ first.
   tap **Join** in the lobby.
 - **Turn alerts** also tell you about a friend request, an accepted request,
   a challenge and a lobby invite; the first two open the friends list.
+  A friend request alerts its player once a week from the same sender
+  (decided with the owner on 5 November 2026, Dev Plan item 19za): a
+  request withdrawn and sent again still shows on their list, but the
+  repeats within the week are silent. A request by email always alerts,
+  and never counts towards that week, so how a later request goes can't
+  tell its sender whose email it was. When two players add each other
+  at the same moment, they're friends, and the alert is the "accepted"
+  one, never a request the other can't answer.
 - The server keeps the list in D1 (`friends`, two rows per pair, marked
   `by_email` for a request sent by email, and `lobby_invites`), with each
   account's code on `accounts.friend_code`; `email_requests` counts each
   account's requests by email for the daily limit, never the email;
   `email_declines` holds who declined whose request by email: ignored
   after a week, and deleted the next time anyone declines one.
-  Deleting the account removes you from every list and its declines.
+  `friend_request_alerts` holds when each sender last alerted each
+  player of a request, deleted after a week.
+  Deleting the account removes you from every list, its declines and
+  those alerts.
 
 ### Friends' profiles
 
