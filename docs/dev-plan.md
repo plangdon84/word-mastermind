@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 4 November 2026 (release 2.3.0 planned the same day). Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 5 November 2026 (items 19z and 19za). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -11,8 +11,43 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-Nothing: release 2.3.0 (19t, with 19e and 19w stacked on it, all in
-Done below) ships to `main` as one in PR #74, as 2.2.0 did.
+- [ ] **19z. A guess lost switching Solo Rush tabs** (issue
+  plangdon84/word-mastermind-archive#275; app only)
+  - Issue 275: the two-tabs Solo Rush browser test loses a guess about 1
+    run in 20. First confirm the cause (likely the hidden tab's automatic
+    pause save reaching the shown tab after it has already taken over and
+    resumed, so the shown tab takes the paused copy back and drops a
+    guess typed in between), then fix it in the app so a late pause save
+    never overwrites newer moves. It's a real bug for a player switching
+    tabs quickly. The test is never skipped or loosened: it passes 20
+    repeats (`--repeat-each=20`) in Chromium and WebKit
+- [ ] **19za. Friend request and ladder clean-ups** (issues
+  plangdon84/word-mastermind-archive#280,
+  plangdon84/word-mastermind-archive#279,
+  plangdon84/word-mastermind-archive#276 and
+  plangdon84/word-mastermind-archive#278; worker, review gate)
+  - Issue 280: decided with the owner on 5 November 2026: a request can
+    still be withdrawn and sent again, but the other player gets a
+    "friend request" alert only for the first request from that player in
+    a week; resends within the week are silent. Becoming friends clears
+    any earlier decline between the two players (`friend_declines`), so
+    after an unfriend both can use Add friend again at once. After the
+    "turned down lately" refusal, the game page reloads the game so Add
+    friend goes away. The repeated friendship reads on one Add friend tap
+    are merged where it's simple
+  - Issue 279: when two players add each other at the same moment, the
+    alert follows what the server actually wrote: a request that became a
+    friendship sends the "accepted" alert, never a "friend request" to the
+    player who just added the other
+  - Issue 276: when a player cancels while their ladder computer game is
+    being set up and nobody takes it, the queue tells the game's room to
+    cancel at once (no winner, history or rating), so it never shows
+    under Games in progress or can be played; the 2-minute first-guess
+    timeout stays as the backup if that step fails
+  - Issue 278: a friend's shared summary with a Rated ladder win
+    percentage outside 0 to 100 is refused like any other bad value
+    (`parseSharedSummary`), and that function's misindented comment is
+    fixed
 
 **Later**
 
