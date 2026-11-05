@@ -28,6 +28,9 @@ export const RELEASES: Release[] = [
     version: '2.4.0',
     notes: [
       { text: 'A solo Word Set open in two tabs no longer loses a guess when you switch between them quickly.' },
+      { text: 'Sending a friend request again within a week no longer alerts the other player a second time.' },
+      { text: 'After you remove a friend, either of you can add the other again straight away.' },
+      { text: 'Cancelling the Rated ladder while a computer game is being set up no longer leaves that game under Games in progress.' },
     ],
   },
   {

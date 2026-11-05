@@ -403,6 +403,27 @@ export function setPvpDifficulty(game: PvpGame, seat: Seat, difficulty: Difficul
   };
 }
 
+/**
+ * Cancels a live game before its first guess is owed (`pvpFirstGuessDue`),
+ * without waiting out that time: a ladder computer game made for a player
+ * who cancelled meanwhile, which nobody will play (Dev Plan item 19za).
+ * No winner, as when that time runs out (`timeOutPvp`).
+ */
+export function cancelPvp(game: PvpGame, now: number): PvpResult {
+  const turn = pvpTurn(game);
+  if (turn === null) return { ok: false, error: 'game-over' };
+  if (!pvpFirstGuessDue(game)) return { ok: false, error: 'not-your-turn' };
+  return {
+    ok: true,
+    game: {
+      ...game,
+      moves: [...game.moves, { seat: turn, kind: 'cancel', at: now }],
+      status: 'over',
+      outcome: { winner: null, reason: 'cancelled' },
+    },
+  };
+}
+
 /** Easy's Suggest offered `seat` `word` (picked by their app). Limited to `SUGGEST_LIMIT` a game each. */
 export function suggestPvp(game: PvpGame, seat: Seat, word: string, now: number, replaying = false): PvpResult {
   if (game.status === 'over') return { ok: false, error: 'game-over' };
@@ -428,6 +449,8 @@ export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
     case 'timeout':
     case 'cancel': {
       if (pvpTurn(game) !== move.seat) return { ok: false, error: 'not-your-turn' };
+      // Cancelled before the first guess's time was up (`cancelPvp`, Dev Plan item 19za).
+      if (move.kind === 'cancel' && move.at < (pvpDeadline(game) ?? Infinity)) return cancelPvp(game, move.at);
       const result = timeOutPvp(game, move.at);
       // A timeout replays as a timeout and a cancel as a cancel, or the record is refused ('time-left': the
       // move recorded isn't the one the rules give at that moment).

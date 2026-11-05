@@ -13,6 +13,7 @@ import { handle, type Env } from './index';
 import {
   allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, PLAYING_KEEP_MS, STALE_MS, STARTING_MS, type QueueDeps, type Seeker,
 } from './queue';
+import { abandonComputerGame } from './games';
 import { listRatings } from './ratings';
 import { memoryStorage } from './fakeRooms';
 import { COMPUTER_ID } from './room';
@@ -256,6 +257,30 @@ describe('a computer when nobody is free (Dev Plan item 19p)', () => {
     expect(game.view?.outcome).toMatchObject({ reason: 'timed-out' });
   });
 
+  it('cancels a game the queue abandons at once: no winner, history or rating, and nobody told (Dev Plan item 19za)', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    const told = context.rooms.notices.length;
+    await abandonComputerGame({ GAMES: context.rooms.namespace } as Env, gameId);
+    const game = await ann.games.get(gameId);
+    expect(game.state).toBe('over');
+    expect(game.view?.outcome).toEqual({ result: 'draw', reason: 'cancelled' });
+    await expect(ann.games.guess(gameId, 'crane')).rejects.toMatchObject({ code: 'game-over' });
+    expect(context.sqlite.prepare('SELECT id FROM games').all()).toEqual([]);
+    expect(ratedAfter(context.sqlite, gameId)).toEqual([]);
+    expect(context.rooms.notices.length).toBe(told);
+  });
+
+  it("leaves a computer game the player has already guessed in", async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    await ann.games.guess(gameId, 'crane');
+    await abandonComputerGame({ GAMES: context.rooms.namespace } as Env, gameId);
+    expect((await ann.games.get(gameId)).state).toBe('playing');
+  });
+
   it('rates a computer game by the computer the game started with, even after the table changes', async () => {
     const context = setup();
     const ann = await context.player(ANN, 'Ann');
@@ -344,6 +369,7 @@ describe('starting a computer game (review round 1)', () => {
         started.push(seeker.accountId);
         return new Promise((resolve) => { finish = resolve; });
       },
+      abandonComputerGame: async () => {},
     };
     await handleQueue(storage, deps, join, NOW);
     await handleQueue(storage, deps, poll, NOW + 20_000);
@@ -366,6 +392,7 @@ describe('starting a computer game (review round 1)', () => {
     const deps: QueueDeps = {
       startGame: async () => 'b'.repeat(64),
       startComputerGame: async () => { tries++; throw new Error('room down'); },
+      abandonComputerGame: async () => {},
     };
     await handleQueue(storage, deps, join, NOW);
     await handleQueue(storage, deps, poll, NOW + 20_000);
@@ -386,9 +413,11 @@ describe('leaving while a computer game is made (Dev Plan item 19x)', () => {
     const storage = memoryStorage();
     let finish: (id: string) => void = () => {};
     let fail: () => void = () => {};
+    const abandoned: string[] = [];
     const deps: QueueDeps = {
       startGame: async () => { throw new Error('no person game expected'); },
       startComputerGame: () => new Promise((resolve, reject) => { finish = resolve; fail = () => reject(new Error('room down')); }),
+      abandonComputerGame: async (gameId) => { abandoned.push(gameId); },
     };
     const starting = async () => {
       await handleQueue(storage, deps, join, NOW);
@@ -397,7 +426,7 @@ describe('leaving while a computer game is made (Dev Plan item 19x)', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       return { first };
     };
-    return { storage, deps, starting, finish: (id: string) => finish(id), fail: () => fail() };
+    return { storage, deps, starting, abandoned, finish: (id: string) => finish(id), fail: () => fail() };
   }
 
   it("doesn't put a player who cancelled back in the queue when the game then fails", async () => {
@@ -418,6 +447,34 @@ describe('leaving while a computer game is made (Dev Plan item 19x)', () => {
     queue.finish('a'.repeat(64));
     expect((await first).body).toMatchObject({ state: 'waiting', since: NOW + 32_000 });
     expect((await handleQueue(queue.storage, queue.deps, poll, NOW + 33_000)).body).toMatchObject({ state: 'waiting', since: NOW + 32_000 });
+    // Its room is told to cancel it at once (Dev Plan item 19za).
+    expect(queue.abandoned).toEqual(['a'.repeat(64)]);
+  });
+
+  it('has the room cancel a game made after the player cancelled (Dev Plan item 19za)', async () => {
+    const queue = held();
+    const { first } = await queue.starting();
+    await handleQueue(queue.storage, queue.deps, leave, NOW + 31_000);
+    queue.finish('a'.repeat(64));
+    expect((await first).body).toEqual({ state: 'idle' });
+    expect(queue.abandoned).toEqual(['a'.repeat(64)]);
+  });
+
+  it("still answers the player if cancelling that game fails, leaving it to the first-guess time limit", async () => {
+    const queue = held();
+    queue.deps.abandonComputerGame = async () => { throw new Error('room down'); };
+    const { first } = await queue.starting();
+    await handleQueue(queue.storage, queue.deps, leave, NOW + 31_000);
+    queue.finish('a'.repeat(64));
+    expect((await first).body).toEqual({ state: 'idle' });
+  });
+
+  it('never cancels the game of a player who kept waiting', async () => {
+    const queue = held();
+    const { first } = await queue.starting();
+    queue.finish('a'.repeat(64));
+    expect((await first).body).toEqual({ state: 'matched', gameId: 'a'.repeat(64) });
+    expect(queue.abandoned).toEqual([]);
   });
 
   it('keeps a player who rejoined in their new place when the first game fails', async () => {
@@ -452,6 +509,7 @@ describe('review round 2 fixes', () => {
     const deps: QueueDeps = {
       startGame: async () => { throw new Error('no person game expected'); },
       startComputerGame: async (s) => { started.push(s.accountId); return 'c'.repeat(64); },
+      abandonComputerGame: async () => {},
     };
     const poll = { action: 'poll' as const, accountId: 'ann' };
     expect((await handleQueue(storage, deps, poll, NOW + STARTING_MS - 1)).body).toMatchObject({ state: 'waiting' });
@@ -530,9 +588,14 @@ describe('friending your ladder opponent (Dev Plan item 19e)', () => {
     await cat.friends.remove(annCode);
     await cat.friends.add(annCode);
     expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'received' });
-    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'friends' });
     // One row per sender and player, however often they declined.
     expect(sqlite.prepare('SELECT sender_id FROM friend_declines').all()).toHaveLength(1);
+    expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'friends' });
+    // Becoming friends forgets the decline (Dev Plan item 19za): if they part, either can use Add friend at once.
+    expect(sqlite.prepare('SELECT sender_id FROM friend_declines').all()).toEqual([]);
+    await ann.friends.remove((await cat.friends.list()).code);
+    expect(await ann.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
+    expect(await cat.games.get(gameId)).toMatchObject({ ladderFriend: 'none' });
   });
 
   it('is never offered against a computer, nor to anyone outside the game', async () => {
@@ -643,6 +706,7 @@ describe("who's on the ladder (Dev Plan item 19w)", () => {
     const deps: QueueDeps = {
       startGame: async () => { throw new Error('no game expected'); },
       startComputerGame: async () => { throw new Error('no game expected'); },
+      abandonComputerGame: async () => {},
     };
     expect((await handleQueue(storage, deps, { action: 'busy' }, NOW + PLAYING_KEEP_MS - 1)).body).toEqual({ waiting: 0, playing: 2 });
     expect((await handleQueue(storage, deps, { action: 'busy' }, NOW + PLAYING_KEEP_MS)).body).toEqual({ waiting: 0, playing: 0 });
@@ -654,6 +718,7 @@ describe("who's on the ladder (Dev Plan item 19w)", () => {
     const deps: QueueDeps = {
       startGame: async () => { throw new Error('no game expected'); },
       startComputerGame: async () => { throw new Error('no game expected'); },
+      abandonComputerGame: async () => {},
     };
     expect((await handleQueue(storage, deps, { action: 'busy' }, NOW)).body).toEqual({ waiting: 1, playing: 0 });
     expect((await handleQueue(storage, deps, { action: 'ended', gameId: 'b'.repeat(64) }, NOW)).status).toBe(200);

@@ -414,8 +414,15 @@ export function FriendScreen({
   };
 
   // A friend request to a finished ladder game's other person (Dev Plan item 19e), or accepting theirs.
-  const addOpponent = () => {
-    if (api && gameId) void send(() => api.addFriend(gameId), '');
+  const addOpponent = async () => {
+    if (!api || !gameId) return;
+    let declined = false;
+    await send(() => api.addFriend(gameId).catch((e: unknown) => {
+      declined = e instanceof FriendApiError && e.code === 'declined';
+      throw e;
+    }), '');
+    // Turned down lately, on a page loaded before that: the game, read again, stops offering Add friend (Dev Plan item 19za).
+    if (declined) await refresh();
   };
 
   const confirmGiveUp = async () => {

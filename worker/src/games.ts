@@ -162,6 +162,16 @@ export async function startComputerGame(
 }
 
 /**
+ * Tells a ladder computer game's room to cancel it (Dev Plan item 19za):
+ * the queue made it for a player who left meanwhile. Throws if the room
+ * doesn't answer; a game the player already guessed in is left alone.
+ */
+export async function abandonComputerGame(env: Env, gameId: string): Promise<void> {
+  const response = await toRoom(env, env.GAMES.idFromString(gameId), { action: 'abandon' });
+  if (!response.ok && response.status !== 409) throw new Error(`Couldn't cancel a computer game: ${response.status}`);
+}
+
+/**
  * A rematch of a finished game (README "Rematch"): a challenge to the other
  * player only, with the same clock, rated if it was, and each side at the
  * difficulty they ask or accept it with (`rematchDifficulty`). The old

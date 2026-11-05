@@ -93,4 +93,14 @@ describe("a friend's shared Rated ladder stats (Dev Plan item 19t)", () => {
       expect(parsed!.stats.ladder).toBeUndefined();
     }
   });
+
+  it('drops them when a win % is outside 0 to 100 (Dev Plan item 19za)', () => {
+    for (const winPct of [-1, 100.5, 250]) {
+      const odd = { ...tally, winPct };
+      const parsed = parseSharedSummary(summary({ played: 2, record: tally, people: odd, computers: tally }));
+      expect(parsed!.stats.ladder).toBeUndefined();
+    }
+    const edges = { played: 2, record: { ...tally, winPct: 0 }, people: { ...tally, winPct: 100 }, computers: tally };
+    expect(parseSharedSummary(summary(edges))?.stats.ladder).toEqual(edges);
+  });
 });

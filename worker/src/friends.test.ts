@@ -177,6 +177,55 @@ describe('the friends list', () => {
   });
 });
 
+describe('friend request alerts (Dev Plan item 19za)', () => {
+  it('alert the other player once a week, however often a request is withdrawn and sent again', async () => {
+    const { player, pushed, advance } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+    for (let i = 0; i < 3; i++) {
+      await ann.friends.remove(bobCode);
+      await ann.friends.add(bobCode);
+    }
+    // Each request still reaches Bob's list; only the first alerted him.
+    expect((await bob.friends.list()).received).toHaveLength(1);
+    expect(pushed()).toEqual([]);
+    advance(7 * 24 * 60 * 60 * 1000);
+    await ann.friends.remove(bobCode);
+    await ann.friends.add(bobCode);
+    expect(pushed()).toEqual([['Bob', await topicOf('friends')]]);
+  });
+
+  it("send the accepted alert, never a request, when two players add each other at once (issue 279)", async () => {
+    const { db, sqlite, player, now } = await setup();
+    await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    // Bob's request to Ann lands just after Ann's add looked at where they stand.
+    let landed = false;
+    const racing = { ...db, prepare: (sql: string) => {
+      if (!landed && sql.includes("AND NOT (state = 'sent' AND by_email = 1)") && sql.startsWith('SELECT state')) {
+        landed = true;
+        const result = db.prepare(sql);
+        sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?, ?, 'sent', ?, 0), (?, ?, 'received', ?, 0)`)
+          .run(BOB, ANN, now(), ANN, BOB, now());
+        return { ...result, bind: (...values: unknown[]) => {
+          const bound = result.bind(...values);
+          return { ...bound, first: async () => null };
+        } } as unknown as D1PreparedStatement;
+      }
+      return db.prepare(sql);
+    } } as D1Database;
+    const added = await addFriend(racing, ANN, bobCode, now());
+    expect(landed).toBe(true);
+    // Adding Bob while his request waits for Ann accepts it, and Bob hears that, not that Ann wants to be friends.
+    expect(added).toMatchObject({ ok: true, notices: [{ guestId: BOB, message: { title: 'Ann accepted your friend request' } }] });
+    expect(sqlite.prepare('SELECT state FROM friends').all()).toEqual([{ state: 'friends' }, { state: 'friends' }]);
+  });
+});
+
 describe('friend requests by email', () => {
   const refusal = (call: Promise<unknown>) => call.then(() => 'sent', (e: FriendsApiError) => e.code);
 

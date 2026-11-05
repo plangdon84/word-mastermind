@@ -12,41 +12,12 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 **Next, in this order**
 
 Release 2.4.0, planned with the owner on 5 November 2026: one stack of
-two PRs that merges to `main` as one, as 2.3.0 did. 19z (done, below) is the base (its
+two PRs that merges to `main` as one, as 2.3.0 did. 19z and 19za (done, below): 19z is the base (its
 PR targets `main`); 19za is stacked on it, its PR merging into 19z's
 branch, and 19z's PR then ships the stack. Each PR adds its notes to the
 one 2.4.0 release in `src/app/releases.ts`. 19za goes through the review
 gate (19z is app only and skips it); the stack merges once both PRs are
 ready.
-
-- [ ] **19za. Friend request and ladder clean-ups** (2.4.0, stacked on
-  19z; issues
-  plangdon84/word-mastermind-archive#280,
-  plangdon84/word-mastermind-archive#279,
-  plangdon84/word-mastermind-archive#276 and
-  plangdon84/word-mastermind-archive#278; worker, review gate)
-  - Issue 280: decided with the owner on 5 November 2026: a request can
-    still be withdrawn and sent again, but the other player gets a
-    "friend request" alert only for the first request from that player in
-    a week; resends within the week are silent. Becoming friends clears
-    any earlier decline between the two players (`friend_declines`), so
-    after an unfriend both can use Add friend again at once. After the
-    "turned down lately" refusal, the game page reloads the game so Add
-    friend goes away. The repeated friendship reads on one Add friend tap
-    are merged where it's simple
-  - Issue 279: when two players add each other at the same moment, the
-    alert follows what the server actually wrote: a request that became a
-    friendship sends the "accepted" alert, never a "friend request" to the
-    player who just added the other
-  - Issue 276: when a player cancels while their ladder computer game is
-    being set up and nobody takes it, the queue tells the game's room to
-    cancel at once (no winner, history or rating), so it never shows
-    under Games in progress or can be played; the 2-minute first-guess
-    timeout stays as the backup if that step fails
-  - Issue 278: a friend's shared summary with a Rated ladder win
-    percentage outside 0 to 100 is refused like any other bad value
-    (`parseSharedSummary`), and that function's misindented comment is
-    fixed
 
 **Later**
 
@@ -114,6 +85,45 @@ ready.
 
 ## Done, latest first
 
+- [x] **19za. Friend request and ladder clean-ups** (2.4.0, stacked on
+  19z; issues
+  plangdon84/word-mastermind-archive#280,
+  plangdon84/word-mastermind-archive#279,
+  plangdon84/word-mastermind-archive#276 and
+  plangdon84/word-mastermind-archive#278; worker, review gate)
+  - Issue 280: decided with the owner on 5 November 2026: a request can
+    still be withdrawn and sent again, but the other player gets a
+    "friend request" alert only for the first request from that player in
+    a week; resends within the week are silent. Becoming friends clears
+    any earlier decline between the two players (`friend_declines`), so
+    after an unfriend both can use Add friend again at once. After the
+    "turned down lately" refusal, the game page reloads the game so Add
+    friend goes away. The repeated friendship reads on one Add friend tap
+    are merged where it's simple
+  - Issue 279: when two players add each other at the same moment, the
+    alert follows what the server actually wrote: a request that became a
+    friendship sends the "accepted" alert, never a "friend request" to the
+    player who just added the other
+  - Issue 276: when a player cancels while their ladder computer game is
+    being set up and nobody takes it, the queue tells the game's room to
+    cancel at once (no winner, history or rating), so it never shows
+    under Games in progress or can be played; the 2-minute first-guess
+    timeout stays as the backup if that step fails
+  - Issue 278: a friend's shared summary with a Rated ladder win
+    percentage outside 0 to 100 is refused like any other bad value
+    (`parseSharedSummary`), and that function's misindented comment is
+    fixed
+  - Built: a friend request (by code, name or from a game) alerts its
+    player only if it's the first from that sender in a week (D1
+    `friend_request_alerts`, migration 0032, cleared with the declines); a
+    request by email always alerts and never counts, so it can't tell its
+    sender whose email it was. Becoming friends (accepting, an invite
+    link, adding each other) forgets the declines between the two. An add
+    that writes nothing because the other's request just landed accepts
+    it, with the "accepted" alert. One Add friend tap reads the account,
+    the friendship and the decline in one query. The queue's `abandon`
+    has the room cancel a computer game made after its player left
+    (`cancelPvp`, which a record replays before the 2 minutes are up)
 - [x] **19z. A guess lost switching Solo Rush tabs** (2.4.0, base of the
   stack; issue plangdon84/word-mastermind-archive#275; app only)
   - Issue 275: the two-tabs Solo Rush browser test loses a guess about 1

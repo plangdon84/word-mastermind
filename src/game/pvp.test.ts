@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  clockMinutesOf, concedePvp, createPvpGame, DAY_MS, FIRST_GUESS_MS, isTimeControl, MINUTE_MS, pickFirstSeat, pvpClocks, pvpDeadline,
+  cancelPvp, clockMinutesOf, concedePvp, createPvpGame, DAY_MS, FIRST_GUESS_MS, isTimeControl, MINUTE_MS, pickFirstSeat, pvpClocks, pvpDeadline,
   pvpTurn, pvpView, replayPvp, setPvpDifficulty, submitPvpGuess, timeControlOf, timeControlText, timeOutPvp, toPvpRecord,
   turnDaysOf, type PvpGame, type Seat, type TimeControl,
 } from './pvp';
@@ -271,6 +271,22 @@ describe('a live game, first guesses untimed (item 18zv)', () => {
     const second = guessAt(newGame('guest', '15m'), 'crane', T + 30_000);
     const late = timeOutPvp(second, T + 30_000 + FIRST_GUESS_MS);
     expect(late.ok && late.game.outcome).toEqual({ winner: null, reason: 'cancelled' });
+  });
+
+  it('can be cancelled early while a first guess is owed, and replays so (Dev Plan item 19za)', () => {
+    const cancelled = cancelPvp(newGame('guest', '10m'), T + 5_000);
+    if (!cancelled.ok) throw new Error(cancelled.error);
+    expect(cancelled.game.outcome).toEqual({ winner: null, reason: 'cancelled' });
+    expect(cancelled.game.moves.at(-1)).toEqual({ seat: 'guest', kind: 'cancel', at: T + 5_000 });
+    expect(replayPvp(toPvpRecord(cancelled.game))).toEqual(cancelled);
+    // Not once the first guesses are made, nor in a game from before item 18zv, nor once it's over.
+    expect(cancelPvp(guessAt(guessAt(newGame('host', '10m'), 'crane', T), 'moist', T), T).ok).toBe(false);
+    expect(cancelPvp(newGame('host', '10m', true), T).ok).toBe(false);
+    expect(cancelPvp(cancelled.game, T + 6_000)).toEqual({ ok: false, error: 'game-over' });
+    // An early cancel in a record where none was allowed still doesn't replay.
+    const older = newGame('host', '10m', true);
+    const forged = { ...toPvpRecord(older), moves: [{ seat: 'host' as const, kind: 'cancel' as const, at: T + 5_000 }] };
+    expect(replayPvp(forged).ok).toBe(false);
   });
 
   it("times a final guess on the clock, even when it's that player's first (owner, PR #53)", () => {
