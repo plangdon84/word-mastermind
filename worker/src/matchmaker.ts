@@ -1,4 +1,4 @@
-import type { QueueChoice } from '../../src/game';
+import { LADDER_CHOICE, type QueueChoice } from '../../src/game';
 import { startComputerGame, startMatchedGame } from './games';
 import { json } from './http';
 import type { Env } from './index';
@@ -9,6 +9,18 @@ export type MatchmakerRequest = QueueRequest & QueueChoice;
 
 /** The queue's Durable Object name: its time control and difficulty ("10m:hard"). */
 export const queueName = ({ timeControl, difficulty }: QueueChoice) => `${timeControl}:${difficulty}`;
+
+/**
+ * Tells the ladder's queue a game it started is over (Dev Plan item 19w),
+ * so it stops counting it in play. Every matched game comes from the one
+ * ladder queue (`LADDER_CHOICE`).
+ */
+export async function ladderEnded(queues: DurableObjectNamespace, gameId: string): Promise<void> {
+  const request: MatchmakerRequest = { ...LADDER_CHOICE, action: 'ended', gameId };
+  await queues.get(queues.idFromName(queueName(LADDER_CHOICE))).fetch('https://queue/', {
+    method: 'POST', body: JSON.stringify(request), headers: { 'content-type': 'application/json' },
+  });
+}
 
 /** What a queue needs from outside: starting a game in a game room, with its time control and difficulty. */
 export const queueDeps = (env: Env, { timeControl, difficulty }: QueueChoice): QueueDeps => ({

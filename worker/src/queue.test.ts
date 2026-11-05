@@ -10,7 +10,9 @@ import { fakeD1 } from './fakeD1';
 import { fakeQueues } from './fakeQueues';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
-import { allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, STALE_MS, STARTING_MS, type QueueDeps, type Seeker } from './queue';
+import {
+  allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, PLAYING_KEEP_MS, STALE_MS, STARTING_MS, type QueueDeps, type Seeker,
+} from './queue';
 import { listRatings } from './ratings';
 import { memoryStorage } from './fakeRooms';
 import { COMPUTER_ID } from './room';
@@ -59,7 +61,7 @@ describe('pickOpponent', () => {
 function setup() {
   const { db, sqlite } = fakeD1();
   let clock = NOW;
-  const rooms = fakeRooms({ db, now: () => clock });
+  const rooms = fakeRooms({ db, now: () => clock, queues: () => env.QUEUES });
   const emails: string[] = [];
   const outside = (async (_url: RequestInfo | URL, init?: RequestInit) => {
     emails.push((JSON.parse(String(init?.body)) as { text: string }).text);
@@ -123,7 +125,7 @@ describe('the queue', () => {
     const ann = await player(ANN, 'Ann');
     const bob = await player(BOB, 'Bob');
     const cat = await player(CAT, 'Cat');
-    expect(await ann.queue.join(LADDER, 'Ann', 'storm')).toEqual({ state: 'waiting', since: NOW, waiting: 0, now: NOW });
+    expect(await ann.queue.join(LADDER, 'Ann', 'storm')).toEqual({ state: 'waiting', since: NOW, waiting: 0, playing: 0, now: NOW });
     tick(5_000);
     const matched = await cat.queue.join(LADDER, 'Cat', 'beach');
     if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
@@ -582,5 +584,79 @@ describe('friending your ladder opponent (Dev Plan item 19e)', () => {
     // Adding her from the game starts a request as if the email never was.
     expect(await ann.games.addFriend(gameId)).toMatchObject({ ladderFriend: 'sent' });
     expect((await ann.friends.list()).sent.map((f) => f.code)).toEqual([(await cat.friends.list()).code]);
+  });
+});
+
+describe("who's on the ladder (Dev Plan item 19w)", () => {
+  it('counts the people waiting and in ladder games, numbers only, without joining', async () => {
+    const { player, tick } = setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const cat = await player(CAT, 'Cat');
+    expect(await cat.queue.busy(LADDER)).toEqual({ waiting: 0, playing: 0 });
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    // Asking doesn't put you in the queue, and the answer names nobody.
+    expect(await cat.queue.busy(LADDER)).toEqual({ waiting: 1, playing: 0 });
+    expect(await cat.queue.poll(LADDER)).toEqual({ state: 'idle' });
+    tick(1_000);
+    const matched = await bob.queue.join(LADDER, 'Bob', 'beach');
+    if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
+    expect(await cat.queue.busy(LADDER)).toEqual({ waiting: 0, playing: 2 });
+    // While Cat waits, a check-in carries the counts, the others waiting only.
+    expect(await cat.queue.join(LADDER, 'Cat', 'crane')).toMatchObject({ state: 'waiting', waiting: 0, playing: 2 });
+    expect(await cat.queue.busy(LADDER)).toEqual({ waiting: 1, playing: 2 });
+    // Leaving the queue keeps the games counted.
+    await cat.queue.leave(LADDER);
+    expect(await cat.queue.busy(LADDER)).toEqual({ waiting: 0, playing: 2 });
+    // Once it's over, the game's room tells the queue, and it stops counting.
+    await ann.games.concede(matched.gameId);
+    expect(await cat.queue.busy(LADDER)).toEqual({ waiting: 0, playing: 0 });
+  });
+
+  it('counts a game against a computer as one person, until it ends by the clock', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const bob = await context.player(BOB, 'Bob');
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    context.tick(29_999);
+    await ann.queue.poll(LADDER);
+    context.tick(1);
+    const matched = await ann.queue.poll(LADDER);
+    if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
+    expect(await bob.queue.busy(LADDER)).toEqual({ waiting: 0, playing: 1 });
+    // Ann never makes her first guess: the room's alarm cancels the game, and that ends it too.
+    context.tick(10 * 60_000);
+    await context.rooms.runAlarms();
+    expect((await ann.games.get(matched.gameId)).state).toBe('over');
+    expect(await bob.queue.busy(LADDER)).toEqual({ waiting: 0, playing: 0 });
+  });
+
+  it('is for signed-in players, like the rest of the queue', async () => {
+    const { fetchFn } = setup();
+    const guest = queueApi('https://api.example', { guestId: ANN, token: null }, fetchFn);
+    expect(await refusal(guest.busy(LADDER))).toBe('signed-out');
+  });
+
+  it("stops counting a game whose end it never heard of, once no ladder game could last that long", async () => {
+    const storage = memoryStorage();
+    await storage.put('queue', { seekers: [], matches: {}, playing: { ['a'.repeat(64)]: { people: 2, at: NOW } } });
+    const deps: QueueDeps = {
+      startGame: async () => { throw new Error('no game expected'); },
+      startComputerGame: async () => { throw new Error('no game expected'); },
+    };
+    expect((await handleQueue(storage, deps, { action: 'busy' }, NOW + PLAYING_KEEP_MS - 1)).body).toEqual({ waiting: 0, playing: 2 });
+    expect((await handleQueue(storage, deps, { action: 'busy' }, NOW + PLAYING_KEEP_MS)).body).toEqual({ waiting: 0, playing: 0 });
+  });
+
+  it('reads a queue stored before it, with no games counted', async () => {
+    const storage = memoryStorage();
+    await storage.put('queue', { seekers: [seeker('ann', 1500, NOW)], matches: {} });
+    const deps: QueueDeps = {
+      startGame: async () => { throw new Error('no game expected'); },
+      startComputerGame: async () => { throw new Error('no game expected'); },
+    };
+    expect((await handleQueue(storage, deps, { action: 'busy' }, NOW)).body).toEqual({ waiting: 1, playing: 0 });
+    expect((await handleQueue(storage, deps, { action: 'ended', gameId: 'b'.repeat(64) }, NOW)).status).toBe(200);
+    expect((await handleQueue(storage, deps, { action: 'busy' }, NOW)).body).toEqual({ waiting: 1, playing: 0 });
   });
 });

@@ -7,6 +7,7 @@ import { vapidKeysOf } from './pushRoutes';
 import { ratingsOf } from './ratings';
 import { currentNames } from './sync';
 import { TWO_PLAYER_POOL } from '../../src/game';
+import { ladderEnded } from './matchmaker';
 import { handleAlarm, handleRoom, mayChange, saveFinishedGame, type RoomDeps, type RoomRequest } from './room';
 
 /** Most open pages one game tells about its moves; a new one past this closes the oldest. */
@@ -29,6 +30,7 @@ export class GameRoom implements DurableObject {
   constructor(private readonly state: DurableObjectState, env: Env) {
     this.deps = {
       saveFinished: (room, record, now) => saveFinishedGame(env.DB, room, record, now),
+      ladderEnded: (gameId) => state.waitUntil(ladderEnded(env.QUEUES, gameId).catch(() => {})),
       namesOf: (ids) => currentNames(env.DB, ids),
       friendCodes: (accountId, ids) => friendCodes(env.DB, accountId, ids),
       friendStateOf: (accountId, playerId) => friendStateOf(env.DB, accountId, playerId, Date.now()),

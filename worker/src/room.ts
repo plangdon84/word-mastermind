@@ -114,6 +114,12 @@ export interface RoomDeps {
    */
   saveFinished(room: Room, record: PvpRecord, now: number): Promise<Record<Seat, RatingChange> | null>;
   /**
+   * Tells the queue that started this game (`matched`) that it's over, so it
+   * stops counting it in play (Dev Plan item 19w). Sent after the answer;
+   * a lost notice only leaves it counted until `PLAYING_KEEP_MS`.
+   */
+  ladderEnded(gameId: string): void;
+  /**
    * The names the players go by now, by player ID (`currentNames` in
    * `sync.ts`): an ID without an account profile is left out, and keeps the
    * name it played under.
@@ -281,6 +287,7 @@ async function save(storage: RoomStorage, deps: RoomDeps, room: Room, now: numbe
   if (game?.status === 'over' && room.record) {
     const over: Room = { ...room, unsaved: true };
     await storage.put(ROOM_KEY, over);
+    if (room.matched) deps.ladderEnded(room.id);
     return saveToHistory(storage, deps, over, now);
   }
   await storage.put(ROOM_KEY, room);

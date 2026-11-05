@@ -39,7 +39,7 @@ describe('a name the filter now refuses', () => {
     const notices: Notice[] = [];
     // No account profile for either player: the names are the room's own.
     const deps: RoomDeps = {
-      saveFinished: async () => null, namesOf: async () => ({}), friendCodes: async () => ({}), friendStateOf: async () => 'none',
+      saveFinished: async () => null, ladderEnded: () => {}, namesOf: async () => ({}), friendCodes: async () => ({}), friendStateOf: async () => 'none',
       ratingsOf: async () => { throw new Error('unrated'); }, random: () => 0,
       notify: (sent) => notices.push(...sent), played: async () => {},
     };

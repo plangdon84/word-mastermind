@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countdownText, dayEndingStartText, dayEndingText, errorMessage, repeatMessage, scoreMessage, secretErrorMessage, shortTimeLeft, timeLeftText } from './messages';
+import { busyText, countdownText, dayEndingStartText, dayEndingText, errorMessage, repeatMessage, scoreMessage, secretErrorMessage, shortTimeLeft, timeLeftText } from './messages';
 
 describe('errorMessage', () => {
   it('names the rejected word', () => {
@@ -91,5 +91,17 @@ describe('countdownText', () => {
     expect(countdownText(23 * 3_600_000 + 59 * 60_000 + 30_000)).toBe('24h 0m');
     expect(countdownText(12 * 60_000)).toBe('12m');
     expect(countdownText(30_000)).toBe('under a minute');
+  });
+});
+
+describe('busyText (Dev Plan item 19w)', () => {
+  it('says how busy the ladder is in numbers only, zeros too', () => {
+    expect(busyText({ waiting: 2, playing: 6 })).toBe('2 waiting · 6 in ladder games now');
+    expect(busyText({ waiting: 0, playing: 0 })).toBe('0 waiting · 0 in ladder games now');
+  });
+
+  it('counts the others while you wait', () => {
+    expect(busyText({ waiting: 1, playing: 2 }, true)).toBe('1 other waiting · 2 in ladder games now');
+    expect(busyText({ waiting: 0, playing: 0 }, true)).toBe('0 others waiting · 0 in ladder games now');
   });
 });

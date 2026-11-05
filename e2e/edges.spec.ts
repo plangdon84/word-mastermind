@@ -868,9 +868,12 @@ test.describe('the Rated ladder', () => {
     await modeButton(page, 'Two player').click();
     await modeButton(page, 'Rated ladder').click();
     await expect(page.getByRole('heading', { name: 'Rated ladder' })).toBeVisible();
+    // How busy the ladder is, in numbers only (item 19w); other tests' games may still be counted.
+    await expect(page.getByText(/^\d+ waiting · \d+ in ladder games now$/)).toBeVisible();
     await page.keyboard.type('storm');
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Looking for an opponent…' })).toBeVisible();
+    await expect(page.getByText(/^\d+ others? waiting · \d+ in ladder games now$/)).toBeVisible({ timeout: 5_000 });
     // Alone in the queue: after 30 seconds, a computer at about your level, said openly.
     await expect(page.getByText("No one was free, so you're playing a computer at about your level.")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('tab', { name: /🤖 Computer/ })).toBeVisible();

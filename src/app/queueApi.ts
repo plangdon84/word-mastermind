@@ -10,12 +10,26 @@ import { apiRequester, type ApiIdentity } from './apiIdentity';
 
 /** Where you are in a queue. */
 export type QueueStatus =
-  /** Waiting since `since` (the server's clock), with `waiting` others in the queue. */
-  | { state: 'waiting'; since: number; waiting: number; now: number }
+  /**
+   * Waiting since `since` (the server's clock), with `waiting` others in the
+   * queue and `playing` people in ladder games now (Dev Plan item 19w; absent
+   * from a server before it).
+   */
+  | { state: 'waiting'; since: number; waiting: number; playing?: number; now: number }
   /** Matched: the game to open. */
   | { state: 'matched'; gameId: string }
   /** Not in the queue (you left, or waited too long without checking in). */
   | { state: 'idle' };
+
+/**
+ * How busy the rated ladder is (Dev Plan item 19w, README "Random
+ * opponent"): how many people wait in the queue and how many are in ladder
+ * games now. Numbers only, never who.
+ */
+export interface QueueBusy {
+  waiting: number;
+  playing: number;
+}
 
 export type QueueError = WordError | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'unreachable';
 
@@ -26,10 +40,19 @@ export function parseQueueStatus(value: unknown): QueueStatus | null {
   if (value.state === 'matched') {
     return typeof value.gameId === 'string' && /^[0-9a-f]{64}$/.test(value.gameId) ? { state: 'matched', gameId: value.gameId } : null;
   }
-  if (value.state === 'waiting' && isTime(value.since) && isTime(value.now) && Number.isInteger(value.waiting)) {
-    return { state: 'waiting', since: value.since, waiting: value.waiting as number, now: value.now };
+  if (value.state === 'waiting' && isTime(value.since) && isTime(value.now) && isCount(value.waiting)) {
+    return {
+      state: 'waiting', since: value.since, waiting: value.waiting, now: value.now,
+      ...(isCount(value.playing) ? { playing: value.playing } : {}),
+    };
   }
   return null;
+}
+
+const isCount = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+
+export function parseQueueBusy(value: unknown): QueueBusy | null {
+  return isObject(value) && isCount(value.waiting) && isCount(value.playing) ? { waiting: value.waiting, playing: value.playing } : null;
 }
 
 export class QueueApiError extends Error {
@@ -44,6 +67,8 @@ export interface QueueApi {
   /** Checks in: keeps your place, and says when you're matched. */
   poll(choice: QueueChoice): Promise<QueueStatus>;
   leave(choice: QueueChoice): Promise<QueueStatus>;
+  /** How busy the queue is, without joining it. */
+  busy(choice: QueueChoice): Promise<QueueBusy>;
 }
 
 export function queueApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch): QueueApi {
@@ -57,5 +82,10 @@ export function queueApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof 
     join: (choice, name, secret) => post('/api/queue', { ...choice, name, secret }),
     poll: (choice) => post('/api/queue/poll', choice),
     leave: (choice) => post('/api/queue/leave', choice),
+    busy: async (choice) => {
+      const busy = parseQueueBusy(await request('POST', '/api/queue/busy', choice));
+      if (!busy) throw new QueueApiError('bad-request', 200);
+      return busy;
+    },
   };
 }
