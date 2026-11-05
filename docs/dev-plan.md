@@ -11,13 +11,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-Release 2.4.0, planned with the owner on 5 November 2026: one stack of
-two PRs that merges to `main` as one, as 2.3.0 did. 19z and 19za (done, below): 19z is the base (its
-PR targets `main`); 19za is stacked on it, its PR merging into 19z's
-branch, and 19z's PR then ships the stack. Each PR adds its notes to the
-one 2.4.0 release in `src/app/releases.ts`. 19za goes through the review
-gate (19z is app only and skips it); the stack merges once both PRs are
-ready.
+Nothing: release 2.4.0 (19z, with 19za stacked on it, both in Done
+below) ships to `main` as one in PR #78, as 2.3.0 did.
 
 **Later**
 
