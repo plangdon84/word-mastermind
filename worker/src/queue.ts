@@ -222,7 +222,8 @@ async function playComputer(storage: QueueStorage, deps: QueueDeps, state: Queue
   }
   const { current, still, same } = await settle();
   if (!same) {
-    await deps.abandonComputerGame(gameId).catch(() => {});
+    // A failure is left to the first-guess time limit, but logged, as it shouldn't happen (Dev Plan item 19zb).
+    await deps.abandonComputerGame(gameId).catch((e: unknown) => console.error('Ladder: cancelling an unwanted computer game failed', e));
     return moved(current, still);
   }
   await storage.put(KEY, {

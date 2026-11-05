@@ -207,12 +207,20 @@ const forgetEmailRequest = async (db: D1Database, accountId: string, friendId: s
  * at once. Returns the "accepted" alert for `friendId`.
  */
 async function acceptRequest(db: D1Database, accountId: string, friendId: string, now: number): Promise<Notice[]> {
-  // Only a request still there: one withdrawn meanwhile accepts nothing, alerts no one and forgets nothing (review round 1 of PR #79).
-  const { meta } = await db.prepare(`UPDATE friends SET state = 'friends', since = ?3
-    WHERE ((account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)) AND state <> 'friends'`)
-    .bind(accountId, friendId, now).run();
-  if (!meta.changes) return [];
-  await forgetDeclinesBetween(db, accountId, friendId).run();
+  // Only their request to you, both rows still there and running that way: one withdrawn meanwhile accepts
+  // nothing, alerts no one and forgets nothing, and one sent the other way from another tab at that moment
+  // isn't made a friendship (Dev Plan item 19zb). One write: the declines go only once they're friends.
+  const [accepted] = await db.batch([
+    db.prepare(`UPDATE friends SET state = 'friends', since = ?3
+      WHERE ((account_id = ?1 AND friend_id = ?2 AND state = 'received') OR (account_id = ?2 AND friend_id = ?1 AND state = 'sent'))
+        AND (SELECT COUNT(*) FROM friends
+          WHERE (account_id = ?1 AND friend_id = ?2 AND state = 'received') OR (account_id = ?2 AND friend_id = ?1 AND state = 'sent')) = 2`)
+      .bind(accountId, friendId, now),
+    db.prepare(`DELETE FROM friend_declines
+      WHERE ((sender_id = ?1 AND declined_by = ?2) OR (sender_id = ?2 AND declined_by = ?1))
+        AND EXISTS (SELECT 1 FROM friends WHERE account_id = ?1 AND friend_id = ?2 AND state = 'friends')`).bind(accountId, friendId),
+  ]);
+  if (!accepted.meta.changes) return [];
   return [friendAcceptedNotice(friendId, await nameOrDefault(db, accountId))];
 }
 

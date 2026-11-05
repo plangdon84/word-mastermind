@@ -12,26 +12,7 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 **Next, in this order**
 
 Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
-shipped to `main` in PR #78.
-
-- [ ] **19zb. Review follow-ups from 2.4.0** (issue
-  plangdon84/word-mastermind-archive#281; worker, review gate; no
-  release note, nothing players see)
-  - Decided with the owner on 5 November 2026: its own PR to `main` once
-    2.4.0 had shipped, rather than a third PR in the stack
-  - Issue 281, items 1 to 6: becoming friends and forgetting the declines
-    between the two are one database write again, the delete running only
-    when the friendship is there; the queue logs a failed cancel of a
-    ladder computer game; a test of the room refusing that cancel for a
-    reason other than an unknown game; the reload after "turned down
-    lately" shares the page's normal reload; `cancelPvp`'s comment says
-    a cancel past the 2 minutes is timed at the deadline; an accept
-    changes only the rows that still run the right way (your "received"
-    and their "sent"), so a request withdrawn and sent again from another
-    tab at that moment isn't turned into a friendship
-  - Item 7 is accepted as is (the owner): the computer finding the word
-    with its very first guess as the player cancels gives no winner,
-    rating or history
+shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 **Later**
 
@@ -103,6 +84,27 @@ shipped to `main` in PR #78.
 
 ## Done, latest first
 
+- [x] **19zb. Review follow-ups from 2.4.0** (issue
+  plangdon84/word-mastermind-archive#281; worker, review gate; no
+  release note, nothing players see)
+  - Decided with the owner on 5 November 2026: its own PR to `main` once
+    2.4.0 had shipped, rather than a third PR in the stack
+  - Issue 281, items 1 to 6: becoming friends and forgetting the declines
+    between the two are one database write again, the delete running only
+    when the friendship is there; the queue logs a failed cancel of a
+    ladder computer game; a test of the room refusing that cancel for a
+    reason other than an unknown game; the reload after "turned down
+    lately" shares the page's normal reload; `cancelPvp`'s comment says
+    a cancel past the 2 minutes is timed at the deadline; an accept
+    changes only the rows that still run the right way (your "received"
+    and their "sent"), so a request withdrawn and sent again from another
+    tab at that moment isn't turned into a friendship
+  - Item 7 is accepted as is (the owner): the computer finding the word
+    with its very first guess as the player cancels gives no winner,
+    rating or history
+  - Built: the accept is one batch, updating your "received" and their
+    "sent" rows only while both are there, and forgetting the declines
+    only once they're friends
 - [x] **19za. Friend request and ladder clean-ups** (2.4.0, stacked on
   19z; issues
   plangdon84/word-mastermind-archive#280,

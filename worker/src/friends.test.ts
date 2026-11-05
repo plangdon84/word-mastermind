@@ -251,6 +251,32 @@ describe('accepting a request withdrawn meanwhile (review round 1 of PR #79)', (
   });
 });
 
+describe('accepting while your own request is sent from another tab (Dev Plan item 19zb)', () => {
+  it("never makes a friendship of a request the other player hasn't accepted", async () => {
+    const { db, sqlite, player, now } = await setup();
+    await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?, ?, 'sent', ?, 0), (?, ?, 'received', ?, 0)`)
+      .run(BOB, ANN, now(), ANN, BOB, now());
+    // Bob withdraws his request just as Ann accepts it, and Ann's other tab sends him one of her own.
+    let swapped = false;
+    const racing = { ...db, batch: (statements: D1PreparedStatement[]) => {
+      if (!swapped) {
+        swapped = true;
+        sqlite.prepare('DELETE FROM friends').run();
+        sqlite.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?, ?, 'sent', ?, 0), (?, ?, 'received', ?, 0)`)
+          .run(ANN, BOB, now(), BOB, ANN, now());
+      }
+      return db.batch(statements);
+    } } as D1Database;
+    expect(await addFriend(racing, ANN, bobCode, now())).toEqual({ ok: true, notices: [] });
+    expect(swapped).toBe(true);
+    expect(sqlite.prepare('SELECT account_id, state FROM friends ORDER BY state').all())
+      .toEqual([{ account_id: BOB, state: 'received' }, { account_id: ANN, state: 'sent' }]);
+  });
+});
+
 describe('friend requests by email', () => {
   const refusal = (call: Promise<unknown>) => call.then(() => 'sent', (e: FriendsApiError) => e.code);
 
