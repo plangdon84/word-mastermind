@@ -195,10 +195,47 @@ const listSize = async (db: D1Database, accountId: string) => (await db.prepare(
  * never was (a new request, and its notification): how it goes, and how
  * long it takes, can't tell whose email it was. One statement either way.
  */
-const forgetEmailRequest = (db: D1Database, accountId: string, friendId: string) => db.prepare(
+const forgetEmailRequest = async (db: D1Database, accountId: string, friendId: string) => (await db.prepare(
   `DELETE FROM friends WHERE ((account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1))
      AND EXISTS (SELECT 1 FROM friends WHERE account_id = ?1 AND friend_id = ?2 AND state = 'sent' AND by_email = 1)`,
-).bind(accountId, friendId).run();
+).bind(accountId, friendId).run()).meta.changes > 0;
+
+/**
+ * Makes `accountId` and `friendId` friends, accepting the request one sent
+ * the other, and forgets any request either declined from the other (Dev
+ * Plan item 19za), so if they part later, either can use Add friend again
+ * at once. Returns the "accepted" alert for `friendId`.
+ */
+async function acceptRequest(db: D1Database, accountId: string, friendId: string, now: number): Promise<Notice[]> {
+  // Only a request still there: one withdrawn meanwhile accepts nothing, alerts no one and forgets nothing (review round 1 of PR #79).
+  const { meta } = await db.prepare(`UPDATE friends SET state = 'friends', since = ?3
+    WHERE ((account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)) AND state <> 'friends'`)
+    .bind(accountId, friendId, now).run();
+  if (!meta.changes) return [];
+  await forgetDeclinesBetween(db, accountId, friendId).run();
+  return [friendAcceptedNotice(friendId, await nameOrDefault(db, accountId))];
+}
+
+/** Forgets the requests `a` and `b` declined from each other, once they're friends (Dev Plan item 19za). */
+const forgetDeclinesBetween = (db: D1Database, a: string, b: string) => db.prepare(
+  'DELETE FROM friend_declines WHERE (sender_id = ?1 AND declined_by = ?2) OR (sender_id = ?2 AND declined_by = ?1)',
+).bind(a, b);
+
+/**
+ * The "friend request" alert to `friendId` for a request `accountId` just
+ * sent, only if it's the first from them in a week
+ * (`FRIEND_REQUEST_ALERT_MS`, Dev Plan item 19za): a request withdrawn and
+ * sent again still shows on their list, but alerts them once a week at
+ * most. The week counts from the alert that went, in one statement, so
+ * requests at once can't both alert.
+ */
+async function requestAlert(db: D1Database, accountId: string, friendId: string, now: number): Promise<Notice[]> {
+  const { meta } = await db.prepare(
+    `INSERT INTO friend_request_alerts (sender_id, recipient_id, at) VALUES (?1, ?2, ?3)
+     ON CONFLICT (sender_id, recipient_id) DO UPDATE SET at = excluded.at WHERE friend_request_alerts.at <= ?4`,
+  ).bind(accountId, friendId, now, now - FRIEND_REQUEST_ALERT_MS).run();
+  return meta.changes ? [friendRequestNotice(friendId, await nameOrDefault(db, accountId))] : [];
+}
 
 /**
  * Where `accountId` stands with `friendId` as their list shows it: a
@@ -220,28 +257,34 @@ export async function addFriend(db: D1Database, accountId: string, code: string,
   return addFriendById(db, accountId, friendId, now);
 }
 
-/** `addFriend` for the account `friendId`, however the app knows them. */
-async function addFriendById(db: D1Database, accountId: string, friendId: string, now: number): Promise<Added> {
+/**
+ * `addFriend` for the account `friendId`, however the app knows them.
+ * `known`: where `accountId` stands with them as their list shows it, if
+ * the caller has just read it (`friendStateOf`), so it isn't read again.
+ */
+async function addFriendById(
+  db: D1Database, accountId: string, friendId: string, now: number, known?: string | null,
+): Promise<Added> {
   if (friendId === accountId) return { ok: false, status: 400, error: 'own-code' };
-  await forgetEmailRequest(db, accountId, friendId);
-  const existing = await visibleState(db, accountId, friendId);
-  if (existing?.state === 'friends' || existing?.state === 'sent') return { ok: true, notices: [] };
-  const name = await nameOrDefault(db, accountId);
-  if (existing?.state === 'received') {
-    await db.prepare(`UPDATE friends SET state = 'friends', since = ?3
-      WHERE (account_id = ?1 AND friend_id = ?2) OR (account_id = ?2 AND friend_id = ?1)`).bind(accountId, friendId, now).run();
-    return { ok: true, notices: [friendAcceptedNotice(friendId, name)] };
-  }
+  // A request by email forgotten leaves nothing between them; otherwise what the caller read still stands.
+  const forgot = await forgetEmailRequest(db, accountId, friendId);
+  const existing = forgot ? null : known !== undefined ? known : (await visibleState(db, accountId, friendId))?.state ?? null;
+  if (existing === 'friends' || existing === 'sent') return { ok: true, notices: [] };
+  if (existing === 'received') return { ok: true, notices: await acceptRequest(db, accountId, friendId, now) };
   for (const id of [accountId, friendId]) {
     if (await listSize(db, id) >= MAX_FRIENDS) return { ok: false, status: 409, error: 'too-many-friends' };
   }
   // One statement that also takes the place of a request by email made meanwhile, so that overlap ends as this request alone.
-  await db.prepare(
+  const { meta } = await db.prepare(
     `INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 0), (?2, ?1, 'received', ?3, 0)
      ON CONFLICT (account_id, friend_id) DO UPDATE SET state = excluded.state, since = excluded.since, by_email = 0
      WHERE friends.by_email = 1`,
   ).bind(accountId, friendId, now).run();
-  return { ok: true, notices: [friendRequestNotice(friendId, name)] };
+  if (meta.changes) return { ok: true, notices: await requestAlert(db, accountId, friendId, now) };
+  // Nothing written: a request or friendship between them came first (they added each other at once, issue 279).
+  // The alert follows what's there: their request to you is accepted, as adding them means; anything else, none.
+  const after = await visibleState(db, accountId, friendId);
+  return { ok: true, notices: after?.state === 'received' ? await acceptRequest(db, accountId, friendId, now) : [] };
 }
 
 /**
@@ -259,14 +302,21 @@ const accountOfSql = (param: string) => `COALESCE((SELECT account_id FROM guests
  * the past week (`FRIEND_DECLINE_MS`): the game offers no Add friend.
  */
 export async function friendStateOf(db: D1Database, accountId: string, playerId: string, now: number): Promise<LadderFriend> {
-  const row = await db.prepare(
-    `SELECT (SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ${accountOfSql('?2')}
-         AND NOT (state = 'sent' AND by_email = 1)) AS state,
-       EXISTS (SELECT 1 FROM friend_declines WHERE sender_id = ?1 AND declined_by = ${accountOfSql('?2')} AND at > ?3) AS declined`,
-  ).bind(accountId, playerId, now - FRIEND_DECLINE_MS).first<{ state: string | null; declined: number }>();
-  const state = row?.state;
+  const row = await db.prepare(`SELECT ${standingSql(accountOfSql('?2'))}`)
+    .bind(accountId, playerId, now - FRIEND_DECLINE_MS).first<Standing>();
+  return row ? ladderFriendOf(row) : 'none';
+}
+
+/** Where `?1` stands with the account `other` (`friendStateOf`), with `?3` the start of the decline's week. */
+const standingSql = (other: string) =>
+  `(SELECT state FROM friends WHERE account_id = ?1 AND friend_id = ${other} AND NOT (state = 'sent' AND by_email = 1)) AS state,
+   EXISTS (SELECT 1 FROM friend_declines WHERE sender_id = ?1 AND declined_by = ${other} AND at > ?3) AS declined`;
+
+type Standing = { state: string | null; declined: number };
+
+function ladderFriendOf({ state, declined }: Standing): LadderFriend {
   if (state === 'friends' || state === 'sent' || state === 'received') return state;
-  return row?.declined ? 'declined' : 'none';
+  return declined ? 'declined' : 'none';
 }
 
 /**
@@ -277,12 +327,17 @@ export async function friendStateOf(db: D1Database, accountId: string, playerId:
  * the request shows on each list by the other's code.
  */
 export async function addLadderOpponent(db: D1Database, accountId: string, playerId: string, now: number): Promise<Added> {
-  const row = await db.prepare(`SELECT id FROM accounts WHERE id = ${accountOfSql('?1')}`).bind(playerId).first<{ id: string }>();
+  // One read: their account, where you stand and whether they declined you lately (merged in Dev Plan item 19za).
+  const row = await db.prepare(
+    `SELECT a.id, ${standingSql('a.id')} FROM accounts a WHERE a.id = ${accountOfSql('?2')}`,
+  ).bind(accountId, playerId, now - FRIEND_DECLINE_MS).first<{ id: string } & Standing>();
   if (!row) return { ok: false, status: 404, error: 'not-found' };
+  const state = ladderFriendOf(row);
   // Accepting their request still works; a new one waits out a week after they declined one (`FRIEND_DECLINE_MS`).
-  if (await friendStateOf(db, accountId, row.id, now) === 'declined') return { ok: false, status: 409, error: 'declined' };
+  if (state === 'declined') return { ok: false, status: 409, error: 'declined' };
+  if (state === 'friends' || state === 'sent') return { ok: true, notices: [] };
   await Promise.all([friendCodeOf(db, accountId), friendCodeOf(db, row.id)]);
-  return addFriendById(db, accountId, row.id, now);
+  return addFriendById(db, accountId, row.id, now, state === 'none' ? null : state);
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -302,6 +357,8 @@ export const EMAIL_DECLINE_MS = 7 * DAY_MS;
 export const forgetOldDeclines = (db: D1Database, now: number) => [
   db.prepare('DELETE FROM email_declines WHERE at <= ?1').bind(now - EMAIL_DECLINE_MS),
   db.prepare('DELETE FROM friend_declines WHERE at <= ?1').bind(now - FRIEND_DECLINE_MS),
+  // And the week's "friend request" alerts (Dev Plan item 19za), on the same schedule.
+  db.prepare('DELETE FROM friend_request_alerts WHERE at <= ?1').bind(now - FRIEND_REQUEST_ALERT_MS),
 ];
 
 /**
@@ -312,6 +369,14 @@ export const forgetOldDeclines = (db: D1Database, now: number) => [
  * can't send a request, and its alert, again and again.
  */
 export const FRIEND_DECLINE_MS = 7 * DAY_MS;
+
+/**
+ * How long after a "friend request" alert another request from the same
+ * sender to that player goes without one (Dev Plan item 19za, the owner on
+ * 5 November 2026): withdrawing and sending again can't alert them over
+ * and over.
+ */
+export const FRIEND_REQUEST_ALERT_MS = 7 * DAY_MS;
 
 /**
  * A friend request to whoever has an account with `email` (Dev Plan item
@@ -358,6 +423,8 @@ export async function deliverEmailRequest(db: D1Database, accountId: string, ema
   if (existing?.state || existing?.declined || await listSize(db, friendId) >= MAX_FRIENDS) return [];
   await db.prepare(`INSERT INTO friends (account_id, friend_id, state, since, by_email) VALUES (?1, ?2, 'sent', ?3, 1), (?2, ?1, 'received', ?3, 1)`)
     .bind(accountId, friendId, now).run();
+  // Always alerted, never noted for `requestAlert`'s week: a request by email must leave no trace on how a later
+  // one goes, or that could tell its sender whose email it was. It can't be withdrawn and sent again anyway.
   return [friendRequestNotice(friendId, await nameOrDefault(db, accountId))];
 }
 
@@ -429,6 +496,7 @@ export async function acceptInvite(db: D1Database, accountId: string, key: strin
       .bind(accountId, friendId),
     db.prepare(`INSERT INTO friends (account_id, friend_id, state, since) VALUES (?1, ?2, 'friends', ?3), (?2, ?1, 'friends', ?3)`)
       .bind(accountId, friendId, now),
+    forgetDeclinesBetween(db, accountId, friendId),
   ]);
   return { ok: true, notices: [friendAcceptedNotice(friendId, await nameOrDefault(db, accountId))], code };
 }

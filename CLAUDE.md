@@ -176,7 +176,11 @@ Run `npm test` and `npm run typecheck` before committing.
   hides a request sent by email) drives the button. Declining a request
   (not one by email, which would give the email away) rests the sender's
   Add friend to that player for a week (D1
-  `friend_declines`, `FRIEND_DECLINE_MS`).
+  `friend_declines`, `FRIEND_DECLINE_MS`); becoming friends forgets the
+  declines between the two (`acceptRequest`). A request alerts its player
+  once a week per sender (Dev Plan item 19za, D1 `friend_request_alerts`,
+  `requestAlert`), never counting one by email; an add that writes
+  nothing because the other's request just landed accepts it.
 - Friends' profiles (Dev Plan item 18c, README "Friends' profiles"): a
   friend's name on the friends list opens `src/app/FriendProfileScreen.tsx`,
   read from `GET /api/friends/profile` (`worker/src/friends.ts`, friends
@@ -319,7 +323,9 @@ Run `npm test` and `npm run typecheck` before committing.
   ladder computer game is kept out of friend stats (`GameSummary.ladder`). How busy the ladder is (Dev Plan item 19w) is
   counts only (`QueueBusy`, `POST /api/queue/busy`, and `playing` on each
   check-in): the queue notes each game it starts (`playing`) and the room
-  tells it when one is over (`ladderEnded`), never a D1 read.
+  tells it when one is over (`ladderEnded`), never a D1 read. A computer
+  game made after its player cancelled is cancelled by its room at once
+  (`abandon`, `cancelPvp`; Dev Plan item 19za).
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:
   Random opponent, the rating boards, Competitive Rush and the Daily Rush
@@ -378,7 +384,11 @@ Run `npm test` and `npm run typecheck` before committing.
   (`src/app/tabSync.ts`) and never save back what they took (`adopted`);
   only the leading tab (`useTabLeader`, a Web Lock the shown tab takes)
   plays the computer's turn, and a Solo Rush save's `away` marks an
-  automatic pause, resumed by whichever tab is shown.
+  automatic pause, resumed by whichever tab is shown. Solo Rush saves
+  only what the page holds now (its refs), never a render's older copy,
+  and merges a late save from the other tab with its own run (`mergeRuns`
+  in `src/game/run.ts`) rather than dropping either's guesses (Dev Plan
+  item 19z).
 - The move to `wordmastermind.app` (Dev Plan item 18f, issue #92):
   `src/app/moved.ts` shows `MovedNotice.tsx` on `word-mastermind.pages.dev`
   itself (never a preview) until Done, and from `REDIRECT_FROM` sends that

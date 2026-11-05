@@ -19,7 +19,7 @@ export const WIPE_TABLES = [
  */
 export const KEEP_TABLES = [
   'guests', 'push_subscriptions', 'accounts', 'sessions', 'login_links', 'oauth_states', 'reports', 'profiles',
-  'friends', 'email_declines', 'friend_declines', 'lobby_invites', 'daily_themes', 'daily_words',
+  'friends', 'email_declines', 'friend_declines', 'friend_request_alerts', 'lobby_invites', 'daily_themes', 'daily_words',
 ] as const;
 
 /** The environments in wrangler.toml; `local` is the top-level one (worker/.wrangler/). */

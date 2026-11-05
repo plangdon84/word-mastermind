@@ -295,6 +295,37 @@ export function replayRun(record: RunRecord): RunResult {
   return result;
 }
 
+/**
+ * One run from two copies of it that went separate ways, as two tabs'
+ * copies of a Solo Rush can when one tab's saves reach the other late
+ * (Issue 275): the moves they share, then both copies' later moves in time
+ * order, each kept only if the rules still take it there (a second resume
+ * of one pause is dropped). Ties go in a fixed order, so either copy gives
+ * the same run. Null for two different runs.
+ */
+export function mergeRuns(a: RunGame, b: RunGame): RunGame | null {
+  const { moves: aMoves, ...aRest } = toRunRecord(a);
+  const { moves: bMoves, ...bRest } = toRunRecord(b);
+  if (JSON.stringify(aRest) !== JSON.stringify(bRest)) return null;
+  const key = (m: RunMove) => JSON.stringify(m);
+  let shared = 0;
+  while (shared < aMoves.length && shared < bMoves.length && key(aMoves[shared]) === key(bMoves[shared])) shared++;
+  const start = replayRun({ ...aRest, moves: aMoves.slice(0, shared) });
+  if (!start.ok) return null;
+  const later = [...aMoves.slice(shared), ...bMoves.slice(shared)]
+    .map((move) => ({ move, key: key(move) }))
+    .sort((x, y) => x.move.at - y.move.at || (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
+  let run = start.game;
+  let last = '';
+  for (const { move, key: k } of later) {
+    if (k === last) continue;
+    const next = applyRunMove(run, move);
+    if (next.ok) run = next.game;
+    last = k;
+  }
+  return run;
+}
+
 /** A word's time in seconds, not counting pauses; null if it wasn't reached or is still being played. */
 export function wordSeconds(word: RunWord): number | null {
   if (word.startedAt === null || word.endedAt === null) return null;

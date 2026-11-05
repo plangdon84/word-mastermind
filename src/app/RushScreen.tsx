@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import type { OpenProfile } from './profilePages';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import {
-  createRun, cycleMark, earlierGuess, endRun, giveUpWord, HISTORY_VERSION, pauseRun, PENALTY_GUESSES, pickRunWords, resumeRun,
+  createRun, cycleMark, earlierGuess, endRun, giveUpWord, HISTORY_VERSION, mergeRuns, pauseRun, PENALTY_GUESSES, pickRunWords, resumeRun,
   PENALTY_SECONDS, rankByName, runElapsedMs, runRankBy, SECRET_WORDS, setRunDifficulty, wordSetName, submitRunGuess, suggestRun, summarizeSoloRun, toRunRecord, wordSeconds,
   marksFitScores, type Difficulty, type Marks, type RankBy, type RunGame,
 } from '../game';
@@ -26,7 +26,7 @@ import { useMessage, usePhysicalKeyboard } from './hooks';
 import { errorMessage, guessCount, marksCheckMessage, repeatMessage, RUSH_NO_SUGGESTIONS, scoreMessage } from './messages';
 import { newId } from './ids';
 import { openReport } from './reportIssue';
-import { loadRush, onOtherTabRushSave, rushSavedSince, saveRush, type RushSaved } from './rushStorage';
+import { loadRush, onOtherTabRushSave, rushSavedSince, saveRush, serializeRushSaved, type RushSaved } from './rushStorage';
 import { sameRecord } from './tabSync';
 import type { Profile } from './profileStorage';
 import type { Settings } from './settings';
@@ -77,15 +77,32 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const [marks, setMarks] = useState<readonly Marks[]>(() => saved?.marks ?? run.words.map(() => ({})));
   const marksRef = useRef(marks);
   marksRef.current = marks;
-  /** What this page last saved, so coming back can tell whether another page saved since (Dev Plan item 19d). */
+  /**
+   * What this page last saved or took from another tab, so coming back can
+   * tell whether another page saved since (Dev Plan item 19d), and the same
+   * thing is never written twice (Issue 275).
+   */
   const written = useRef<string | null>(null);
+  /** The Rush as this page holds it now: the refs, never an older render's copy. */
+  const held = (): RushSaved => ({
+    id: idRef.current, run: runRef.current, marks: marksRef.current, draft: draftRef.current, away: autoPaused.current,
+  });
+  /**
+   * Saves what this page holds, if it's changed since this page last wrote
+   * or took it. Saving from the refs, never a render's state, is what keeps
+   * a save scheduled while typing from writing the run from before the
+   * guess back over it (Issue 275); and not writing it again keeps this
+   * page from putting its copy back over another tab's newer one.
+   */
+  const saveHeld = () => {
+    const now = held();
+    if (serializeRushSaved(now) !== written.current) written.current = saveRush(now) ?? written.current;
+  };
   /** Saves at once, since the page may be closing (the effect below may not run in time). */
   const setRun = (r: RunGame) => {
     runRef.current = r;
     setRunState(r);
-    written.current = saveRush({
-      id: idRef.current, run: r, marks: marksRef.current, draft: draftRef.current, away: autoPaused.current,
-    }) ?? written.current;
+    saveHeld();
   };
   const setDraft = (d: string) => {
     draftRef.current = d;
@@ -118,15 +135,9 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
   const definitions = useDefinitions(openDef >= 0 || over || showFound);
 
-  /** Set when this tab takes another's save: that's never saved back, as it could replace a newer one (Dev Plan item 19d). */
-  const adopted = useRef(false);
   // A reviewed Rush is already saved, and must not replace the Rush in progress.
   useEffect(() => {
-    if (adopted.current) {
-      adopted.current = false;
-      return;
-    }
-    if (!reviewing) written.current = saveRush({ id, run, marks, draft, away: autoPaused.current }) ?? written.current;
+    if (!reviewing) saveHeld();
   }, [reviewing, id, run, marks, draft]);
   const reviewingRef = useRef(reviewing);
   reviewingRef.current = reviewing;
@@ -182,12 +193,29 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
    * The same Rush open in another tab (Dev Plan item 19d): take its run and
    * marks, so this tab never saves an older copy over it (a hidden tab used
    * to pause its own stale run, losing the other tab's guesses). Only a
-   * change is taken, so the tabs' saves don't echo. A run it paused because
-   * it was hidden resumes here, if this tab is the one showing.
+   * change is taken, so the tabs' saves don't echo, and what's taken is
+   * never saved back. A save that reached this page late, missing moves
+   * this page has, is merged with this page's run (`mergeRuns`) and the
+   * merged run saved, so neither tab's guesses are lost (Issue 275). A run
+   * paused because a tab was hidden resumes here, if this tab is the one
+   * showing.
    */
-  const follow = (other: RushSaved) => {
+  const follow = (saved: RushSaved) => {
+    let other = saved;
+    /** Whether what's taken has moves the save lacks, so it's saved back. */
+    let newer = false;
+    if (other.id === idRef.current && !sameRecord(toRunRecord(other.run), toRunRecord(runRef.current))) {
+      const run = mergeRuns(runRef.current, other.run);
+      if (run && !sameRecord(toRunRecord(run), toRunRecord(other.run))) {
+        newer = true;
+        const ours = sameRecord(toRunRecord(run), toRunRecord(runRef.current));
+        const away = run.pausedAt !== null && (ours ? autoPaused.current : other.away === true || autoPaused.current);
+        other = { ...other, run, away };
+      }
+    }
+    let took = false;
     if (other.id !== idRef.current || !sameRecord(toRunRecord(other.run), toRunRecord(runRef.current))) {
-      adopted.current = true;
+      took = true;
       idRef.current = other.id;
       setId(other.id);
       runRef.current = other.run;
@@ -196,9 +224,15 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
       setNow(Date.now());
     }
     if (!sameRecord(marksRef.current, other.marks)) {
-      adopted.current = true;
+      took = true;
       marksRef.current = other.marks;
       setMarks(other.marks);
+    }
+    if (newer) {
+      written.current = null;
+      saveHeld();
+    } else if (took) {
+      written.current = serializeRushSaved(held());
     }
     if (document.visibilityState === 'visible' && autoPaused.current) resumeClock();
   };

@@ -1,6 +1,6 @@
 import {
   concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, TWO_PLAYER_POOL, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
-  isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
+  cancelPvp, isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
   type Marks, type Rating, type TimeControl, type TurnDays, computerRating, LADDER_COMPUTER_NAME, planComputerGuesses, pvpTurn, pvpTurnStart,
   ratedComputer, SECRET_WORDS, type PlannedGuess,
 } from '../../src/game';
@@ -170,6 +170,12 @@ export type RoomRequest =
     action: 'computer'; id: string; guestId: string; name: string; secret: string; difficulty: Difficulty; timeControl: TimeControl;
     recall: number; rating: Rating;
   }
+  /**
+   * From the queue (Dev Plan item 19za): the ladder computer game it made
+   * for a player who cancelled meanwhile. Cancelled at once, no winner,
+   * history or rating, unless the player has already guessed.
+   */
+  | { action: 'abandon' }
   | Asker & (
     /** `tell`: open pages look again too, after a friend request from the game (Dev Plan item 19e). */
     | { action: 'get'; tell?: boolean }
@@ -419,6 +425,8 @@ export async function handleRoom(
   storage: RoomStorage, deps: RoomDeps, request: RoomRequest, now: number,
 ): Promise<RoomResponse> {
   const answer = await answerRoom(storage, deps, request, now);
+  // The queue's `abandon` reads nothing back, so it's answered without names.
+  if (request.action === 'abandon') return answer;
   return { ...answer, body: await withCurrentNames(storage, deps, answer.body, request.guestId) };
 }
 
@@ -524,6 +532,24 @@ async function startComputerGame(
   return { status: 201, body: describeRoom(saved, [request.guestId], now) };
 }
 
+/**
+ * The queue's `abandon`: a ladder computer game whose player cancelled
+ * while it was made, so it was never handed to them (Dev Plan item 19za).
+ * It's cancelled now, as the first guess's 2 minutes would (item 18zv), so
+ * it leaves their games in progress at once. Nobody is told: the player
+ * cancelled. A game the player has already guessed in (they found it
+ * meanwhile) is theirs and goes on.
+ */
+async function abandonComputerGame(storage: RoomStorage, deps: RoomDeps, room: Room, now: number): Promise<RoomResponse> {
+  const game = gameOf(room);
+  if (!room.computer || !game || room.unsaved) return refuse(409, room.unsaved ? 'game-over' : 'bad-request');
+  if (game.guesses.host.length > 0) return refuse(409, 'game-over');
+  const cancelled = cancelPvp(game, now);
+  if (!cancelled.ok) return refuse(409, cancelled.error === 'game-over' ? 'game-over' : 'bad-request');
+  const saved = await save(storage, deps, { ...room, record: toPvpRecord(cancelled.game) }, now);
+  return { status: 200, body: describeRoom(saved, [], now) };
+}
+
 async function answerRoom(
   storage: RoomStorage, deps: RoomDeps, request: RoomRequest, now: number,
 ): Promise<RoomResponse> {
@@ -559,6 +585,8 @@ async function answerRoom(
   }
 
   if (!stored) return refuse(404, 'not-found');
+  // Before the usual catch-up, which could play the computer's due guess and tell the player it's their turn.
+  if (request.action === 'abandon') return abandonComputerGame(storage, deps, stored, now);
   const room = await settle(storage, deps, stored, now);
   const ids = idsOf(request);
   if (request.action === 'get') return { status: 200, body: describeRoom(room, ids, now) };

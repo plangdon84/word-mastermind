@@ -308,6 +308,7 @@ export async function deleteAccount(db: D1Database, accountId: string): Promise<
     stmt('DELETE FROM email_requests WHERE account_id = ?1', accountId),
     stmt('DELETE FROM email_declines WHERE sender_id = ?1 OR declined_by = ?1', accountId),
     stmt('DELETE FROM friend_declines WHERE sender_id = ?1 OR declined_by = ?1', accountId),
+    stmt('DELETE FROM friend_request_alerts WHERE sender_id = ?1 OR recipient_id = ?1', accountId),
     // Its reminders' bookkeeping (Dev Plan item 18zj): when it last played, its daily games started, reminders sent.
     ...['player_activity', 'daily_played', 'reminders_sent'].map((table) => stmt(`DELETE FROM ${table} WHERE player_id = ?1`, accountId)),
     ...deleteRatings(db, accountId),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createRun, endRun, giveUpWord, pauseRun, pickRunWords, replayRun, resumeRun, runDeadline, runElapsedMs,
+  createRun, endRun, giveUpWord, mergeRuns, pauseRun, pickRunWords, replayRun, resumeRun, runDeadline, runElapsedMs,
   scoreSoloRun, setRunDifficulty, submitRunGuess, summarizeSoloRun, toRunRecord, toWordResult, wordSeconds,
   type RunGame, type RunResult,
 } from './run';
@@ -343,5 +343,41 @@ describe('pickRunWords', () => {
 
   it('throws when there are not enough words', () => {
     expect(() => pickRunWords(['beach'], 2)).toThrow();
+  });
+});
+
+describe('mergeRuns (Issue 275)', () => {
+  /** Guessed, then paused as its tab was hidden. */
+  const base = () => ok(pauseRun(play(soloRun(), ['crane', 1]), at(2)));
+  /** The other tab took over: resumed, guessed and was hidden in turn. */
+  const theirs = () => ok(pauseRun(play(ok(resumeRun(base(), at(3))), ['storm', 4]), at(5)));
+  /** This tab, shown again before their saves reached it, resumed its own copy. */
+  const ours = () => ok(resumeRun(base(), at(6)));
+
+  it('keeps every guess from both copies, in time order', () => {
+    const merged = mergeRuns(ours(), theirs())!;
+    expect(merged.moves.map((m) => m.kind)).toEqual(['guess', 'pause', 'resume', 'guess', 'pause', 'resume']);
+    expect(merged.results[0].guesses.map((g) => g.guess)).toEqual(['crane', 'storm']);
+    expect(merged.pausedAt).toBeNull();
+  });
+
+  it('gives the same run whichever copy it starts from', () => {
+    expect(toRunRecord(mergeRuns(theirs(), ours())!)).toEqual(toRunRecord(mergeRuns(ours(), theirs())!));
+  });
+
+  it('drops a move the rules no longer take there, such as a second resume of one pause', () => {
+    const late = ok(resumeRun(base(), at(4)));
+    const merged = mergeRuns(late, ok(resumeRun(base(), at(3))))!;
+    expect(merged.moves.map((m) => m.kind)).toEqual(['guess', 'pause', 'resume']);
+    expect(merged.moves[2].at).toBe(at(3));
+  });
+
+  it('is either copy when one has all of the other\'s moves', () => {
+    expect(toRunRecord(mergeRuns(base(), theirs())!)).toEqual(toRunRecord(theirs()));
+    expect(toRunRecord(mergeRuns(theirs(), theirs())!)).toEqual(toRunRecord(theirs()));
+  });
+
+  it('refuses two different runs', () => {
+    expect(mergeRuns(soloRun(), ok(createRun(['beach', 'crane', 'house'], T, { pausable: true })))).toBeNull();
   });
 });
