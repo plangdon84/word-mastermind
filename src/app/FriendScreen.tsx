@@ -150,13 +150,14 @@ export function FriendScreen({
   const shownMarks = useShownMarks(view?.difficulty ?? settings.difficulty, playOn.practised ? playOn.marks : marks, yourGuesses);
   const theirMarks = useOpponentMarks(view?.theirDifficulty ?? null, view?.theirMarks ?? null, view?.theirGuesses ?? NO_GUESSES);
 
-  const refresh = async () => {
+  /** Reads the game again. `quiet`: a failure leaves the game shown, rather than a load error. */
+  const refresh = async (quiet = false) => {
     if (!api || !gameId) return;
     const seq = ++sequence.current;
     try {
       setGame(await api.get(gameId), seq);
     } catch (e) {
-      if (seq >= applied.current) setLoadError(friendErrorMessage(e instanceof FriendApiError ? e.code : 'unreachable'));
+      if (!quiet && seq >= applied.current) setLoadError(friendErrorMessage(e instanceof FriendApiError ? e.code : 'unreachable'));
     }
   };
 
@@ -423,9 +424,7 @@ export function FriendScreen({
     }), '');
     // Turned down lately, on a page loaded before that: the game, read again, stops offering Add friend (Dev Plan item 19za).
     // If it can't be read just now, the game stays as it is, rather than giving way to a load error (review round 1 of PR #79).
-    if (!declined) return;
-    const seq = ++sequence.current;
-    await api.get(gameId).then((next) => setGame(next, seq), () => {});
+    if (declined) await refresh(true);
   };
 
   const confirmGiveUp = async () => {

@@ -407,7 +407,9 @@ export function setPvpDifficulty(game: PvpGame, seat: Seat, difficulty: Difficul
  * Cancels a live game before its first guess is owed (`pvpFirstGuessDue`),
  * without waiting out that time: a ladder computer game made for a player
  * who cancelled meanwhile, which nobody will play (Dev Plan item 19za).
- * No winner, as when that time runs out (`timeOutPvp`).
+ * No winner, as when that time runs out (`timeOutPvp`). The cancel is
+ * timed at `now`, or at the deadline once the 2 minutes are up, when it's
+ * that timeout's own cancel.
  */
 export function cancelPvp(game: PvpGame, now: number): PvpResult {
   const turn = pvpTurn(game);

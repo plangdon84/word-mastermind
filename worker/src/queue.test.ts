@@ -286,6 +286,17 @@ describe('a computer when nobody is free (Dev Plan item 19p)', () => {
     await expect(abandonComputerGame({ GAMES: context.rooms.namespace } as Env, 'f'.repeat(64))).rejects.toThrow();
   });
 
+  it('refuses, and reports, a cancel of a ladder game between two people (Dev Plan item 19zb)', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const cat = await context.player(CAT, 'Cat');
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    const matched = await cat.queue.join(LADDER, 'Cat', 'beach');
+    if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
+    await expect(abandonComputerGame({ GAMES: context.rooms.namespace } as Env, matched.gameId)).rejects.toThrow(/bad-request/);
+    expect((await ann.games.get(matched.gameId)).state).toBe('playing');
+  });
+
   it('rates a computer game by the computer the game started with, even after the table changes', async () => {
     const context = setup();
     const ann = await context.player(ANN, 'Ann');
