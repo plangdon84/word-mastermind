@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 9 November 2026 (items 19zd and 19ze; 19y dropped). Before that, 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -14,19 +14,41 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
 shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
+- [ ] **19zd. Stats: draws count half, and trend arrows on the Rated
+  ladder** (issues plangdon84/word-mastermind-archive#283 and
+  plangdon84/word-mastermind-archive#284; app only; a feature release,
+  2.5.0, its notes OK'd by the owner before the first commit)
+  - Issue 283: decided with the owner on 9 November 2026: every Win % counts
+    a draw as half a win, (wins + ½ × draws) ÷ games × 100, rounded as
+    today. That's every one: each mode card, the headline Win %, the
+    by-strength and People / Computers tables, the Win % trend arrows and a
+    friend's Stats (worked out on their device, so a friend on an older
+    version shows the old figure until they update). The label stays
+    "Win %". Updates README "Stats" (and How to play if it mentions win %)
+  - Issue 284: decided with the owner on 9 November 2026: the Rated ladder
+    card gets two arrows. Beside Win %, the same trend as "vs. a friend"
+    (the last 30 days against the 30 before, in points, hidden with fewer
+    than 5 games in either). Beside Rating, how far your rating moved over
+    the last 30 days: your rating now minus your rating before your first
+    rated game in those 30 days (from each rated game's before and after
+    in your history), hidden with fewer than 5 rated games in them.
+    Updates README "Stats"
+  - Issue 284, a friend's Stats: their ladder card shows the Win % arrow
+    (sent in their shared summary, so friends on an older version show
+    none until they update), but never the Rating arrow: friends still
+    see only a friend's current rating, never how far it moved (the 2.3.0
+    choice, kept by the owner)
+- [ ] **19ze. Friend history index: drop the unused start time** (issue
+  plangdon84/word-mastermind-archive#285; worker, review gate; no release
+  note, nothing players see)
+  - Issue 285: a new migration drops `profile_games.started_at`, and
+    `indexRow` / `insertRows` in `worker/src/friendProfiles.ts` stop
+    writing it. Migration 0033's `profile_games_ended` trigger falls back
+    to `NEW.started_at`, so the same migration rewrites or drops that
+    trigger, once no worker from before 2.4.1 can still be running
+
 **Later**
 
-- [ ] **19y. One header row fewer in two player games** (from the owner,
-  4 November 2026, seeing 19u's screens; app only)
-  - The owner's idea: drop the "You vs. opponent" component in the second row of two player games,
-    since the tabs already name both players, and move the IN letters (or
-    your word, on their tab) up into its place, so another guess row fits. 
-    The difficulty bubble (tap to change) stays where it is on the second row right justified.
-  - Settle with the owner first:  where a rated game's opponent rating goes; 
-    how a friend's name still opens their profile
-    (a tab can't hold a link); and whether single player, Rush and the
-    dailies keep their row 2, which no tab repeats. The tutorial's header
-    step kept in line; checked at the 11 sizes
 - [ ] **19r. A stronger ladder computer** (from 19q, 3 November 2026;
   if a player regularly beats the 1.0 computer)
   - A stronger guesser than full recall, rated by `npm run calibrate`
@@ -81,6 +103,13 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
     game still loads definitions it never shows; the cancelled game test
     accepts either player's sentence for both and checks only the result
     card for the words
+
+**Dropped**
+
+- **19y. One header row fewer in two player games** (from the owner,
+  4 November 2026): considered and dropped with the owner on 9 November
+  2026, to keep the opponent's rating and the friend's profile link in
+  view during play
 
 ## Done, latest first
 
