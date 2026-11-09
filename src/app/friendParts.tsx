@@ -11,6 +11,7 @@ import { inviteLink, inviteMessage, smsLink } from './friendGames';
 import { durationText, guessCount } from './messages';
 import { ratingText } from './ratingsApi';
 import { loadRecentSecrets } from './recentSecrets';
+import { usePickedWord } from './pickedWord';
 import { shareLink } from './share';
 
 /** The parts of a game against a friend around the board: choosing your word, the invite, and the result. */
@@ -78,6 +79,13 @@ export function SecretStep({ title, note, draft, shake, onShakeEnd, message, bus
   keyboard: ComponentChildren;
 }) {
   const [recent] = useState(loadRecentSecrets);
+  /** The word Pick for me last gave: it gets an ⓘ while it's the draft (Dev Plan item 19zf). */
+  const [picked, setPicked] = useState<string | null>(null);
+  const pickedWord = usePickedWord({
+    draft, picked,
+    report: () => ({ screen: 'Two player vs. a friend · choosing a secret word' }),
+    slots: <Slots draft={draft} shake={shake} onShakeEnd={onShakeEnd} label="Your secret word" />,
+  });
   return (
     <div class="app">
       <header class="step-head">
@@ -91,15 +99,18 @@ export function SecretStep({ title, note, draft, shake, onShakeEnd, message, bus
         {extra}
         <div class="setup-space" />
         <section class="entry setup-word">
-          <Slots draft={draft} shake={shake} onShakeEnd={onShakeEnd} label="Your secret word" />
+          {pickedWord.slots}
           <div class={message?.error ? 'message error' : 'message'} role="status">
             {busy ? 'Sending…' : message?.text}
           </div>
         </section>
+        {pickedWord.definition}
         <section class="entry">
           {/* Each drops focus after use, so a physical Enter submits instead of pressing it again. */}
           <button type="button" class="btn" onClick={(e) => {
-            onDraft(pickRandomSecret(SECRET_WORDS));
+            const word = pickRandomSecret(SECRET_WORDS);
+            setPicked(word);
+            onDraft(word);
             e.currentTarget.blur();
           }}>
             Pick for me

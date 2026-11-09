@@ -8,7 +8,7 @@ import { loadSession } from './account';
 import { displayName, loadProfile } from './profileStorage';
 import {
   ReportError, reportContext, reportFrom, sendReport, shrinkScreenshot, type ReportErrorCode, type ReportRequest,
-  type SentReport, useReportRequest,
+  type SentReport, initialForm, useReportRequest,
 } from './reportIssue';
 
 /** Why a report wasn't sent. Only a report with a screenshot is told to try a smaller one. */
@@ -49,8 +49,8 @@ export function ReportIssue({ request, apiUrl, guestId, from, onClose }: {
   guestId: string;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState<ReportKind>('bug');
-  const [description, setDescription] = useState('');
+  const [kind, setKind] = useState<ReportKind>(() => initialForm(request).kind);
+  const [description, setDescription] = useState(() => initialForm(request).description);
   const [screenshot, setScreenshot] = useState<ReportScreenshot | null>(null);
   const [shotError, setShotError] = useState(false);
   const hasRecord = request.record !== undefined && request.record !== null;
@@ -102,7 +102,11 @@ export function ReportIssue({ request, apiUrl, guestId, from, onClose }: {
   if (sent) {
     return (
       <Modal title="Thanks for the report" onClose={onClose}>
-        <p>It's sent, and will be looked at for a future version. What's new lists each version's fixes.</p>
+        <p>
+          {kind === 'words'
+            ? "It's sent. The word will be reviewed, and stays in the game until then. What's new lists each version's word changes."
+            : "It's sent, and will be looked at for a future version. What's new lists each version's fixes."}
+        </p>
         <div class="row-btns">
           <button type="button" class="btn primary" onClick={onClose}>Done</button>
         </div>

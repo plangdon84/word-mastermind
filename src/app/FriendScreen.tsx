@@ -31,7 +31,7 @@ import {
 import type { ApiIdentity } from './apiIdentity';
 import { displayName, type Profile } from './profileStorage';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
-import { openReport } from './reportIssue';
+import { openReport, WordReportContext, type ReportRequest } from './reportIssue';
 import { TurnAlertsPrompt } from './TurnAlerts';
 import type { Settings } from './settings';
 import { shuffleLetters } from './keyboard';
@@ -564,6 +564,11 @@ export function FriendScreen({
   // In ☰ and on the header's difficulty bubble.
   const difficultyChoice = view && !over && !game.rated
     ? { onDifficulty: changeDifficulty, guessed: view.yourGuesses.length > 0 } : undefined;
+  // The view, never the game's ID: on a public issue, an open invite's ID would let anyone take it.
+  const reportRequest = (): ReportRequest => ({
+    screen: `Two player vs. a friend (${game.state}) · ${DIFFICULTY_LABEL[view?.difficulty ?? settings.difficulty]}`,
+    record: view ?? undefined,
+  });
   const menu = (close: () => void) => (
     <GameMenuItems close={close} onNewGame={game.matched ? onNewMatch : onNewInvite}
       newGameLabel={game.matched ? 'New game' : 'New invite'}
@@ -573,11 +578,7 @@ export function FriendScreen({
       giveUpLabel={game.state === 'waiting' ? 'Cancel invite' : practising ? 'Show their word' : 'Give up'} canGiveUp={!over || practising}
       onGiveUp={practising ? showWord : () => setConfirming(game.state === 'waiting' ? 'cancel' : 'give-up')} onExit={onExit}
       onHowToPlay={() => setHowTo(true)}
-      // The view, never the game's ID: on a public issue, an open invite's ID would let anyone take it.
-      onReport={() => openReport({
-        screen: `Two player vs. a friend (${game.state}) · ${DIFFICULTY_LABEL[view?.difficulty ?? settings.difficulty]}`,
-        record: view ?? undefined,
-      })}
+      onReport={() => openReport(reportRequest())}
       checksLeft={practising ? undefined : checks.left}
       onCheckMarks={view?.difficulty === 'medium' && !over
         ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(marks, view.yourGuesses)))
@@ -674,225 +675,227 @@ export function FriendScreen({
   };
 
   return (
-    <div class={appClass}>
-      <GameHeader profile={profile} onHome={onExit} onProfile={openProfile} difficulty={difficulty} menu={menu}
-        difficultyChoice={difficultyChoice}
-        review={review} suggested={view.suggested}
-        opponent={opponent} opponentCode={review ? null : game.opponentCode}
-        opponentRating={game.ratings ? ratingText(game.ratings.opponent) : undefined}>
-        {/* Row 3 follows the tab: your in-letters on yours, your word on your friend's. */}
-        <div class="row3" data-tab={tab}>
-          {shownMarks && (!over || practising) && <div class="for-you"><InSet marks={shownMarks} /></div>}
-          <div class="for-computer">
-            <YourWord word={view.yourSecret} found={theyFoundYours} finder={opponent} known={theirMarks} />
-          </div>
-        </div>
-      </GameHeader>
-
-      {!over && <TurnAlertsPrompt apiUrl={API_URL!} identity={identity} />}
-
-      {/* A live game's clocks sit under the tabs' names (Dev Plan item 19u), in the tabs' own height. */}
-      <div class={clocks && !over ? 'tabs has-clock' : 'tabs'} role="tablist" aria-label="Guesses">
-        <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}
-          class={clocks && !over && clocks.you < URGENT_CLOCK_MS ? 'low-time' : undefined}>
-          <span class="tab-label">You ({view.yourGuesses.length})</span>
-          {clocks && !over && <TabClock ms={clocks.you} running={view.turn === 'you' && !firstDue} />}
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}
-          class={clocks && !over && clocks.opponent < URGENT_CLOCK_MS ? 'low-time' : undefined}>
-          <span class="tab-label">
-            <span class="tab-name">{opponent}</span> ({view.theirGuesses.length})
-            {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
-          </span>
-          {clocks && !over && <TabClock ms={clocks.opponent} running={view.turn === 'opponent' && !firstDue} />}
-        </button>
-      </div>
-
-      {/* The opponent's board reuses the computer's layout (class and tab name). */}
-      <div class="boards" data-tab={tab}>
-        <section class="board you" aria-label="Your guesses">
-          <h2 class="board-title">Your guesses</h2>
-          {game.computer && !over && !review && view.yourGuesses.length === 0 && (
-            // The rated ladder (Dev Plan item 19q): a computer, said openly at the start.
-            <p class="board-note opponent-note" role="status">No one was free, so you're playing a computer at about your level.</p>
-          )}
-          {medium && !over && !review && settings.shareMarks && (
-            <p class="board-note opponent-note">{opponent} sees your marks with each guess you send.</p>
-          )}
-          {difficulty === 'extreme' && (!over || practising) ? (
-            <ScoreHistory guesses={yourGuesses} newestFirst={newestFirst} />
-          ) : (
-            <History guesses={yourGuesses} newestFirst={newestFirst} openDef={openYou}
-              marks={shownMarks} practiceFrom={playOn.guesses.length > 0 ? view.yourGuesses.length : undefined}
-              onMark={medium && !over ? (letter) => setMarks(cycleMark(marks, letter))
-                : medium && practising ? (letter) => playOn.setMarks(cycleMark(playOn.marks, letter)) : undefined}
-              onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} definitions={definitions} />
-          )}
-        </section>
-        <section class="board computer" aria-label={`${opponent}'s guesses`}>
-          <h2 class="board-title">{opponent}'s guesses</h2>
-          {view.theirDifficulty && (
-            <OpponentNote name={opponent} difficulty={view.theirDifficulty}
-              sharing={view.theirGuesses.length === 0 || view.theirMarks !== null} />
-          )}
-          <History guesses={view.theirGuesses} newestFirst={newestFirst} openDef={openThem}
-            label={`${opponent}'s guesses`} emptyText={`${opponent} hasn't guessed yet.`} marks={theirMarks}
-            onToggleDef={(i) => setOpenThem(openThem === i ? -1 : i)} definitions={definitions} />
-        </section>
-      </div>
-
-      {!over && !confirming && (
-        <>
-          {clocks && (
-            // Phones show each clock in its player's tab (Dev Plan item 19u), so this row is for wide screens,
-            // where the tabs give way to both boards, and for screen readers everywhere.
-            <div class="clocks" role="timer" aria-label={`Your clock ${clockText(clocks.you)}, ${opponent}'s ${clockText(clocks.opponent)}`}>
-              <span class={['clock', view.turn === 'you' && !firstDue ? 'running' : '', clocks.you < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
-                <span class="clock-name">You</span> {clockText(clocks.you)}
-              </span>
-              <span class={['clock', view.turn === 'opponent' && !firstDue ? 'running' : '', clocks.opponent < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
-                <span class="clock-name">{opponent}</span> {clockText(clocks.opponent)}
-              </span>
+    <WordReportContext.Provider value={reportRequest}>
+      <div class={appClass}>
+        <GameHeader profile={profile} onHome={onExit} onProfile={openProfile} difficulty={difficulty} menu={menu}
+          difficultyChoice={difficultyChoice}
+          review={review} suggested={view.suggested}
+          opponent={opponent} opponentCode={review ? null : game.opponentCode}
+          opponentRating={game.ratings ? ratingText(game.ratings.opponent) : undefined}>
+          {/* Row 3 follows the tab: your in-letters on yours, your word on your friend's. */}
+          <div class="row3" data-tab={tab}>
+            {shownMarks && (!over || practising) && <div class="for-you"><InSet marks={shownMarks} /></div>}
+            <div class="for-computer">
+              <YourWord word={view.yourSecret} found={theyFoundYours} finder={opponent} known={theirMarks} />
             </div>
-          )}
-          {clocks && firstDue && (
-            // Item 18zv: the first guess is untimed, but due within 2 minutes, or the game is cancelled.
-            <p class={['first-guess', view.turn === 'you' && deadline - now < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')} role="timer"
-              aria-label={view.turn === 'you' ? `Make your first guess within ${clockText(deadline - now)}, or the game is cancelled`
-                : `${opponent} has ${clockText(deadline - now)} to make their first guess`}>
-              {view.turn === 'you' ? <>First guess within <b>{clockText(deadline - now)}</b>, or the game is cancelled. Your clock starts after it.</>
-                : <>{opponent} has <b>{clockText(deadline - now)}</b> for their first guess.</>}
-            </p>
-          )}
-          {yourLastChance ? (
-            <section class="banner danger" role="alert">
-              <strong>Last chance</strong>
-              <span>{opponent} found {upper(view.yourSecret)}. One guess to tie the game.</span>
-            </section>
-          ) : finalGuess && view.theirSecret ? (
-            <section class="banner hope" role="status">
-              <strong>You found {upper(view.theirSecret)}!</strong>
-              <span class="thinking">Waiting for {opponent}'s final guess…</span>
-            </section>
-          ) : (
-            // One line on any phone: only the opponent's name is cut short (…) if it's long.
-            <div class="status-row compact">
-              {lastTheirs && tab === 'you' && (
-                <span class="last-move" aria-label={`${opponent} guessed ${lastTheirs.guess} – ${lastTheirs.score}`}>
-                  <span class="who">{opponent}</span>
-                  <span>:&nbsp;<b>{upper(lastTheirs.guess)}</b>&nbsp;–&nbsp;{lastTheirs.score}</span>
+          </div>
+        </GameHeader>
+
+        {!over && <TurnAlertsPrompt apiUrl={API_URL!} identity={identity} />}
+
+        {/* A live game's clocks sit under the tabs' names (Dev Plan item 19u), in the tabs' own height. */}
+        <div class={clocks && !over ? 'tabs has-clock' : 'tabs'} role="tablist" aria-label="Guesses">
+          <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}
+            class={clocks && !over && clocks.you < URGENT_CLOCK_MS ? 'low-time' : undefined}>
+            <span class="tab-label">You ({view.yourGuesses.length})</span>
+            {clocks && !over && <TabClock ms={clocks.you} running={view.turn === 'you' && !firstDue} />}
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}
+            class={clocks && !over && clocks.opponent < URGENT_CLOCK_MS ? 'low-time' : undefined}>
+            <span class="tab-label">
+              <span class="tab-name">{opponent}</span> ({view.theirGuesses.length})
+              {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
+            </span>
+            {clocks && !over && <TabClock ms={clocks.opponent} running={view.turn === 'opponent' && !firstDue} />}
+          </button>
+        </div>
+
+        {/* The opponent's board reuses the computer's layout (class and tab name). */}
+        <div class="boards" data-tab={tab}>
+          <section class="board you" aria-label="Your guesses">
+            <h2 class="board-title">Your guesses</h2>
+            {game.computer && !over && !review && view.yourGuesses.length === 0 && (
+              // The rated ladder (Dev Plan item 19q): a computer, said openly at the start.
+              <p class="board-note opponent-note" role="status">No one was free, so you're playing a computer at about your level.</p>
+            )}
+            {medium && !over && !review && settings.shareMarks && (
+              <p class="board-note opponent-note">{opponent} sees your marks with each guess you send.</p>
+            )}
+            {difficulty === 'extreme' && (!over || practising) ? (
+              <ScoreHistory guesses={yourGuesses} newestFirst={newestFirst} />
+            ) : (
+              <History guesses={yourGuesses} newestFirst={newestFirst} openDef={openYou}
+                marks={shownMarks} practiceFrom={playOn.guesses.length > 0 ? view.yourGuesses.length : undefined}
+                onMark={medium && !over ? (letter) => setMarks(cycleMark(marks, letter))
+                  : medium && practising ? (letter) => playOn.setMarks(cycleMark(playOn.marks, letter)) : undefined}
+                onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} definitions={definitions} />
+            )}
+          </section>
+          <section class="board computer" aria-label={`${opponent}'s guesses`}>
+            <h2 class="board-title">{opponent}'s guesses</h2>
+            {view.theirDifficulty && (
+              <OpponentNote name={opponent} difficulty={view.theirDifficulty}
+                sharing={view.theirGuesses.length === 0 || view.theirMarks !== null} />
+            )}
+            <History guesses={view.theirGuesses} newestFirst={newestFirst} openDef={openThem}
+              label={`${opponent}'s guesses`} emptyText={`${opponent} hasn't guessed yet.`} marks={theirMarks}
+              onToggleDef={(i) => setOpenThem(openThem === i ? -1 : i)} definitions={definitions} />
+          </section>
+        </div>
+
+        {!over && !confirming && (
+          <>
+            {clocks && (
+              // Phones show each clock in its player's tab (Dev Plan item 19u), so this row is for wide screens,
+              // where the tabs give way to both boards, and for screen readers everywhere.
+              <div class="clocks" role="timer" aria-label={`Your clock ${clockText(clocks.you)}, ${opponent}'s ${clockText(clocks.opponent)}`}>
+                <span class={['clock', view.turn === 'you' && !firstDue ? 'running' : '', clocks.you < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
+                  <span class="clock-name">You</span> {clockText(clocks.you)}
                 </span>
-              )}
-              <span class={view.turn === 'you' ? 'turn yours' : 'turn thinking'} role="status">
-                {view.turn === 'you' ? 'Your turn' : 'Their turn'}
-                {deadline !== null && !clocks && (
-                  <span class={view.turn === 'you' && deadline - now < URGENT_MS ? 'time-left urgent' : 'time-left'}
-                    aria-label={timeLeftText(deadline - now)}>
-                    {shortTimeLeft(deadline - now)}
+                <span class={['clock', view.turn === 'opponent' && !firstDue ? 'running' : '', clocks.opponent < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')}>
+                  <span class="clock-name">{opponent}</span> {clockText(clocks.opponent)}
+                </span>
+              </div>
+            )}
+            {clocks && firstDue && (
+              // Item 18zv: the first guess is untimed, but due within 2 minutes, or the game is cancelled.
+              <p class={['first-guess', view.turn === 'you' && deadline - now < URGENT_CLOCK_MS ? 'urgent' : ''].join(' ')} role="timer"
+                aria-label={view.turn === 'you' ? `Make your first guess within ${clockText(deadline - now)}, or the game is cancelled`
+                  : `${opponent} has ${clockText(deadline - now)} to make their first guess`}>
+                {view.turn === 'you' ? <>First guess within <b>{clockText(deadline - now)}</b>, or the game is cancelled. Your clock starts after it.</>
+                  : <>{opponent} has <b>{clockText(deadline - now)}</b> for their first guess.</>}
+              </p>
+            )}
+            {yourLastChance ? (
+              <section class="banner danger" role="alert">
+                <strong>Last chance</strong>
+                <span>{opponent} found {upper(view.yourSecret)}. One guess to tie the game.</span>
+              </section>
+            ) : finalGuess && view.theirSecret ? (
+              <section class="banner hope" role="status">
+                <strong>You found {upper(view.theirSecret)}!</strong>
+                <span class="thinking">Waiting for {opponent}'s final guess…</span>
+              </section>
+            ) : (
+              // One line on any phone: only the opponent's name is cut short (…) if it's long.
+              <div class="status-row compact">
+                {lastTheirs && tab === 'you' && (
+                  <span class="last-move" aria-label={`${opponent} guessed ${lastTheirs.guess} – ${lastTheirs.score}`}>
+                    <span class="who">{opponent}</span>
+                    <span>:&nbsp;<b>{upper(lastTheirs.guess)}</b>&nbsp;–&nbsp;{lastTheirs.score}</span>
                   </span>
                 )}
-              </span>
-            </div>
-          )}
-          {waitingFinal ? (
-            // Nothing to type until their final guess is in (issue #154): just the way to your next game.
-            next && (
-              <div class="message">
-                <button type="button" class="next-game" onClick={() => onOpenGame(next.id)}>{nextLabel}</button>
+                <span class={view.turn === 'you' ? 'turn yours' : 'turn thinking'} role="status">
+                  {view.turn === 'you' ? 'Your turn' : 'Their turn'}
+                  {deadline !== null && !clocks && (
+                    <span class={view.turn === 'you' && deadline - now < URGENT_MS ? 'time-left urgent' : 'time-left'}
+                      aria-label={timeLeftText(deadline - now)}>
+                      {shortTimeLeft(deadline - now)}
+                    </span>
+                  )}
+                </span>
               </div>
-            )
-          ) : (<>
-            <section class="entry">
-              <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} class={yourLastChance ? 'final' : ''} />
-              <div class={message?.error ? 'message error' : 'message'} role="status">
-                {busy ? 'Sending…' : message && !message.quiet ? message.text : (
-                  <>
-                    {message && <span class="visually-hidden">{message.text}</span>}
-                    {view.turn === 'opponent' && next && (
-                      // While you wait, a way to your next game, in the status line's own space.
-                      <button type="button" class="next-game" onClick={() => onOpenGame(next.id)}>{nextLabel}</button>
-                    )}
-                  </>
-                )}
-              </div>
-              {FEATURES.suggest && difficulty === 'easy' && !review && (
-                <SuggestButton left={SUGGEST_LIMIT - view.suggested} onSuggest={() => void suggest()} disabled={busy} />
-              )}
-            </section>
-            <Keyboard marks={shownMarks} ready={draft.length === 5 && view.turn === 'you'} onShuffle={shuffle} onLetter={typeLetter} onEnter={enter}
-              onBackspace={backspace} enterLabel={yourLastChance ? 'Final guess' : 'Enter'} />
-          </>)}
-        </>
-      )}
-
-      {confirming === 'profile' && !over && (
-        <section class="panel">
-          <h2>Your clock keeps running.</h2>
-          <p>It's your turn in a live game, so your time runs down while you look at your profile.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-            <button class="btn" type="button" onClick={() => {
-              setConfirming(null);
-              onProfile();
-            }}>Open profile</button>
-          </div>
-        </section>
-      )}
-
-      {practising && !confirming && (
-        <PracticeEntry draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message} marks={shownMarks}
-          onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} onShow={showWord} />
-      )}
-
-      {confirming === 'give-up' && !over && (
-        <section class="panel">
-          <h2>Give up? {opponent} wins.</h2>
-          <p>Then you can see their word, or keep guessing it for practice.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={() => void confirmGiveUp()}>Give up</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {/* A cancelled game (item 18zv) keeps both words hidden but still has its result, and Rematch. */}
-      {over && outcome && (view.theirSecret || outcome === 'cancelled-you' || outcome === 'cancelled-them') && !practising && (
-        <FriendResult view={{ ...view, theirSecret: view.theirSecret ?? '' }} outcome={outcome} opponent={opponent} live={live}
-          definitions={definitions} rating={review ? review.rating : game.ratings?.you}
-          choice={playOn.stage === 'choose' && (
-            <PlayOnChoice whose={`${opponent}'s word`} onKeepGuessing={() => {
-              playOn.start();
-              setTab('you');
-              setMessage(null);
-            }} onShow={playOn.reveal} />
-          )}
-          practice={<PracticeLine stage={playOn.stage} practice={playOn.guesses.length} game={view.yourGuesses.length} />}
-          found={playOn.stage === 'found'}>
-          {next && <button class="btn primary" type="button" onClick={() => onOpenGame(next.id)}>{nextLabel}</button>}
-          {game.matched
-            ? <button class={next ? 'btn' : 'btn primary'} type="button" onClick={onNewMatch}>Find another opponent</button>
-            : review ? <button class="btn" type="button" onClick={onNewInvite}>New invite</button> : (
-              // One open rematch per game: ask for it, see the one you sent, or answer theirs.
-              !game.rematch || rematchClosed ? <button class={next ? 'btn' : 'btn primary'} type="button" onClick={startRematch}>Rematch</button>
-                : !rematchChecked ? <button class="btn" type="button" disabled>Rematch</button>
-                : game.rematch.byYou
-                  ? <button class="btn" type="button" onClick={() => onOpenGame(game.rematch!.id)}>Rematch sent →</button>
-                  : <button class="btn primary rematch-offer" type="button" onClick={() => onOpenGame(game.rematch!.id)}>
-                    {opponent} wants a rematch →
-                  </button>
             )}
-          {!review && <LadderFriendButton state={game.ladderFriend} opponent={opponent} busy={busy} onAdd={addOpponent} />}
-          {(outcome === 'won' || outcome === 'won-held' || outcome === 'clutch' || outcome === 'tied') && !review && (
-            <ShareResult text={friendShareText({
-              opponent, difficulty, guesses: view.yourGuesses.length,
-              result: outcome === 'won-held' ? 'won' : outcome,
-            })} />
-          )}
-          <button class="btn" type="button" onClick={onExit}>Main menu</button>
-        </FriendResult>
-      )}
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
-    </div>
+            {waitingFinal ? (
+              // Nothing to type until their final guess is in (issue #154): just the way to your next game.
+              next && (
+                <div class="message">
+                  <button type="button" class="next-game" onClick={() => onOpenGame(next.id)}>{nextLabel}</button>
+                </div>
+              )
+            ) : (<>
+              <section class="entry">
+                <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} class={yourLastChance ? 'final' : ''} />
+                <div class={message?.error ? 'message error' : 'message'} role="status">
+                  {busy ? 'Sending…' : message && !message.quiet ? message.text : (
+                    <>
+                      {message && <span class="visually-hidden">{message.text}</span>}
+                      {view.turn === 'opponent' && next && (
+                        // While you wait, a way to your next game, in the status line's own space.
+                        <button type="button" class="next-game" onClick={() => onOpenGame(next.id)}>{nextLabel}</button>
+                      )}
+                    </>
+                  )}
+                </div>
+                {FEATURES.suggest && difficulty === 'easy' && !review && (
+                  <SuggestButton left={SUGGEST_LIMIT - view.suggested} onSuggest={() => void suggest()} disabled={busy} />
+                )}
+              </section>
+              <Keyboard marks={shownMarks} ready={draft.length === 5 && view.turn === 'you'} onShuffle={shuffle} onLetter={typeLetter} onEnter={enter}
+                onBackspace={backspace} enterLabel={yourLastChance ? 'Final guess' : 'Enter'} />
+            </>)}
+          </>
+        )}
+
+        {confirming === 'profile' && !over && (
+          <section class="panel">
+            <h2>Your clock keeps running.</h2>
+            <p>It's your turn in a live game, so your time runs down while you look at your profile.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+              <button class="btn" type="button" onClick={() => {
+                setConfirming(null);
+                onProfile();
+              }}>Open profile</button>
+            </div>
+          </section>
+        )}
+
+        {practising && !confirming && (
+          <PracticeEntry draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message} marks={shownMarks}
+            onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} onShow={showWord} />
+        )}
+
+        {confirming === 'give-up' && !over && (
+          <section class="panel">
+            <h2>Give up? {opponent} wins.</h2>
+            <p>Then you can see their word, or keep guessing it for practice.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={() => void confirmGiveUp()}>Give up</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {/* A cancelled game (item 18zv) keeps both words hidden but still has its result, and Rematch. */}
+        {over && outcome && (view.theirSecret || outcome === 'cancelled-you' || outcome === 'cancelled-them') && !practising && (
+          <FriendResult view={{ ...view, theirSecret: view.theirSecret ?? '' }} outcome={outcome} opponent={opponent} live={live}
+            definitions={definitions} rating={review ? review.rating : game.ratings?.you}
+            choice={playOn.stage === 'choose' && (
+              <PlayOnChoice whose={`${opponent}'s word`} onKeepGuessing={() => {
+                playOn.start();
+                setTab('you');
+                setMessage(null);
+              }} onShow={playOn.reveal} />
+            )}
+            practice={<PracticeLine stage={playOn.stage} practice={playOn.guesses.length} game={view.yourGuesses.length} />}
+            found={playOn.stage === 'found'}>
+            {next && <button class="btn primary" type="button" onClick={() => onOpenGame(next.id)}>{nextLabel}</button>}
+            {game.matched
+              ? <button class={next ? 'btn' : 'btn primary'} type="button" onClick={onNewMatch}>Find another opponent</button>
+              : review ? <button class="btn" type="button" onClick={onNewInvite}>New invite</button> : (
+                // One open rematch per game: ask for it, see the one you sent, or answer theirs.
+                !game.rematch || rematchClosed ? <button class={next ? 'btn' : 'btn primary'} type="button" onClick={startRematch}>Rematch</button>
+                  : !rematchChecked ? <button class="btn" type="button" disabled>Rematch</button>
+                  : game.rematch.byYou
+                    ? <button class="btn" type="button" onClick={() => onOpenGame(game.rematch!.id)}>Rematch sent →</button>
+                    : <button class="btn primary rematch-offer" type="button" onClick={() => onOpenGame(game.rematch!.id)}>
+                      {opponent} wants a rematch →
+                    </button>
+              )}
+            {!review && <LadderFriendButton state={game.ladderFriend} opponent={opponent} busy={busy} onAdd={addOpponent} />}
+            {(outcome === 'won' || outcome === 'won-held' || outcome === 'clutch' || outcome === 'tied') && !review && (
+              <ShareResult text={friendShareText({
+                opponent, difficulty, guesses: view.yourGuesses.length,
+                result: outcome === 'won-held' ? 'won' : outcome,
+              })} />
+            )}
+            <button class="btn" type="button" onClick={onExit}>Main menu</button>
+          </FriendResult>
+        )}
+        {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      </div>
+    </WordReportContext.Provider>
   );
 }
 

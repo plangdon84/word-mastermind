@@ -94,7 +94,17 @@ export function layoutProblems(page: Page): Promise<LayoutProblem[]> {
           for (; n && n !== layer; n = n.parentElement) if (getComputedStyle(n).position === 'sticky') return true;
           return false;
         };
-        if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !sticky(hit)) {
+        // Nor is one scrolled out of sight in a box of its own that scrolls (a long definition
+        // on a short screen, Dev Plan item 19zf): scrolling that box brings it out.
+        const scrolledAway = () => {
+          for (let n = el.parentElement; n && n !== layer; n = n.parentElement) {
+            if (!['auto', 'scroll'].includes(getComputedStyle(n).overflowY) || n.scrollHeight <= n.clientHeight) continue;
+            const r = n.getBoundingClientRect();
+            if (y < r.top || y > r.bottom) return true;
+          }
+          return false;
+        };
+        if (hit && hit !== el && !el.contains(hit) && !hit.contains(el) && !sticky(hit) && !scrolledAway()) {
           problems.push({ kind: 'covered', what: describe(el), detail: `under ${describe(hit)}` });
         }
       }

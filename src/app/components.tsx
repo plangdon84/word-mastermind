@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef } from 'preact/hooks';
 import type { GuessResult, Marks, Strength } from '../game';
 import type { DefinitionsState } from './definitions';
 import { EnterSide } from './keyboard';
+import { openReport, wordReportRequest, WordReportContext } from './reportIssue';
 import type { Difficulty } from './settings';
 
 export type Mark = 'unmarked' | 'in' | 'out';
@@ -103,32 +104,50 @@ function useOpenDefinitionInView(wrap: { current: HTMLDivElement | null }, openD
   }, [openDef, status]);
 }
 
+/**
+ * Report this word (Dev Plan item 19zf), at the foot of every definition box
+ * on a game screen, whether or not the word has a definition: it opens Report
+ * an issue set to Words with the word filled in.
+ */
+function ReportWord({ word }: { word: string }) {
+  const screen = useContext(WordReportContext);
+  if (!screen) return null;
+  return (
+    <span class="report-word">
+      <button type="button" class="link-btn" onClick={() => openReport(wordReportRequest(screen(), word))}>
+        Report this word
+      </button>
+    </span>
+  );
+}
+
 /** The definition of one word, as shown under a guess or on the result screen. */
 export function DefinitionBox({ word, state }: { word: string; state: DefinitionsState }) {
+  return (
+    <div class="definition">
+      <DefinitionText word={word} state={state} />
+      <ReportWord word={word} />
+    </div>
+  );
+}
+
+function DefinitionText({ word, state }: { word: string; state: DefinitionsState }) {
   if (state.status !== 'ready') {
     return (
-      <p class="definition">
-        <span class="loading">
-          {state.status === 'error' ? "Couldn't load definitions." : 'Loading definition…'}
-        </span>
-      </p>
+      <span class="loading">
+        {state.status === 'error' ? "Couldn't load definitions." : 'Loading definition…'}
+      </span>
     );
   }
   const entries = state.definitions[word];
-  if (!entries) {
-    return (
-      <p class="definition">
-        <span class="none">No definition available for {word}.</span>
-      </p>
-    );
-  }
+  if (!entries) return <span class="none">No definition available for {word}.</span>;
   // One shared base word goes in the heading ("plots · form of plot"); mixed
   // entries ("dying": die, dying) name the base word per line. A screen reader
   // hears each line as one sentence rather than stopping on each part of it.
   const bases = new Set(entries.map((e) => e.l ?? word));
   const shared = bases.size === 1 ? entries[0].l : undefined;
   return (
-    <p class="definition">
+    <>
       <span>
         <span aria-hidden="true">
           <span class="word">{word}</span>
@@ -146,7 +165,7 @@ export function DefinitionBox({ word, state }: { word: string; state: Definition
           <span class="visually-hidden">{word}, {e.p}{e.l && !shared ? `, a form of ${e.l}` : ''}: {e.d}</span>
         </span>
       ))}
-    </p>
+    </>
   );
 }
 

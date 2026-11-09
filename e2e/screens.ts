@@ -119,6 +119,18 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // A guess's ⓘ, then Report this word: the form set to Words with the word (Dev Plan item 19zf).
+    name: 'single-report-word',
+    open: async (page) => {
+      await unlockAll(page);
+      await startSolo(page);
+      await guess(page, 'crane');
+      await button(page, 'Definition of crane').click();
+      await button(page, 'Report this word').click();
+      await expect(page.getByRole('textbox')).toHaveValue('CRANE: ');
+    },
+  },
+  {
     name: 'single-menu',
     open: async (page) => {
       await unlockAll(page);
@@ -154,6 +166,30 @@ export const SCREENS: Screen[] = [
       await page.getByRole('group').getByRole('button').first().click();
       await button(page, /^Medium/).click();
       await button(page, 'Start game').click();
+    },
+  },
+  {
+    // A secret word from Pick for me, its ⓘ open: the definition and Report this word (Dev Plan item 19zf).
+    name: 'two-picked-word',
+    open: async (page) => {
+      await twoPlayerSetup(page);
+      await modeButton(page, 'Computer').click();
+      await page.getByRole('group').getByRole('button').first().click();
+      await button(page, /^Medium/).click();
+      await button(page, 'Start game').click();
+      await button(page, 'Pick for me').click();
+      // The word stays put as its definition opens and with each new pick, whatever the definition's length.
+      const word = page.getByRole('img', { name: /^Your secret word: / });
+      const top = async () => (await word.boundingBox())?.y;
+      const before = await top();
+      await page.getByRole('button', { name: /^Definition of [a-z]{5}$/ }).click();
+      await expect(button(page, 'Report this word')).toBeVisible();
+      expect(await top()).toBe(before);
+      for (let i = 0; i < 3; i++) {
+        await button(page, 'Pick for me').click();
+        await expect(button(page, 'Report this word')).toBeVisible();
+        expect(await top()).toBe(before);
+      }
     },
   },
   { name: 'two-over', open: twoPlayerOver },
