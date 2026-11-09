@@ -35,7 +35,7 @@ import {
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
 import { twoPlayerShareText } from './shareText';
-import { PickedWordSlots } from './pickedWord';
+import { usePickedWord } from './pickedWord';
 import { PlayOnChoice, PracticeEntry, PracticeLine, usePlayOn } from './playOn';
 
 /** How long the computer "thinks" before guessing, so its move is visible. */
@@ -383,6 +383,13 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
     setConfirming(null);
   };
 
+  // Hooks run on every render, so this is ready before the secret word step needs it.
+  const pickedWord = usePickedWord({
+    draft, picked,
+    report: () => ({ screen: `Two player vs. computer (${STRENGTH_LABEL[strength]}) · choosing a secret word` }),
+    slots: <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} label="Your secret word" />,
+  });
+
   if (!game) {
     return (
       <div class="app">
@@ -397,12 +404,11 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
         </p>
         <div class="setup-space" />
         <section class="entry">
-          <PickedWordSlots draft={draft} picked={picked}
-            report={() => ({ screen: `Two player vs. computer (${STRENGTH_LABEL[strength]}) · choosing a secret word` })}>
-            <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} label="Your secret word" />
-          </PickedWordSlots>
+          {pickedWord.slots}
           <div class={message?.error ? 'message error' : 'message'} role="status">{message?.quiet ? <span class="visually-hidden">{message.text}</span> : message?.text}</div>
-          {/* Each drops focus after use, so a physical Enter submits instead of pressing it again. */}
+        </section>
+        {pickedWord.definition}
+        <section class="entry">
           <button type="button" class="btn" onClick={(e) => {
             const word = pickRandomSecret(SECRET_WORDS);
             setPicked(word);

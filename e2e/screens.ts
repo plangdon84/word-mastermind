@@ -178,8 +178,18 @@ export const SCREENS: Screen[] = [
       await button(page, /^Medium/).click();
       await button(page, 'Start game').click();
       await button(page, 'Pick for me').click();
+      // The word stays put as its definition opens and with each new pick, whatever the definition's length.
+      const word = page.getByRole('img', { name: /^Your secret word: / });
+      const top = async () => (await word.boundingBox())?.y;
+      const before = await top();
       await page.getByRole('button', { name: /^Definition of [a-z]{5}$/ }).click();
       await expect(button(page, 'Report this word')).toBeVisible();
+      expect(await top()).toBe(before);
+      for (let i = 0; i < 3; i++) {
+        await button(page, 'Pick for me').click();
+        await expect(button(page, 'Report this word')).toBeVisible();
+        expect(await top()).toBe(before);
+      }
     },
   },
   { name: 'two-over', open: twoPlayerOver },
