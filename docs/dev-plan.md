@@ -14,7 +14,20 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
 shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
-No item is next: the owner picks one from **Later** or a new triage.
+- [ ] **19zg. A Win % in a friend's "You vs." box** (issue
+  plangdon84/word-mastermind-archive#287; from the owner, 9 November 2026,
+  in Next after 19ze at their word;
+  app only; a feature release, its notes OK'd by the owner before the
+  first commit)
+  - Issue 287: a friend's headline Win % is their own against everyone,
+    which reads as your record against them. The "You vs. …" box at the
+    top of their profile (`YouVersus` in `FriendProfileScreen.tsx`) gets
+    your Win % against that player alone, a draw counting half (19zd's
+    rule), beside the won–drawn–lost it already shows. Worked out in the
+    app from the counts the server already sends (`versus`), so no worker
+    change. Whether it's a Win % per row (Two player, Word Sets with
+    friends) or one for the box is settled with the owner when it's
+    built. Updates README "Friends' profiles"
 
 **Later**
 
