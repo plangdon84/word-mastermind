@@ -1030,6 +1030,29 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     expect(await count({ search: 'nope!' })).toBe(0);
   });
 
+  it('lists their games by when each ended, as their own history does (Dev Plan item 19zc)', async () => {
+    const { ann, bob, bobCode, sqlite, now } = await friends();
+    // The first started first but ended last, as a long correspondence game does.
+    const long = soloEntry('bob-long', now() - 50 * 60_000, ['beach'], { step: 45 * 60_000 });
+    const quick = soloEntry('bob-quick', now() - 40 * 60_000, ['beach']);
+    const later = soloEntry('bob-later', now() - 20 * 60_000, ['beach']);
+    await bob.sync.upload([long, quick, later]);
+    await index(bob);
+    const ids = async (after: string | null = null, limit = 50) => ann.friends.profileGames(bobCode, { filter: {}, after, limit });
+    expect((await ids()).games.map((g) => g.id)).toEqual(['bob-long', 'bob-later', 'bob-quick']);
+    const first = await ids(null, 2);
+    expect((await ids(first.next, 2)).games.map((g) => g.id)).toEqual(['bob-quick']);
+    // The migration fills in the ends of the games indexed before it.
+    sqlite.exec('UPDATE profile_games SET ended_at = 0');
+    sqlite.exec(readFileSync(join(import.meta.dirname, '..', 'migrations', '0033_profile_games_ended.sql'), 'utf8')
+      .replace(/^ALTER TABLE.*$/m, '').replace(/^(DROP|CREATE) INDEX.*$/gm, ''));
+    expect((await ids()).games.map((g) => g.id)).toEqual(['bob-long', 'bob-later', 'bob-quick']);
+    expect(sqlite.prepare('SELECT id, ended_at FROM profile_games ORDER BY id').all())
+      .toEqual([['bob-later', later], ['bob-long', long], ['bob-quick', quick]].map(([id, e]) => ({
+        id, ended_at: (e as typeof long).record.moves.at(-1)!.at,
+      })));
+  });
+
   it('filters their rated ladder games apart from their games against friends (Dev Plan item 19t)', async () => {
     const { ann, bob, bobCode, sqlite } = await friends();
     await annBeatsBob(ann, bob, bobCode);

@@ -243,18 +243,18 @@ export interface FriendGamesQuery {
   limit: number;
 }
 
-/** The longest `after` the server reads: a start time and a history ID. */
+/** The longest `after` the server reads: an end time and a history ID. */
 const AFTER_MAX = 120;
 
-/** Where the page after a game starts: its start time and history ID, which breaks ties. */
-export const friendGamesAfter = (startedAt: number, id: string): string => `${startedAt}:${id}`;
+/** Where the page after a game starts: when it ended (the list's order) and its history ID, which breaks ties. */
+export const friendGamesAfter = (endedAt: number, id: string): string => `${endedAt}:${id}`;
 
 /** An `after` read back, or null if it's no such thing. */
-export function parseFriendGamesAfter(after: string): { startedAt: number; id: string } | null {
+export function parseFriendGamesAfter(after: string): { endedAt: number; id: string } | null {
   const match = /^(\d{1,16}):(.+)$/.exec(after);
   if (!match || after.length > AFTER_MAX) return null;
-  const startedAt = Number(match[1]);
-  return Number.isSafeInteger(startedAt) ? { startedAt, id: match[2] } : null;
+  const endedAt = Number(match[1]);
+  return Number.isSafeInteger(endedAt) ? { endedAt, id: match[2] } : null;
 }
 
 /** A friend's history query, as `URLSearchParams`. The search is sent as `matchesFilter` reads it. */

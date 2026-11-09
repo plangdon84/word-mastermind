@@ -41,7 +41,7 @@ describe('an invite link opened while signed out', () => {
 describe("paging a friend's history from the last game shown (Issue 206)", () => {
   it('reads back where the next page starts', () => {
     const after = friendGamesAfter(1_760_000_000_000, 'single-1:2');
-    expect(parseFriendGamesAfter(after)).toEqual({ startedAt: 1_760_000_000_000, id: 'single-1:2' });
+    expect(parseFriendGamesAfter(after)).toEqual({ endedAt: 1_760_000_000_000, id: 'single-1:2' });
     const query = { filter: { mode: 'single' as const }, after, limit: 20 };
     expect(parseFriendGamesParams(friendGamesParams('ABCDEFGH', query))).toEqual(query);
     expect(parseFriendGamesParams(friendGamesParams('ABCDEFGH', { ...query, after: null }))).toEqual({ ...query, after: null });
