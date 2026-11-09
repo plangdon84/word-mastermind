@@ -5,13 +5,36 @@ import {
 
 /*
  * Game history in IndexedDB (README "Game history"): one entry per finished
- * game, keyed by its ID, newest first by start time. Entries are checked and
- * replayed when read, so a corrupted one is skipped rather than trusted.
+ * game, keyed by its ID. The list shows them newest first by when they
+ * ended, the date each row shows, so a rated game's rating follows on from
+ * the one below it. Entries are checked and replayed when read, so a
+ * corrupted one is skipped rather than trusted.
  */
 
 const DB_NAME = 'word-mastermind';
 const STORE = 'games';
 const BY_START = 'startedAt';
+/** Each stored game carries `endedAt` (read back without it) for this index. */
+const BY_END = 'endedAt';
+
+/** Which index a read walks: by start, or by end, the list's order. */
+type Order = typeof BY_START | typeof BY_END;
+
+/**
+ * When a stored game ended: its last move, or its start without one, as
+ * `summarizeGame` works it out (a replay keeps the record's moves), without
+ * replaying it. Undefined for a value that isn't a game: it's left out of
+ * the index, as it would be out of the list.
+ */
+export function storedEndedAt(value: unknown): number | undefined {
+  const record = (value as { record?: { startedAt?: unknown; moves?: unknown } } | null)?.record;
+  if (!record || !Array.isArray(record.moves)) return undefined;
+  const at = record.moves.length > 0 ? (record.moves[record.moves.length - 1] as { at?: unknown } | null)?.at : record.startedAt;
+  return typeof at === 'number' && Number.isFinite(at) ? at : undefined;
+}
+
+/** An entry as stored: with `endedAt` for the list's index. */
+const stored = (entry: HistoryEntry) => ({ ...entry, endedAt: storedEndedAt(entry) });
 
 let opening: Promise<IDBDatabase> | undefined;
 /** The connection `opening` gave, once open. */
@@ -19,10 +42,26 @@ let current: IDBDatabase | undefined;
 
 function openDb(): Promise<IDBDatabase> {
   opening ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(DB_NAME, 2);
     request.onupgradeneeded = () => {
-      const store = request.result.createObjectStore(STORE, { keyPath: 'id' });
-      store.createIndex(BY_START, 'record.startedAt');
+      const db = request.result;
+      // A version 1 store, or none (a database something else opened first, which has no store).
+      const store = db.objectStoreNames.contains(STORE)
+        ? request.transaction!.objectStore(STORE)
+        : db.createObjectStore(STORE, { keyPath: 'id' });
+      if (!store.indexNames.contains(BY_START)) store.createIndex(BY_START, 'record.startedAt');
+      if (!store.indexNames.contains(BY_END)) {
+        // Version 2 lists games by when they ended: each game saved before gets its end, once.
+        store.createIndex(BY_END, BY_END);
+        const games = store.openCursor();
+        games.onsuccess = () => {
+          const cursor = games.result;
+          if (!cursor) return;
+          const endedAt = storedEndedAt(cursor.value);
+          if (endedAt !== undefined) cursor.update({ ...cursor.value, endedAt });
+          cursor.continue();
+        };
+      }
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -83,14 +122,14 @@ export async function putGames(entries: readonly HistoryEntry[]): Promise<void> 
   return withDb(async (db) => {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
-    for (const entry of entries) store.put(entry);
+    for (const entry of entries) store.put(stored(entry));
     await done(tx);
   });
 }
 
 export const putGame = (entry: HistoryEntry) => putGames([entry]);
 
-/** Every entry, newest first. Ones that don't parse and replay are left out. */
+/** Every entry, newest first by start. Ones that don't parse and replay are left out. */
 export async function getAllGames(): Promise<HistoryEntry[]> {
   return withDb(async (db) => {
     const tx = db.transaction(STORE);
@@ -163,7 +202,8 @@ export interface HistoryPage<C extends HistoryCursor = HistoryCursor> {
 }
 
 /**
- * Up to `limit` games matching `filter`, newest first, starting `offset`
+ * Up to `limit` games matching `filter`, newest first by when they ended
+ * (the list's order; ties newest ID first), starting `offset`
  * entries in. Filtering needs each game replayed, so it happens here as the
  * cursor walks, and `next` counts entries walked, not games matched.
  */
@@ -173,7 +213,7 @@ export async function loadGamesPage(filter: HistoryFilter, offset: number, limit
     const games: HistoryGame[] = [];
     let walked = offset;
     let next: number | null = null;
-    const request = tx.objectStore(STORE).index(BY_START).openCursor(null, 'prev');
+    const request = tx.objectStore(STORE).index(BY_END).openCursor(null, 'prev');
     let skipped = offset === 0;
     request.onsuccess = () => {
       const cursor = request.result;
@@ -198,14 +238,15 @@ export async function loadGamesPage(filter: HistoryFilter, offset: number, limit
 }
 
 /**
- * Every game matching `filter`, newest first. Read in one request rather
- * than a cursor's step per game, which with thousands of games is most of
- * the time it takes (Dev Plan item 19c).
+ * Every game matching `filter`, newest first by start, or (`order`) by end
+ * as the list shows them (Export CSV). Read in one request rather than a
+ * cursor's step per game, which with thousands of games is most of the
+ * time it takes (Dev Plan item 19c).
  */
-export async function loadAllMatching(filter: HistoryFilter): Promise<HistoryGame[]> {
+export async function loadAllMatching(filter: HistoryFilter, order: Order = BY_START): Promise<HistoryGame[]> {
   const values = await withDb(async (db) => {
     const tx = db.transaction(STORE);
-    const request = tx.objectStore(STORE).index(BY_START).getAll();
+    const request = tx.objectStore(STORE).index(order).getAll();
     await done(tx);
     return request.result as unknown[];
   });

@@ -6,7 +6,7 @@ import { parseBackup } from './backup';
 import { parseBadgeNotices } from './badges';
 import { parseDailySaved, parsePlacements } from './dailyStorage';
 import { parseFriendGames } from './friendGames';
-import { toHistoryGame } from './historyDb';
+import { storedEndedAt, toHistoryGame } from './historyDb';
 import { historyCsv } from './historyCsv';
 import { parseLobbySaved } from './lobbyStorage';
 import { parsePlayedState } from './playedGames';
@@ -40,6 +40,10 @@ describe('a 1.0 backup', () => {
     expect(parsed.backup.games).toHaveLength(13);
     expect(games.every((g) => g.replayed !== null)).toBe(true);
     expect(new Set(parsed.backup.games.map((g) => g.mode))).toEqual(new Set(['single', 'computer', 'rush', 'friend', 'daily', 'lobby']));
+  });
+
+  it('lists each game by the end its row shows', () => {
+    for (const entry of parsed.backup.games) expect(storedEndedAt(entry)).toBe(toHistoryGame(entry)!.summary.endedAt);
   });
 
   it('keeps the profile, settings and recent words', () => {

@@ -84,6 +84,19 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zc. Game history by when each game ended** (2.4.1; from the
+  owner, 9 November 2026; app and worker, review gate)
+  - The owner: the history listed games newest first by when they started
+    but showed the date they ended, so a rated game's rating didn't follow
+    on from the one below it. Both your history and a friend's now list
+    games newest first by when each ended (its last move), the date the
+    row shows; Export CSV follows the list
+  - This browser's history (IndexedDB version 2): each stored game carries
+    its end for a new index, filled in once for the games saved before;
+    stats still read by start
+  - A friend's history: `profile_games.ended_at` (migration 0033, filled in
+    from each indexed game's entry), set as each game is indexed, and the
+    page's order and `after` by it
 - [x] **19zb. Review follow-ups from 2.4.0** (issue
   plangdon84/word-mastermind-archive#281; worker, review gate; no
   release note, nothing players see)

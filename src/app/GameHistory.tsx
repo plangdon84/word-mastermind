@@ -168,7 +168,8 @@ interface Loaded {
 }
 
 /**
- * The game history list (README "Game history"): newest first, a page at a
+ * The game history list (README "Game history"): newest first by when each
+ * game ended (the date it shows), a page at a
  * time, with filters and a search by name (issue 219). Tapping a game opens its review.
  * By default it's this browser's games; a friend's profile passes `load`
  * with theirs, and their list has no export or search (theirs is searched on the server, which reads words).
@@ -213,7 +214,7 @@ export function GameHistory({ filter, onFilter, onOpen, load: loadPage = loadYou
   /** Exports every game the filters match, not just the pages loaded. */
   const exportCsv = async () => {
     try {
-      const games = await loadAllMatching(filter);
+      const games = await loadAllMatching(filter, 'endedAt');
       const rows = csvRowCount(games);
       if (rows > CSV_ROW_LIMIT) {
         setCsvMessage(`That's ${rows.toLocaleString()} rows, over the ${CSV_ROW_LIMIT.toLocaleString()} limit. Filter the list further, then export again.`);
