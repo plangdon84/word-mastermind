@@ -53,7 +53,10 @@ Run `npm test` and `npm run typecheck` before committing.
   argument. `twoPlayerView` hides the opponent's word for one side.
 - The local profile (Dev Plan items 3a and 3b: profile, game history,
   analytics, achievements) is specified in README "Profile". 3a is built:
-  `src/app/ProfileScreen.tsx`, `GameHistory.tsx`, `historyDb.ts` (IndexedDB),
+  `src/app/ProfileScreen.tsx`, `GameHistory.tsx`, `historyDb.ts` (IndexedDB;
+  the list is newest first by when each game ended, `lastMoveAt`, Dev Plan
+  item 19zc: each stored game carries `endedAt` for that index alone, left
+  off every game read back, the one derived value saved),
   `backup.ts` and `historyCsv.ts`, with the name rule in `src/game/profile.ts`
   and history entries (record + ID, mode, version, marks) in
   `src/game/history.ts`. Records hold their difficulty (changes are moves)

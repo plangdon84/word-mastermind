@@ -290,7 +290,8 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 
 /**
  * A page of a friend's game history, newest first by when each game ended
- * (the date its row shows, as on your own history), matching the history's
+ * (the date its row shows; ties newest ID first, both as on your own
+ * history), matching the history's
  * filters (as `matchesFilter` does: the rated ladder's games apart from
  * every mode's, Dev Plan item 19t), from the game after `after` (newer
  * first, then by history ID). A Daily Set or Daily Word is left out until
@@ -310,8 +311,8 @@ export async function friendGamesPage(
        AND (?3 IS NULL OR (?3 = 'ladder' AND g.ladder = 1) OR (g.mode = ?3 AND g.ladder = 0))
        AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
        AND instr(g.words, ' ' || ?6) > 0
-       ${from === null ? '' : 'AND g.ended_at <= ?8 AND (g.ended_at < ?8 OR g.id > ?9)'}
-     ORDER BY g.ended_at DESC, g.id LIMIT ?7`,
+       ${from === null ? '' : 'AND g.ended_at <= ?8 AND (g.ended_at < ?8 OR g.id < ?9)'}
+     ORDER BY g.ended_at DESC, g.id DESC LIMIT ?7`,
   ).bind(
     friendId, shownBefore(now), filter.mode ?? null, filter.result ?? null, filter.difficulty ?? null,
     filter.search ?? '', limit + 1, ...(from === null ? [] : [from.endedAt, from.id]),

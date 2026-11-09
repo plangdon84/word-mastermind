@@ -193,7 +193,11 @@ export function historyCount(page: Page): Promise<number> {
     const request = indexedDB.open('word-mastermind');
     request.onsuccess = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains('games')) return resolve(0);
+      if (!db.objectStoreNames.contains('games')) {
+        // Closed, or it would block the app's upgrade to version 2.
+        db.close();
+        return resolve(0);
+      }
       const count = db.transaction('games').objectStore('games').count();
       count.onsuccess = () => { resolve(count.result); db.close(); };
       count.onerror = () => reject(count.error);

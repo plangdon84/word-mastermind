@@ -256,7 +256,8 @@ export interface GameSummary {
   allFound: boolean | null;
 }
 
-const lastMoveAt = (startedAt: number, moves: readonly { at: number }[]) =>
+/** When a game ended: its last move, or its start without one (the date its history row shows, and the list's order). */
+export const lastMoveAt = (startedAt: number, moves: readonly { at: number }[]) =>
   moves.length > 0 ? moves[moves.length - 1].at : startedAt;
 
 export function summarizeGame(replayed: ReplayedGame): GameSummary {

@@ -1,5 +1,5 @@
 import {
-  matchesFilter, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame,
+  lastMoveAt, matchesFilter, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame,
   type GameSummary, type HistoryEntry, type HistoryFilter, type ReplayedGame, type StatsGame,
 } from '../game';
 
@@ -21,16 +21,18 @@ const BY_END = 'endedAt';
 type Order = typeof BY_START | typeof BY_END;
 
 /**
- * When a stored game ended: its last move, or its start without one, as
- * `summarizeGame` works it out (a replay keeps the record's moves), without
- * replaying it. Undefined for a value that isn't a game: it's left out of
- * the index, as it would be out of the list.
+ * When a stored game ended, by `summarizeGame`'s own rule (`lastMoveAt`; a
+ * replay keeps the record's moves), without replaying it. Undefined for a
+ * value that isn't a game: it's left out of the index, as it would be out
+ * of the list.
  */
 export function storedEndedAt(value: unknown): number | undefined {
   const record = (value as { record?: { startedAt?: unknown; moves?: unknown } } | null)?.record;
-  if (!record || !Array.isArray(record.moves)) return undefined;
-  const at = record.moves.length > 0 ? (record.moves[record.moves.length - 1] as { at?: unknown } | null)?.at : record.startedAt;
-  return typeof at === 'number' && Number.isFinite(at) ? at : undefined;
+  if (!record || typeof record.startedAt !== 'number' || !Array.isArray(record.moves)) return undefined;
+  const last: unknown = record.moves[record.moves.length - 1];
+  if (last !== undefined && typeof (last as { at?: unknown } | null)?.at !== 'number') return undefined;
+  const at = lastMoveAt(record.startedAt, record.moves as { at: number }[]);
+  return Number.isFinite(at) ? at : undefined;
 }
 
 /** An entry as stored: with `endedAt` for the list's index. */
