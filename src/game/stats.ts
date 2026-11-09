@@ -48,7 +48,7 @@ export interface WinRecord {
   wins: number;
   draws: number;
   losses: number;
-  /** 0–100, or null with no games. */
+  /** 0–100, a draw counting half a win (Dev Plan item 19zd), or null with no games. */
   winPct: number | null;
 }
 
@@ -105,13 +105,26 @@ export interface ModeStats {
 export interface LadderStats {
   played: number;
   record: WinRecord;
+  /**
+   * Win %'s trend, as "vs. a friend"'s (Dev Plan item 19zd). Absent from a
+   * friend's summary shared by an app older than that.
+   */
+  winPctTrend?: Trend | null;
+  /**
+   * How far your two player rating moved in the last `TREND_DAYS` (Dev Plan
+   * item 19zd): `current` is the rating after your latest rated game,
+   * `previous` the one before your first rated game in those days. Null
+   * with fewer than `TREND_MIN_GAMES` rated games in them. Never shared
+   * with friends (`sharedSummary` leaves it out), who see only a rating.
+   */
+  ratingTrend?: Trend | null;
   people: WinRecord;
   computers: WinRecord;
 }
 
 export interface Stats {
   played: number;
-  /** Win % over games with an opponent (the computer or a friend); null with none. */
+  /** Win % over games with an opponent (the computer or a friend), a draw counting half; null with none. */
   winPct: number | null;
   /** Every guess you made, in every mode. */
   totalGuesses: number;
@@ -143,7 +156,12 @@ interface Row {
 const average = (values: readonly number[]) =>
   values.length === 0 ? null : values.reduce((a, b) => a + b, 0) / values.length;
 
-const winPct = (wins: number, games: number) => (games === 0 ? null : (wins / games) * 100);
+/** Win %, a draw counting half a win (Dev Plan item 19zd, issue 283); null with no games. */
+function winPct(rows: readonly Row[]): number | null {
+  if (rows.length === 0) return null;
+  const points = rows.reduce((sum, r) => sum + (r.summary.result === 'won' ? 1 : r.summary.result === 'drawn' ? 0.5 : 0), 0);
+  return (points / rows.length) * 100;
+}
 
 /** Guesses to find each word, as the average counts them. */
 function wordsFound(replayed: ReplayedGame, summary: GameSummary): number[] {
@@ -274,7 +292,22 @@ function trend(
 function winRecord(rows: readonly Row[]): WinRecord {
   const count = (result: string) => rows.filter((r) => r.summary.result === result).length;
   const wins = count('won');
-  return { wins, draws: count('drawn'), losses: count('lost'), winPct: winPct(wins, rows.length) };
+  return { wins, draws: count('drawn'), losses: count('lost'), winPct: winPct(rows) };
+}
+
+/**
+ * How far your two player rating moved in the last `TREND_DAYS` (Dev Plan
+ * item 19zd, issue 284), from each rated game's before and after: every
+ * rated two player game moves it, the ladder's and rated challenges alike.
+ * Null with fewer than `TREND_MIN_GAMES` rated games in those days.
+ */
+function ratingTrend(rows: readonly Row[], now: number): Trend | null {
+  const rated = rows.filter((r) => r.summary.mode === 'friend' && r.summary.rating && r.summary.endedAt <= now);
+  const recent = rated.filter((r) => r.summary.endedAt > now - TREND_DAYS * DAY_MS);
+  if (recent.length < TREND_MIN_GAMES) return null;
+  const current = recent[recent.length - 1].summary.rating!.after;
+  const previous = recent[0].summary.rating!.before;
+  return { current, previous, change: current - previous };
 }
 
 function streaks(rows: readonly Row[]): { currentStreak: number; bestStreak: number } {
@@ -320,7 +353,7 @@ function modeStats(mode: HistoryMode, rows: readonly Row[], now: number): ModeSt
     record: opponent
       ? {
         ...winRecord(rows),
-        winPctTrend: trend(rows, now, (rs) => winPct(winRecord(rs).wins, rs.length), () => true),
+        winPctTrend: trend(rows, now, winPct, () => true),
         ...streaks(rows),
         byStrength: mode === 'computer' ? Object.fromEntries(
           STRENGTHS.map((s) => [s, winRecord(rows.filter((r) => r.summary.strength === s))]),
@@ -360,7 +393,7 @@ export function computeStats(games: readonly StatsGame[], now: number): Stats {
   const opponentGames = rows.filter((r) => r.summary.mode === 'computer' || r.summary.mode === 'friend');
   return {
     played: rows.length,
-    winPct: winPct(opponentGames.filter((r) => r.summary.result === 'won').length, opponentGames.length),
+    winPct: winPct(opponentGames),
     totalGuesses: rows.reduce((sum, r) => sum + r.summary.yourGuesses, 0),
     modes: {
       single: modeStats('single', ofMode('single'), now),
@@ -379,6 +412,8 @@ export function computeStats(games: readonly StatsGame[], now: number): Stats {
     ladder: {
       played: ladder.length,
       record: winRecord(ladder),
+      winPctTrend: trend(ladder, now, winPct, () => true),
+      ratingTrend: ratingTrend(rows, now),
       people: winRecord(ladder.filter((r) => r.summary.ladder === 'person')),
       computers: winRecord(ladder.filter((r) => r.summary.ladder === 'computer')),
     },

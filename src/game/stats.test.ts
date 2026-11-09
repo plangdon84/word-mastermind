@@ -44,16 +44,16 @@ describe('computeStats', () => {
     expect(stats.winPct).toBeNull();
   });
 
-  it('keeps a win record against the computer, with give-ups as losses', () => {
+  it('keeps a win record against the computer, with give-ups as losses and a draw half a win', () => {
     const stats = computeStats([
       win('w1', T, 'expert'), loss('l1', T + DAY), win('w2', T + 2 * DAY, 'mastermind'),
       win('w3', T + 3 * DAY), draw('d1', T + 4 * DAY), conceded('g1', T + 5 * DAY), win('w4', T + 6 * DAY),
     ], NOW);
     const { computer } = stats.modes;
-    expect(computer.record).toMatchObject({ wins: 4, draws: 1, losses: 2, winPct: (4 / 7) * 100 });
+    expect(computer.record).toMatchObject({ wins: 4, draws: 1, losses: 2, winPct: (4.5 / 7) * 100 });
     expect(computer.record).toMatchObject({ currentStreak: 1, bestStreak: 2 });
     expect(computer.record!.byStrength!.mastermind).toEqual({ wins: 1, draws: 0, losses: 0, winPct: 100 });
-    expect(computer.record!.byStrength!.skilled).toEqual({ wins: 2, draws: 1, losses: 2, winPct: 40 });
+    expect(computer.record!.byStrength!.skilled).toEqual({ wins: 2, draws: 1, losses: 2, winPct: 50 });
     expect(computer.record!.byStrength!.casual.winPct).toBeNull();
     expect(computer.gaveUp).toBe(1);
     // Found in 2 in each win and 1 in the draw.
@@ -234,10 +234,42 @@ describe("the server's modes", () => {
     expect(stats.ladder).toEqual({
       played: 3,
       record: { wins: 2, draws: 0, losses: 1, winPct: (2 / 3) * 100 },
+      winPctTrend: null,
+      ratingTrend: null,
       people: { wins: 1, draws: 0, losses: 1, winPct: 50 },
       computers: { wins: 1, draws: 0, losses: 0, winPct: 100 },
     });
     expect(stats.played).toBe(4);
+  });
+
+  it('count a draw as half a win in the headline win % (Dev Plan item 19zd)', () => {
+    const stats = computeStats([win('c1', T), draw('c2', T + DAY), loss('c3', T + 2 * DAY), draw('c4', T + 3 * DAY)], NOW);
+    expect(stats.winPct).toBe(50);
+  });
+
+  it("trend the ladder's win % like a friend's, and only the ladder's games (Dev Plan item 19zd)", () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'], ladder: {} };
+    const lost = { first: 'them' as const, them: ['storm'], you: ['crane'], ladder: {} };
+    const recent = (n: number) => [...Array(n)].map((_, i) => friend(`n${i}`, NOW - (i + 1) * DAY, won));
+    const before = (n: number) => [...Array(n)].map((_, i) => friend(`o${i}`, NOW - (31 + i) * DAY, lost));
+    expect(computeStats([...before(5), ...recent(5)], NOW).ladder!.winPctTrend).toEqual({ current: 100, previous: 0, change: 100 });
+    expect(computeStats([...before(4), ...recent(5)], NOW).ladder!.winPctTrend).toBeNull();
+    // Games against friends don't make up the ladder's numbers.
+    const friends = [...Array(5)].map((_, i) => friend(`f${i}`, NOW - (40 + i) * DAY, { you: ['crane'], them: ['storm'], first: 'them' }));
+    expect(computeStats([...before(4), ...friends, ...recent(5)], NOW).ladder!.winPctTrend).toBeNull();
+  });
+
+  it('move the rating over the last 30 days from each rated game, with 5 in them (Dev Plan item 19zd)', () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'] };
+    // Rated games from 1500, 10 points a game; the last 5 within 30 days, the rest before.
+    const games = [...Array(8)].map((_, i) => friend(`r${i}`, NOW - (41 - 5 * i) * DAY, {
+      ...won, ...(i % 2 ? { ladder: {} } : {}), rating: { before: 1500 + 10 * i, after: 1510 + 10 * i },
+    }));
+    // Before the 4th game (1530) to after the last (1580); a rated challenge counts as the ladder's games do.
+    expect(computeStats(games, NOW).ladder!.ratingTrend).toEqual({ current: 1580, previous: 1530, change: 50 });
+    expect(computeStats(games.slice(0, 7), NOW).ladder!.ratingTrend).toBeNull();
+    // An unrated game doesn't count towards the 5.
+    expect(computeStats([...games.slice(0, 7), friend('u', NOW - DAY, won)], NOW).ladder!.ratingTrend).toBeNull();
   });
 
   it("count a Daily Rush's total guesses as its best, and a lobby's first places", () => {

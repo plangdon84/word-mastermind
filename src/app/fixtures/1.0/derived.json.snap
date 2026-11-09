@@ -1,7 +1,7 @@
 {
   "stats": {
     "played": 13,
-    "winPct": 40,
+    "winPct": 50,
     "totalGuesses": 30,
     "modes": {
       "single": {
@@ -41,7 +41,7 @@
           "wins": 1,
           "draws": 1,
           "losses": 1,
-          "winPct": 33.33333333333333,
+          "winPct": 50,
           "winPctTrend": null,
           "currentStreak": 0,
           "bestStreak": 1,
@@ -50,7 +50,7 @@
               "wins": 0,
               "draws": 1,
               "losses": 0,
-              "winPct": 0
+              "winPct": 50
             },
             "skilled": {
               "wins": 0,
@@ -205,6 +205,8 @@
         "losses": 0,
         "winPct": null
       },
+      "winPctTrend": null,
+      "ratingTrend": null,
       "people": {
         "wins": 0,
         "draws": 0,
