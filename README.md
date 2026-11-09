@@ -1716,7 +1716,9 @@ ID, which would let anyone take an open invite). The form says reports go
 privately to the game's developer, and that they carry your display name, the
 browser and screen size, never your email (Dev Plan item 18l, issue #112;
 item 18uc). Once sent, it thanks you; it doesn't link to the issue, which
-players can't open.
+players can't open. A word report (from **Report this word**, under
+"Definitions") opens on that kind with the word filled in, and its thanks
+says the word will be reviewed and stays in the game until then.
 
 The server (`worker/src/reports.ts`) keeps each report in D1 and files it as a
 GitHub issue in the private archive repo (`GITHUB_REPO`, never this public
@@ -1815,6 +1817,19 @@ An ⓘ button sits before each guessed word. Tapping it shows the word's
 definition under that line, and tapping it again hides it. The result screen
 shows the secret word's definition. Being before the word keeps the button
 clear of the letter bubbles, which Medium uses for marking.
+
+**Report this word** (Dev Plan item 19zf) sits at the foot of every
+definition box in a game, under every guess in every mode (yours and the
+opponent's) and under the secret word on the result screen, whether or not
+the word has a definition, so the guess grid gets no new control. On the
+secret word step (two player vs. the computer and a friend), a word chosen
+by **Pick for me** gets an ⓘ beside it too, opening its definition and
+Report this word; a word you typed gets neither. Tapping it opens Report an
+issue (below) set to **A word or definition**, with the word at the start of
+the description for you to say what's wrong, and the game offered as in ☰.
+Nothing else happens to the word: it stays playable for everyone until the
+developer reviews it and, if it should go, bans it in a later word-list
+update (`wordlist/rules/`).
 
 Definitions come from [Open English WordNet](https://github.com/globalwordnet/english-wordnet)
 (CC BY 4.0, so the app must credit it), extracted at build time by the

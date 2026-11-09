@@ -14,35 +14,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
 shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
-- [ ] **19zf. Report this word** (issue
-  plangdon84/word-mastermind-archive#286; app only; a feature release,
-  2.5.0, ahead of 19zd, its notes OK'd by the owner before the first
-  commit)
-  - Issue 286: decided with the owner on 9 November 2026: a **Report this
-    word** button inside the ⓘ definition box (`DefinitionBox` in
-    `src/app/components.tsx`), whether or not the word has a definition,
-    so the guess grid gets no new control. It shows under every guess in
-    every mode, on both tabs (your guesses and the opponent's), and under
-    the secret word's definition on the result screen
-  - Issue 286: on the secret word step (two player vs. the computer and a
-    friend, `TwoPlayerScreen.tsx` and `friendParts.tsx`), a word chosen by
-    **Pick for me** gets an ⓘ beside it, opening its definition and Report
-    this word. A word the player typed gets neither. As elsewhere, the
-    definitions load only on the first tap
-  - Issue 286: decided with the owner: tapping it opens the existing Report
-    an issue form (`openReport`) set to the Words kind, with the word filled
-    in at the start of the description, so the player can add why and taps
-    Send. It's filed in the archive like any Words report (word-list
-    label). Nothing else happens to the word: it stays playable for
-    everyone until the owner reviews it and bans it in a later word-list
-    update (`wordlist/rules/`). The sent screen says it will be reviewed.
-    Updates README "Definitions" and "Reporting an issue", and the
-    tutorial only if it shows the definition box
-  - `ReportRequest` (`src/app/reportIssue.ts`) gains an optional starting
-    kind and description; each screen passes the same screen name and game
-    record as its ☰ Report an issue, so the form offers to include the game
-    as it does today. A unit test checks the form opens set to Words with
-    the word, and the browser tests' screen list covers the new ⓘ
 - [ ] **19zd. Stats: draws count half, and trend arrows on the Rated
   ladder** (issues plangdon84/word-mastermind-archive#283 and
   plangdon84/word-mastermind-archive#284; app only; a feature release,
@@ -142,6 +113,35 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zf. Report this word** (2.5.0; issue
+  plangdon84/word-mastermind-archive#286; app only; a feature release,
+  2.5.0, ahead of 19zd, its notes OK'd by the owner before the first
+  commit)
+  - Issue 286: decided with the owner on 9 November 2026: a **Report this
+    word** button inside the ⓘ definition box (`DefinitionBox` in
+    `src/app/components.tsx`), whether or not the word has a definition,
+    so the guess grid gets no new control. It shows under every guess in
+    every mode, on both tabs (your guesses and the opponent's), and under
+    the secret word's definition on the result screen
+  - Issue 286: on the secret word step (two player vs. the computer and a
+    friend, `TwoPlayerScreen.tsx` and `friendParts.tsx`), a word chosen by
+    **Pick for me** gets an ⓘ beside it, opening its definition and Report
+    this word. A word the player typed gets neither. As elsewhere, the
+    definitions load only on the first tap
+  - Issue 286: decided with the owner: tapping it opens the existing Report
+    an issue form (`openReport`) set to the Words kind, with the word filled
+    in at the start of the description, so the player can add why and taps
+    Send. It's filed in the archive like any Words report (word-list
+    label). Nothing else happens to the word: it stays playable for
+    everyone until the owner reviews it and bans it in a later word-list
+    update (`wordlist/rules/`). The sent screen says it will be reviewed.
+    Updates README "Definitions" and "Reporting an issue", and the
+    tutorial only if it shows the definition box
+  - `ReportRequest` (`src/app/reportIssue.ts`) gains an optional starting
+    kind and description; each screen passes the same screen name and game
+    record as its ☰ Report an issue, so the form offers to include the game
+    as it does today. A unit test checks the form opens set to Words with
+    the word, and the browser tests' screen list covers the new ⓘ
 - [x] **19zc. Game history by when each game ended** (2.4.1; from the
   owner, 9 November 2026; app and worker, review gate)
   - The owner: the history listed games newest first by when they started

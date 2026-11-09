@@ -119,6 +119,18 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // A guess's ⓘ, then Report this word: the form set to Words with the word (Dev Plan item 19zf).
+    name: 'single-report-word',
+    open: async (page) => {
+      await unlockAll(page);
+      await startSolo(page);
+      await guess(page, 'crane');
+      await button(page, 'Definition of crane').click();
+      await button(page, 'Report this word').click();
+      await expect(page.getByRole('textbox')).toHaveValue('CRANE: ');
+    },
+  },
+  {
     name: 'single-menu',
     open: async (page) => {
       await unlockAll(page);
@@ -154,6 +166,20 @@ export const SCREENS: Screen[] = [
       await page.getByRole('group').getByRole('button').first().click();
       await button(page, /^Medium/).click();
       await button(page, 'Start game').click();
+    },
+  },
+  {
+    // A secret word from Pick for me, its ⓘ open: the definition and Report this word (Dev Plan item 19zf).
+    name: 'two-picked-word',
+    open: async (page) => {
+      await twoPlayerSetup(page);
+      await modeButton(page, 'Computer').click();
+      await page.getByRole('group').getByRole('button').first().click();
+      await button(page, /^Medium/).click();
+      await button(page, 'Start game').click();
+      await button(page, 'Pick for me').click();
+      await page.getByRole('button', { name: /^Definition of [a-z]{5}$/ }).click();
+      await expect(button(page, 'Report this word')).toBeVisible();
     },
   },
   { name: 'two-over', open: twoPlayerOver },
