@@ -51,7 +51,7 @@ function indexRow(entry: HistoryEntry, gameSeq: number | null, replayed = replay
   const summary = summarizeGame(replayed);
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
   return {
-    id: entry.id, startedAt: entry.record.startedAt, endedAt: summary.endedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
+    id: entry.id, endedAt: summary.endedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
     words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
     rank: you ? you.rank ?? NOT_PLACED : null,
     // A rated ladder game (Dev Plan item 19t), which a friend's history filters apart from games against friends.
@@ -69,8 +69,8 @@ async function insertRows(db: D1Database, accountId: string, rows: readonly (Ret
   const field = (name: string) => `json_extract(value, '$.${name}')`;
   await db.prepare(
     `INSERT OR IGNORE INTO profile_games
-       (account_id, id, started_at, ended_at, mode, result, difficulty, words, daily_day, rank, ladder, game_seq, entry)
-     SELECT ?1, ${['id', 'startedAt', 'endedAt', 'mode', 'result', 'difficulty', 'words', 'dailyDay', 'rank', 'ladder', 'gameSeq', 'entry']
+       (account_id, id, ended_at, mode, result, difficulty, words, daily_day, rank, ladder, game_seq, entry)
+     SELECT ?1, ${['id', 'endedAt', 'mode', 'result', 'difficulty', 'words', 'dailyDay', 'rank', 'ladder', 'gameSeq', 'entry']
     .map(field).join(', ')} FROM json_each(?2)`,
   ).bind(accountId, JSON.stringify(kept)).run();
 }
