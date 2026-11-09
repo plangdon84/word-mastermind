@@ -302,7 +302,19 @@ const LATER_MODES: readonly HistoryMode[] = ['dailyWord'];
 /** The Rated ladder's stats, with every number its card shows: each win % from 0 to 100, or none (Dev Plan item 19za). */
 const isLadderStats = (value: unknown) =>
   isObject(value) && Number.isSafeInteger(value.played)
-  && [value.record, value.people, value.computers].every((r) => isTally(r) && isObject(r) && isWinPct(r.winPct));
+  && [value.record, value.people, value.computers].every((r) => isTally(r) && isObject(r) && isWinPct(r.winPct))
+  // Win %'s trend (Dev Plan item 19zd): none from an older app.
+  && (value.winPctTrend === undefined || value.winPctTrend === null || isWinPctTrend(value.winPctTrend));
+
+const isWinPctTrend = (value: unknown) =>
+  isObject(value) && [value.current, value.previous].every((n) => n !== null && isWinPct(n))
+  && typeof value.change === 'number' && Math.abs(value.change) <= 100;
+
+/** The ladder's stats as a friend sees them: never how far their rating moved (Dev Plan item 19zd). */
+function sharedLadder(value: Record<string, unknown>) {
+  const { ratingTrend: _ratingTrend, ...ladder } = value;
+  return ladder;
+}
 
 const isWinPct = (value: unknown) => value === null || (typeof value === 'number' && value >= 0 && value <= 100);
 
@@ -336,7 +348,7 @@ export function parseSharedSummary(value: unknown): SharedSummary | null {
     }
   }
   return {
-    format: SHARED_FORMAT, games: value.games as number, stats: { ...statsWithoutLadder, modes, ...(isLadderStats(stats.ladder) ? { ladder: stats.ladder } : {}) } as unknown as Stats,
+    format: SHARED_FORMAT, games: value.games as number, stats: { ...statsWithoutLadder, modes, ...(isLadderStats(stats.ladder) ? { ladder: sharedLadder(stats.ladder as Record<string, unknown>) } : {}) } as unknown as Stats,
     badges: [...badges.values()],
     featured: parseEntries(value.featured),
     ...(typeof value.ladderAverage === 'number' && value.ladderAverage >= 1 && value.ladderAverage <= 1000

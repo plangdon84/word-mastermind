@@ -1930,7 +1930,11 @@ up); a game counts at the easiest difficulty used.
    most, with its clock, and a line listing each pool's when there are
    several, marked provisional with "?"; otherwise **Sign in to get rated**
    or **No rated games yet**), games played, win % (over games with an
-   opponent), total guesses.
+   opponent), total guesses. Every win % counts a draw as half a win:
+   (wins + ½ × draws) ÷ games × 100, rounded (Dev Plan item 19zd, issue
+   283, decided with the owner on 9 November 2026). A friend's figures are
+   worked out on their device, so a friend on an older version shows the
+   old figure, draws as nothing, until they update.
 2. **A card per mode you've played** (Single player, vs. Computer, Solo
    Rush, vs. a friend, Daily Rush, Rush with Friends; since Dev Plan item 14
    a mode you haven't played has no card, rather than one saying "No games
@@ -1961,7 +1965,15 @@ up); a game counts at the easiest difficulty used.
      win % and won–drawn–lost, your **two player rating** (your
      own or a friend's, once they have one; every rated two player game
      moves it), and a row each for **People** and **Computers** (W–D–L and
-     win %). It comes just after the vs. a friend card. Head-to-head records
+     win %). It comes just after the vs. a friend card. Since Dev Plan item
+     19zd (issue 284, decided with the owner on 9 November 2026) its win %
+     has a trend arrow like vs. a friend's, and your rating has one too:
+     how far it moved in the last 30 days, from your rating before your
+     first rated game in those days to your rating after your latest (each
+     rated game's before and after in your history, rated challenges
+     included), hidden with fewer than 5 rated games in them. A friend's
+     card shows their win % arrow (none from an older version) but never
+     the rating arrow: friends see only a friend's current rating. Head-to-head records
      against friends are unchanged.
 3. **Games by difficulty.**
 4. **Top 10 guesses** across all modes; a tie for 10th is cut alphabetically.
@@ -1975,6 +1987,8 @@ up); a game counts at the easiest difficulty used.
 
 **Trends** compare the last 30 days with the 30 before, and are hidden with
 fewer than 5 games in either. Win % moves in percentage points (`+5 pts`).
+The rating arrow is the one exception: the change over the last 30 days
+alone, in rating points (`+23`).
 For average guesses, lower is better, so a drop shows green and a rise red.
 
 #### Achievements
