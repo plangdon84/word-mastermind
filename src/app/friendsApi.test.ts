@@ -103,4 +103,15 @@ describe("a friend's shared Rated ladder stats (Dev Plan item 19t)", () => {
     const edges = { played: 2, record: { ...tally, winPct: 0 }, people: { ...tally, winPct: 100 }, computers: tally };
     expect(parseSharedSummary(summary(edges))?.stats.ladder).toEqual(edges);
   });
+  it("keeps win %'s trend, drops them with a broken one, and never keeps a rating's (Dev Plan item 19zd)", () => {
+    const ladder = { played: 2, record: tally, people: tally, computers: tally };
+    const winPctTrend = { current: 60, previous: 40, change: 20 };
+    expect(parseSharedSummary(summary({ ...ladder, winPctTrend }))?.stats.ladder).toEqual({ ...ladder, winPctTrend });
+    expect(parseSharedSummary(summary({ ...ladder, winPctTrend: null }))?.stats.ladder).toEqual({ ...ladder, winPctTrend: null });
+    for (const broken of [{ current: 60 }, { current: 160, previous: 40, change: 120 }, 'up']) {
+      expect(parseSharedSummary(summary({ ...ladder, winPctTrend: broken }))!.stats.ladder).toBeUndefined();
+    }
+    const ratingTrend = { current: 1580, previous: 1530, change: 50 };
+    expect(parseSharedSummary(summary({ ...ladder, ratingTrend }))?.stats.ladder).toEqual(ladder);
+  });
 });

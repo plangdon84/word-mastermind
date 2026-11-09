@@ -27,16 +27,19 @@ export function formatDuration(seconds: number): string {
  * A trend chip: ▲ or ▼ with the change, green when it's better and red when
  * worse, so the arrow and sign carry it without colour. Hidden with too few games.
  */
-function TrendChip({ trend, lowerIsBetter = false, unit = '' }: {
-  trend: Trend | null; lowerIsBetter?: boolean; unit?: string;
+function TrendChip({ trend, lowerIsBetter = false, unit = '', whole = Boolean(unit), title = 'Last 30 days vs. the 30 before' }: {
+  trend: Trend | null | undefined; lowerIsBetter?: boolean; unit?: string;
+  /** Rounded to a whole number: percentage points, and a rating's change. */
+  whole?: boolean;
+  title?: string;
 }) {
   if (!trend) return null;
-  const change = unit ? Math.round(trend.change) : Math.round(trend.change * 10) / 10;
-  if (change === 0) return <span class="trend flat" title="Last 30 days vs. the 30 before">±0{unit}</span>;
+  const change = whole ? Math.round(trend.change) : Math.round(trend.change * 10) / 10;
+  if (change === 0) return <span class="trend flat" title={title}>±0{unit}</span>;
   const better = lowerIsBetter ? change < 0 : change > 0;
   const text = `${change > 0 ? '+' : '−'}${decimal(Math.abs(change))}${unit}`;
   return (
-    <span class={`trend ${better ? 'good' : 'bad'}`} title="Last 30 days vs. the 30 before">
+    <span class={`trend ${better ? 'good' : 'bad'}`} title={title}>
       <span aria-hidden="true">{change > 0 ? '▲' : '▼'}</span> {text}
       <span class="visually-hidden"> in the last 30 days</span>
     </span>
@@ -132,11 +135,13 @@ function LadderCard({ ladder, rating }: { ladder: LadderStats; rating?: PoolRati
       <h4>{LADDER_LABEL}</h4>
       <dl class="stat-list">
         <Stat label="Played">{ladder.played}</Stat>
-        <Stat label="Win %">{percent(ladder.record.winPct)}</Stat>
+        <Stat label="Win %">{percent(ladder.record.winPct)} <TrendChip trend={ladder.winPctTrend} unit=" pts" /></Stat>
         <Stat label="Won–drawn–lost">{wdl(ladder.record)}</Stat>
         {rating && (
           <Stat label="Rating">
             <span title={rating.provisional ? 'Provisional: it settles after a few more games' : undefined}>{ratingText(rating)}</span>
+            {/* Yours only: a friend's summary never has it (Dev Plan item 19zd). */}
+            {' '}<TrendChip trend={ladder.ratingTrend} whole title="Change over the last 30 days" />
           </Stat>
         )}
       </dl>

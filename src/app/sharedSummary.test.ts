@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { addDays, dailyDay, replayEntry, summarizeGame, type HistoryEntry } from '../game';
-import { dailyEntry, dailyWordEntry, lobbyEntry, soloEntry } from '../game/testGames';
+import { addDays, computeStats, dailyDay, replayEntry, summarizeGame, type HistoryEntry } from '../game';
+import { dailyEntry, dailyWordEntry, friendEntry, lobbyEntry, soloEntry } from '../game/testGames';
 import { FriendsApiError, parseSharedSummary, SHARED_FORMAT, type FriendsApi } from './friendsApi';
 import { shareProfile } from './profileShare';
 import { sharedSummary } from './sharedSummary';
@@ -16,6 +16,18 @@ const games = (entries: HistoryEntry[]) => entries.map((entry) => ({ entry, repl
 const words = [['beach'], ['crane'], ['storm'], ['house']];
 
 describe('a shared summary', () => {
+  it("shares the Rated ladder's win % trend but never how far the rating moved (Dev Plan item 19zd)", () => {
+    const won = { you: ['crane', 'beach'], them: ['house', 'crane'], ladder: {} };
+    const entries = [...Array(10)].map((_, i) => friendEntry(`r${i}`, NOW - (2 + 6 * i) * 86_400_000, {
+      ...won, rating: { before: 1500 + 10 * i, after: 1510 + 10 * i },
+    }));
+    const mine = computeStats(games(entries).map(({ entry, replayed }) => ({ id: entry.id, replayed })), NOW).ladder!;
+    expect(mine.ratingTrend).not.toBeNull();
+    const { ladder } = sharedSummary(games(entries), [], NOW, dayOf).stats;
+    expect(ladder!.winPctTrend).toEqual({ current: 100, previous: 100, change: 0 });
+    expect(ladder).not.toHaveProperty('ratingTrend');
+  });
+
   it("leaves out a Daily Set until the day after it is over, from the count, stats and badges", () => {
     const today = dailyDay(NOW);
     const entries = [

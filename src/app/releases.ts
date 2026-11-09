@@ -25,6 +25,13 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.6.0',
+    notes: [
+      { text: "Win % now counts a draw as half a win, everywhere it's shown, including a friend's Stats." },
+      { text: 'The Rated ladder in Stats now shows arrows for how your Win % and your rating have moved over the last 30 days.' },
+    ],
+  },
+  {
     version: '2.5.0',
     notes: [
       { text: "You can report a word you think shouldn't be in the game: tap ⓘ beside it and then Report this word." },

@@ -1,6 +1,6 @@
 import {
   addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, ladderAverage, type DailyPlacement, type GameSummary, type HistoryEntry,
-  type ReplayedGame, type StatsGame,
+  type LadderStats, type ReplayedGame, type Stats, type StatsGame,
 } from '../game';
 import { SHARED_FORMAT, type SharedSummary } from './friendsApi';
 
@@ -27,7 +27,10 @@ export function sharedSummary(
   const hiddenFrom = addDays(dailyDay(now), -1);
   const shown = games.filter((g) => (g.entry.mode !== 'daily' && g.entry.mode !== 'dailyWord') || g.entry.day < hiddenFrom);
   const statsGames: StatsGame[] = shown.map((g) => ({ id: g.entry.id, replayed: g.replayed, summary: g.summary }));
-  const stats = computeStats(statsGames, now);
+  const { ladder, ...rest } = computeStats(statsGames, now);
+  // Friends see only your current rating, never how far it moved (Dev Plan item 19zd, the 2.3.0 choice).
+  const { ratingTrend: _ratingTrend, ...sharedLadder } = ladder ?? {};
+  const stats: Stats = ladder ? { ...rest, ladder: sharedLadder as LadderStats } : rest;
   const featuredIds = new Set<string>();
   for (const mode of HISTORY_MODES) {
     const { best, bestRush, fastest } = stats.modes[mode];
