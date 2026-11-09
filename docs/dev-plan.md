@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 9 November 2026 (items 19zd and 19ze; 19y dropped). Before that, 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -14,10 +14,39 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
 shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
+- [ ] **19zf. Report this word** (issue
+  plangdon84/word-mastermind-archive#286; app only; a feature release,
+  2.5.0, ahead of 19zd, its notes OK'd by the owner before the first
+  commit)
+  - Issue 286: decided with the owner on 9 November 2026: a **Report this
+    word** button inside the ⓘ definition box (`DefinitionBox` in
+    `src/app/components.tsx`), whether or not the word has a definition,
+    so the guess grid gets no new control. It shows under every guess in
+    every mode, on both tabs (your guesses and the opponent's), and under
+    the secret word's definition on the result screen
+  - Issue 286: on the secret word step (two player vs. the computer and a
+    friend, `TwoPlayerScreen.tsx` and `friendParts.tsx`), a word chosen by
+    **Pick for me** gets an ⓘ beside it, opening its definition and Report
+    this word. A word the player typed gets neither. As elsewhere, the
+    definitions load only on the first tap
+  - Issue 286: decided with the owner: tapping it opens the existing Report
+    an issue form (`openReport`) set to the Words kind, with the word filled
+    in at the start of the description, so the player can add why and taps
+    Send. It's filed in the archive like any Words report (word-list
+    label). Nothing else happens to the word: it stays playable for
+    everyone until the owner reviews it and bans it in a later word-list
+    update (`wordlist/rules/`). The sent screen says it will be reviewed.
+    Updates README "Definitions" and "Reporting an issue", and the
+    tutorial only if it shows the definition box
+  - `ReportRequest` (`src/app/reportIssue.ts`) gains an optional starting
+    kind and description; each screen passes the same screen name and game
+    record as its ☰ Report an issue, so the form offers to include the game
+    as it does today. A unit test checks the form opens set to Words with
+    the word, and the browser tests' screen list covers the new ⓘ
 - [ ] **19zd. Stats: draws count half, and trend arrows on the Rated
   ladder** (issues plangdon84/word-mastermind-archive#283 and
   plangdon84/word-mastermind-archive#284; app only; a feature release,
-  2.5.0, its notes OK'd by the owner before the first commit)
+  2.6.0, after 19zf's 2.5.0, its notes OK'd by the owner before the first commit)
   - Issue 283: decided with the owner on 9 November 2026: every Win % counts
     a draw as half a win, (wins + ½ × draws) ÷ games × 100, rounded as
     today. That's every one: each mode card, the headline Win %, the
