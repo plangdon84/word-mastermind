@@ -23,7 +23,7 @@ import { saveFinishedGame } from './historyDb';
 import { useMessage, usePhysicalKeyboard } from './hooks';
 import { errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage, secretErrorMessage } from './messages';
 import { newId } from './ids';
-import { openReport } from './reportIssue';
+import { openReport, WordReportContext, type ReportRequest } from './reportIssue';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
 import type { Profile } from './profileStorage';
 import type { Settings } from './settings';
@@ -35,6 +35,7 @@ import {
 import { shuffleLetters } from './keyboard';
 import { ShareResult } from './ShareResult';
 import { twoPlayerShareText } from './shareText';
+import { PickedWordSlots } from './pickedWord';
 import { PlayOnChoice, PracticeEntry, PracticeLine, usePlayOn } from './playOn';
 
 /** How long the computer "thinks" before guessing, so its move is visible. */
@@ -104,6 +105,8 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
   const [strength, setStrength] = useState<Strength>(saved?.game.strength ?? settings.strength);
   const [nextDifficulty, setNextDifficulty] = useState<Difficulty>(saved?.game.playingDifficulty ?? settings.difficulty);
   const [draft, setDraftState] = useState(saved?.draft ?? '');
+  /** The word Pick for me last gave: it gets an ⓘ while it's the draft (Dev Plan item 19zf). */
+  const [picked, setPicked] = useState<string | null>(null);
   // Preact renders asynchronously, so fast typing can outrun it. Handlers read
   // and write these refs, which always hold the latest game and draft.
   const gameRef = useRef(game);
@@ -394,11 +397,16 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
         </p>
         <div class="setup-space" />
         <section class="entry">
-          <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} label="Your secret word" />
+          <PickedWordSlots draft={draft} picked={picked}
+            report={() => ({ screen: `Two player vs. computer (${STRENGTH_LABEL[strength]}) · choosing a secret word` })}>
+            <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} label="Your secret word" />
+          </PickedWordSlots>
           <div class={message?.error ? 'message error' : 'message'} role="status">{message?.quiet ? <span class="visually-hidden">{message.text}</span> : message?.text}</div>
           {/* Each drops focus after use, so a physical Enter submits instead of pressing it again. */}
           <button type="button" class="btn" onClick={(e) => {
-            setDraft(pickRandomSecret(SECRET_WORDS));
+            const word = pickRandomSecret(SECRET_WORDS);
+            setPicked(word);
+            setDraft(word);
             e.currentTarget.blur();
           }}>
             Pick for me
@@ -445,201 +453,205 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
   const difficultyChoice = over ? undefined : { onDifficulty: changeDifficulty, guessed: game.humanGuesses.length > 0 };
   const appClass = ['app', 'two', yourLastChance && !confirming ? 'last-chance' : ''].filter(Boolean).join(' ');
 
+  const reportRequest = (): ReportRequest => ({
+    screen: `Two player vs. computer (${STRENGTH_LABEL[game.strength]}) · ${DIFFICULTY_LABEL[difficulty]}`
+      + (reviewing ? ' · reviewing a past game' : ''),
+    record: toTwoPlayerRecord(game),
+  });
+
   return (
-    <div class={appClass}>
-      <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} review={reviewing ? review : null} suggested={game.suggested} opponent={`Computer · ${STRENGTH_LABEL[game.strength]}`}
-        difficulty={difficulty} difficultyChoice={difficultyChoice}
-        menu={(close) => (
-          <GameMenuItems close={close} onNewGame={requestNewGame}
-            difficulty={difficulty} {...difficultyChoice}
-            giveUpLabel={unstarted ? 'Cancel this game' : practising ? 'Show their word' : 'Give up'} canGiveUp={!over || practising}
-            onGiveUp={unstarted ? cancelGame : practising ? showWord : () => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
-            onReport={() => openReport({
-              screen: `Two player vs. computer (${STRENGTH_LABEL[game.strength]}) · ${DIFFICULTY_LABEL[difficulty]}`
-                + (reviewing ? ' · reviewing a past game' : ''),
-              record: toTwoPlayerRecord(game),
-            })}
-            checksLeft={practising ? undefined : checks.left}
-            onCheckMarks={medium && !over && !reviewing
-              ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(marks, game.humanGuesses)))
-              : medium && practising ? () => setMessage(marksCheckMessage(marksFitScores(playOn.marks, yourGuesses))) : undefined}
-            onClearMarks={medium && !over && !reviewing ? () => setMarks({}) : medium && practising ? () => playOn.setMarks({}) : undefined} />
-        )}>
-        {/* Row 3 follows the tab: your in-letters on yours, your word on the computer's. */}
-        <div class="row3" data-tab={tab}>
-          {shownMarks && (!over || practising) && <div class="for-you"><InSet marks={shownMarks} /></div>}
-          <div class="for-computer"><YourWord word={game.humanSecret} found={computerFoundYours} known={computerMarks} /></div>
+    <WordReportContext.Provider value={reportRequest}>
+      <div class={appClass}>
+        <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} review={reviewing ? review : null} suggested={game.suggested} opponent={`Computer · ${STRENGTH_LABEL[game.strength]}`}
+          difficulty={difficulty} difficultyChoice={difficultyChoice}
+          menu={(close) => (
+            <GameMenuItems close={close} onNewGame={requestNewGame}
+              difficulty={difficulty} {...difficultyChoice}
+              giveUpLabel={unstarted ? 'Cancel this game' : practising ? 'Show their word' : 'Give up'} canGiveUp={!over || practising}
+              onGiveUp={unstarted ? cancelGame : practising ? showWord : () => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
+              onReport={() => openReport(reportRequest())}
+              checksLeft={practising ? undefined : checks.left}
+              onCheckMarks={medium && !over && !reviewing
+                ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(marks, game.humanGuesses)))
+                : medium && practising ? () => setMessage(marksCheckMessage(marksFitScores(playOn.marks, yourGuesses))) : undefined}
+              onClearMarks={medium && !over && !reviewing ? () => setMarks({}) : medium && practising ? () => playOn.setMarks({}) : undefined} />
+          )}>
+          {/* Row 3 follows the tab: your in-letters on yours, your word on the computer's. */}
+          <div class="row3" data-tab={tab}>
+            {shownMarks && (!over || practising) && <div class="for-you"><InSet marks={shownMarks} /></div>}
+            <div class="for-computer"><YourWord word={game.humanSecret} found={computerFoundYours} known={computerMarks} /></div>
+          </div>
+        </GameHeader>
+
+        <div class="tabs" role="tablist" aria-label="Guesses">
+          <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}>
+            You ({game.humanGuesses.length})
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}>
+            Computer ({game.computerGuesses.length})
+            {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
+          </button>
         </div>
-      </GameHeader>
 
-      <div class="tabs" role="tablist" aria-label="Guesses">
-        <button type="button" role="tab" aria-selected={tab === 'you'} onClick={() => setTab('you')}>
-          You ({game.humanGuesses.length})
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'computer'} onClick={() => setTab('computer')}>
-          Computer ({game.computerGuesses.length})
-          {unseen && tab !== 'computer' && <span class="dot" aria-label="new guess" />}
-        </button>
-      </div>
-
-      <div class="boards" data-tab={tab}>
-        <section class="board you" aria-label="Your guesses">
-          <h2 class="board-title">Your guesses</h2>
-          {/* Extreme hides your words until the game is over. */}
-          {difficulty === 'extreme' && (!over || practising) ? (
-            <ScoreHistory guesses={yourGuesses} newestFirst={settings.newestFirst[difficulty]} />
-          ) : (
-            <History guesses={yourGuesses} newestFirst={settings.newestFirst[difficulty]} openDef={openYou}
-              marks={shownMarks} practiceFrom={playOn.guesses.length > 0 ? game.humanGuesses.length : undefined}
-              onMark={medium && !reviewing
-                ? (letter) => (playOn.practised ? playOn.setMarks(cycleMark(playOn.marks, letter)) : setMarks(cycleMark(marks, letter)))
-                : undefined}
-              onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} definitions={definitions} />
-          )}
-        </section>
-        <section class="board computer" aria-label="The computer's guesses">
-          <h2 class="board-title">Computer's guesses</h2>
-          <p class="board-note opponent-note">Marked as on Easy: the letters its scores prove in or out.</p>
-          <History guesses={game.computerGuesses} newestFirst={settings.newestFirst[difficulty]} openDef={openComputer}
-            label="The computer's guesses" emptyText="The computer hasn't guessed yet."
-            marks={computerMarks}
-            onToggleDef={(i) => setOpenComputer(openComputer === i ? -1 : i)} definitions={definitions} />
-        </section>
-      </div>
-
-      {!over && !confirming && (
-        <>
-          {yourLastChance ? (
-            <section class="banner danger" role="alert">
-              <strong>Last chance</strong>
-              <span>The computer found {upper(game.humanSecret)}. One guess to tie the game.</span>
-            </section>
-          ) : finalGuess ? (
-            <section class="banner hope" role="status">
-              <strong>You found {upper(game.computerSecret)}!</strong>
-              <span class="thinking">Waiting for the computer's final guess…</span>
-            </section>
-          ) : (
-            <div class="status-row">
-              {lastComputer && tab === 'you' && (
-                <span class="last-move">
-                  Computer guessed <b>{upper(lastComputer.guess)}</b> – {lastComputer.score}
-                </span>
-              )}
-              <span class={turn === 'human' ? 'turn yours' : 'turn thinking'} role="status">
-                {turn === 'human' ? 'Your turn' : 'Computer is thinking…'}
-              </span>
-            </div>
-          )}
-          {/* Nothing to type while the computer takes its final guess (issue #154). */}
-          {!(finalGuess && !yourLastChance) && (<>
-            <section class="entry">
-              <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)}
-                class={yourLastChance ? 'final' : ''} />
-              <div class={message?.error ? 'message error' : 'message'} role="status">
-                {message?.quiet ? <span class="visually-hidden">{message.text}</span> : message?.text}
-              </div>
-              {FEATURES.suggest && difficulty === 'easy' && !reviewing && (
-                <SuggestButton left={SUGGEST_LIMIT - game.suggested} onSuggest={suggest} />
-              )}
-            </section>
-            <Keyboard marks={shownMarks} ready={draft.length === 5 && turn === 'human'} onShuffle={shuffle} onLetter={typeLetter} onEnter={enter}
-              onBackspace={backspace} enterLabel={yourLastChance ? 'Final guess' : 'Enter'} />
-          </>)}
-        </>
-      )}
-
-      {practising && !confirming && (
-        <PracticeEntry draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message} marks={shownMarks}
-          onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} onShow={showWord} />
-      )}
-
-      {confirming === 'give-up' && !over && (
-        <section class="panel">
-          <h2>Give up? The computer wins.</h2>
-          <p>Then you can see its word, or keep guessing it for practice.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {confirming === 'new-game' && !over && (
-        <section class="panel">
-          <h2>Start a new game?</h2>
-          <p>This game will end, and you'll choose a new secret word.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={startNewGame}>New game</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {confirming === 'replace' && (
-        <ReplaceGamePanel what="a two-player game" onConfirm={startNewGame} onCancel={() => setConfirming(null)} />
-      )}
-
-      {over && outcome && !practising && confirming !== 'replace' && (
-        <ResultCard outcome={outcome} word={playOn.stage === 'choose' ? null : game.computerSecret} whose="The computer's word">
-          {outcome === 'clutch' && <Confetti />}
-          {outcome === 'clutch' ? (
-            <>
-              <p class="kicker">Clutch!</p>
-              <h2>You tied it on your last guess.</h2>
-              <p class="badge">Draw</p>
-            </>
-          ) : (
-            <h2>{{
-              'won': 'You win!',
-              'won-held': 'You win!',
-              'lost': 'The computer wins.',
-              'lost-final': 'So close. The computer wins.',
-              'tied': 'The computer tied it. Draw.',
-              'gave-up': 'You gave up. The computer wins.',
-            }[outcome]}</h2>
-          )}
-          <p>{{
-            'won': `You found its word in ${guessCount(game.humanGuesses.length)}, before it found yours.`,
-            'won-held': `You found its word in ${guessCount(game.humanGuesses.length)}, and its last guess, ${upper(lastComputer?.guess ?? '')}, missed.`,
-            'lost': `It found ${upper(game.humanSecret)} in ${guessCount(game.computerGuesses.length)}.`,
-            'lost-final': `It found ${upper(game.humanSecret)} in ${guessCount(game.computerGuesses.length)}, and your last guess missed.`,
-            'clutch': `The computer found ${upper(game.humanSecret)} first, and you matched it.`,
-            'tied': `You found its word first, and it matched you with its last guess.`,
-            'gave-up': `You made ${guessCount(game.humanGuesses.length)}; the computer made ${guessCount(game.computerGuesses.length)}.`,
-          }[outcome]}</p>
-          {playOn.stage === 'choose' ? (
-            <PlayOnChoice whose="the computer's word" onKeepGuessing={() => {
-              playOn.start();
-              setTab('you');
-              setMessage(null);
-            }} onShow={playOn.reveal} />
-          ) : (
-            <>
-              {!yourFoundTheirs && <p>The computer's word was</p>}
-              <TheirWord word={game.computerSecret}
-                motion={outcome === 'clutch' ? 'flip' : outcome.startsWith('won') || playOn.stage === 'found' ? 'pop' : undefined} />
-              <DefinitionBox word={game.computerSecret} state={definitions} />
-              <PracticeLine stage={playOn.stage} practice={playOn.guesses.length} game={game.humanGuesses.length} />
-            </>
-          )}
-          {/* Your count, where the line above didn't already give it. */}
-          {!['won', 'won-held', 'gave-up'].includes(outcome) && <p class="tally">You: {guessCount(game.humanGuesses.length)}</p>}
-          <SuggestNote found={yourFoundTheirs} guesses={game.humanGuesses.length} suggested={game.suggested} />
-          <BadgeToast badges={newBadges} onOpen={onProfile} />
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={playAgain}>Play again</button>
-            {(outcome === 'won' || outcome === 'won-held' || outcome === 'clutch' || outcome === 'tied') && !reviewing && (
-              <ShareResult text={twoPlayerShareText({
-                strength: game.strength, difficulty: game.scoredDifficulty, guesses: game.humanGuesses.length,
-                result: outcome === 'won-held' ? 'won' : outcome,
-              })} />
+        <div class="boards" data-tab={tab}>
+          <section class="board you" aria-label="Your guesses">
+            <h2 class="board-title">Your guesses</h2>
+            {/* Extreme hides your words until the game is over. */}
+            {difficulty === 'extreme' && (!over || practising) ? (
+              <ScoreHistory guesses={yourGuesses} newestFirst={settings.newestFirst[difficulty]} />
+            ) : (
+              <History guesses={yourGuesses} newestFirst={settings.newestFirst[difficulty]} openDef={openYou}
+                marks={shownMarks} practiceFrom={playOn.guesses.length > 0 ? game.humanGuesses.length : undefined}
+                onMark={medium && !reviewing
+                  ? (letter) => (playOn.practised ? playOn.setMarks(cycleMark(playOn.marks, letter)) : setMarks(cycleMark(marks, letter)))
+                  : undefined}
+                onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} definitions={definitions} />
             )}
-            <button class="btn" type="button" onClick={onExit}>Main menu</button>
-          </div>
-        </ResultCard>
-      )}
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
-    </div>
+          </section>
+          <section class="board computer" aria-label="The computer's guesses">
+            <h2 class="board-title">Computer's guesses</h2>
+            <p class="board-note opponent-note">Marked as on Easy: the letters its scores prove in or out.</p>
+            <History guesses={game.computerGuesses} newestFirst={settings.newestFirst[difficulty]} openDef={openComputer}
+              label="The computer's guesses" emptyText="The computer hasn't guessed yet."
+              marks={computerMarks}
+              onToggleDef={(i) => setOpenComputer(openComputer === i ? -1 : i)} definitions={definitions} />
+          </section>
+        </div>
+
+        {!over && !confirming && (
+          <>
+            {yourLastChance ? (
+              <section class="banner danger" role="alert">
+                <strong>Last chance</strong>
+                <span>The computer found {upper(game.humanSecret)}. One guess to tie the game.</span>
+              </section>
+            ) : finalGuess ? (
+              <section class="banner hope" role="status">
+                <strong>You found {upper(game.computerSecret)}!</strong>
+                <span class="thinking">Waiting for the computer's final guess…</span>
+              </section>
+            ) : (
+              <div class="status-row">
+                {lastComputer && tab === 'you' && (
+                  <span class="last-move">
+                    Computer guessed <b>{upper(lastComputer.guess)}</b> – {lastComputer.score}
+                  </span>
+                )}
+                <span class={turn === 'human' ? 'turn yours' : 'turn thinking'} role="status">
+                  {turn === 'human' ? 'Your turn' : 'Computer is thinking…'}
+                </span>
+              </div>
+            )}
+            {/* Nothing to type while the computer takes its final guess (issue #154). */}
+            {!(finalGuess && !yourLastChance) && (<>
+              <section class="entry">
+                <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)}
+                  class={yourLastChance ? 'final' : ''} />
+                <div class={message?.error ? 'message error' : 'message'} role="status">
+                  {message?.quiet ? <span class="visually-hidden">{message.text}</span> : message?.text}
+                </div>
+                {FEATURES.suggest && difficulty === 'easy' && !reviewing && (
+                  <SuggestButton left={SUGGEST_LIMIT - game.suggested} onSuggest={suggest} />
+                )}
+              </section>
+              <Keyboard marks={shownMarks} ready={draft.length === 5 && turn === 'human'} onShuffle={shuffle} onLetter={typeLetter} onEnter={enter}
+                onBackspace={backspace} enterLabel={yourLastChance ? 'Final guess' : 'Enter'} />
+            </>)}
+          </>
+        )}
+
+        {practising && !confirming && (
+          <PracticeEntry draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message} marks={shownMarks}
+            onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} onShow={showWord} />
+        )}
+
+        {confirming === 'give-up' && !over && (
+          <section class="panel">
+            <h2>Give up? The computer wins.</h2>
+            <p>Then you can see its word, or keep guessing it for practice.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {confirming === 'new-game' && !over && (
+          <section class="panel">
+            <h2>Start a new game?</h2>
+            <p>This game will end, and you'll choose a new secret word.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={startNewGame}>New game</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {confirming === 'replace' && (
+          <ReplaceGamePanel what="a two-player game" onConfirm={startNewGame} onCancel={() => setConfirming(null)} />
+        )}
+
+        {over && outcome && !practising && confirming !== 'replace' && (
+          <ResultCard outcome={outcome} word={playOn.stage === 'choose' ? null : game.computerSecret} whose="The computer's word">
+            {outcome === 'clutch' && <Confetti />}
+            {outcome === 'clutch' ? (
+              <>
+                <p class="kicker">Clutch!</p>
+                <h2>You tied it on your last guess.</h2>
+                <p class="badge">Draw</p>
+              </>
+            ) : (
+              <h2>{{
+                'won': 'You win!',
+                'won-held': 'You win!',
+                'lost': 'The computer wins.',
+                'lost-final': 'So close. The computer wins.',
+                'tied': 'The computer tied it. Draw.',
+                'gave-up': 'You gave up. The computer wins.',
+              }[outcome]}</h2>
+            )}
+            <p>{{
+              'won': `You found its word in ${guessCount(game.humanGuesses.length)}, before it found yours.`,
+              'won-held': `You found its word in ${guessCount(game.humanGuesses.length)}, and its last guess, ${upper(lastComputer?.guess ?? '')}, missed.`,
+              'lost': `It found ${upper(game.humanSecret)} in ${guessCount(game.computerGuesses.length)}.`,
+              'lost-final': `It found ${upper(game.humanSecret)} in ${guessCount(game.computerGuesses.length)}, and your last guess missed.`,
+              'clutch': `The computer found ${upper(game.humanSecret)} first, and you matched it.`,
+              'tied': `You found its word first, and it matched you with its last guess.`,
+              'gave-up': `You made ${guessCount(game.humanGuesses.length)}; the computer made ${guessCount(game.computerGuesses.length)}.`,
+            }[outcome]}</p>
+            {playOn.stage === 'choose' ? (
+              <PlayOnChoice whose="the computer's word" onKeepGuessing={() => {
+                playOn.start();
+                setTab('you');
+                setMessage(null);
+              }} onShow={playOn.reveal} />
+            ) : (
+              <>
+                {!yourFoundTheirs && <p>The computer's word was</p>}
+                <TheirWord word={game.computerSecret}
+                  motion={outcome === 'clutch' ? 'flip' : outcome.startsWith('won') || playOn.stage === 'found' ? 'pop' : undefined} />
+                <DefinitionBox word={game.computerSecret} state={definitions} />
+                <PracticeLine stage={playOn.stage} practice={playOn.guesses.length} game={game.humanGuesses.length} />
+              </>
+            )}
+            {/* Your count, where the line above didn't already give it. */}
+            {!['won', 'won-held', 'gave-up'].includes(outcome) && <p class="tally">You: {guessCount(game.humanGuesses.length)}</p>}
+            <SuggestNote found={yourFoundTheirs} guesses={game.humanGuesses.length} suggested={game.suggested} />
+            <BadgeToast badges={newBadges} onOpen={onProfile} />
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={playAgain}>Play again</button>
+              {(outcome === 'won' || outcome === 'won-held' || outcome === 'clutch' || outcome === 'tied') && !reviewing && (
+                <ShareResult text={twoPlayerShareText({
+                  strength: game.strength, difficulty: game.scoredDifficulty, guesses: game.humanGuesses.length,
+                  result: outcome === 'won-held' ? 'won' : outcome,
+                })} />
+              )}
+              <button class="btn" type="button" onClick={onExit}>Main menu</button>
+            </div>
+          </ResultCard>
+        )}
+        {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      </div>
+    </WordReportContext.Provider>
   );
 }

@@ -24,7 +24,7 @@ import { useDefinitions } from './definitions';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { countdownText, DAILY_NAME, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
-import { openReport } from './reportIssue';
+import { openReport, WordReportContext, type ReportRequest } from './reportIssue';
 import {
   formatClock, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords, someFound, spentSeconds,
   type RushWordRow,
@@ -473,6 +473,9 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   // Not while paused or asking to give up: the board stays hidden then.
   const found = set && showFound && !paused && !confirming && run !== null && someFound(run.words);
 
+  const reportRequest = (): ReportRequest => ({
+    screen: `${name} · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
+  });
   const header = (
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
       matchup={
@@ -486,9 +489,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
           difficultyNote={`Chosen for today's ${name}: it can't change.`}
           giveUpLabel={late ? `Give up this ${name}` : `Give up today's ${name}`} canGiveUp={playing}
           onGiveUp={() => setConfirming(true)} onExit={onExit} onHowToPlay={() => setHowTo(true)}
-          onReport={() => openReport({
-            screen: `${name} · ${today?.day ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}`,
-          })}
+          onReport={() => openReport(reportRequest())}
           onCheckMarks={medium && word && !paused
             ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
           checksLeft={checks.left}
@@ -543,173 +544,175 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   }
 
   return (
-    <div class="app">
-      {header}
+    <WordReportContext.Provider value={reportRequest}>
+      <div class="app">
+        {header}
 
-      {!run && (
-        <section class="panel">
-          {!set || today.theme ? (
-            <>
-              <h2>{set ? `Today: ${today.theme}` : "Today's word"}</h2>
-              <p>
-                {set ? "4 words on today's theme, once." : 'One secret word, the same for everyone, once.'} You'll play
-                at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which can't change once you start.{' '}
-                {set ? <><b>Pause</b> stops your clock and hides the board, twice a run.</>
-                  : <>Fewest guesses wins, and time breaks ties. <b>Pause</b> stops your clock and hides the board, twice.</>}
-                {' '}Next {next} in {nextSet}.
-              </p>
-              {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
-              <div class="row-btns">
-                <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start {name}</button>
-                <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
-                <button class="btn" type="button" onClick={onExit}>Main menu</button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2>No Daily Set today</h2>
-              <p>There's no themed set today. Try Solo Rush instead.</p>
-              <div class="row-btns"><button class="btn" type="button" onClick={onExit}>Main menu</button></div>
-            </>
-          )}
-          {message && <p class="message error" role="status">{message.text}</p>}
-        </section>
-      )}
-
-      {run && word && late && (
-        <p class="daily-note" role="status">
-          The day has changed. You can finish this {name}, but it won't go on the leaderboard.
-        </p>
-      )}
-      {word && dayEnding && <p class="daily-note warn" role="status">{dayEnding}</p>}
-
-      {/* While paused the board is hidden, so the pause can't be used to think. */}
-      {word && paused && (
-        <section class="panel">
-          <h2>Paused</h2>
-          <p>
-            Your clock is stopped, and your guesses are hidden until you resume.{' '}
-            {run.pausesLeft === 0 ? "That was your last pause." : `${run.pausesLeft} pause left.`}
-          </p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={() => void togglePause()}>Resume</button>
-          </div>
-          {message && <p class="message error" role="status">{message.text}</p>}
-        </section>
-      )}
-
-      {run && found && (
-        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-          playing={playing} onBack={() => setShowFound(false)} />
-      )}
-
-      {run && word && !paused && !found && (
-        <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
-          label={set ? `Your guesses at word ${run.current + 1}` : 'Your guesses'}
-          emptyText={!set
-            ? `${run.day === today.day ? "Today's" : "Yesterday's"} word: type a 5-letter word and press Enter.`
-            : run.current === 0
-              ? `${run.day === today.day ? "Today's" : "Yesterday's"} theme: ${today.runTheme}. Type a 5-letter word and press Enter.`
-              : `Word ${run.current + 1}: no guesses yet.`}
-          marks={shownMarks} onMark={medium ? markLetter : undefined}
-          openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
-          entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
-          suggested={word.suggested} onSuggest={() => void suggest()}
-          onShuffle={shuffle} onLetter={typeLetter} onEnter={() => void enter()} onBackspace={backspace} />
-      )}
-
-      {confirming && playing && (
-        <section class="panel warning">
-          {late ? (
-            <>
-              <h2>Give up this {name}?</h2>
-              <p>The day it was for is over, so it's not on the leaderboard either way.</p>
-            </>
-          ) : (
-            <>
-              <h2>Give up today's {name}?</h2>
-              <p>
-                <b>You won't be on today's leaderboard</b>, and you can't play again until the next {next}, in {nextSet}.
-                {set && ' Giving up one word gives up the whole Daily Set.'}
-              </p>
-            </>
-          )}
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up</button>
-            <button class="btn" type="button" onClick={() => setConfirming(false)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {run && !playing && !found && (
-        <section class="panel rush-result">
-          <h2>
-            {run.status === 'finished' ? (set ? `All 4 words in ${clock}.` : `Found in ${guessCount(totalGuesses)}, ${clock}.`)
-              : late ? `You gave up this ${name}.` : `You gave up today's ${name}.`}
-          </h2>
-          <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-            hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
-            rows={rows} />
-          {late ? (
-            <>
-              {run.status === 'finished' && <RushSummary tiers={[['Guesses', totalGuesses]]} />}
-              <p class="tally">
-                {run.status === 'finished'
-                  ? <>{guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}. You finished after the day changed, so this one isn't on the board.</>
-                  : `That day's leaderboard shows its ${set ? 'words' : 'word'}.`}
-                {' '}Today's {next} is out now.
-              </p>
-            </>
-          ) : run.status === 'finished' ? (
-            <>
-              {/* Your place on each board, a tap from that board (README "Daily Rush"). */}
-              <RushSummary tiers={[
-                ['Guesses', totalGuesses],
-                // Crush first, as the line below and the README put it. The Daily Word's one board is just "Place".
-                ...DAILY_BOARDS[mode].map((rankBy): [string, ComponentChildren] => [set ? `${rankByName(rankBy)} · ${rankByHow(rankBy)}` : 'Place', (
-                  <button type="button" class="link-btn" aria-label={set ? `Your ${rankByName(rankBy)} place: open that board` : 'Your place: open the board'}
-                    onClick={() => openBoard(rankBy)}>
-                    {placements[rankBy] ? ordinal(placements[rankBy]!.rank) : '…'} ›
-                  </button>
-                )]),
-              ]} />
-              <p class="tally">
-                {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
-                {placed.length > 0 && (
-                  <>
-                    {placed.map((rankBy) => `${placeText(placements[rankBy]!)}${set ? ` ${BOARD_HOW[rankBy]}` : ''}`).join(', and ')}
-                    {' '}on today's {DIFFICULTY_LABEL[run.difficulty]} {set ? 'boards' : 'board'}.{' '}
-                  </>
-                )}
-                Places are final at midnight New York time. Next {next} in {nextSet}.
-              </p>
-              <GuestNamePrompt profile={profile} onProfile={onRename} />
-            </>
-          ) : (
-            <p class="tally">
-              No place on today's leaderboard. {set ? "The words you didn't find stay" : 'The word stays'} hidden until the day is over.
-              Next {next} in {nextSet}.
-            </p>
-          )}
-          <BadgeToast badges={newBadges} onOpen={onProfile} />
-          <div class="row-btns">
-            {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's {name}</button>}
-            <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
-            {run.status === 'finished' && !late && (
-              <ShareResult text={dailyShareText({
-                mode,
-                day: run.day,
-                difficulty: run.difficulty,
-                words: run.words.map((w) => ({ guesses: w.guesses.length, found: w.outcome === 'solved' })),
-                place: placements.crush ? placeText(placements.crush) : null,
-              })} />
+        {!run && (
+          <section class="panel">
+            {!set || today.theme ? (
+              <>
+                <h2>{set ? `Today: ${today.theme}` : "Today's word"}</h2>
+                <p>
+                  {set ? "4 words on today's theme, once." : 'One secret word, the same for everyone, once.'} You'll play
+                  at <b>{DIFFICULTY_LABEL[settings.difficulty]}</b>, which can't change once you start.{' '}
+                  {set ? <><b>Pause</b> stops your clock and hides the board, twice a run.</>
+                    : <>Fewest guesses wins, and time breaks ties. <b>Pause</b> stops your clock and hides the board, twice.</>}
+                  {' '}Next {next} in {nextSet}.
+                </p>
+                {dayEndingStart && <p class="daily-note warn" role="status"><b>{dayEndingStart}</b></p>}
+                <div class="row-btns">
+                  <button class="btn primary" type="button" disabled={starting} onClick={startRun}>Start {name}</button>
+                  <button class="btn" type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
+                  <button class="btn" type="button" onClick={onExit}>Main menu</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2>No Daily Set today</h2>
+                <p>There's no themed set today. Try Solo Rush instead.</p>
+                <div class="row-btns"><button class="btn" type="button" onClick={onExit}>Main menu</button></div>
+              </>
             )}
-            <button class="btn" type="button" onClick={onExit}>Main menu</button>
-          </div>
-        </section>
-      )}
+            {message && <p class="message error" role="status">{message.text}</p>}
+          </section>
+        )}
 
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
-    </div>
+        {run && word && late && (
+          <p class="daily-note" role="status">
+            The day has changed. You can finish this {name}, but it won't go on the leaderboard.
+          </p>
+        )}
+        {word && dayEnding && <p class="daily-note warn" role="status">{dayEnding}</p>}
+
+        {/* While paused the board is hidden, so the pause can't be used to think. */}
+        {word && paused && (
+          <section class="panel">
+            <h2>Paused</h2>
+            <p>
+              Your clock is stopped, and your guesses are hidden until you resume.{' '}
+              {run.pausesLeft === 0 ? "That was your last pause." : `${run.pausesLeft} pause left.`}
+            </p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={() => void togglePause()}>Resume</button>
+            </div>
+            {message && <p class="message error" role="status">{message.text}</p>}
+          </section>
+        )}
+
+        {run && found && (
+          <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+            playing={playing} onBack={() => setShowFound(false)} />
+        )}
+
+        {run && word && !paused && !found && (
+          <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
+            label={set ? `Your guesses at word ${run.current + 1}` : 'Your guesses'}
+            emptyText={!set
+              ? `${run.day === today.day ? "Today's" : "Yesterday's"} word: type a 5-letter word and press Enter.`
+              : run.current === 0
+                ? `${run.day === today.day ? "Today's" : "Yesterday's"} theme: ${today.runTheme}. Type a 5-letter word and press Enter.`
+                : `Word ${run.current + 1}: no guesses yet.`}
+            marks={shownMarks} onMark={medium ? markLetter : undefined}
+            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
+            entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
+            suggested={word.suggested} onSuggest={() => void suggest()}
+            onShuffle={shuffle} onLetter={typeLetter} onEnter={() => void enter()} onBackspace={backspace} />
+        )}
+
+        {confirming && playing && (
+          <section class="panel warning">
+            {late ? (
+              <>
+                <h2>Give up this {name}?</h2>
+                <p>The day it was for is over, so it's not on the leaderboard either way.</p>
+              </>
+            ) : (
+              <>
+                <h2>Give up today's {name}?</h2>
+                <p>
+                  <b>You won't be on today's leaderboard</b>, and you can't play again until the next {next}, in {nextSet}.
+                  {set && ' Giving up one word gives up the whole Daily Set.'}
+                </p>
+              </>
+            )}
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up</button>
+              <button class="btn" type="button" onClick={() => setConfirming(false)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {run && !playing && !found && (
+          <section class="panel rush-result">
+            <h2>
+              {run.status === 'finished' ? (set ? `All 4 words in ${clock}.` : `Found in ${guessCount(totalGuesses)}, ${clock}.`)
+                : late ? `You gave up this ${name}.` : `You gave up today's ${name}.`}
+            </h2>
+            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+              hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
+              rows={rows} />
+            {late ? (
+              <>
+                {run.status === 'finished' && <RushSummary tiers={[['Guesses', totalGuesses]]} />}
+                <p class="tally">
+                  {run.status === 'finished'
+                    ? <>{guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}. You finished after the day changed, so this one isn't on the board.</>
+                    : `That day's leaderboard shows its ${set ? 'words' : 'word'}.`}
+                  {' '}Today's {next} is out now.
+                </p>
+              </>
+            ) : run.status === 'finished' ? (
+              <>
+                {/* Your place on each board, a tap from that board (README "Daily Rush"). */}
+                <RushSummary tiers={[
+                  ['Guesses', totalGuesses],
+                  // Crush first, as the line below and the README put it. The Daily Word's one board is just "Place".
+                  ...DAILY_BOARDS[mode].map((rankBy): [string, ComponentChildren] => [set ? `${rankByName(rankBy)} · ${rankByHow(rankBy)}` : 'Place', (
+                    <button type="button" class="link-btn" aria-label={set ? `Your ${rankByName(rankBy)} place: open that board` : 'Your place: open the board'}
+                      onClick={() => openBoard(rankBy)}>
+                      {placements[rankBy] ? ordinal(placements[rankBy]!.rank) : '…'} ›
+                    </button>
+                  )]),
+                ]} />
+                <p class="tally">
+                  {guessCount(totalGuesses)} in {clock} on {DIFFICULTY_LABEL[run.difficulty]}.{' '}
+                  {placed.length > 0 && (
+                    <>
+                      {placed.map((rankBy) => `${placeText(placements[rankBy]!)}${set ? ` ${BOARD_HOW[rankBy]}` : ''}`).join(', and ')}
+                      {' '}on today's {DIFFICULTY_LABEL[run.difficulty]} {set ? 'boards' : 'board'}.{' '}
+                    </>
+                  )}
+                  Places are final at midnight New York time. Next {next} in {nextSet}.
+                </p>
+                <GuestNamePrompt profile={profile} onProfile={onRename} />
+              </>
+            ) : (
+              <p class="tally">
+                No place on today's leaderboard. {set ? "The words you didn't find stay" : 'The word stays'} hidden until the day is over.
+                Next {next} in {nextSet}.
+              </p>
+            )}
+            <BadgeToast badges={newBadges} onOpen={onProfile} />
+            <div class="row-btns">
+              {late && <button class="btn primary" type="button" onClick={() => load(false)}>Today's {name}</button>}
+              <button class={late ? 'btn' : 'btn primary'} type="button" onClick={() => setShowBoard(true)}>Leaderboard</button>
+              {run.status === 'finished' && !late && (
+                <ShareResult text={dailyShareText({
+                  mode,
+                  day: run.day,
+                  difficulty: run.difficulty,
+                  words: run.words.map((w) => ({ guesses: w.guesses.length, found: w.outcome === 'solved' })),
+                  place: placements.crush ? placeText(placements.crush) : null,
+                })} />
+              )}
+              <button class="btn" type="button" onClick={onExit}>Main menu</button>
+            </div>
+          </section>
+        )}
+
+        {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      </div>
+    </WordReportContext.Provider>
   );
 }

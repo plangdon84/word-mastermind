@@ -25,7 +25,7 @@ import { saveFinishedGame } from './historyDb';
 import { useMessage, usePhysicalKeyboard } from './hooks';
 import { errorMessage, guessCount, marksCheckMessage, repeatMessage, RUSH_NO_SUGGESTIONS, scoreMessage } from './messages';
 import { newId } from './ids';
-import { openReport } from './reportIssue';
+import { openReport, WordReportContext, type ReportRequest } from './reportIssue';
 import { loadRush, onOtherTabRushSave, rushSavedSince, saveRush, serializeRushSaved, type RushSaved } from './rushStorage';
 import { sameRecord } from './tabSync';
 import type { Profile } from './profileStorage';
@@ -409,183 +409,187 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   // Not while paused: the board stays hidden then.
   const found = showFound && !paused && confirming === null && someFound(run.results);
 
+  const reportRequest = (): ReportRequest => ({
+    screen: `${name} · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
+    record: toRunRecord(runRef.current),
+  });
+
   return (
-    <div class="app">
-      <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty} difficultyChoice={difficultyChoice}
-        review={reviewing ? review : null} suggested={run.results.reduce((n, r) => n + r.suggested, 0)}
-        matchup={
-          <span>
-            <b>{review?.heading ?? name}</b>
-            {!over && <> · Word {run.current + 1} of {run.words.length}</>}
-          </span>
-        }
-        menu={(close) => (
-          <GameMenuItems close={close} onNewGame={requestNewRun}
-            difficulty={difficulty} {...difficultyChoice}
-            difficultyNote={over ? undefined
-              : `Scored at the easiest difficulty used: ${DIFFICULTY_LABEL[run.scoredDifficulty]} so far.`}
-            moveOnLabel="Give up this word and move on" onMoveOn={over ? undefined : () => setConfirming('move-on')}
-            giveUpLabel="Give up and reveal the words" canGiveUp={!over}
-            onGiveUp={() => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
-            onReport={() => openReport({
-              screen: `${name} · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
-              record: toRunRecord(runRef.current),
-            })}
-            onCheckMarks={medium && !over && !paused
-              ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
-            checksLeft={checks.left}
-            onClearMarks={medium && !over && !paused
-              ? () => setMarks(marks.map((m, i) => (i === run.current ? {} : m))) : undefined} />
-        )}>
-        {/* A word left when the Rush was given up stays an empty dot. */}
-        <RushBar clock={clock} clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}
-          dots={<RushDots words={run.results.map((r) => ({ outcome: r.outcome === 'unsolved' ? null : r.outcome }))}
-            current={run.current} />}
-          found={someFound(run.results) && (
-            <FoundButton open={found} disabled={paused || !!confirming} onToggle={() => setShowFound(!showFound)} />
+    <WordReportContext.Provider value={reportRequest}>
+      <div class="app">
+        <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty} difficultyChoice={difficultyChoice}
+          review={reviewing ? review : null} suggested={run.results.reduce((n, r) => n + r.suggested, 0)}
+          matchup={
+            <span>
+              <b>{review?.heading ?? name}</b>
+              {!over && <> · Word {run.current + 1} of {run.words.length}</>}
+            </span>
+          }
+          menu={(close) => (
+            <GameMenuItems close={close} onNewGame={requestNewRun}
+              difficulty={difficulty} {...difficultyChoice}
+              difficultyNote={over ? undefined
+                : `Scored at the easiest difficulty used: ${DIFFICULTY_LABEL[run.scoredDifficulty]} so far.`}
+              moveOnLabel="Give up this word and move on" onMoveOn={over ? undefined : () => setConfirming('move-on')}
+              giveUpLabel="Give up and reveal the words" canGiveUp={!over}
+              onGiveUp={() => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
+              onReport={() => openReport(reportRequest())}
+              onCheckMarks={medium && !over && !paused
+                ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
+              checksLeft={checks.left}
+              onClearMarks={medium && !over && !paused
+                ? () => setMarks(marks.map((m, i) => (i === run.current ? {} : m))) : undefined} />
           )}>
-          {!over && (
-            <button type="button" class="btn small" disabled={!!confirming}
-              onClick={() => (paused ? resumeClock() : pause(false))}>
-              {paused ? 'Resume' : 'Pause'}
-            </button>
-          )}
-        </RushBar>
-        {shownMarks && !over && !paused && <InSet marks={shownMarks} />}
-      </GameHeader>
-
-
-      {/* While paused the board is hidden, so the pause can't be used to think. */}
-      {!over && paused && (
-        <section class="panel">
-          <h2>Paused</h2>
-          <p>The clock stops while you're away. Your guesses are hidden until you resume.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={resumeClock}>Resume</button>
-          </div>
-        </section>
-      )}
-
-      {found && (
-        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-          playing={!over} onBack={() => setShowFound(false)} />
-      )}
-
-      {!over && !paused && !found && (
-        <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
-          label={`Your guesses at word ${run.current + 1}`}
-          emptyText={run.current === 0
-            ? 'No guesses yet. Type a 5-letter word and press Enter.'
-            : `Word ${run.current + 1}: no guesses yet.`}
-          marks={shownMarks} onMark={medium ? markLetter : undefined}
-          openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
-          entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
-          suggested={word.suggested} onSuggest={reviewing ? undefined : suggest}
-          onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} />
-      )}
-
-      {confirming === 'move-on' && !over && (
-        <section class="panel warning">
-          <h2>Give up this word and move on?</h2>
-          <p>
-            <b>This will hurt your score.</b> The word counts as your worst word found in this {rankByName(rankBy)}
-            plus {PENALTY_GUESSES} guesses{rankBy === 'rush' && <> and {PENALTY_SECONDS / 60} minutes</>}, and at least
-            the guesses and time you've spent on it. The clock keeps running.
-          </p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmMoveOn}>Give up this word</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {confirming === 'give-up' && !over && (
-        <section class="panel">
-          <h2>End this {rankByName(rankBy)} and reveal the words?</h2>
-          <p>A {rankByName(rankBy)} you give up doesn't get a score.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmGiveUp}>Reveal the words</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {confirming === 'new-game' && !over && (
-        <section class="panel">
-          <h2>Start a new {rankByName(rankBy)}?</h2>
-          <p>This one will end without revealing the words.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={startNewRun}>New {rankByName(rankBy)}</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
-
-      {confirming === 'replace' && (
-        <ReplaceGamePanel what={`a ${rankByName(rankBy)}`} onConfirm={startNewRun} onCancel={() => setConfirming(null)} />
-      )}
-
-      {over && confirming !== 'replace' && !found && (
-        <section class="panel rush-result">
-          <h2>
-            {ended ? 'The words were'
-              : givenUp === 0 ? `All ${run.words.length} words in ${clock}.`
-                : `${rankByName(rankBy)} done in ${clock}.`}
-          </h2>
-          <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions} rows={rows} />
-          {review?.heading ? review.result : summary && (
-            <RushSummary tiers={[
-              ['Score', rankBy === 'rush' ? rushScoreText(summary.score) : summary.score.toFixed(1)],
-              ['Your level', STRENGTH_LABEL[summary.level]],
-            ]} />
-          )}
-          {review?.heading ? null : summary && rankBy === 'rush' ? (
-            <p class="tally">
-              {/* A Rush is scored by time: the average a word, × the difficulty factor where it isn't 1. */}
-              {summary.factor !== 1 && <>
-                {formatClockUp(summary.average.seconds)} a word × {summary.factor}{' '}
-                ({DIFFICULTY_LABEL[summary.difficulty]}) = {rushScoreText(summary.score)}.{' '}
-              </>}
-              Faster is better.{' '}
-              {guessCount(summary.words.reduce((sum, w) => sum + w.guesses, 0))} in {formatClock(summary.totalSeconds)}
-              {summary.factor === 1 && <> · {formatClockUp(summary.average.seconds)} and {summary.average.guesses.toFixed(1)} guesses a word</>}
-              {summary.factor !== 1 && <> · {summary.average.guesses.toFixed(1)} guesses a word</>}
-              {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
-            </p>
-          ) : review?.heading ? null : summary ? (
-            <p class="tally">
-              {/* The sum only where the difficulty changes the number: at Medium the score is the average. */}
-              {summary.factor !== 1 && <>
-                {summary.average.guesses.toFixed(1)} guesses a word × {summary.factor}{' '}
-                ({DIFFICULTY_LABEL[summary.difficulty]}) = {summary.score.toFixed(1)}.{' '}
-              </>}
-              Lower is better.{' '}
-              {guessCount(summary.words.reduce((sum, w) => sum + w.guesses, 0))} in {formatClock(summary.totalSeconds)}
-              {summary.factor === 1 && <> · {summary.average.guesses.toFixed(1)} guesses and {formatClock(summary.average.seconds)} a word</>}
-              {summary.factor !== 1 && <> · {formatClock(summary.average.seconds)} a word</>}
-              {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
-            </p>
-          ) : (
-            <p class="tally">{ended ? `No score: this ${rankByName(rankBy)} was given up.` : 'No score: no words were found.'}</p>
-          )}
-          <BadgeToast badges={newBadges} onOpen={onProfile} />
-          <div class="row-btns">
-            {!review?.heading && <button class="btn primary" type="button" onClick={playAgain}>Play again</button>}
-            {!reviewing && summary && (
-              <ShareResult text={soloRushShareText({
-                difficulty: summary.difficulty,
-                rankBy,
-                words: run.results.map((r) => ({ guesses: r.guesses.length, found: r.outcome === 'solved' })),
-                score: summary.score,
-                level: summary.level,
-              })} />
+          {/* A word left when the Rush was given up stays an empty dot. */}
+          <RushBar clock={clock} clockLabel={paused ? `Time, paused: ${clock}` : 'Time'} paused={paused}
+            dots={<RushDots words={run.results.map((r) => ({ outcome: r.outcome === 'unsolved' ? null : r.outcome }))}
+              current={run.current} />}
+            found={someFound(run.results) && (
+              <FoundButton open={found} disabled={paused || !!confirming} onToggle={() => setShowFound(!showFound)} />
+            )}>
+            {!over && (
+              <button type="button" class="btn small" disabled={!!confirming}
+                onClick={() => (paused ? resumeClock() : pause(false))}>
+                {paused ? 'Resume' : 'Pause'}
+              </button>
             )}
-            <button class="btn" type="button" onClick={onExit}>Main menu</button>
-          </div>
-        </section>
-      )}
+          </RushBar>
+          {shownMarks && !over && !paused && <InSet marks={shownMarks} />}
+        </GameHeader>
 
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
-    </div>
+
+        {/* While paused the board is hidden, so the pause can't be used to think. */}
+        {!over && paused && (
+          <section class="panel">
+            <h2>Paused</h2>
+            <p>The clock stops while you're away. Your guesses are hidden until you resume.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={resumeClock}>Resume</button>
+            </div>
+          </section>
+        )}
+
+        {found && (
+          <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+            playing={!over} onBack={() => setShowFound(false)} />
+        )}
+
+        {!over && !paused && !found && (
+          <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
+            label={`Your guesses at word ${run.current + 1}`}
+            emptyText={run.current === 0
+              ? 'No guesses yet. Type a 5-letter word and press Enter.'
+              : `Word ${run.current + 1}: no guesses yet.`}
+            marks={shownMarks} onMark={medium ? markLetter : undefined}
+            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
+            entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
+            suggested={word.suggested} onSuggest={reviewing ? undefined : suggest}
+            onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} />
+        )}
+
+        {confirming === 'move-on' && !over && (
+          <section class="panel warning">
+            <h2>Give up this word and move on?</h2>
+            <p>
+              <b>This will hurt your score.</b> The word counts as your worst word found in this {rankByName(rankBy)}
+              plus {PENALTY_GUESSES} guesses{rankBy === 'rush' && <> and {PENALTY_SECONDS / 60} minutes</>}, and at least
+              the guesses and time you've spent on it. The clock keeps running.
+            </p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmMoveOn}>Give up this word</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {confirming === 'give-up' && !over && (
+          <section class="panel">
+            <h2>End this {rankByName(rankBy)} and reveal the words?</h2>
+            <p>A {rankByName(rankBy)} you give up doesn't get a score.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmGiveUp}>Reveal the words</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {confirming === 'new-game' && !over && (
+          <section class="panel">
+            <h2>Start a new {rankByName(rankBy)}?</h2>
+            <p>This one will end without revealing the words.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={startNewRun}>New {rankByName(rankBy)}</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
+
+        {confirming === 'replace' && (
+          <ReplaceGamePanel what={`a ${rankByName(rankBy)}`} onConfirm={startNewRun} onCancel={() => setConfirming(null)} />
+        )}
+
+        {over && confirming !== 'replace' && !found && (
+          <section class="panel rush-result">
+            <h2>
+              {ended ? 'The words were'
+                : givenUp === 0 ? `All ${run.words.length} words in ${clock}.`
+                  : `${rankByName(rankBy)} done in ${clock}.`}
+            </h2>
+            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions} rows={rows} />
+            {review?.heading ? review.result : summary && (
+              <RushSummary tiers={[
+                ['Score', rankBy === 'rush' ? rushScoreText(summary.score) : summary.score.toFixed(1)],
+                ['Your level', STRENGTH_LABEL[summary.level]],
+              ]} />
+            )}
+            {review?.heading ? null : summary && rankBy === 'rush' ? (
+              <p class="tally">
+                {/* A Rush is scored by time: the average a word, × the difficulty factor where it isn't 1. */}
+                {summary.factor !== 1 && <>
+                  {formatClockUp(summary.average.seconds)} a word × {summary.factor}{' '}
+                  ({DIFFICULTY_LABEL[summary.difficulty]}) = {rushScoreText(summary.score)}.{' '}
+                </>}
+                Faster is better.{' '}
+                {guessCount(summary.words.reduce((sum, w) => sum + w.guesses, 0))} in {formatClock(summary.totalSeconds)}
+                {summary.factor === 1 && <> · {formatClockUp(summary.average.seconds)} and {summary.average.guesses.toFixed(1)} guesses a word</>}
+                {summary.factor !== 1 && <> · {summary.average.guesses.toFixed(1)} guesses a word</>}
+                {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
+              </p>
+            ) : review?.heading ? null : summary ? (
+              <p class="tally">
+                {/* The sum only where the difficulty changes the number: at Medium the score is the average. */}
+                {summary.factor !== 1 && <>
+                  {summary.average.guesses.toFixed(1)} guesses a word × {summary.factor}{' '}
+                  ({DIFFICULTY_LABEL[summary.difficulty]}) = {summary.score.toFixed(1)}.{' '}
+                </>}
+                Lower is better.{' '}
+                {guessCount(summary.words.reduce((sum, w) => sum + w.guesses, 0))} in {formatClock(summary.totalSeconds)}
+                {summary.factor === 1 && <> · {summary.average.guesses.toFixed(1)} guesses and {formatClock(summary.average.seconds)} a word</>}
+                {summary.factor !== 1 && <> · {formatClock(summary.average.seconds)} a word</>}
+                {givenUp > 0 && <>, including a penalty for {givenUp === 1 ? 'the word' : `${givenUp} words`} given up</>}.
+              </p>
+            ) : (
+              <p class="tally">{ended ? `No score: this ${rankByName(rankBy)} was given up.` : 'No score: no words were found.'}</p>
+            )}
+            <BadgeToast badges={newBadges} onOpen={onProfile} />
+            <div class="row-btns">
+              {!review?.heading && <button class="btn primary" type="button" onClick={playAgain}>Play again</button>}
+              {!reviewing && summary && (
+                <ShareResult text={soloRushShareText({
+                  difficulty: summary.difficulty,
+                  rankBy,
+                  words: run.results.map((r) => ({ guesses: r.guesses.length, found: r.outcome === 'solved' })),
+                  score: summary.score,
+                  level: summary.level,
+                })} />
+              )}
+              <button class="btn" type="button" onClick={onExit}>Main menu</button>
+            </div>
+          </section>
+        )}
+
+        {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      </div>
+    </WordReportContext.Provider>
   );
 }

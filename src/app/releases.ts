@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.5.0',
+    notes: [
+      { text: "You can report a word you think shouldn't be in the game: tap ⓘ beside it and then Report this word." },
+    ],
+  },
+  {
     version: '2.4.1',
     notes: [
       { text: 'Game history now lists games in the order they finished, so rated games show your rating changes in order.' },

@@ -20,7 +20,7 @@ import { errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessag
 import type { Profile } from './profileStorage';
 import type { Settings } from './settings';
 import { newId } from './ids';
-import { openReport } from './reportIssue';
+import { openReport, WordReportContext, type ReportRequest } from './reportIssue';
 import { clearSaved, loadSaved, onOtherTabSave, save, savedSince, type Saved } from './storage';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { shuffleLetters } from './keyboard';
@@ -235,94 +235,98 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
     onExit();
   };
 
+  const reportRequest = (): ReportRequest => ({
+    screen: `Practice · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
+    record: toSoloRecord(gameRef.current),
+  });
+
   return (
-    <div class="app">
-      <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} opponent="Computer" difficulty={difficulty}
-        difficultyChoice={difficultyChoice}
-        review={reviewing ? review : null} suggested={game.suggested}
-        menu={(close) => (
-          <GameMenuItems close={close} onNewGame={requestNewGame}
-            difficulty={difficulty} {...difficultyChoice}
-            giveUpLabel={unstarted ? 'Cancel this game' : 'Give up and reveal the word'} canGiveUp={!over}
-            onGiveUp={unstarted ? cancelGame : () => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
-            onReport={() => openReport({
-              screen: `Practice · ${DIFFICULTY_LABEL[difficulty]}${reviewing ? ' · reviewing a past game' : ''}`,
-              record: toSoloRecord(gameRef.current),
-            })}
-            onCheckMarks={medium && !over && !reviewing
-              ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(marks, game.guesses))) : undefined}
-            checksLeft={checks.left}
-            onClearMarks={medium && !over && !reviewing ? () => setMarks({}) : undefined} />
-        )}>
-        {shownMarks && !over && <InSet marks={shownMarks} />}
-      </GameHeader>
+    <WordReportContext.Provider value={reportRequest}>
+      <div class="app">
+        <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} opponent="Computer" difficulty={difficulty}
+          difficultyChoice={difficultyChoice}
+          review={reviewing ? review : null} suggested={game.suggested}
+          menu={(close) => (
+            <GameMenuItems close={close} onNewGame={requestNewGame}
+              difficulty={difficulty} {...difficultyChoice}
+              giveUpLabel={unstarted ? 'Cancel this game' : 'Give up and reveal the word'} canGiveUp={!over}
+              onGiveUp={unstarted ? cancelGame : () => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
+              onReport={() => openReport(reportRequest())}
+              onCheckMarks={medium && !over && !reviewing
+                ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(marks, game.guesses))) : undefined}
+              checksLeft={checks.left}
+              onClearMarks={medium && !over && !reviewing ? () => setMarks({}) : undefined} />
+          )}>
+          {shownMarks && !over && <InSet marks={shownMarks} />}
+        </GameHeader>
 
-      {/* Extreme hides your words until the game is over. */}
-      {difficulty === 'extreme' && !over ? (
-        <ScoreHistory guesses={game.guesses} newestFirst={settings.newestFirst[difficulty]} />
-      ) : (
-        <History guesses={game.guesses} newestFirst={settings.newestFirst[difficulty]} openDef={openDef}
-          marks={shownMarks}
-          onMark={medium && !reviewing ? (letter) => setMarks(cycleMark(marks, letter)) : undefined}
-          onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions} />
-      )}
+        {/* Extreme hides your words until the game is over. */}
+        {difficulty === 'extreme' && !over ? (
+          <ScoreHistory guesses={game.guesses} newestFirst={settings.newestFirst[difficulty]} />
+        ) : (
+          <History guesses={game.guesses} newestFirst={settings.newestFirst[difficulty]} openDef={openDef}
+            marks={shownMarks}
+            onMark={medium && !reviewing ? (letter) => setMarks(cycleMark(marks, letter)) : undefined}
+            onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions} />
+        )}
 
-      {!over && !confirming && (
-        <>
-          <section class="entry">
-            <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} />
-            <div class={message?.error ? 'message error' : 'message'} role="status">
-              {message?.quiet ? <span class="visually-hidden">{message.text}</span> : message?.text}
+        {!over && !confirming && (
+          <>
+            <section class="entry">
+              <Slots draft={draft} shake={shake} onShakeEnd={() => setShake(false)} />
+              <div class={message?.error ? 'message error' : 'message'} role="status">
+                {message?.quiet ? <span class="visually-hidden">{message.text}</span> : message?.text}
+              </div>
+              {canSuggest && <SuggestButton left={SUGGEST_LIMIT - game.suggested} onSuggest={suggest} />}
+            </section>
+            <Keyboard marks={shownMarks} ready={draft.length === 5} onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} />
+          </>
+        )}
+
+        {confirming === 'give-up' && !over && (
+          <section class="panel">
+            <h2>Reveal the word and end this game?</h2>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmGiveUp}>Reveal the word</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
             </div>
-            {canSuggest && <SuggestButton left={SUGGEST_LIMIT - game.suggested} onSuggest={suggest} />}
           </section>
-          <Keyboard marks={shownMarks} ready={draft.length === 5} onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} />
-        </>
-      )}
+        )}
 
-      {confirming === 'give-up' && !over && (
-        <section class="panel">
-          <h2>Reveal the word and end this game?</h2>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmGiveUp}>Reveal the word</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
+        {confirming === 'new-game' && !over && (
+          <section class="panel">
+            <h2>Start a new game?</h2>
+            <p>This game will end without revealing the word.</p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={startNewGame}>New game</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
 
-      {confirming === 'new-game' && !over && (
-        <section class="panel">
-          <h2>Start a new game?</h2>
-          <p>This game will end without revealing the word.</p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={startNewGame}>New game</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
+        {confirming === 'replace' && (
+          <ReplaceGamePanel what="a single-player game" onConfirm={startNewGame} onCancel={() => setConfirming(null)} />
+        )}
 
-      {confirming === 'replace' && (
-        <ReplaceGamePanel what="a single-player game" onConfirm={startNewGame} onCancel={() => setConfirming(null)} />
-      )}
+        {over && confirming !== 'replace' && (
+          <section class="panel">
+            <h2>{game.status === 'won' ? `You found it in ${guesses}.` : 'The word was'}</h2>
+            <div class="letters reveal">
+              {[...game.secret].map((c, i) => <Bubble key={i} letter={c} mark="in" />)}
+            </div>
+            <DefinitionBox word={game.secret} state={definitions} />
+            {game.status === 'gave-up' && <p>You made {guesses}.</p>}
+            <SuggestNote found={game.status === 'won'} guesses={game.guesses.length} suggested={game.suggested} />
+            <BadgeToast badges={newBadges} onOpen={onProfile} />
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={playAgain}>Play again</button>
+              <button class="btn" type="button" onClick={onExit}>Main menu</button>
+            </div>
+          </section>
+        )}
 
-      {over && confirming !== 'replace' && (
-        <section class="panel">
-          <h2>{game.status === 'won' ? `You found it in ${guesses}.` : 'The word was'}</h2>
-          <div class="letters reveal">
-            {[...game.secret].map((c, i) => <Bubble key={i} letter={c} mark="in" />)}
-          </div>
-          <DefinitionBox word={game.secret} state={definitions} />
-          {game.status === 'gave-up' && <p>You made {guesses}.</p>}
-          <SuggestNote found={game.status === 'won'} guesses={game.guesses.length} suggested={game.suggested} />
-          <BadgeToast badges={newBadges} onOpen={onProfile} />
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={playAgain}>Play again</button>
-            <button class="btn" type="button" onClick={onExit}>Main menu</button>
-          </div>
-        </section>
-      )}
-
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
-    </div>
+        {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      </div>
+    </WordReportContext.Provider>
   );
 }

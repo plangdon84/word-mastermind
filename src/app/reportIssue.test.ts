@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { IssueReport } from '../game';
-import { ReportError, sendReport } from './reportIssue';
+import {
+  initialForm, openReport, ReportError, sendReport, setReportListener, wordReportRequest, type ReportRequest,
+} from './reportIssue';
 
 const GUEST = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const report: IssueReport = {
@@ -33,5 +35,26 @@ describe('sendReport', () => {
     expect(await failure(sendReport('https://api.example', GUEST, report, server(400, { error: 'bad-request' }).fetchFn))).toBe('bad-request');
     expect(await failure(sendReport('https://api.example', GUEST, report, server(429, { error: 'too-many-reports' }).fetchFn))).toBe('too-many-reports');
     expect(await failure(sendReport('https://api.example', GUEST, report, server(500, {}).fetchFn))).toBe('unreachable');
+  });
+});
+
+describe('Report this word (Dev Plan item 19zf)', () => {
+  it('opens the form set to Words, with the word at the start of the description', () => {
+    const screen = { screen: 'Practice · Medium', record: { secret: 'plant' } };
+    const request = wordReportRequest(screen, 'bunny');
+    expect(request).toEqual({ screen: 'Practice · Medium', record: { secret: 'plant' }, kind: 'words', description: 'BUNNY: ' });
+    expect(initialForm(request)).toEqual({ kind: 'words', description: 'BUNNY: ' });
+  });
+
+  it("leaves ☰ Report an issue's form as it was: Bug, and empty", () => {
+    expect(initialForm({ screen: 'Title screen' })).toEqual({ kind: 'bug', description: '' });
+  });
+
+  it('reaches the open form through openReport', () => {
+    let opened: ReportRequest | null = null;
+    setReportListener((r) => { opened = r; });
+    openReport(wordReportRequest({ screen: 'Two player vs. computer (Casual) · Hard' }, 'Crane'));
+    setReportListener(null);
+    expect(opened).toEqual({ screen: 'Two player vs. computer (Casual) · Hard', kind: 'words', description: 'CRANE: ' });
   });
 });

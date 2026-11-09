@@ -24,7 +24,7 @@ import {
   durationText, errorMessage, guessCount, lobbyErrorMessage, marksCheckMessage, repeatMessage, scoreMessage,
 } from './messages';
 import { displayName, type Profile } from './profileStorage';
-import { openReport } from './reportIssue';
+import { openReport, WordReportContext, type ReportRequest } from './reportIssue';
 import {
   formatClock, formatClockUp, FoundButton, FoundSoFar, RankBySwitch, RushBar, RushBoard, RushDots, RushSummary, RushWords,
   someFound, spentSeconds, type RushWordRow,
@@ -323,6 +323,8 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   // Not while asking to give up; the Players panel and Found so far take turns.
   const foundOpen = showFound && hasFound && confirming === null;
 
+  // Never the join code: anyone with it could join.
+  const reportRequest = (): ReportRequest => ({ screen: `${modeName} · ${lobby?.state ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}` });
   const header = (
     <GameHeader profile={profile} onHome={onExit} onProfile={onProfile} difficulty={difficulty}
       matchup={<span><b>{modeName}</b>{lobby && lobby.state !== 'open' && <> · {lobby.players.length} {lobby.players.length === 1 ? 'player' : 'players'}</>}</span>}
@@ -332,8 +334,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
           moveOnLabel="Give up this word and move on" onMoveOn={playing ? () => setConfirming('move-on') : undefined}
           giveUpLabel={`Give up the rest of this ${rush}`} canGiveUp={playing}
           onGiveUp={() => setConfirming('give-up')} onExit={onExit} onHowToPlay={() => setHowTo(true)}
-          // Never the join code: anyone with it could join.
-          onReport={() => openReport({ screen: `${modeName} · ${lobby?.state ?? 'loading'} · ${DIFFICULTY_LABEL[difficulty]}` })}
+          onReport={() => openReport(reportRequest())}
           onCheckMarks={medium && word
             ? () => checks.use() && setMessage(marksCheckMessage(marksFitScores(wordMarks, word.guesses))) : undefined}
           checksLeft={checks.left}
@@ -614,99 +615,101 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     : place && ranked < standings.length ? `You're done: ${place} so far.` : "You're done.";
 
   return (
-    <div class="app">
-      {header}
+    <WordReportContext.Provider value={reportRequest}>
+      <div class="app">
+        {header}
 
-      {run && word && (
-        <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
-          label={`Your guesses at word ${run.current + 1}`}
-          emptyText={run.current === 0 ? `The clock is running${run.setBy ? `: this is ${run.setBy[0]}'s word` : ''}. Type a 5-letter word and press Enter.`
-            : `Word ${run.current + 1}${run.setBy ? `, ${run.setBy[run.current]}'s` : ''}: no guesses yet.`}
-          marks={shownMarks} onMark={medium ? markLetter : undefined}
-          openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
-          entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
-          suggested={word.suggested} onSuggest={() => void suggest()}
-          onShuffle={shuffle} onLetter={typeLetter} onEnter={() => void enter()} onBackspace={backspace} />
-      )}
+        {run && word && (
+          <RushBoard difficulty={difficulty} guesses={word.guesses} newestFirst={settings.newestFirst[difficulty]}
+            label={`Your guesses at word ${run.current + 1}`}
+            emptyText={run.current === 0 ? `The clock is running${run.setBy ? `: this is ${run.setBy[0]}'s word` : ''}. Type a 5-letter word and press Enter.`
+              : `Word ${run.current + 1}${run.setBy ? `, ${run.setBy[run.current]}'s` : ''}: no guesses yet.`}
+            marks={shownMarks} onMark={medium ? markLetter : undefined}
+            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
+            entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
+            suggested={word.suggested} onSuggest={() => void suggest()}
+            onShuffle={shuffle} onLetter={typeLetter} onEnter={() => void enter()} onBackspace={backspace} />
+        )}
 
-      {confirming === 'move-on' && playing && (
-        <section class="panel warning">
-          <h2>Give up this word and move on?</h2>
-          <p>
-            <b>This will hurt your score.</b> The word counts as the most guesses anyone in the lobby needed to find
-            it, plus {PENALTY_GUESSES}{rankBy === 'rush' && <>, and the slowest time anyone took, plus {PENALTY_SECONDS / 60} minutes</>},
-            and at least what you've used on it. It stays hidden until the {rush} is over. The clock keeps running.
-          </p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmMoveOn}>Give up this word</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
+        {confirming === 'move-on' && playing && (
+          <section class="panel warning">
+            <h2>Give up this word and move on?</h2>
+            <p>
+              <b>This will hurt your score.</b> The word counts as the most guesses anyone in the lobby needed to find
+              it, plus {PENALTY_GUESSES}{rankBy === 'rush' && <>, and the slowest time anyone took, plus {PENALTY_SECONDS / 60} minutes</>},
+              and at least what you've used on it. It stays hidden until the {rush} is over. The clock keeps running.
+            </p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmMoveOn}>Give up this word</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
 
-      {confirming === 'give-up' && playing && (
-        <section class="panel warning">
-          <h2>Give up the rest of this {rush}?</h2>
-          <p>
-            <b>This will hurt your score.</b> Every word you haven't found counts as the most guesses anyone needed to
-            find it, plus {PENALTY_GUESSES}{rankBy === 'rush' && <>, and the slowest time, plus {PENALTY_SECONDS / 60} minutes</>}.
-            You'll see how everyone did when the {rush} is over.
-          </p>
-          <div class="row-btns">
-            <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up the rest</button>
-            <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
-          </div>
-        </section>
-      )}
+        {confirming === 'give-up' && playing && (
+          <section class="panel warning">
+            <h2>Give up the rest of this {rush}?</h2>
+            <p>
+              <b>This will hurt your score.</b> Every word you haven't found counts as the most guesses anyone needed to
+              find it, plus {PENALTY_GUESSES}{rankBy === 'rush' && <>, and the slowest time, plus {PENALTY_SECONDS / 60} minutes</>}.
+              You'll see how everyone did when the {rush} is over.
+            </p>
+            <div class="row-btns">
+              <button class="btn primary" type="button" onClick={confirmGiveUp}>Give up the rest</button>
+              <button class="btn" type="button" onClick={() => setConfirming(null)}>Keep playing</button>
+            </div>
+          </section>
+        )}
 
-      {run && !playing && (
-        <section class="panel rush-result">
-          <h2>{heading}</h2>
-          <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
-            hiddenLabel={`Hidden until the ${rush} is over`}
-            rows={rows} />
-          {mine?.score != null && (
-            <RushSummary tiers={[
-              [rankBy === 'rush' ? 'Time' : 'Score', rankedText(rankBy, mine)],
-              [over ? 'Place' : 'Place so far', mine.rank === null ? '…' : ordinal(mine.rank)],
-            ]} />
-          )}
-          <p class="tally">
-            {found} of 4 found in {guessCount(totalGuesses)} ({yourTime}) on {DIFFICULTY_LABEL[difficulty]}.
-            {mine?.score != null && rankBy === 'rush' && <> Time: {formatClockUp(mine.seconds ?? 0)}
-              {counted > totalGuesses && ', with penalties for words not found'}. Faster is better; fewer guesses break ties.</>}
-            {mine?.score != null && rankBy === 'crush' && <> Score: {(counted / 4).toFixed(1)} guesses a word
-              {counted > totalGuesses && ', with penalties for words not found,'} × {factor} = {scoreText(mine.score)}.
-              Lower is better; time breaks ties.</>}
-          </p>
-          {answer?.rating && <RatingChange line={answer.rating} />}
-          {competitive && !over && lobby.players.filter((p) => p.strength === null).length > 1 && (
-            <p class="board-note">Your rating changes when the {rush} is over, by your place against each other person.</p>
-          )}
-          <h3>{over ? 'Final standings' : 'Standings so far'}</h3>
-          <Standings lobby={lobby} />
-          <p class="board-note">
-            {over ? 'Final.' : `Provisional until everyone's done, or the time is up in ${timeLeft}: a word someone gives up counts from how the others did on it.`}
-          </p>
-          <div class="row-btns">
-            {over && mine?.rank != null && standings.every((p) => p.rank !== null) && (
-              <ShareResult text={lobbyShareText({
-                mode: modeName,
-                rankBy,
-                players: standings.map((p) => ({
-                  rank: p.rank!, name: p.name, strength: p.strength, you: p.you, seconds: p.seconds,
-                  words: p.words.map((w) => ({ guesses: w.guesses, found: w.outcome === 'solved' })),
-                })),
-              })} />
+        {run && !playing && (
+          <section class="panel rush-result">
+            <h2>{heading}</h2>
+            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+              hiddenLabel={`Hidden until the ${rush} is over`}
+              rows={rows} />
+            {mine?.score != null && (
+              <RushSummary tiers={[
+                [rankBy === 'rush' ? 'Time' : 'Score', rankedText(rankBy, mine)],
+                [over ? 'Place' : 'Place so far', mine.rank === null ? '…' : ordinal(mine.rank)],
+              ]} />
             )}
-            <button class="btn" type="button" onClick={onExit}>Main menu</button>
-          </div>
-          {errorLine}
-        </section>
-      )}
-      {run && !playing && !over && <TurnAlertsPrompt apiUrl={API_URL!} identity={identity} offer={ALERTS_OFFER} />}
+            <p class="tally">
+              {found} of 4 found in {guessCount(totalGuesses)} ({yourTime}) on {DIFFICULTY_LABEL[difficulty]}.
+              {mine?.score != null && rankBy === 'rush' && <> Time: {formatClockUp(mine.seconds ?? 0)}
+                {counted > totalGuesses && ', with penalties for words not found'}. Faster is better; fewer guesses break ties.</>}
+              {mine?.score != null && rankBy === 'crush' && <> Score: {(counted / 4).toFixed(1)} guesses a word
+                {counted > totalGuesses && ', with penalties for words not found,'} × {factor} = {scoreText(mine.score)}.
+                Lower is better; time breaks ties.</>}
+            </p>
+            {answer?.rating && <RatingChange line={answer.rating} />}
+            {competitive && !over && lobby.players.filter((p) => p.strength === null).length > 1 && (
+              <p class="board-note">Your rating changes when the {rush} is over, by your place against each other person.</p>
+            )}
+            <h3>{over ? 'Final standings' : 'Standings so far'}</h3>
+            <Standings lobby={lobby} />
+            <p class="board-note">
+              {over ? 'Final.' : `Provisional until everyone's done, or the time is up in ${timeLeft}: a word someone gives up counts from how the others did on it.`}
+            </p>
+            <div class="row-btns">
+              {over && mine?.rank != null && standings.every((p) => p.rank !== null) && (
+                <ShareResult text={lobbyShareText({
+                  mode: modeName,
+                  rankBy,
+                  players: standings.map((p) => ({
+                    rank: p.rank!, name: p.name, strength: p.strength, you: p.you, seconds: p.seconds,
+                    words: p.words.map((w) => ({ guesses: w.guesses, found: w.outcome === 'solved' })),
+                  })),
+                })} />
+              )}
+              <button class="btn" type="button" onClick={onExit}>Main menu</button>
+            </div>
+            {errorLine}
+          </section>
+        )}
+        {run && !playing && !over && <TurnAlertsPrompt apiUrl={API_URL!} identity={identity} offer={ALERTS_OFFER} />}
 
-      {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
-    </div>
+        {howTo && <HowToPlay onClose={() => setHowTo(false)} />}
+      </div>
+    </WordReportContext.Provider>
   );
 }

@@ -1,6 +1,7 @@
+import { createContext } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import {
-  isObject, SCREENSHOT_MAX, type IssueReport, type ReportContext, type ReportScreenshot,
+  isObject, SCREENSHOT_MAX, type IssueReport, type ReportContext, type ReportKind, type ReportScreenshot,
 } from '../game';
 import { APP_VERSION } from './version';
 import { apiBase, requestTimeout } from './apiIdentity';
@@ -20,7 +21,32 @@ export interface ReportRequest {
   screen: string;
   /** The game being played, as saved; offered to include so it can be replayed. */
   record?: unknown;
+  /** The kind the form starts on (Bug if not given). */
+  kind?: ReportKind;
+  /** What the description starts with: Report this word fills in the word. */
+  description?: string;
 }
+
+/** The kind and description the form opens with. */
+export function initialForm(request: ReportRequest): { kind: ReportKind; description: string } {
+  return { kind: request.kind ?? 'bug', description: request.description ?? '' };
+}
+
+/**
+ * Report this word (Dev Plan item 19zf): the screen's own Report an issue
+ * request (its name and game), set to Words with the word at the start of
+ * the description, for the player to say what's wrong with it.
+ */
+export function wordReportRequest(screen: ReportRequest, word: string): ReportRequest {
+  return { ...screen, kind: 'words', description: `${word.toUpperCase()}: ` };
+}
+
+/**
+ * What a screen's ☰ Report an issue would send, read when Report this word
+ * is tapped; each game screen provides it around its board. Without it (the
+ * tutorial's mock-ups) the definition box has no Report this word.
+ */
+export const WordReportContext = createContext<(() => ReportRequest) | null>(null);
 
 let listener: ((request: ReportRequest) => void) | null = null;
 
@@ -29,14 +55,17 @@ export function openReport(request: ReportRequest): void {
   listener?.(request);
 }
 
+/** Who `openReport` tells: the app shell's form (`useReportRequest`), or a test. */
+export function setReportListener(next: ((request: ReportRequest) => void) | null): void {
+  listener = next;
+}
+
 /** For the app shell: the open request (if any) and how to close it. */
 export function useReportRequest(): [ReportRequest | null, () => void] {
   const [request, setRequest] = useState<ReportRequest | null>(null);
   useEffect(() => {
-    listener = setRequest;
-    return () => {
-      listener = null;
-    };
+    setReportListener(setRequest);
+    return () => setReportListener(null);
   }, []);
   return [request, () => setRequest(null)];
 }
