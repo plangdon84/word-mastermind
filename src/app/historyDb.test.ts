@@ -8,14 +8,16 @@ import {
 
 const T = 1_000_000;
 
-/** A won single-player game started at `T + n`, guessing `words` and then the secret. */
-const game = (n: number, secret = 'beach', words: string[] = []): HistoryEntry & { mode: 'single' } => ({
+/** A won single-player game started at `T + n`, guessing `words` and then the secret, ending at `T + end`. */
+const game = (n: number, secret = 'beach', words: string[] = [], end = n): HistoryEntry & { mode: 'single' } => ({
   id: `game-${n}`, version: 1, mode: 'single', marks: {},
   record: {
     secret, startedAt: T + n, difficulty: 'medium',
-    moves: [...words, secret].map((word) => ({ kind: 'guess' as const, word, at: T + n })),
+    moves: [...words, secret].map((word, i, all) => ({ kind: 'guess' as const, word, at: i === all.length - 1 ? T + end : T + n })),
   },
 });
+
+const ids = (games: readonly { entry: HistoryEntry }[]) => games.map((g) => g.entry.id);
 
 beforeEach(() => deleteHistory());
 
@@ -50,6 +52,17 @@ describe('game history', () => {
     const more = await loadGamesPage({ search: 'cra' }, cranes.next!, 2);
     expect(more.games.map((g) => g.entry.id)).toEqual(['game-1']);
     expect(more.next).toBeNull();
+  });
+
+  it('lists games by when they ended, the date each row shows, newest first', async () => {
+    // Game 1 started first but ended last, as a long correspondence game does.
+    await putGames([game(1, 'beach', ['crane'], 50), game(2), game(3, 'beach', [], 20)]);
+    expect(ids((await loadGamesPage({}, 0, 10)).games)).toEqual(['game-1', 'game-3', 'game-2']);
+    expect(ids(await loadAllMatching({}, 'endedAt'))).toEqual(['game-1', 'game-3', 'game-2']);
+    // Stats read by start, as before.
+    expect(ids(await loadAllMatching({}))).toEqual(['game-3', 'game-2', 'game-1']);
+    // A game stored keeps only its entry: the end is for the index alone.
+    expect(await getGame('game-1')).toEqual(game(1, 'beach', ['crane'], 50));
   });
 
   describe('a connection that has gone bad (issue 239)', () => {
@@ -109,5 +122,73 @@ describe('reading games for syncing', () => {
     stop();
     await saveFinishedGame(game(4), 0);
     expect(saved).toEqual(['game-3']);
+  });
+});
+
+describe('the history saved before games were listed by their end', () => {
+  it('gets each game its end once, then lists them by it', async () => {
+    vi.resetModules();
+    const { deleteHistory: forgetHistory } = await import('./historyDb');
+    await forgetHistory();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('word-mastermind');
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    // The store as version 1 made it, holding a game that ended after a newer one, and a value that isn't a game.
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('word-mastermind', 1);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore('games', { keyPath: 'id' });
+        store.createIndex('startedAt', 'record.startedAt');
+        store.put(game(1, 'beach', [], 50));
+        store.put(game(2));
+        store.put({ id: 'junk', record: { startedAt: T } });
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+    const fresh = await import('./historyDb');
+    expect(ids((await fresh.loadGamesPage({}, 0, 10)).games)).toEqual(['game-1', 'game-2']);
+    expect((await fresh.getAllIds()).sort()).toEqual(['game-1', 'game-2', 'junk']);
+    await fresh.putGame(game(3));
+    expect(ids((await fresh.loadGamesPage({}, 0, 10)).games)).toEqual(['game-1', 'game-3', 'game-2']);
+  });
+});
+
+describe('a database opened first by something else, with no store', () => {
+  it('makes the store and keeps games', async () => {
+    vi.resetModules();
+    await (await import('./historyDb')).deleteHistory();
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('word-mastermind');
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('word-mastermind');
+      request.onsuccess = () => {
+        request.result.close();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+    const fresh = await import('./historyDb');
+    await fresh.putGames([game(1), game(2)]);
+    expect(ids((await fresh.loadGamesPage({}, 0, 10)).games)).toEqual(['game-2', 'game-1']);
+  });
+});
+
+describe('a stored game\'s end', () => {
+  it('is its last move, or its start without one, and nothing for a value that is not a game', async () => {
+    const { storedEndedAt } = await import('./historyDb');
+    expect(storedEndedAt(game(1, 'beach', ['crane'], 9))).toBe(T + 9);
+    expect(storedEndedAt({ record: { startedAt: T, moves: [] } })).toBe(T);
+    expect(storedEndedAt({ record: { startedAt: T } })).toBeUndefined();
+    expect(storedEndedAt({ record: { moves: [{}] } })).toBeUndefined();
+    expect(storedEndedAt(null)).toBeUndefined();
   });
 });

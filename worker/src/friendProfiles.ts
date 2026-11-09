@@ -51,7 +51,7 @@ function indexRow(entry: HistoryEntry, gameSeq: number | null, replayed = replay
   const summary = summarizeGame(replayed);
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
   return {
-    id: entry.id, startedAt: entry.record.startedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
+    id: entry.id, startedAt: entry.record.startedAt, endedAt: summary.endedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
     words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
     rank: you ? you.rank ?? NOT_PLACED : null,
     // A rated ladder game (Dev Plan item 19t), which a friend's history filters apart from games against friends.
@@ -69,8 +69,8 @@ async function insertRows(db: D1Database, accountId: string, rows: readonly (Ret
   const field = (name: string) => `json_extract(value, '$.${name}')`;
   await db.prepare(
     `INSERT OR IGNORE INTO profile_games
-       (account_id, id, started_at, mode, result, difficulty, words, daily_day, rank, ladder, game_seq, entry)
-     SELECT ?1, ${['id', 'startedAt', 'mode', 'result', 'difficulty', 'words', 'dailyDay', 'rank', 'ladder', 'gameSeq', 'entry']
+       (account_id, id, started_at, ended_at, mode, result, difficulty, words, daily_day, rank, ladder, game_seq, entry)
+     SELECT ?1, ${['id', 'startedAt', 'endedAt', 'mode', 'result', 'difficulty', 'words', 'dailyDay', 'rank', 'ladder', 'gameSeq', 'entry']
     .map(field).join(', ')} FROM json_each(?2)`,
   ).bind(accountId, JSON.stringify(kept)).run();
 }
@@ -289,7 +289,9 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 }
 
 /**
- * A page of a friend's game history, newest first, matching the history's
+ * A page of a friend's game history, newest first by when each game ended
+ * (the date its row shows; ties newest ID first, both as on your own
+ * history), matching the history's
  * filters (as `matchesFilter` does: the rated ladder's games apart from
  * every mode's, Dev Plan item 19t), from the game after `after` (newer
  * first, then by history ID). A Daily Set or Daily Word is left out until
@@ -303,21 +305,21 @@ export async function friendGamesPage(
   if (filter.search !== undefined && !/^[a-z]+$/.test(filter.search)) return { games: [], next: null };
   const from = after === null ? null : parseFriendGamesAfter(after);
   const { results } = await db.prepare(
-    `SELECT g.started_at, g.id, COALESCE(g.entry, h.entry) AS entry FROM profile_games g
+    `SELECT g.ended_at, g.id, COALESCE(g.entry, h.entry) AS entry FROM profile_games g
      LEFT JOIN history_entries h ON g.entry IS NULL AND h.account_id = g.account_id AND h.id = g.id
      WHERE g.account_id = ?1 AND (g.daily_day IS NULL OR g.daily_day < ?2)
        AND (?3 IS NULL OR (?3 = 'ladder' AND g.ladder = 1) OR (g.mode = ?3 AND g.ladder = 0))
        AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
        AND instr(g.words, ' ' || ?6) > 0
-       ${from === null ? '' : 'AND g.started_at <= ?8 AND (g.started_at < ?8 OR g.id > ?9)'}
-     ORDER BY g.started_at DESC, g.id LIMIT ?7`,
+       ${from === null ? '' : 'AND g.ended_at <= ?8 AND (g.ended_at < ?8 OR g.id < ?9)'}
+     ORDER BY g.ended_at DESC, g.id DESC LIMIT ?7`,
   ).bind(
     friendId, shownBefore(now), filter.mode ?? null, filter.result ?? null, filter.difficulty ?? null,
-    filter.search ?? '', limit + 1, ...(from === null ? [] : [from.startedAt, from.id]),
-  ).all<{ started_at: number; id: string; entry: string | null }>();
+    filter.search ?? '', limit + 1, ...(from === null ? [] : [from.endedAt, from.id]),
+  ).all<{ ended_at: number; id: string; entry: string | null }>();
   // The next page starts after the last row, even one left out of the games because it doesn't read.
   const last = results.length > limit ? results[limit - 1] : null;
-  return { games: entriesOf(results.slice(0, limit)), next: last && friendGamesAfter(last.started_at, last.id) };
+  return { games: entriesOf(results.slice(0, limit)), next: last && friendGamesAfter(last.ended_at, last.id) };
 }
 
 /** Routes `/api/profile/shared` and `/api/profile/index` (an account's own), or returns null for any other path. */

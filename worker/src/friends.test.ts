@@ -1030,6 +1030,47 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     expect(await count({ search: 'nope!' })).toBe(0);
   });
 
+  it('lists their games by when each ended, as their own history does (Dev Plan item 19zc)', async () => {
+    const { ann, bob, bobCode, sqlite, now } = await friends();
+    // The first started first but ended last, as a long correspondence game does.
+    const long = soloEntry('bob-long', now() - 50 * 60_000, ['beach'], { step: 45 * 60_000 });
+    const quick = soloEntry('bob-quick', now() - 40 * 60_000, ['beach']);
+    const later = soloEntry('bob-later', now() - 20 * 60_000, ['beach']);
+    await bob.sync.upload([long, quick, later]);
+    await index(bob);
+    const ids = async (after: string | null = null, limit = 50) => ann.friends.profileGames(bobCode, { filter: {}, after, limit });
+    expect((await ids()).games.map((g) => g.id)).toEqual(['bob-long', 'bob-later', 'bob-quick']);
+    const first = await ids(null, 2);
+    expect((await ids(first.next, 2)).games.map((g) => g.id)).toEqual(['bob-quick']);
+    // The migration fills in the ends of the games indexed before it.
+    sqlite.exec('UPDATE profile_games SET ended_at = 0');
+    const migration = readFileSync(join(import.meta.dirname, '..', 'migrations', '0033_profile_games_ended.sql'), 'utf8');
+    sqlite.exec(/^UPDATE profile_games[\s\S]*?\), started_at\);$/m.exec(migration)![0]);
+    expect((await ids()).games.map((g) => g.id)).toEqual(['bob-long', 'bob-later', 'bob-quick']);
+    const ends = () => sqlite.prepare('SELECT id, ended_at FROM profile_games ORDER BY id').all();
+    const expected = [['bob-later', later], ['bob-long', long], ['bob-quick', quick]].map(([id, e]) => ({
+      id, ended_at: (e as typeof long).record.moves.at(-1)!.at,
+    }));
+    expect(ends()).toEqual(expected);
+    // A game indexed by a worker from before it, which writes no end, gets one from the migration's trigger (round 1 review).
+    const row = sqlite.prepare(`SELECT * FROM profile_games WHERE id = 'bob-long'`).get() as Record<string, string | number>;
+    sqlite.exec(`DELETE FROM profile_games WHERE id = 'bob-long'`);
+    sqlite.prepare(`INSERT INTO profile_games (account_id, id, started_at, mode, difficulty, words) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(row.account_id, row.id, row.started_at, row.mode, row.difficulty, row.words);
+    expect(ends()).toEqual(expected);
+  });
+
+  it('lists games that ended together newest ID first, as your own history does (round 1 review)', async () => {
+    const { ann, bob, bobCode, now } = await friends();
+    const at = now() - 60_000;
+    const entries = ['bob-a', 'bob-b', 'bob-c'].map((id) => soloEntry(id, at, ['beach']));
+    await bob.sync.upload(entries);
+    await index(bob);
+    const first = await ann.friends.profileGames(bobCode, { filter: {}, after: null, limit: 2 });
+    expect(first.games.map((g) => g.id)).toEqual(['bob-c', 'bob-b']);
+    expect((await ann.friends.profileGames(bobCode, { filter: {}, after: first.next, limit: 2 })).games.map((g) => g.id)).toEqual(['bob-a']);
+  });
+
   it('filters their rated ladder games apart from their games against friends (Dev Plan item 19t)', async () => {
     const { ann, bob, bobCode, sqlite } = await friends();
     await annBeatsBob(ann, bob, bobCode);
@@ -1070,7 +1111,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
 
   it('pages from the last game shown, so one finished in between or started at the same moment shows once (Issue 206)', async () => {
     const { ann, bob, bobCode, now } = await friends();
-    // Pairs of games started at the same moment: the history ID breaks the tie.
+    // Pairs of games ended at the same moment: the history ID breaks the tie, newest first.
     const entries = Array.from({ length: 6 }, (_, i) => soloEntry(`bob-tie-${i}`, now() - (10 - Math.floor(i / 2)) * 60_000, ['crane', 'beach']));
     await bob.sync.upload(entries);
     await index(bob);
@@ -1079,7 +1120,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     await index(bob);
     const second = await ann.friends.profileGames(bobCode, { filter: {}, after: first.next, limit: 3 });
     const shown = [...first.games, ...second.games].map((g) => g.id);
-    expect(shown).toEqual(['bob-tie-4', 'bob-tie-5', 'bob-tie-2', 'bob-tie-3', 'bob-tie-0', 'bob-tie-1']);
+    expect(shown).toEqual(['bob-tie-5', 'bob-tie-4', 'bob-tie-3', 'bob-tie-2', 'bob-tie-1', 'bob-tie-0']);
     expect(second.next).toBeNull();
   });
 

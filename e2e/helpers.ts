@@ -53,13 +53,20 @@ export async function seedHistory(page: Page, entries: readonly Entry[]): Promis
   if (page.url() === 'about:blank') await page.goto('/');
   await page.evaluate(async (games) => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('word-mastermind', 1);
+      // At whatever version the app left it; a new one is made as version 1 did, which the app then upgrades.
+      const request = indexedDB.open('word-mastermind');
       request.onupgradeneeded = () => request.result.createObjectStore('games', { keyPath: 'id' }).createIndex('startedAt', 'record.startedAt');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
     const tx = db.transaction('games', 'readwrite');
-    for (const game of games) tx.objectStore('games').put(game);
+    const store = tx.objectStore('games');
+    // Version 2 lists games by when they ended (src/app/historyDb.ts, storedEndedAt): the last move, or the start.
+    const byEnd = store.indexNames.contains('endedAt');
+    for (const game of games) {
+      const { startedAt, moves } = game.record as { startedAt: number; moves: { at: number }[] };
+      store.put(byEnd ? { ...game, endedAt: moves.length > 0 ? moves[moves.length - 1].at : startedAt } : game);
+    }
     await new Promise((resolve, reject) => {
       tx.oncomplete = resolve;
       tx.onerror = () => reject(tx.error);
@@ -183,10 +190,14 @@ export async function loginLink(email: string, before: number): Promise<string> 
 /** How many finished games this browser's history holds. */
 export function historyCount(page: Page): Promise<number> {
   return page.evaluate(() => new Promise<number>((resolve, reject) => {
-    const request = indexedDB.open('word-mastermind', 1);
+    const request = indexedDB.open('word-mastermind');
     request.onsuccess = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains('games')) return resolve(0);
+      if (!db.objectStoreNames.contains('games')) {
+        // Closed, or it would block the app's upgrade to version 2.
+        db.close();
+        return resolve(0);
+      }
       const count = db.transaction('games').objectStore('games').count();
       count.onsuccess = () => { resolve(count.result); db.close(); };
       count.onerror = () => reject(count.error);

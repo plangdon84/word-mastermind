@@ -2121,7 +2121,9 @@ out with a green, bold name and a **New** tag on that visit (issue #94). Only wh
   computer's strength. Each history entry adds an ID, the mode, a version
   number and Medium's final letter marks (per word in a Rush), so a review
   looks as it did.
-- **Rows,** newest first, loaded in pages: the opponent in bold on one line
+- **Rows,** newest first by when each game ended (the date the row shows,
+  so a rated game's rating follows on from the one below it), loaded in
+  pages: the opponent in bold on one line
   (**vs. Computer · Skilled**, cut short with … if needed; flags later), a
   rated game's rating and its change, your guess count (turns alternate, so the
   opponent's is the same), and a centred column with the difficulty chip and
