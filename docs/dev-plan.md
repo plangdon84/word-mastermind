@@ -22,11 +22,9 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
     writing it. Migration 0033's `profile_games_ended` trigger falls back
     to `NEW.started_at`, so the same migration rewrites or drops that
     trigger, once no worker from before 2.4.1 can still be running
-
-**Later**
-
 - [ ] **19zg. A Win % in a friend's "You vs." box** (issue
-  plangdon84/word-mastermind-archive#287; from the owner, 9 November 2026;
+  plangdon84/word-mastermind-archive#287; from the owner, 9 November 2026,
+  in Next after 19ze at their word;
   app only; a feature release, its notes OK'd by the owner before the
   first commit)
   - Issue 287: a friend's headline Win % is their own against everyone,
@@ -38,6 +36,9 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
     change. Whether it's a Win % per row (Two player, Word Sets with
     friends) or one for the box is settled with the owner when it's
     built. Updates README "Friends' profiles"
+
+**Later**
+
 - [ ] **19r. A stronger ladder computer** (from 19q, 3 November 2026;
   if a player regularly beats the 1.0 computer)
   - A stronger guesser than full recall, rated by `npm run calibrate`
