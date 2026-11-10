@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { layoutProblems, SIZES } from './layout';
-import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll, windowFocused } from './helpers';
+import { expectActive, getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll } from './helpers';
 
 /*
  * Edge cases (docs/test-plan.md "Edge cases"): going offline and back, two
@@ -63,11 +63,13 @@ async function friendGame(page: Page, browser: Parameters<typeof newPlayer>[0]) 
 
 /**
  * Signs in with the emailed link, which comes back to the profile's Account
- * page. Each browser has its own address for `name`: the server sends one
- * link an address a minute, and Chromium and WebKit can run a test at once.
+ * page. Each browser, and each retry, has its own address for `name`: the
+ * server sends one link an address a minute, Chromium and WebKit can run a
+ * test at once, and a retry comes within the minute.
  */
 async function signIn(page: Page, name: string): Promise<string> {
-  const email = name.replace('@', `.${test.info().project.name}@`);
+  const { project, retry } = test.info();
+  const email = name.replace('@', `.${project.name}${retry ? `.retry${retry}` : ''}@`);
   await page.getByRole('button', { name: /^Profile/ }).click();
   await button(page, /^Account/).click();
   await page.getByLabel('Email address').fill(email);
@@ -779,12 +781,11 @@ test("a friend's name in a game opens their profile over it, and Back comes back
   const name = page.locator('.matchup .friend-name');
   await expect(name).toBeVisible();
   const theirName = await name.innerText();
-  // The friend's page was used last: this one takes the window back first, or Back can't read as focused.
-  await windowFocused(page);
   await name.click();
   const rows = page.getByRole('navigation', { name: `${theirName}'s profile` });
   await expect(rows.getByRole('button', { name: /^Game history/ })).toBeVisible();
-  await expect(button(page, 'Back')).toBeFocused();
+  // Back has the page's focus (expectActive: the window's own focus is WebKit's, and CI's can stay away).
+  await expectActive(button(page, 'Back'));
   // Typing goes nowhere while their profile covers the game.
   await page.keyboard.type('crane');
   for (const size of [{ width: 320, height: 568 }, { width: 1280, height: 800 }]) {
@@ -796,7 +797,7 @@ test("a friend's name in a game opens their profile over it, and Back comes back
 
   await button(page, 'Back').click();
   await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
-  await expect(name).toBeFocused();
+  await expectActive(name);
   await expect(page.locator('.slot.filled')).toHaveCount(0);
 });
 
