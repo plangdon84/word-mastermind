@@ -1042,22 +1042,14 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     expect((await ids()).games.map((g) => g.id)).toEqual(['bob-long', 'bob-later', 'bob-quick']);
     const first = await ids(null, 2);
     expect((await ids(first.next, 2)).games.map((g) => g.id)).toEqual(['bob-quick']);
-    // The migration fills in the ends of the games indexed before it.
-    sqlite.exec('UPDATE profile_games SET ended_at = 0');
-    const migration = readFileSync(join(import.meta.dirname, '..', 'migrations', '0033_profile_games_ended.sql'), 'utf8');
-    sqlite.exec(/^UPDATE profile_games[\s\S]*?\), started_at\);$/m.exec(migration)![0]);
-    expect((await ids()).games.map((g) => g.id)).toEqual(['bob-long', 'bob-later', 'bob-quick']);
+    // Each indexed game keeps its end, and no start since the list stopped reading it (Dev Plan item 19ze).
     const ends = () => sqlite.prepare('SELECT id, ended_at FROM profile_games ORDER BY id').all();
-    const expected = [['bob-later', later], ['bob-long', long], ['bob-quick', quick]].map(([id, e]) => ({
+    expect(ends()).toEqual([['bob-later', later], ['bob-long', long], ['bob-quick', quick]].map(([id, e]) => ({
       id, ended_at: (e as typeof long).record.moves.at(-1)!.at,
-    }));
-    expect(ends()).toEqual(expected);
-    // A game indexed by a worker from before it, which writes no end, gets one from the migration's trigger (round 1 review).
-    const row = sqlite.prepare(`SELECT * FROM profile_games WHERE id = 'bob-long'`).get() as Record<string, string | number>;
-    sqlite.exec(`DELETE FROM profile_games WHERE id = 'bob-long'`);
-    sqlite.prepare(`INSERT INTO profile_games (account_id, id, started_at, mode, difficulty, words) VALUES (?, ?, ?, ?, ?, ?)`)
-      .run(row.account_id, row.id, row.started_at, row.mode, row.difficulty, row.words);
-    expect(ends()).toEqual(expected);
+    })));
+    const columns = sqlite.prepare('SELECT name FROM pragma_table_info(?)').all('profile_games').map((c) => c.name);
+    expect(columns).toContain('ended_at');
+    expect(columns).not.toContain('started_at');
   });
 
   it('lists games that ended together newest ID first, as your own history does (round 1 review)', async () => {
@@ -1191,7 +1183,7 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     });
     const insert = (accountId: string, entries: HistoryEntry[]) => entries.forEach((e, i) => {
       const you = e.mode === 'lobby' ? e.places.find((p) => p.you) : undefined;
-      sqlite.prepare(`INSERT INTO profile_games (account_id, id, started_at, mode, result, difficulty, words, rank, game_seq, entry)
+      sqlite.prepare(`INSERT INTO profile_games (account_id, id, ended_at, mode, result, difficulty, words, rank, game_seq, entry)
         VALUES (?, ?, ?, 'lobby', NULL, 'medium', ' ', ?, ?, ?)`).run(accountId, e.id, i, you ? you.rank ?? 1_000_000 : null, i, JSON.stringify(e));
     });
     insert(accountOf(ANN), yours);

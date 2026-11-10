@@ -14,14 +14,6 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
 shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
-- [ ] **19ze. Friend history index: drop the unused start time** (issue
-  plangdon84/word-mastermind-archive#285; worker, review gate; no release
-  note, nothing players see)
-  - Issue 285: a new migration drops `profile_games.started_at`, and
-    `indexRow` / `insertRows` in `worker/src/friendProfiles.ts` stop
-    writing it. Migration 0033's `profile_games_ended` trigger falls back
-    to `NEW.started_at`, so the same migration rewrites or drops that
-    trigger, once no worker from before 2.4.1 can still be running
 - [ ] **19zg. A Win % in a friend's "You vs." box** (issue
   plangdon84/word-mastermind-archive#287; from the owner, 9 November 2026,
   in Next after 19ze at their word;
@@ -103,6 +95,16 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19ze. Friend history index: drop the unused start time** (issue
+  plangdon84/word-mastermind-archive#285; worker, review gate; no release
+  note, nothing players see)
+  - Issue 285: a new migration drops `profile_games.started_at`, and
+    `indexRow` / `insertRows` in `worker/src/friendProfiles.ts` stop
+    writing it. Migration 0033's `profile_games_ended` trigger falls back
+    to `NEW.started_at`, so the same migration rewrites or drops that
+    trigger, once no worker from before 2.4.1 can still be running.
+    Built as migration 0034: it drops the trigger (every worker since 2.4.1
+    writes the end itself), then the column
 - [x] **19zd. Stats: draws count half, and trend arrows on the Rated
   ladder** (2.6.0; issues plangdon84/word-mastermind-archive#283 and
   plangdon84/word-mastermind-archive#284; app only; a feature release,
