@@ -33,7 +33,10 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Pixel 7'], launchOptions: chromiumPath ? { executablePath: chromiumPath } : {} },
     },
-    { name: 'webkit', use: { ...devices['iPhone 14'] } },
+    // WebKit alone gets one retry on CI: on a busy runner its networking can drop a request to the local
+    // servers ("WebKit encountered an internal error"), which no test or app change prevents. A real break
+    // still fails twice, and a retried pass is reported as flaky.
+    { name: 'webkit', use: { ...devices['iPhone 14'] }, retries: process.env.CI ? 1 : 0 },
   ],
   webServer: [
     {

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { savedGame, unlockAll } from './helpers';
+import { savedGame, unlockAll, windowFocused } from './helpers';
 
 /*
  * The keyboard alone (docs/test-plan.md "Accessibility"): Tab to each
@@ -15,7 +15,10 @@ function focused(page: Page) {
     const style = getComputedStyle(el);
     const ring = (style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0) || style.boxShadow !== 'none';
     const label = el.getAttribute('aria-label') ?? el.textContent ?? '';
-    return { label: label.trim().replace(/\s+/g, ' '), ring };
+    // What decides the ring, for the failure message: the window's focus, WebKit's :focus-visible and the app's
+    // last input (src/app/inputKind.ts).
+    const why = `hasFocus ${document.hasFocus()}, :focus-visible ${el.matches(':focus-visible')}, data-input ${document.documentElement.dataset.input}`;
+    return { label: label.trim().replace(/\s+/g, ' '), ring, why };
   });
 }
 
@@ -29,7 +32,14 @@ async function tabTo(page: Page, name: RegExp) {
     await page.keyboard.press('Tab');
     const stop = await focused(page);
     if (!stop) continue;
-    await expect.poll(async () => (await focused(page))?.ring, { message: `focus ring on "${stop.label}"`, timeout: 2_000 }).toBe(true);
+    let why = stop.why;
+    await expect.poll(async () => {
+      const now = await focused(page);
+      why = now?.why ?? 'nothing focused';
+      return now?.ring;
+    }, { message: `focus ring on "${stop.label}"`, timeout: 2_000 }).toBe(true).catch((error: Error) => {
+      throw new Error(`${error.message}\nLast seen: ${why}`);
+    });
     if (name.test(stop.label)) return;
   }
   throw new Error(`Tab never reached ${name}`);
@@ -40,6 +50,7 @@ async function title(page: Page) {
   await unlockAll(page);
   await expect(page.getByRole('button', { name: /^Profile/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Practice/ })).toBeVisible();
+  await windowFocused(page);
 }
 
 async function typeWord(page: Page, word: string) {
