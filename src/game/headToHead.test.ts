@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { headToHead } from './headToHead';
+import { headToHead, tallyWinPct } from './headToHead';
 import { friend, lobby, solo, versus } from './testGames';
 
 const T = Date.UTC(2026, 9, 1);
@@ -45,5 +45,16 @@ describe('headToHead', () => {
       friend: { wins: 0, draws: 0, losses: 0 },
       lobby: { wins: 1, draws: 1, losses: 2 },
     });
+  });
+});
+
+describe('tallyWinPct', () => {
+  it('counts a draw as half a win', () => {
+    expect(tallyWinPct({ wins: 5, draws: 1, losses: 2 })).toBeCloseTo(68.75);
+    expect(tallyWinPct({ wins: 0, draws: 2, losses: 0 })).toBe(50);
+  });
+
+  it('is null with no games', () => {
+    expect(tallyWinPct({ wins: 0, draws: 0, losses: 0 })).toBeNull();
   });
 });

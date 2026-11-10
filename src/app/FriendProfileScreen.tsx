@@ -1,7 +1,7 @@
 import { Component, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
-  BADGES, HEAD_TO_HEAD_MODES, initials, type HeadToHead, type HeadToHeadMode, type DailyPlacement, type HistoryEntry,
+  BADGES, HEAD_TO_HEAD_MODES, initials, tallyWinPct, type HeadToHead, type HeadToHeadMode, type DailyPlacement, type HistoryEntry,
   type HistoryFilter,
 } from '../game';
 import { Analytics } from './Analytics';
@@ -126,7 +126,7 @@ class Shared extends Component<{ fallback: ComponentChildren; children: Componen
 
 const HEAD_TO_HEAD_LABEL: Record<HeadToHeadMode, string> = { friend: 'Two player', lobby: 'Word Sets with friends' };
 
-/** Your record against a friend: won–drawn–lost in each mode you've played them in. */
+/** Your record against a friend: won–drawn–lost and Win % (a draw half a win, item 19zg) in each mode you've played them in. */
 function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
   const played = HEAD_TO_HEAD_MODES.filter((m) => record[m].wins + record[m].draws + record[m].losses > 0);
   return (
@@ -134,7 +134,7 @@ function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
       {/* "won–drawn–lost" heads the figures once, so a long mode name and its figures fit a phone's width (issue 236). */}
       <div class="head-to-head-head">
         <h4>You vs. {name}</h4>
-        {played.length > 0 && <span class="stat-aside" aria-hidden="true">won–drawn–lost</span>}
+        {played.length > 0 && <span class="stat-aside" aria-hidden="true">won–drawn–lost · win %</span>}
       </div>
       {played.length === 0 ? (
         <p class="field-note">You haven't played {name} yet. Your games against them appear here.</p>
@@ -145,7 +145,9 @@ function YouVersus({ name, record }: { name: string; record: HeadToHead }) {
               <dt>{HEAD_TO_HEAD_LABEL[m]}</dt>
               <dd>
                 {record[m].wins}–{record[m].draws}–{record[m].losses}
-                <span class="visually-hidden"> won–drawn–lost</span>
+                <span class="visually-hidden"> won–drawn–lost,</span>
+                <span class="head-to-head-pct"> · {Math.round(tallyWinPct(record[m])!)}%</span>
+                <span class="visually-hidden"> win</span>
               </dd>
             </div>
           ))}

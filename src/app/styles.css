@@ -1350,6 +1350,7 @@ button.bubble:active { transform: scale(0.94); }
 /* The label gives way before the figures do, which never break at their dashes. */
 .head-to-head .stat-row dt { min-width: 0; }
 .head-to-head .stat-row dd { white-space: nowrap; }
+.head-to-head-pct { color: var(--muted); }
 .friend-code { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: 12px; }
 .friend-code .invite-link { width: 100%; }
 .lobby-friends { width: 100%; text-align: left; }

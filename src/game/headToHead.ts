@@ -53,3 +53,12 @@ export function headToHead(yours: readonly StatsGame[], theirs: readonly StatsGa
   }
   return tally;
 }
+
+/**
+ * Your Win % in one mode against a friend (Dev Plan item 19zg, issue 287),
+ * a draw counting half as in Stats (item 19zd), or null with no games.
+ */
+export function tallyWinPct({ wins, draws, losses }: Tally): number | null {
+  const games = wins + draws + losses;
+  return games === 0 ? null : ((wins + draws / 2) / games) * 100;
+}
