@@ -1,6 +1,6 @@
 import {
-  ageRating, COMPUTER_RATINGS, computerRating, hostScore, isProvisional, NEW_RATING, rateGame, rateVsComputer, replayPvp,
-  updateRating, type PvpRecord, type Rating,
+  ageRating, computerRating, hostScore, isProvisional, NEW_RATING, rateGame, rateVsComputer, replayPvp,
+  ratedComputer, updateRating, type PvpRecord, type Rating,
 } from '../../src/game';
 
 /*
@@ -9,8 +9,9 @@ import {
  * was rated, from a new player's rating, with the weeks between games
  * widening RD as the worker does (`currentRating`), and each game's result
  * from its record. The replay is first run under the rules the games were
- * rated by, and must give back every stored rating, before anything is
- * written. Competitive Rush (`rush`) is left alone: its shared places
+ * rated by (the old rules, and the new ones for games rated since the
+ * deploy, `newRuleFrom`), and must give back every stored rating, before
+ * anything is written. Competitive Rush (`rush`) is left alone: its shared places
  * already counted as plain draws (`rateGroup`).
  */
 
@@ -25,6 +26,8 @@ export interface RatedGameRow {
   rd_after: number;
   rated_at: number;
   computer_recall: number | null;
+  /** The player's result (migration 0035): null for a row rated before it was kept. */
+  score: number | null;
 }
 
 /** A row of `ratings`. */
@@ -80,14 +83,27 @@ export interface RatedGame {
   computer: Rating | null;
 }
 
-/** Each player's change in one game, by `${gameId} ${accountId}`. */
-export type Changes = Map<string, { before: Rating; after: Rating }>;
+/** One player's change in one game, and their result in it. */
+export interface Change {
+  before: Rating;
+  after: Rating;
+  score: 0 | 0.5 | 1;
+}
+
+/** A player's rating in a pool at the end of a replay, with what its `ratings` row counts. */
+export interface KeptRating {
+  rating: Rating;
+  ratedAt: number;
+  games: number;
+  computerGames: number;
+}
 
 /** A replay's outcome: every game's changes, and each player's rating at the end. */
 export interface Replay {
-  changes: Changes;
+  /** By `${gameId} ${accountId}`. */
+  changes: Map<string, Change>;
   /** By `${accountId} ${pool}`. */
-  ratings: Map<string, { rating: Rating; ratedAt: number; games: number; computerGames: number }>;
+  ratings: Map<string, KeptRating>;
 }
 
 const rowKey = (gameId: string, accountId: string) => `${gameId} ${accountId}`;
@@ -136,7 +152,7 @@ export function ratedGames(rows: readonly RatedGameRow[], records: ReadonlyMap<s
       continue;
     }
     if (vsComputer) {
-      const computer = COMPUTER_RATINGS.find((c) => c.recall === recall);
+      const computer = ratedComputer(recall);
       if (!computer) {
         problems.push(`${name}: no computer has recall ${recall}.`);
         continue;
@@ -163,21 +179,22 @@ export function ratedGames(rows: readonly RatedGameRow[], records: ReadonlyMap<s
   return { games, problems };
 }
 
-/** Every game rated again in order under `rules`, each player from a new rating, as the worker rates them. */
-export function replay(games: readonly RatedGame[], rules: Rules): Replay {
-  const changes: Changes = new Map();
+/** Every game rated again in order, each by `rulesFor` it, each player from a new rating, as the worker rates them. */
+export function replay(games: readonly RatedGame[], rulesFor: (game: RatedGame) => Rules): Replay {
+  const changes: Replay['changes'] = new Map();
   const ratings: Replay['ratings'] = new Map();
   const going = (accountId: string, pool: string, now: number): Rating => {
     const kept = ratings.get(poolKey(accountId, pool));
     return kept ? ageRating(kept.rating, now - kept.ratedAt) : NEW_RATING;
   };
   for (const game of games) {
+    const rules = rulesFor(game);
     const before = game.players.map((p) => going(p.accountId, game.pool, game.ratedAt));
     const after = game.computer
       ? [rules.computer(before[0], game.computer, game.players[0].score)]
       : rules.game(before[0], before[1], game.players[0].score);
     game.players.forEach(({ accountId }, i) => {
-      changes.set(rowKey(game.id, accountId), { before: before[i], after: after[i] });
+      changes.set(rowKey(game.id, accountId), { before: before[i], after: after[i], score: game.players[i].score });
       const kept = ratings.get(poolKey(accountId, game.pool));
       ratings.set(poolKey(accountId, game.pool), {
         rating: after[i], ratedAt: game.ratedAt, games: (kept?.games ?? 0) + 1,
@@ -195,15 +212,17 @@ export function replay(games: readonly RatedGame[], rules: Rules): Replay {
  */
 const same = (a: number, b: number, loose: boolean) => a === b || (loose && Math.abs(a - b) <= 1e-9);
 
-type Kept = Replay['ratings'] extends Map<string, infer V> ? V : never;
-
-/** Rows written before `rd_before` was kept (migration 0010) have none, so it isn't compared. */
-const sameRow = (row: RatedGameRow, change: { before: Rating; after: Rating } | undefined, loose = false) =>
-  change !== undefined && same(row.rating_before, change.before.rating, loose)
+/**
+ * Whether a row holds a change. Rows written before `rd_before` was kept
+ * (migration 0010) have none, so it isn't compared; `score` is only with
+ * `withScore`, since rows rated before it was kept have none.
+ */
+const sameRow = (row: RatedGameRow, change: Change | undefined, loose = false, withScore = false) =>
+  change !== undefined && (!withScore || row.score === change.score) && same(row.rating_before, change.before.rating, loose)
   && (row.rd_before === null || same(row.rd_before, change.before.rd, loose))
   && same(row.rating_after, change.after.rating, loose) && same(row.rd_after, change.after.rd, loose);
 
-const sameRating = (row: RatingRow, kept: Kept | undefined, loose = false) =>
+const sameRating = (row: RatingRow, kept: KeptRating | undefined, loose = false) =>
   kept !== undefined && same(row.rating, kept.rating.rating, loose) && same(row.rd, kept.rating.rd, loose)
   && same(row.volatility, kept.rating.volatility, loose)
   && row.games === kept.games && row.rated_at === kept.ratedAt && row.computer_games === kept.computerGames;
@@ -213,23 +232,27 @@ export interface RerateCheck {
   problems: string[];
   games: number;
   draws: number;
-  /** Rows already as the new rules have them, from an earlier, interrupted write. */
+  /** Rows already as the new rules have them: rated since the deploy, or from an earlier write. */
   alreadyNew: number;
   /** The `ratings` rows to change: each row as it is, and as it will be. */
   ratings: { row: RatingRow; rating: Rating }[];
-  /** The `rated_games` rows to change. */
-  rows: { row: RatedGameRow; before: Rating; after: Rating }[];
+  /** The `rated_games` rows to change, each with its result to keep. */
+  rows: ({ row: RatedGameRow } & Change)[];
 }
 
 /**
  * Checks the stored ratings against both replays and lists what to
- * change. Every stored value must be exactly the old rules' (or, after an
- * earlier write, the new rules'); anything else stops the re-rating.
+ * change. Every stored value must be exactly what the games were rated
+ * as: the old rules, and the new ones for games rated from `newRuleFrom`
+ * (the deploy, if a rated game may have ended since), or after an earlier
+ * write, the new rules'. Anything else stops the re-rating.
  */
-export function checkRerate(rows: readonly RatedGameRow[], ratings: readonly RatingRow[], records: ReadonlyMap<string, string>): RerateCheck {
+export function checkRerate(
+  rows: readonly RatedGameRow[], ratings: readonly RatingRow[], records: ReadonlyMap<string, string>, newRuleFrom = Infinity,
+): RerateCheck {
   const { games, problems } = ratedGames(rows, records);
-  const old = replay(games, OLD_RULES);
-  const next = replay(games, NEW_RULES);
+  const old = replay(games, (game) => (game.ratedAt >= newRuleFrom ? NEW_RULES : OLD_RULES));
+  const next = replay(games, () => NEW_RULES);
   const check: RerateCheck = {
     problems, games: games.length, draws: games.filter((g) => g.players[0].score === 0.5).length, alreadyNew: 0, ratings: [], rows: [],
   };
@@ -240,12 +263,13 @@ export function checkRerate(rows: readonly RatedGameRow[], ratings: readonly Rat
     if (!old.changes.has(key)) continue; // A problem game, listed already.
     if (sameRow(row, now, true)) {
       if (!sameRow(row, old.changes.get(key))) check.alreadyNew++;
-      if (row.rd_before !== null) continue;
+      // Kept as it is once it has its RD going in and its result.
+      if (row.rd_before !== null && row.score === now.score) continue;
     } else if (!sameRow(row, old.changes.get(key))) {
       problems.push(`A rated game's change (rated at ${new Date(row.rated_at).toISOString()}) isn't what the replay gives.`);
       continue;
     }
-    check.rows.push({ row, before: now.before, after: now.after });
+    check.rows.push({ row, ...now });
   }
   const seen = new Set<string>();
   for (const row of ratings) {
@@ -277,7 +301,8 @@ const real = (value: number) => {
 };
 
 /**
- * The SQL that writes a re-rating. Each rating changes only while it's the
+ * The SQL that writes a re-rating, each game's result (`score`) with it.
+ * Each rating changes only while it's the
  * row it was read as (the same games and time), so a game rated meanwhile
  * keeps its rating, to be found by the check afterwards. `restore` gives
  * the SQL that puts every row back as it was read.
@@ -288,11 +313,12 @@ export function rerateSql(check: RerateCheck, restore = false): string {
     return `UPDATE ratings SET rating = ${real(set.rating)}, rd = ${real(set.rd)}, volatility = ${real(set.volatility)}`
       + ` WHERE account_id = ${quoted(row.account_id)} AND pool = ${quoted(row.pool)} AND games = ${row.games} AND rated_at = ${row.rated_at};`;
   });
-  const rows = check.rows.map(({ row, before, after }) => {
-    const [ratingBefore, rdBefore, ratingAfter, rdAfter] = restore
-      ? [real(row.rating_before), row.rd_before === null ? 'NULL' : real(row.rd_before), real(row.rating_after), real(row.rd_after)]
-      : [real(before.rating), real(before.rd), real(after.rating), real(after.rd)];
-    return `UPDATE rated_games SET rating_before = ${ratingBefore}, rd_before = ${rdBefore}, rating_after = ${ratingAfter}, rd_after = ${rdAfter}`
+  const orNull = (value: number | null) => (value === null ? 'NULL' : real(value));
+  const rows = check.rows.map(({ row, before, after, score }) => {
+    const [ratingBefore, rdBefore, ratingAfter, rdAfter, result] = restore
+      ? [real(row.rating_before), orNull(row.rd_before), real(row.rating_after), real(row.rd_after), orNull(row.score)]
+      : [real(before.rating), real(before.rd), real(after.rating), real(after.rd), real(score)];
+    return `UPDATE rated_games SET rating_before = ${ratingBefore}, rd_before = ${rdBefore}, rating_after = ${ratingAfter}, rd_after = ${rdAfter}, score = ${result}`
       + ` WHERE game_id = ${quoted(row.game_id)} AND account_id = ${quoted(row.account_id)};`;
   });
   return [...ratings, ...rows].join('\n');

@@ -683,7 +683,7 @@ describe('challenging a friend', () => {
   });
 
   it('moves a rated draw between unequal ratings as Glicko-2 has it: the lower rated gains (Dev Plan item 19zh)', async () => {
-    const { ann, bob, bobCode } = await friends();
+    const { ann, bob, bobCode, sqlite } = await friends();
     // Bob gives up a first game, so Ann is rated above him going into the draw.
     const first = await ann.games.create({ ...invite, friend: bobCode, rated: true });
     await bob.games.join(first.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
@@ -698,6 +698,9 @@ describe('challenging a friend', () => {
     expect(over.ratings!.you.after!.rating).toBeGreaterThan(1338);
     expect(over.ratings!.opponent.after!.rating).toBeLessThan(1662);
     expect(await ann.ratings()).toMatchObject([{ pool: 'correspondence', games: 2 }]);
+    // Each player's row keeps the result, since the rating's move no longer shows a draw.
+    expect(sqlite.prepare('SELECT score FROM rated_games WHERE game_id = ?').all(id)).toEqual([{ score: 0.5 }, { score: 0.5 }]);
+    expect(sqlite.prepare('SELECT score FROM rated_games WHERE game_id = ? ORDER BY score').all(first.id)).toEqual([{ score: 0 }, { score: 1 }]);
   });
 
   it("rematches a rated game rated, telling the other player, whichever device they're on", async () => {

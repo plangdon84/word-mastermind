@@ -422,8 +422,8 @@ entry per game. Counted figures are kept for 5 minutes, so Refresh taps
 don't count again, keeping it well within D1's free 5 million rows a day.
 
 **Rated ladder computers** (Dev Plan item 19q): for each computer in the
-computer ratings table, its games and players' actual score against it (a
-win raised their rating, a draw left it alone) beside the score their
+computer ratings table, its games and players' actual score against it
+(each game's `rated_games.score`, Dev Plan item 19zh) beside the score their
 ratings going in expected, from `rated_games.computer_recall`, over the
 last 90 days (Dev Plan item 19x; a partial index from migration 0029, so a
 refresh reads only that period's computer games). Settled
@@ -530,23 +530,34 @@ result (README "Rating"). It reads every rated two player game
 (`rated_games`, each game's record from `games`) and replays them all in
 the order they were rated, from a new rating, with the weeks between
 games widening RD as the worker does (`worker/src/rerate.ts`). It first
-replays them under the old rule (a draw moved no rating) and stops,
-writing nothing, unless that gives back every stored rating and change
-exactly. A game missing a player's row (a deleted account) or a record
-stops it too. Competitive Rush (`rush`) is left alone: its shared places
-were already plain draws.
+replays them as they were rated (the old rule, where a draw moved no
+rating) and stops, writing nothing, unless that gives back every stored
+rating and change exactly. A game missing a player's row (a deleted
+account) or a record stops it too: if that happens, we decide what to do
+then. Competitive Rush (`rush`) is left alone: its shared places were
+already plain draws. It also fills in each game's result
+(`rated_games.score`, migration 0035), which the usage dashboard reads.
 
 With `--write`, after you type the environment's name, it saves SQL that
 puts every row back as it was (the path is printed; it holds players' IDs,
 so delete it once you're sure), rewrites `ratings` and every changed
 `rated_games` row from one file, then reads everything again to check. A
 rating rated again between the read and the write is left as it is, and
-the check afterwards says so; run it again. Run again after a write, it
-finds nothing to do. It prints counts and rating moves only, never an ID.
+the check afterwards says so: run it again with `--new-rule-from`. Run
+again after a write, it finds nothing to do. It prints counts and rating
+moves only, never an ID.
+
+It changes ratings and each game's stored change, not what a finished
+game's own page shows (its room keeps the change it had), nor history
+entries already on devices (the owner, 10 November 2026).
 
 Order, while rated play is paused (players asked to hold off, no rated
 game in progress): merge the PR, so production rates draws the new way,
-then run it on production before any rated game ends. A draw rated the
-new way on top of the old ratings matches neither replay, so the check
-stops. Every branch deploys to staging, so staging can be run any time
-first. Needs Node 22.18 or later.
+note the deploy's time, then run it on production. If a rated game may
+have ended since the deploy (a correspondence timeout needs no player),
+add `--new-rule-from=<the deploy's time>`, e.g.
+`--new-rule-from=2026-11-12T20:00:00Z`: games rated from then were rated by
+the new rule. Without it, a draw rated that way matches neither replay and
+the check stops. Every branch deploys to staging, so run staging first,
+with `--new-rule-from` set to when this PR's first commit deployed there.
+Needs Node 22.18 or later.

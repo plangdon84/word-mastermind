@@ -27,7 +27,7 @@ export const RELEASES: Release[] = [
   {
     version: '2.6.1',
     notes: [
-      { text: 'A rated draw now moves ratings a little: the lower rated player gains and the higher rated one loses. Every rated game so far has been re-rated this way.' },
+      { text: "A rated draw now moves ratings a little: the lower rated player gains and the higher rated one loses. Everyone's rating has been recalculated this way." },
     ],
   },
   {

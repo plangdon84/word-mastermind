@@ -14,7 +14,8 @@ export async function resolve(specifier: string, context: { parentURL?: string }
   }
   if (/^\.\.?\//.test(specifier) && !/\.\w+$/.test(specifier)) {
     // A folder's import (`../../src/game`) is its index.ts.
-    return next(`${specifier}.ts`, context).catch(() => next(`${specifier}/index.ts`, context));
+    return next(`${specifier}.ts`, context).catch((error: unknown) =>
+      next(`${specifier}/index.ts`, context).catch(() => { throw error; }));
   }
   return next(specifier, context);
 }

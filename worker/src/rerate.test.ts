@@ -41,11 +41,16 @@ async function history(rules: Rules) {
       ...ratingStatements(db, id, POOL, changes, now, recall),
     ]);
   };
-  const score = (result: 'host' | 'guest' | 'draw') => (result === 'host' ? 1 : result === 'draw' ? 0.5 : 0);
-  const versus = async (now: number, host: string, guest: string, result: 'host' | 'guest' | 'draw') => {
+  const score = (result: 'host' | 'guest' | 'draw'): 0 | 0.5 | 1 => (result === 'host' ? 1 : result === 'draw' ? 0.5 : 0);
+  // Rated by `by`, as the worker does since it keeps each result (`score`), or else as before it did.
+  const versus = async (now: number, host: string, guest: string, result: 'host' | 'guest' | 'draw', by?: Rules) => {
     const before = [await currentRating(db, host, POOL, now), await currentRating(db, guest, POOL, now)];
-    const after = rules.game(before[0], before[1], score(result));
-    await save(now, result, [{ accountId: host, before: before[0], after: after[0] }, { accountId: guest, before: before[1], after: after[1] }]);
+    const after = (by ?? rules).game(before[0], before[1], score(result));
+    const scores = by ? { host: score(result), guest: (1 - score(result)) as 0 | 0.5 | 1 } : { host: undefined, guest: undefined };
+    await save(now, result, [
+      { accountId: host, before: before[0], after: after[0], score: scores.host },
+      { accountId: guest, before: before[1], after: after[1], score: scores.guest },
+    ]);
   };
   const computer = COMPUTER_RATINGS[2];
   const vsComputer = async (now: number, player: string, result: 'host' | 'guest' | 'draw') => {
@@ -59,7 +64,7 @@ async function history(rules: Rules) {
   await versus(T + 9 * DAY_MS, 'ann', 'cat', 'guest');
   for (let i = 0; i < 10; i++) await vsComputer(T + 10 * DAY_MS + i, 'ann', i === 4 ? 'draw' : i % 2 ? 'host' : 'guest');
   await vsComputer(T + 30 * DAY_MS, 'cat', 'draw');
-  return { db, sqlite };
+  return { db, sqlite, versus };
 }
 
 function read(sqlite: ReturnType<typeof fakeD1>['sqlite']) {
@@ -96,6 +101,13 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
     written.forEach((row, i) => {
       for (const key of ['rating_before', 'rd_before', 'rating_after', 'rd_after']) expect(row[key]).toBeCloseTo(wanted[i][key], 9);
     });
+    // Every row now keeps its result, for the usage dashboard.
+    const scores = sqlite.prepare("SELECT game_id, account_id, score FROM rated_games WHERE game_id IN ('game-1', 'game-13', 'game-3')").all();
+    expect(scores).toEqual(expect.arrayContaining([
+      { game_id: 'game-1', account_id: 'ann', score: 1 }, { game_id: 'game-1', account_id: 'bob', score: 0 },
+      { game_id: 'game-3', account_id: 'ann', score: 0 }, { game_id: 'game-3', account_id: 'bob', score: 1 },
+      { game_id: 'game-13', account_id: 'bob', score: 0.5 }, { game_id: 'game-13', account_id: 'ann', score: 0.5 },
+    ]));
 
     // Run again, it finds the work done and changes nothing.
     const again = read(sqlite);
@@ -104,6 +116,26 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
     expect(after.ratings).toEqual([]);
     expect(after.rows).toEqual([]);
     expect(after.alreadyNew).toBeGreaterThan(0);
+  });
+
+  it('takes a draw rated by the new rules after the deploy, given its time, and still ends as rating every game afresh', async () => {
+    const { sqlite, versus } = await history(OLD_RULES);
+    const deploy = T + 40 * DAY_MS;
+    await versus(deploy + 1, 'bob', 'ann', 'draw', NEW_RULES);
+    const { rows, ratings, records } = read(sqlite);
+    // Without the deploy's time, the new draw matches neither replay.
+    expect(checkRerate(rows, ratings, records).problems.length).toBeGreaterThan(0);
+    const check = checkRerate(rows, ratings, records, deploy);
+    expect(check.problems).toEqual([]);
+    sqlite.exec(rerateSql(check));
+
+    const fresh = await history(NEW_RULES);
+    await fresh.versus(deploy + 1, 'bob', 'ann', 'draw', NEW_RULES);
+    for (const id of ['ann', 'bob']) {
+      for (const key of ['rating', 'rd', 'volatility'] as const) expect(ratingOf(sqlite, id)[key]).toBeCloseTo(ratingOf(fresh.sqlite, id)[key], 9);
+    }
+    const again = read(sqlite);
+    expect(checkRerate(again.rows, again.ratings, again.records, deploy)).toMatchObject({ problems: [], ratings: [], rows: [] });
   });
 
   it('moves a draw between unequal ratings: the lower rated player ends higher than before', async () => {
