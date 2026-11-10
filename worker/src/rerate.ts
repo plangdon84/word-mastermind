@@ -9,9 +9,10 @@ import {
  * was rated, from a new player's rating, with the weeks between games
  * widening RD as the worker does (`currentRating`), and each game's result
  * from its record. The replay is first run under the rules the games were
- * rated by (the old rules, and the new ones for games rated since the
- * deploy, `newRuleFrom`), and must give back every stored rating, before
- * anything is written. Competitive Rush (`rush`) is left alone: its shared places
+ * rated by, and must give back every stored rating, before anything is
+ * written: draws were plain Glicko-2 results until item 18t's rule
+ * (`oldRuleFrom`), moved no rating until 19zh's deploy (`newRuleFrom`),
+ * and are plain again since. Competitive Rush (`rush`) is left alone: its shared places
  * already counted as plain draws (`rateGroup`).
  */
 
@@ -206,26 +207,37 @@ export function replay(games: readonly RatedGame[], rulesFor: (game: RatedGame) 
 }
 
 /**
- * Whether two numbers are the same: exactly, or with `loose`, to within
- * a billionth of a point, for a rating written as SQL text, which SQLite
- * may read back a last binary digit off.
+ * How far a stored number may be from the replay's: a millionth of a point.
+ * Production's October ratings differ from today's arithmetic in the last
+ * binary digits, and SQLite may read a rating written as SQL text back a
+ * digit off; a real difference in rules or order is far bigger.
  */
-const same = (a: number, b: number, loose: boolean) => a === b || (loose && Math.abs(a - b) <= 1e-9);
+export const MATCH_TOLERANCE = 1e-6;
+
+const same = (a: number, b: number) => Math.abs(a - b) <= MATCH_TOLERANCE;
 
 /**
  * Whether a row holds a change. Rows written before `rd_before` was kept
- * (migration 0010) have none, so it isn't compared; `score` is only with
- * `withScore`, since rows rated before it was kept have none.
+ * (migration 0010) have none, so it isn't compared, nor is `score`, which
+ * rows rated before it was kept don't have.
  */
-const sameRow = (row: RatedGameRow, change: Change | undefined, loose = false, withScore = false) =>
-  change !== undefined && (!withScore || row.score === change.score) && same(row.rating_before, change.before.rating, loose)
-  && (row.rd_before === null || same(row.rd_before, change.before.rd, loose))
-  && same(row.rating_after, change.after.rating, loose) && same(row.rd_after, change.after.rd, loose);
+const sameRow = (row: RatedGameRow, change: Change | undefined) =>
+  change !== undefined && same(row.rating_before, change.before.rating)
+  && (row.rd_before === null || same(row.rd_before, change.before.rd))
+  && same(row.rating_after, change.after.rating) && same(row.rd_after, change.after.rd);
 
-const sameRating = (row: RatingRow, kept: KeptRating | undefined, loose = false) =>
-  kept !== undefined && same(row.rating, kept.rating.rating, loose) && same(row.rd, kept.rating.rd, loose)
-  && same(row.volatility, kept.rating.volatility, loose)
+const sameRating = (row: RatingRow, kept: KeptRating | undefined) =>
+  kept !== undefined && same(row.rating, kept.rating.rating) && same(row.rd, kept.rating.rd)
+  && same(row.volatility, kept.rating.volatility)
   && row.games === kept.games && row.rated_at === kept.ratedAt && row.computer_games === kept.computerGames;
+
+/** When the draw rule changed (ms since the epoch); either left out means it never did within the games. */
+export interface RuleTimes {
+  /** Item 18t's rule, a draw moving no rating, from this time; before it, draws were plain. */
+  oldRuleFrom?: number;
+  /** 19zh's deploy: draws plain again from this time. */
+  newRuleFrom?: number;
+}
 
 /** What a re-rating would do: what's wrong first, else the rows to change. */
 export interface RerateCheck {
@@ -242,16 +254,17 @@ export interface RerateCheck {
 
 /**
  * Checks the stored ratings against both replays and lists what to
- * change. Every stored value must be exactly what the games were rated
- * as: the old rules, and the new ones for games rated from `newRuleFrom`
- * (the deploy, if a rated game may have ended since), or after an earlier
- * write, the new rules'. Anything else stops the re-rating.
+ * change. Every stored value must be what the games were rated as (to
+ * within `MATCH_TOLERANCE`): the old rules from `oldRuleFrom` until
+ * `newRuleFrom`, plain draws outside that, or after an earlier write, the
+ * new rules'. Anything else stops the re-rating.
  */
 export function checkRerate(
-  rows: readonly RatedGameRow[], ratings: readonly RatingRow[], records: ReadonlyMap<string, string>, newRuleFrom = Infinity,
+  rows: readonly RatedGameRow[], ratings: readonly RatingRow[], records: ReadonlyMap<string, string>,
+  { oldRuleFrom = -Infinity, newRuleFrom = Infinity }: RuleTimes = {},
 ): RerateCheck {
   const { games, problems } = ratedGames(rows, records);
-  const old = replay(games, (game) => (game.ratedAt >= newRuleFrom ? NEW_RULES : OLD_RULES));
+  const old = replay(games, (game) => (game.ratedAt >= oldRuleFrom && game.ratedAt < newRuleFrom ? OLD_RULES : NEW_RULES));
   const next = replay(games, () => NEW_RULES);
   const check: RerateCheck = {
     problems, games: games.length, draws: games.filter((g) => g.players[0].score === 0.5).length, alreadyNew: 0, ratings: [], rows: [],
@@ -261,7 +274,7 @@ export function checkRerate(
     const key = rowKey(row.game_id, row.account_id);
     const now = next.changes.get(key)!;
     if (!old.changes.has(key)) continue; // A problem game, listed already.
-    if (sameRow(row, now, true)) {
+    if (sameRow(row, now)) {
       if (!sameRow(row, old.changes.get(key))) check.alreadyNew++;
       // Kept as it is once it has its RD going in and its result.
       if (row.rd_before !== null && row.score === now.score) continue;
@@ -277,7 +290,7 @@ export function checkRerate(
     const key = poolKey(row.account_id, row.pool);
     seen.add(key);
     const now = next.ratings.get(key);
-    if (sameRating(row, now, true)) {
+    if (sameRating(row, now)) {
       if (!sameRating(row, old.ratings.get(key))) check.alreadyNew++;
       continue;
     }

@@ -7,7 +7,9 @@
 //
 // Add --new-rule-from=<time> (e.g. 2026-11-12T20:00:00Z), the deploy's
 // time, if a rated game may have ended between the deploy and the run:
-// games rated from then were rated by the new rules.
+// games rated from then were rated by the new rules. Add
+// --old-rule-from=<time> where draws were plain before item 18t's rule
+// (production: 2026-10-08T00:00:00Z). Each time needs its zone (Z or an offset).
 //
 // It replays every rated game as it was rated first and stops unless that
 // gives back every stored rating exactly (`checkRerate` in
@@ -31,13 +33,17 @@ type Check = ReturnType<typeof checkRerate>;
 /** A failure that stops the script, with what to tell the operator. */
 class Stop extends Error {}
 
-const usage = `Usage: npm run rerate -- <${ENVIRONMENTS.join('|')}> [--write] [--new-rule-from=<time>]`;
+const usage = `Usage: npm run rerate -- <${ENVIRONMENTS.join('|')}> [--write] [--old-rule-from=<time>] [--new-rule-from=<time>]`;
 const { positionals, values } = parseArgs({
-  allowPositionals: true, options: { write: { type: 'boolean' }, 'new-rule-from': { type: 'string' } },
+  allowPositionals: true, options: { write: { type: 'boolean' }, 'old-rule-from': { type: 'string' }, 'new-rule-from': { type: 'string' } },
 });
 const [named] = positionals;
-const newRuleFrom = values['new-rule-from'] === undefined ? Infinity : Date.parse(values['new-rule-from']);
-if (!isEnvironment(named) || positionals.length !== 1 || Number.isNaN(newRuleFrom)) {
+/** A time given with its zone, or `fallback` if none: NaN for one without a zone, which would read as local time. */
+const timeOf = (text: string | undefined, fallback: number) =>
+  text === undefined ? fallback : /(Z|[+-]\d\d:?\d\d)$/i.test(text) ? Date.parse(text) : NaN;
+const oldRuleFrom = timeOf(values['old-rule-from'], -Infinity);
+const newRuleFrom = timeOf(values['new-rule-from'], Infinity);
+if (!isEnvironment(named) || positionals.length !== 1 || Number.isNaN(oldRuleFrom) || Number.isNaN(newRuleFrom) || oldRuleFrom >= newRuleFrom) {
   console.error(usage);
   process.exit(2);
 }
@@ -71,7 +77,7 @@ function read(): Check {
   const records = new Map(query<{ id: string; record: string }>(
     `SELECT id, record FROM games WHERE id IN (SELECT game_id FROM rated_games WHERE pool <> ${rush})`,
   ).map((g) => [g.id, g.record]));
-  return checkRerate(rows, ratings, records, newRuleFrom);
+  return checkRerate(rows, ratings, records, { oldRuleFrom, newRuleFrom });
 }
 
 /** What changes, in numbers only: never a player's ID, which is a credential. */

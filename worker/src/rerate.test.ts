@@ -26,8 +26,9 @@ function record(result: 'host' | 'guest' | 'draw', at: number): string {
   return JSON.stringify(toPvpRecord(game));
 }
 
-/** A database whose rated games were rated by `rules`, the way the worker rates them. */
-async function history(rules: Rules) {
+/** A database whose rated games were rated by `rules` (or the rules at each game's time), the way the worker rates them. */
+async function history(rulesAt: Rules | ((now: number) => Rules)) {
+  const rulesOf = (now: number) => (typeof rulesAt === 'function' ? rulesAt(now) : rulesAt);
   const { db, sqlite } = fakeD1();
   for (const id of ['ann', 'bob', 'cat']) {
     sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, 0)').run(id, `${id}@example.com`);
@@ -45,7 +46,7 @@ async function history(rules: Rules) {
   // Rated by `by`, as the worker does since it keeps each result (`score`), or else as before it did.
   const versus = async (now: number, host: string, guest: string, result: 'host' | 'guest' | 'draw', by?: Rules) => {
     const before = [await currentRating(db, host, POOL, now), await currentRating(db, guest, POOL, now)];
-    const after = (by ?? rules).game(before[0], before[1], score(result));
+    const after = (by ?? rulesOf(now)).game(before[0], before[1], score(result));
     const scores = by ? { host: score(result), guest: (1 - score(result)) as 0 | 0.5 | 1 } : { host: undefined, guest: undefined };
     await save(now, result, [
       { accountId: host, before: before[0], after: after[0], score: scores.host },
@@ -55,7 +56,7 @@ async function history(rules: Rules) {
   const computer = COMPUTER_RATINGS[2];
   const vsComputer = async (now: number, player: string, result: 'host' | 'guest' | 'draw') => {
     const before = await currentRating(db, player, POOL, now);
-    await save(now, result, [{ accountId: player, before, after: rules.computer(before, computerRating(computer), score(result)) }], computer.recall);
+    await save(now, result, [{ accountId: player, before, after: rulesOf(now).computer(before, computerRating(computer), score(result)) }], computer.recall);
   };
   // Enough decisive games to settle Ann and Bob, then draws between unequal players, a week away, and the computer.
   for (let i = 0; i < 12; i++) await versus(T + i * 60_000, 'ann', 'bob', i % 3 === 2 ? 'guest' : 'host');
@@ -125,7 +126,7 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
     const { rows, ratings, records } = read(sqlite);
     // Without the deploy's time, the new draw matches neither replay.
     expect(checkRerate(rows, ratings, records).problems.length).toBeGreaterThan(0);
-    const check = checkRerate(rows, ratings, records, deploy);
+    const check = checkRerate(rows, ratings, records, { newRuleFrom: deploy });
     expect(check.problems).toEqual([]);
     sqlite.exec(rerateSql(check));
 
@@ -135,7 +136,32 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
       for (const key of ['rating', 'rd', 'volatility'] as const) expect(ratingOf(sqlite, id)[key]).toBeCloseTo(ratingOf(fresh.sqlite, id)[key], 9);
     }
     const again = read(sqlite);
-    expect(checkRerate(again.rows, again.ratings, again.records, deploy)).toMatchObject({ problems: [], ratings: [], rows: [] });
+    expect(checkRerate(again.rows, again.ratings, again.records, { newRuleFrom: deploy })).toMatchObject({ problems: [], ratings: [], rows: [] });
+  });
+
+  it("takes draws rated plainly before the old rule began (item 18t), given its time, as production's first draws were", async () => {
+    // The day-1 draws are rated plainly, everything from day 5 by the old rule.
+    const oldRuleFrom = T + 5 * DAY_MS;
+    const { sqlite } = await history((now) => (now < oldRuleFrom ? NEW_RULES : OLD_RULES));
+    const { rows, ratings, records } = read(sqlite);
+    expect(checkRerate(rows, ratings, records).problems.length).toBeGreaterThan(0);
+    const check = checkRerate(rows, ratings, records, { oldRuleFrom });
+    expect(check.problems).toEqual([]);
+    sqlite.exec(rerateSql(check));
+    const fresh = await history(NEW_RULES);
+    for (const id of ['ann', 'bob', 'cat']) {
+      for (const key of ['rating', 'rd', 'volatility'] as const) expect(ratingOf(sqlite, id)[key]).toBeCloseTo(ratingOf(fresh.sqlite, id)[key], 9);
+    }
+    const again = read(sqlite);
+    expect(checkRerate(again.rows, again.ratings, again.records, { oldRuleFrom })).toMatchObject({ problems: [], ratings: [], rows: [] });
+  });
+
+  it('accepts a stored rating a last digit off the replay, as October\'s are, but not a thousandth of a point', async () => {
+    const { sqlite } = await history(OLD_RULES);
+    const { rows, ratings, records } = read(sqlite);
+    const off = (by: number) => ratings.map((r) => (r.account_id === 'cat' ? { ...r, rating: r.rating + by } : r));
+    expect(checkRerate(rows, off(3e-13), records).problems).toEqual([]);
+    expect(checkRerate(rows, off(1e-3), records).problems).toHaveLength(1);
   });
 
   it('moves a draw between unequal ratings: the lower rated player ends higher than before', async () => {

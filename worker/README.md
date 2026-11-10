@@ -530,9 +530,15 @@ result (README "Rating"). It reads every rated two player game
 (`rated_games`, each game's record from `games`) and replays them all in
 the order they were rated, from a new rating, with the weeks between
 games widening RD as the worker does (`worker/src/rerate.ts`). It first
-replays them as they were rated (the old rule, where a draw moved no
-rating) and stops, writing nothing, unless that gives back every stored
-rating and change exactly. A game missing a player's row (a deleted
+replays them as they were rated and stops, writing nothing, unless that
+gives back every stored rating and change, to within a millionth of a
+point (`MATCH_TOLERANCE`: production's October ratings differ from
+today's arithmetic in the last binary digits). Draws were plain Glicko-2
+results until item 18t's rule, moved no rating from then until this
+item's deploy, and are plain again since: `--old-rule-from` gives when
+18t's rule began (production: `2026-10-08T00:00:00Z`, between its last
+plain draw on 6 October and its first unmoved one on 9 October; leave it
+out on staging, whose rated games all came later). A game missing a player's row (a deleted
 account) or a record stops it too: if that happens, we decide what to do
 then. Competitive Rush (`rush`) is left alone: its shared places were
 already plain draws. It also fills in each game's result
@@ -550,6 +556,9 @@ moves only, never an ID.
 It changes ratings and each game's stored change, not what a finished
 game's own page shows (its room keeps the change it had), nor history
 entries already on devices (the owner, 10 November 2026).
+
+Every time option needs its zone (`Z` or an offset); one without is
+refused rather than read as local time.
 
 Order, while rated play is paused (players asked to hold off, no rated
 game in progress): merge the PR, so production rates draws the new way,
