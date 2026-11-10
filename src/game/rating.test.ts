@@ -42,15 +42,22 @@ describe('rateGame', () => {
     expect(a.rd).toBeLessThan(350);
   });
 
-  it('leaves both ratings where they were after a draw between unequal players, still narrowing both', () => {
+  it('moves a draw between unequal players as Glicko-2 has it: the lower rated gains, the higher loses (Dev Plan item 19zh)', () => {
     const strong: Rating = { rating: 1700, rd: 120, volatility: 0.06 };
     const weak: Rating = { rating: 1400, rd: 200, volatility: 0.06 };
     const [a, b] = rateGame(strong, weak, 0.5);
-    expect(a.rating).toBe(1700);
-    expect(b.rating).toBe(1400);
-    expect([a.volatility, b.volatility]).toEqual([strong.volatility, weak.volatility]);
+    expect(a).toEqual(updateRating(strong, [{ opponent: weak, score: 0.5 }]));
+    expect(b).toEqual(updateRating(weak, [{ opponent: strong, score: 0.5 }]));
+    expect(a.rating).toBeLessThan(1700);
+    expect(b.rating).toBeGreaterThan(1400);
     expect(a.rd).toBeLessThan(strong.rd);
     expect(b.rd).toBeLessThan(weak.rd);
+  });
+
+  it('moves settled ratings about 1.4 points per 50 points of gap on a draw', () => {
+    const [low] = rateGame({ rating: 1500, rd: 60, volatility: 0.06 }, { rating: 1550, rd: 60, volatility: 0.06 }, 0.5);
+    expect(low.rating - 1500).toBeGreaterThan(1.2);
+    expect(low.rating - 1500).toBeLessThan(1.6);
   });
 
   it('rewards beating a stronger player more than a weaker one', () => {

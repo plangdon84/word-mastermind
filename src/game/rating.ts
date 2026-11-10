@@ -151,28 +151,24 @@ export function updateRating(player: Rating, results: readonly RatedResult[], ta
 
 /**
  * Both players' ratings after one game between them, `scoreA` being A's
- * score. A draw changes neither rating nor volatility (README "Rating",
- * issue #131): it still counts as a game, so RD narrows as Glicko-2 has it.
+ * score. A draw is a result like any other, as Glicko-2 has it (Dev Plan
+ * item 19zh, the owner, 10 November 2026): the lower rated player gains
+ * and the higher rated one loses.
  */
 export function rateGame(a: Rating, b: Rating, scoreA: 0 | 0.5 | 1): [Rating, Rating] {
   const scoreB = (1 - scoreA) as 0 | 0.5 | 1;
-  const rated: [Rating, Rating] = [updateRating(a, [{ opponent: b, score: scoreA }]), updateRating(b, [{ opponent: a, score: scoreB }])];
-  return scoreA === 0.5
-    ? [{ ...rated[0], rating: a.rating, volatility: a.volatility }, { ...rated[1], rating: b.rating, volatility: b.volatility }]
-    : rated;
+  return [updateRating(a, [{ opponent: b, score: scoreA }]), updateRating(b, [{ opponent: a, score: scoreB }])];
 }
 
 /**
  * A player's rating after a ladder game against a computer (Dev Plan item
  * 19p, the owner, 3 November 2026), whose own rating never moves: half
- * the change a game against a person of that rating would make, win or
- * lose, but the full change while the player's rating is provisional. A
- * draw changes neither rating nor volatility, as against a person; RD
- * narrows as Glicko-2 has it.
+ * the change a game against a person of that rating would make, win, draw
+ * or lose (a draw since item 19zh), but the full change while the player's
+ * rating is provisional.
  */
 export function rateVsComputer(player: Rating, computer: Rating, score: 0 | 0.5 | 1): Rating {
   const after = updateRating(player, [{ opponent: computer, score }]);
-  if (score === 0.5) return { ...after, rating: player.rating, volatility: player.volatility };
   return isProvisional(player) ? after : { ...after, rating: player.rating + (after.rating - player.rating) / 2 };
 }
 

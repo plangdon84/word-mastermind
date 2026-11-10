@@ -682,16 +682,22 @@ describe('challenging a friend', () => {
     expect(over.ratings!.you.after!.rating).toBeLessThan(over.ratings!.you.rating);
   });
 
-  it('leaves both ratings where they were after a rated draw, which still counts as a game', async () => {
+  it('moves a rated draw between unequal ratings as Glicko-2 has it: the lower rated gains (Dev Plan item 19zh)', async () => {
     const { ann, bob, bobCode } = await friends();
+    // Bob gives up a first game, so Ann is rated above him going into the draw.
+    const first = await ann.games.create({ ...invite, friend: bobCode, rated: true });
+    await bob.games.join(first.id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
+    await bob.games.concede(first.id);
     const { id } = await ann.games.create({ ...invite, friend: bobCode, rated: true });
     await bob.games.join(id, { name: 'Bob', secret: 'beach', difficulty: 'medium' });
     // Ann goes first and finds Bob's word; Bob's final guess finds hers.
     await ann.games.guess(id, 'beach');
     const over = await bob.games.guess(id, 'storm');
     expect(over.view?.outcome).toMatchObject({ result: 'draw' });
-    expect(over.ratings?.you).toMatchObject({ rating: 1500, after: { rating: 1500 } });
-    expect(await ann.ratings()).toEqual([{ pool: 'correspondence', rating: 1500, provisional: true, games: 1 }]);
+    expect(over.ratings?.you).toMatchObject({ rating: 1338 });
+    expect(over.ratings!.you.after!.rating).toBeGreaterThan(1338);
+    expect(over.ratings!.opponent.after!.rating).toBeLessThan(1662);
+    expect(await ann.ratings()).toMatchObject([{ pool: 'correspondence', games: 2 }]);
   });
 
   it("rematches a rated game rated, telling the other player, whichever device they're on", async () => {
