@@ -9,10 +9,10 @@
 // time, if a rated game may have ended between the deploy and the run:
 // games rated from then were rated by the new rules. Add
 // --old-rule-from=<time> where draws were plain before item 18t's rule
-// (production: 2026-10-08T00:00:00Z). Each time needs its zone (Z or an offset).
+// (production: 2026-10-08T00:00:00Z). Each time is full ISO 8601 with its zone (Z or ±hh:mm).
 //
 // It replays every rated game as it was rated first and stops unless that
-// gives back every stored rating exactly (`checkRerate` in
+// gives back every stored rating, to within MATCH_TOLERANCE (`checkRerate` in
 // worker/src/rerate.ts). Before writing, it saves SQL that puts every row
 // back as it was, and afterwards it reads everything again to check.
 // Runs with Node's built-in TypeScript support (Node 22.18 or later).
@@ -27,7 +27,7 @@ import { confirmed, ENVIRONMENTS, isEnvironment, wranglerTarget, type Environmen
 
 // src/game imports the word lists as Vite does (`?raw`) and without extensions.
 register('../../scripts/gameLoader.ts', import.meta.url);
-const { checkRerate, rerateSql, RUSH_POOL } = await import('../src/rerate.ts');
+const { checkRerate, parseRuleTime, rerateSql, RUSH_POOL } = await import('../src/rerate.ts');
 type Check = ReturnType<typeof checkRerate>;
 
 /** A failure that stops the script, with what to tell the operator. */
@@ -38,16 +38,15 @@ const { positionals, values } = parseArgs({
   allowPositionals: true, options: { write: { type: 'boolean' }, 'old-rule-from': { type: 'string' }, 'new-rule-from': { type: 'string' } },
 });
 const [named] = positionals;
-/** A time given with its zone, or `fallback` if none: NaN for one without a zone, which would read as local time. */
-const timeOf = (text: string | undefined, fallback: number) =>
-  text === undefined ? fallback : /(Z|[+-]\d\d:?\d\d)$/i.test(text) ? Date.parse(text) : NaN;
-const oldRuleFrom = timeOf(values['old-rule-from'], -Infinity);
-const newRuleFrom = timeOf(values['new-rule-from'], Infinity);
+const oldRuleFrom = parseRuleTime(values['old-rule-from'], -Infinity);
+const newRuleFrom = parseRuleTime(values['new-rule-from'], Infinity);
 if (!isEnvironment(named) || positionals.length !== 1 || Number.isNaN(oldRuleFrom) || Number.isNaN(newRuleFrom) || oldRuleFrom >= newRuleFrom) {
   console.error(usage);
   process.exit(2);
 }
 const environment = named as Environment;
+const utc = (time: number) => (Number.isFinite(time) ? new Date(time).toISOString() : 'not given');
+if (values['old-rule-from'] || values['new-rule-from']) console.log(`Draws moved no rating from ${utc(oldRuleFrom)} until ${utc(newRuleFrom)} (UTC).`);
 
 const config = join(import.meta.dirname, '..', 'wrangler.toml');
 

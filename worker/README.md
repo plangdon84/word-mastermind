@@ -531,9 +531,9 @@ result (README "Rating"). It reads every rated two player game
 the order they were rated, from a new rating, with the weeks between
 games widening RD as the worker does (`worker/src/rerate.ts`). It first
 replays them as they were rated and stops, writing nothing, unless that
-gives back every stored rating and change, to within a millionth of a
-point (`MATCH_TOLERANCE`: production's October ratings differ from
-today's arithmetic in the last binary digits). Draws were plain Glicko-2
+gives back every stored rating and change, to within one part in a
+billion of each value (`MATCH_TOLERANCE`: production's ratings differ
+from today's arithmetic by at most 4.8e-11 of their size). Draws were plain Glicko-2
 results until item 18t's rule, moved no rating from then until this
 item's deploy, and are plain again since: `--old-rule-from` gives when
 18t's rule began (production: `2026-10-08T00:00:00Z`, between its last
@@ -557,8 +557,9 @@ It changes ratings and each game's stored change, not what a finished
 game's own page shows (its room keeps the change it had), nor history
 entries already on devices (the owner, 10 November 2026).
 
-Every time option needs its zone (`Z` or an offset); one without is
-refused rather than read as local time.
+Every time option is full ISO 8601 with its zone (`Z` or `±hh:mm`, e.g.
+`2026-10-08T00:00:00Z`); anything else is refused rather than read as
+local time or some other date. The script prints the window it used in UTC.
 
 Order, while rated play is paused (players asked to hold off, no rated
 game in progress): merge the PR, so production rates draws the new way,

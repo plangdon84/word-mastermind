@@ -4,7 +4,7 @@ import {
 } from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { currentRating, ratingStatements, type PlayerChange } from './ratings';
-import { checkRerate, NEW_RULES, OLD_RULES, rerateSql, type RatedGameRow, type RatingRow, type Rules } from './rerate';
+import { checkRerate, NEW_RULES, OLD_RULES, parseRuleTime, rerateSql, type RatedGameRow, type RatingRow, type Rules } from './rerate';
 
 const T = Date.UTC(2026, 9, 1);
 const POOL = 'correspondence';
@@ -156,12 +156,49 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
     expect(checkRerate(again.rows, again.ratings, again.records, { oldRuleFrom })).toMatchObject({ problems: [], ratings: [], rows: [] });
   });
 
-  it('accepts a stored rating a last digit off the replay, as October\'s are, but not a thousandth of a point', async () => {
+  it('takes all three periods: plain draws, then the old rule, then plain again after the deploy', async () => {
+    const oldRuleFrom = T + 5 * DAY_MS;
+    const newRuleFrom = T + 20 * DAY_MS;
+    // The day-1 draws are plain, the computer draw on day 10 is the old rule's, Cat's on day 30 plain again.
+    const { sqlite } = await history((now) => (now < oldRuleFrom || now >= newRuleFrom ? NEW_RULES : OLD_RULES));
+    const { rows, ratings, records } = read(sqlite);
+    // Without the old rule's start the day-1 draws match neither replay. (Cat's day-30 draw matches the new rules
+    // even without the deploy's time, since nothing before it differs for Cat.)
+    expect(checkRerate(rows, ratings, records, { newRuleFrom }).problems.length).toBeGreaterThan(0);
+    const check = checkRerate(rows, ratings, records, { oldRuleFrom, newRuleFrom });
+    expect(check.problems).toEqual([]);
+    sqlite.exec(rerateSql(check));
+    const fresh = await history(NEW_RULES);
+    for (const id of ['ann', 'bob', 'cat']) {
+      for (const key of ['rating', 'rd', 'volatility'] as const) expect(ratingOf(sqlite, id)[key]).toBeCloseTo(ratingOf(fresh.sqlite, id)[key], 9);
+    }
+  });
+
+  it("accepts a stored value a last digit off the replay, as production's are, but nothing near a real rule difference", async () => {
     const { sqlite } = await history(OLD_RULES);
     const { rows, ratings, records } = read(sqlite);
-    const off = (by: number) => ratings.map((r) => (r.account_id === 'cat' ? { ...r, rating: r.rating + by } : r));
-    expect(checkRerate(rows, off(3e-13), records).problems).toEqual([]);
-    expect(checkRerate(rows, off(1e-3), records).problems).toHaveLength(1);
+    const offRating = (key: 'rating' | 'rd' | 'volatility', by: number) =>
+      checkRerate(rows, ratings.map((r) => (r.account_id === 'cat' ? { ...r, [key]: r[key] * (1 + by) } : r)), records).problems;
+    const offRow = (by: number) => checkRerate(rows.map((r) => (r.game_id === 'game-5' ? { ...r, rating_after: r.rating_after * (1 + by) } : r)), ratings, records).problems;
+    for (const by of [5e-11, -5e-11]) {
+      for (const key of ['rating', 'rd', 'volatility'] as const) expect(offRating(key, by)).toEqual([]);
+      expect(offRow(by)).toEqual([]);
+    }
+    // A draw between two new players differs only in volatility, by 1.7e-5 of it; a much smaller gap is still caught.
+    for (const by of [2e-9, -2e-9, 1.7e-5]) {
+      for (const key of ['rating', 'rd', 'volatility'] as const) expect(offRating(key, by)).toHaveLength(1);
+      expect(offRow(by).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('reads a rule time only as full ISO 8601 with its zone', () => {
+    expect(parseRuleTime(undefined, -Infinity)).toBe(-Infinity);
+    expect(parseRuleTime('2026-10-08T00:00:00Z', 0)).toBe(Date.UTC(2026, 9, 8));
+    expect(parseRuleTime('2026-10-08T01:00+01:00', 0)).toBe(Date.UTC(2026, 9, 8));
+    expect(parseRuleTime('2026-11-10T04:25:00.500Z', 0)).toBe(Date.UTC(2026, 10, 10, 4, 25, 0, 500));
+    for (const bad of ['2026-10-08', '2026-10-08T00:00:00', '2026-10-08T00:00+0000', '1z', '12345Z', 'Oct 8 2026 +00:00']) {
+      expect(parseRuleTime(bad, 0), bad).toBeNaN();
+    }
   });
 
   it('moves a draw between unequal ratings: the lower rated player ends higher than before', async () => {

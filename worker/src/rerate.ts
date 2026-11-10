@@ -207,14 +207,26 @@ export function replay(games: readonly RatedGame[], rulesFor: (game: RatedGame) 
 }
 
 /**
- * How far a stored number may be from the replay's: a millionth of a point.
- * Production's October ratings differ from today's arithmetic in the last
- * binary digits, and SQLite may read a rating written as SQL text back a
- * digit off; a real difference in rules or order is far bigger.
+ * How far a stored number may be from the replay's, as a share of its
+ * size: one part in a billion. Production's ratings differ from today's
+ * arithmetic by at most 4.8e-11 of their size (about 1.2e-9 points,
+ * measured 10 November 2026), and SQLite may read a rating written as SQL
+ * text back a digit off. The smallest real rule difference likely, the
+ * volatility after a draw between two new players, is 1.7e-5 of its size.
  */
-export const MATCH_TOLERANCE = 1e-6;
+export const MATCH_TOLERANCE = 1e-9;
 
-const same = (a: number, b: number) => Math.abs(a - b) <= MATCH_TOLERANCE;
+const same = (a: number, b: number) => Math.abs(a - b) <= MATCH_TOLERANCE * Math.max(Math.abs(a), Math.abs(b));
+
+/**
+ * A rule time as given to `npm run rerate`: full ISO 8601 with its zone
+ * (`Z` or `±hh:mm`), else NaN, so a time without a zone is never read as
+ * local time and a typo isn't read as some other date. Left out, `fallback`.
+ */
+export function parseRuleTime(text: string | undefined, fallback: number): number {
+  if (text === undefined) return fallback;
+  return /^\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d(\.\d+)?)?(Z|[+-]\d\d:\d\d)$/.test(text) ? Date.parse(text) : NaN;
+}
 
 /**
  * Whether a row holds a change. Rows written before `rd_before` was kept

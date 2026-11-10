@@ -138,8 +138,9 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   - Follow-up, 10 November 2026 (production's dry run): production's
     first 4 draws (4 to 6 October) were rated plainly, before 18t's rule,
     and its October ratings differ from today's arithmetic in the last
-    binary digits. `--old-rule-from` and a millionth-of-a-point match
-    (`MATCH_TOLERANCE`) let the check pass; time options need their zone
+    binary digits. `--old-rule-from` and a match to one part in a billion
+    (`MATCH_TOLERANCE`) let the check pass; time options are full ISO 8601
+    with their zone
 - [x] **19ze. Friend history index: drop the unused start time** (issue
   plangdon84/word-mastermind-archive#285; worker, review gate; no release
   note, nothing players see)
