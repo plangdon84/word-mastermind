@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test';
 
 /*
  * Shared steps for the browser tests. Tests set things up the way a player's
@@ -172,6 +172,17 @@ export async function listening(page: Page): Promise<void> {
 export async function windowFocused(page: Page): Promise<void> {
   await page.bringToFront();
   await expect.poll(() => page.evaluate(() => document.hasFocus()), { message: 'the page has the window\'s focus' }).toBe(true);
+}
+
+/**
+ * The control the page has moved focus to (document.activeElement), whether
+ * or not the page has the window's focus: toBeFocused() needs both, and WebKit
+ * on CI can leave a page without the window's focus for good (windowFocused).
+ */
+export async function expectActive(locator: Locator): Promise<void> {
+  await expect.poll(() => locator.evaluate((el) => el === el.ownerDocument.activeElement), {
+    message: `${locator} is the page's active element`,
+  }).toBe(true);
 }
 
 function pageOptions(page: Page) {
