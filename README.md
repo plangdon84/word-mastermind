@@ -2508,7 +2508,10 @@ history**.
   the top, **You vs. Bob** is your record against them: won–drawn–lost for
   two player games against them, and for Word Sets you both played (a
   higher place than theirs is a win, the same place a draw; not placed
-  comes last, and one neither of you placed in isn't counted). The server
+  comes last, and one neither of you placed in isn't counted), each with
+  your Win % against them in that mode, a draw counting half a win (Dev
+  Plan item 19zg, the owner, 10 November 2026: one Win % per row, not one
+  for the box, worked out in the app from the counts). The server
   counts it from the games in both your indexes: a game it refereed has
   the same history ID in both histories. A Rated ladder game that paired you
   with a friend counts in it too (the owner, 4 November 2026, review of
