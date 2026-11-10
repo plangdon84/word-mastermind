@@ -19,6 +19,7 @@
     "deploy:production": "wrangler d1 migrations apply DB --config worker/wrangler.toml --env production --remote && wrangler deploy --config worker/wrangler.toml --env production",
     "check:worker": "wrangler deploy --dry-run --config worker/wrangler.toml --env production",
     "wipe": "node worker/scripts/wipe.ts",
+    "rerate": "node worker/scripts/rerate.ts",
     "daily-themes": "node worker/scripts/daily-themes.ts",
     "vapid-keys": "node worker/scripts/vapid-keys.ts",
     "check:size": "node scripts/check-size.ts",

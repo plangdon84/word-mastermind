@@ -31,31 +31,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 **Later**
 
-- [ ] **19zh. Rated draws follow plain Glicko-2, and every rated game
-  re-rated** (from the owner, 10 November 2026; reverses item 18t's draw
-  rule; worker and a one-off script, review gate; a fix release, its
-  notes OK'd by the owner before the first commit)
-  - A draw moves ratings as Glicko-2 has it, with no changes: a 1200
-    drawing a 1600 gains and the 1600 loses. `rateGame` and
-    `rateVsComputer` (`src/game/rating.ts`) drop their draw override, so
-    a ladder draw against the computer moves half as much, like its wins
-    and losses. Competitive Rush's shared places (`rateGroup`) already
-    count as draws; 19j's question then compares with this rule. Updates
-    README "Rating" and the rating tests
-  - Checked with the owner on 10 November 2026 from production: 26 rated
-    draws between people and 12 against the computer had been rated as no
-    change. At settled ratings (RD about 60) a plain draw is worth about
-    1.4 points per 50 points of gap, so the bigger figures seen came from
-    unsettled ratings (higher RD), not the rule
-  - A one-off script re-rates every rated game: it replays them all in
-    the order they were rated (`rated_games.rated_at`), from a new rating,
-    with idle-week widening and each game's result from its record, then
-    rewrites `ratings` and every `rated_games` row in one batch. It first
-    replays under the old rule and must reproduce today's ratings exactly
-    before it writes anything; run on staging, then production
-  - Done by hand while rated play is paused: the owner asks players to
-    hold off, and the script runs once no rated game is in progress. A
-    built-in maintenance pause is 19zi; if 19zi lands first, this uses it
 - [ ] **19zi. A maintenance pause** (from the owner, 10 November 2026;
   the third change where games in progress were a risk; worker and app,
   review gate; a feature release, its notes OK'd by the owner before the
@@ -135,6 +110,31 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zh. Rated draws follow plain Glicko-2, and every rated game
+  re-rated** (from the owner, 10 November 2026; reverses item 18t's draw
+  rule; worker and a one-off script, review gate; a fix release, its
+  notes OK'd by the owner before the first commit)
+  - A draw moves ratings as Glicko-2 has it, with no changes: a 1200
+    drawing a 1600 gains and the 1600 loses. `rateGame` and
+    `rateVsComputer` (`src/game/rating.ts`) drop their draw override, so
+    a ladder draw against the computer moves half as much, like its wins
+    and losses. Competitive Rush's shared places (`rateGroup`) already
+    count as draws; 19j's question then compares with this rule. Updates
+    README "Rating" and the rating tests
+  - Checked with the owner on 10 November 2026 from production: 26 rated
+    draws between people and 12 against the computer had been rated as no
+    change. At settled ratings (RD about 60) a plain draw is worth about
+    1.4 points per 50 points of gap, so the bigger figures seen came from
+    unsettled ratings (higher RD), not the rule
+  - A one-off script re-rates every rated game: it replays them all in
+    the order they were rated (`rated_games.rated_at`), from a new rating,
+    with idle-week widening and each game's result from its record, then
+    rewrites `ratings` and every `rated_games` row in one batch. It first
+    replays under the old rule and must reproduce today's ratings exactly
+    before it writes anything; run on staging, then production
+  - Done by hand while rated play is paused: the owner asks players to
+    hold off, and the script runs once no rated game is in progress. A
+    built-in maintenance pause is 19zi; if 19zi lands first, this uses it
 - [x] **19ze. Friend history index: drop the unused start time** (issue
   plangdon84/word-mastermind-archive#285; worker, review gate; no release
   note, nothing players see)

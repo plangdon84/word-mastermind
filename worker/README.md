@@ -517,3 +517,36 @@ Node 22.18 or later, which runs TypeScript directly.
 
 Every migration that adds a table must add it to `WIPE_TABLES` or
 `KEEP_TABLES` in `src/wipe.ts`; `src/wipe.test.ts` fails until it does.
+
+## Re-rating every rated game
+
+```sh
+npm run rerate -- <local|staging|production>            # checks, and shows what would change
+npm run rerate -- <local|staging|production> --write    # then writes it
+```
+
+A one-off for Dev Plan item 19zh, when a draw became a plain Glicko-2
+result (README "Rating"). It reads every rated two player game
+(`rated_games`, each game's record from `games`) and replays them all in
+the order they were rated, from a new rating, with the weeks between
+games widening RD as the worker does (`worker/src/rerate.ts`). It first
+replays them under the old rule (a draw moved no rating) and stops,
+writing nothing, unless that gives back every stored rating and change
+exactly. A game missing a player's row (a deleted account) or a record
+stops it too. Competitive Rush (`rush`) is left alone: its shared places
+were already plain draws.
+
+With `--write`, after you type the environment's name, it saves SQL that
+puts every row back as it was (the path is printed; it holds players' IDs,
+so delete it once you're sure), rewrites `ratings` and every changed
+`rated_games` row from one file, then reads everything again to check. A
+rating rated again between the read and the write is left as it is, and
+the check afterwards says so; run it again. Run again after a write, it
+finds nothing to do. It prints counts and rating moves only, never an ID.
+
+Order, while rated play is paused (players asked to hold off, no rated
+game in progress): merge the PR, so production rates draws the new way,
+then run it on production before any rated game ends. A draw rated the
+new way on top of the old ratings matches neither replay, so the check
+stops. Every branch deploys to staging, so staging can be run any time
+first. Needs Node 22.18 or later.

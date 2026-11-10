@@ -1,6 +1,7 @@
 // Lets a script run with Node import `src/game/` as Vite builds it: a
 // `?raw` import (the word lists) as its text, and an extensionless relative
-// import as its `.ts` file. Registered by `scripts/calibrate.ts`.
+// import as its `.ts` file (a folder's as its index.ts). Registered by
+// `scripts/calibrate.ts` and `worker/scripts/rerate.ts`.
 import { readFile } from 'node:fs/promises';
 
 type Resolved = { url: string; format?: string; shortCircuit?: boolean };
@@ -12,7 +13,8 @@ export async function resolve(specifier: string, context: { parentURL?: string }
     return { url: new URL(specifier, context.parentURL).href, shortCircuit: true };
   }
   if (/^\.\.?\//.test(specifier) && !/\.\w+$/.test(specifier)) {
-    return next(`${specifier}.ts`, context);
+    // A folder's import (`../../src/game`) is its index.ts.
+    return next(`${specifier}.ts`, context).catch(() => next(`${specifier}/index.ts`, context));
   }
   return next(specifier, context);
 }
