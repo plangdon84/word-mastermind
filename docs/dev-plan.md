@@ -1,6 +1,6 @@
 # Dev Plan
 
-Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Triaged with the owner on 10 November 2026: items 19zj to 19zq (the full-codebase review's issues). Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -15,6 +15,91 @@ Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
 shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 (none: 19zg is in Done)
+
+- [ ] **19zj. Two small security fixes from the full review** (issues
+  plangdon84/word-mastermind-archive#289 and
+  plangdon84/word-mastermind-archive#291; worker, sign-in,
+  review gate)
+  - Issue 289: a signed-in request whose device ID is linked to a
+    different account is refused with `sign-in-needed` (the app already
+    switches to a new device ID on that), so no one can register turn
+    alerts under another account's device ID; with a test like the review's
+    probe
+  - Issue 291: a player's friends list reads only their newest 10 open
+    lobby invites and deletes the rest (owner's decision, 10 November
+    2026); no friend is refused
+- [ ] **19zk. A daily cap on sign-in emails per internet address** (issue
+  plangdon84/word-mastermind-archive#290; worker, sign-in,
+  review gate)
+  - Decided with the owner on 10 November 2026: each internet address may
+    ask for 10 sign-in emails a day (to any emails), counted in D1 with the
+    address kept hashed and forgotten after a day; the per-email limit
+    stays. The privacy page gets one line saying so, and the route is added
+    to `limitOf` if it needs it
+- [ ] **19zl. Game rooms and the daily referee: no overlapping requests**
+  (issue plangdon84/word-mastermind-archive#292; worker,
+  review gate)
+  - The owner's decision, 10 November 2026: fix. Wrap `GameRoom`'s and
+    `DailyRush`'s request and alarm handlers in `blockConcurrencyWhile`,
+    as `RushLobby` does, and correct the comments that say requests can't
+    overlap
+  - Make a rating's write conditional on the rating it was worked out from,
+    and work it out again if it changed, so two games ending together for
+    one player both count
+  - Run `npm run load-test` after, since the day's object serves every
+    daily player
+- [ ] **19zm. Daily past places: stop working them out on every request**
+  (issue plangdon84/word-mastermind-archive#295; worker,
+  review gate)
+  - Actions (guess, Suggest, Pause, Resume, give up) stop sending past
+    places; a request can say the latest day the app already holds and gets
+    only later days. A request without that gets the full list, so older
+    apps keep their top 10 badges. Storing each final place is left for
+    later
+- [ ] **19zn. Definitions load by first letter** (issue
+  plangdon84/word-mastermind-archive#296; app only; a
+  release, its note OK'd by the owner before the first commit)
+  - Split the definitions into 26 files at build time (a small plugin in
+    `vite.config.ts`, leaving `wordlist/lists/` alone), load only the
+    letter tapped and show a brief loading state in the ⓘ popover; keep
+    `definitions` in the file names so `npm run check:size` still checks
+    they aren't loaded up front
+- [ ] **19zo. One way to save a finished game, and two worker savings**
+  (issues plangdon84/word-mastermind-archive#293 and
+  plangdon84/word-mastermind-archive#297; worker, review gate;
+  after 19zj)
+  - Issue 293: one shared "mark finished, save, clear the mark, retry
+    later" helper for the room, daily and lobby referees, so a lobby also
+    survives a failed D1 save; its notifications and ratings still happen
+    once after a retried save
+  - Issue 297, part 1: identify a signed-in player with one query joining
+    sessions to guests, keeping the daily session refresh and 19zj's check
+  - Issue 297, part 2: the ladder queue skips its write when a check-in
+    changes nothing, still saving `seenAt` so no seeker goes stale
+- [ ] **19zp. Worker clean-ups** (issues
+  plangdon84/word-mastermind-archive#294 and
+  plangdon84/word-mastermind-archive#288; worker, review
+  gate)
+  - Issue 294, part 1: one shared name check and one word check for the
+    friend game, lobby and daily routes; a refused name answers
+    `offensive-name` everywhere (a design default for the owner to change),
+    with the friend-game screen's message checked
+  - Issue 294, part 2: a table of path prefixes with `identify` done once
+    for the routes that need it, keeping the routes that deliberately skip
+    it and the launch-switch check
+  - Issue 288, items 3 to 5: put `wranglerArgs`' comment back, prefer a
+    stored `score` in `ratedGames`, and refuse a rule time that doesn't
+    exist (`2026-02-30`, `T24:00`)
+  - Issue 294, part 3 happens in the archive repo, not here: replace its
+    stale CLAUDE.md with a few lines pointing at this repo's (no review
+    gate)
+- [ ] **19zq. A lighter start-up script** (issue
+  plangdon84/word-mastermind-archive#297, part 3; app only)
+  - Load `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the
+    sample game and `MovedNotice.tsx` after the page has loaded, as
+    `preloadScreens` does for screens (about 8 to 10 kB gzipped, to be
+    measured), keeping the badge toast and profile dot working and Report
+    an issue openable from any screen
 
 **Later**
 
