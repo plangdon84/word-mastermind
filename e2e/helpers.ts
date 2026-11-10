@@ -161,6 +161,19 @@ export async function listening(page: Page): Promise<void> {
   ).toBeGreaterThan(0);
 }
 
+/**
+ * Brings the page to the front and waits until it has the window's focus.
+ * WebKit on a busy CI runner can leave a page without it for a moment (after
+ * a reload, or once another player's page was used): a Tab then brings focus
+ * in from outside, which WebKit doesn't treat as keyboard focus (no
+ * :focus-visible), and toBeFocused() reads "inactive" while
+ * document.hasFocus() is false.
+ */
+export async function windowFocused(page: Page): Promise<void> {
+  await page.bringToFront();
+  await expect.poll(() => page.evaluate(() => document.hasFocus()), { message: 'the page has the window\'s focus' }).toBe(true);
+}
+
 function pageOptions(page: Page) {
   const size = page.viewportSize();
   return size ? { viewport: size, hasTouch: true, isMobile: page.context().browser()?.browserType().name() !== 'firefox' } : {};

@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { layoutProblems, SIZES } from './layout';
-import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll } from './helpers';
+import { getStorage, guess, listening, loginLink, loginLinkCount, modeButton, newPlayer, startSolo, trackSockets, unlockAll, windowFocused } from './helpers';
 
 /*
  * Edge cases (docs/test-plan.md "Edge cases"): going offline and back, two
@@ -779,6 +779,8 @@ test("a friend's name in a game opens their profile over it, and Back comes back
   const name = page.locator('.matchup .friend-name');
   await expect(name).toBeVisible();
   const theirName = await name.innerText();
+  // The friend's page was used last: this one takes the window back first, or Back can't read as focused.
+  await windowFocused(page);
   await name.click();
   const rows = page.getByRole('navigation', { name: `${theirName}'s profile` });
   await expect(rows.getByRole('button', { name: /^Game history/ })).toBeVisible();
