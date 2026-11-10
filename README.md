@@ -2675,13 +2675,18 @@ the worked example in Glickman's paper; the worker applies it
   game against it moves your rating by **half as much** as against a
   person of that rating, win or lose, and by the **full** amount while your
   rating is still provisional (`rateVsComputer`; the owner, 3 November
-  2026). No cap for now. A draw leaves it alone, as against a person. Its
-  `rated_games` row keeps the computer's recall (`computer_recall`).
-- **Scores:** a win is 1, a loss 0; giving up and running out of time
-  lose. A **draw** in a two player game changes neither player's rating
-  nor volatility (issues #131 and #153), but it still counts as a game
-  played: toward being listed on the boards, and it makes the rating more
-  certain (RD narrows as for any game).
+  2026). No cap for now. A draw counts the same way: half as much, or the
+  full amount while provisional (Dev Plan item 19zh). Its `rated_games` row
+  keeps the computer's recall (`computer_recall`).
+- **Scores:** a win is 1, a draw ½, a loss 0; giving up and running out
+  of time lose. A **draw** moves ratings as plain Glicko-2 has it (Dev Plan
+  item 19zh, the owner, 10 November 2026, reversing item 18t's rule that a
+  draw changed neither rating): the lower rated player gains and the
+  higher rated one loses, by little once both are settled (about 1.4
+  points per 50 points between them at RD 60), more while either is
+  uncertain. Equal ratings stay where they are. Every rated game before
+  19zh was re-rated this way once, by `npm run rerate` (worker/README.md
+  "Re-rating every rated game").
 - **Competitive Rush:** each pair of people in the game is a result by
   their final places (a better place wins, a shared place draws), all in
   the one rating period (`rateGroup` in `src/game/rating.ts`). Computers

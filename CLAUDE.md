@@ -303,7 +303,9 @@ Run `npm test` and `npm run typecheck` before committing.
   applied by the worker to rated games it refereed (`worker/src/ratings.ts`,
   D1 `ratings`, `rated_games`; `GET /api/ratings`). Accounts only; one pool
   per live clock plus correspondence and Competitive Rush (`rush`); each game is its own rating period,
-  and idle weeks widen RD. A rated game (`rated` on the room and record)
+  and idle weeks widen RD. A draw is a plain Glicko-2 result (Dev Plan
+  item 19zh; `npm run rerate`, `worker/src/rerate.ts`, re-rated the games
+  before it once). A rated game (`rated` on the room and record)
   fixes difficulty (`difficulty-fixed`). A challenge from the friends list
   can be rated; the app side is `src/app/ratingsApi.ts`.
 - Random opponent (Dev Plan item 10, README "Random opponent"): signed-in

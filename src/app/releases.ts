@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.6.1',
+    notes: [
+      { text: "A rated draw now moves ratings a little: the lower rated player gains and the higher rated one loses. Everyone's rating has been recalculated this way." },
+    ],
+  },
+  {
     version: '2.6.0',
     notes: [
       { text: "Win % now counts a draw as half a win, everywhere it's shown, including a friend's Stats." },

@@ -208,6 +208,11 @@ describe('the figures', () => {
       sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
         VALUES (?, ?, 'correspondence', 1500, 80, ?, 79, ?, 0.38)`).run(id, account, after, NOW);
     }
+    // Since Dev Plan item 19zh a row keeps its result, so a draw that moved the rating still counts as a draw.
+    for (const [id, after, score] of [['c5', 1503, 0.5], ['c6', 1510, 1]] as const) {
+      sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall, score)
+        VALUES (?, ?, 'correspondence', 1500, 80, ?, 79, ?, 0.38, ?)`).run(id, account, after, NOW, score);
+    }
     // A game from before the last 90 days isn't counted either (Dev Plan item 19x).
     sqlite.prepare(`INSERT INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
       VALUES ('c4', ?, 'correspondence', 1500, 80, 1520, 79, ?, 0.38)`).run(account, NOW - LADDER_DAYS * DAY_MS - 1);
@@ -252,8 +257,8 @@ describe('the figures', () => {
     expect(usage.countries).toEqual([{ country: 'GB', count: 1 }]);
     expect(usage.noCountry).toBe(0);
     expect(usage.ladder).toHaveLength(7);
-    expect(usage.ladder![0]).toMatchObject({ recall: 0.38, rating: 1500, games: 3, score: 1.5 });
-    expect(usage.ladder![0].expected).toBeCloseTo(1.5);
+    expect(usage.ladder![0]).toMatchObject({ recall: 0.38, rating: 1500, games: 5, score: 3 });
+    expect(usage.ladder![0].expected).toBeCloseTo(2.5);
     expect(usage.ladder![6]).toEqual({ recall: 1, rating: 1890, games: 0, score: 0, expected: 0 });
   });
 });

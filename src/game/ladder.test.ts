@@ -105,11 +105,14 @@ describe('rateVsComputer', () => {
     expect(rateVsComputer(NEW_RATING, computer, 1)).toEqual(updateRating(NEW_RATING, [{ opponent: computer, score: 1 }]));
   });
 
-  it('leaves the rating alone on a draw', () => {
+  it('moves a settled rating half as far on a draw too (Dev Plan item 19zh)', () => {
     const settled = { rating: 1700, rd: 60, volatility: 0.06 };
+    const full = updateRating(settled, [{ opponent: computer, score: 0.5 }]);
     const drawn = rateVsComputer(settled, computer, 0.5);
-    expect(drawn.rating).toBe(1700);
-    expect(drawn.volatility).toBe(0.06);
+    expect(drawn.rating - settled.rating).toBeCloseTo((full.rating - settled.rating) / 2, 9);
+    // The 1673 computer is the lower rated, so a 1700 drawing it loses a little.
+    expect(drawn.rating).toBeLessThan(1700);
+    expect(drawn.rd).toBe(full.rd);
   });
 });
 

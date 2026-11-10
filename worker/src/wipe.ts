@@ -37,7 +37,10 @@ export function wipeSql(): string {
 export const confirmed = (environment: Environment, typed: string) => typed.trim() === environment;
 
 /** Arguments for `wrangler` that run the wipe against `environment`. */
+/** Wrangler's flags for an environment's D1 database: the local one, or a deployed one. */
+export const wranglerTarget = (environment: Environment): string[] =>
+  environment === 'local' ? ['--local', '--env='] : ['--remote', `--env=${environment}`];
+
 export function wranglerArgs(environment: Environment, config: string): string[] {
-  const target = environment === 'local' ? ['--local', '--env='] : ['--remote', `--env=${environment}`];
-  return ['d1', 'execute', 'DB', '--config', config, ...target, '--command', wipeSql()];
+  return ['d1', 'execute', 'DB', '--config', config, ...wranglerTarget(environment), '--command', wipeSql()];
 }

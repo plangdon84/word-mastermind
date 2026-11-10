@@ -44,6 +44,8 @@ export interface PlayerChange {
   accountId: string;
   before: Rating;
   after: Rating;
+  /** Their result (1 a win, ½ a draw, 0 a loss), kept on `rated_games` (item 19zh); none for Competitive Rush. */
+  score?: 0 | 0.5 | 1;
 }
 
 /**
@@ -59,8 +61,8 @@ export async function ratedGameChanges(
   const before = await ratingsOf(db, players, pool, now);
   const [host, guest] = rateGame(before.host, before.guest, hostScore);
   return [
-    { accountId: players.host, before: before.host, after: host },
-    { accountId: players.guest, before: before.guest, after: guest },
+    { accountId: players.host, before: before.host, after: host, score: hostScore },
+    { accountId: players.guest, before: before.guest, after: guest, score: (1 - hostScore) as 0 | 0.5 | 1 },
   ];
 }
 
@@ -73,7 +75,7 @@ export async function computerGameChanges(
   db: D1Database, pool: RatingPool, accountId: string, computer: Rating, score: 0 | 0.5 | 1, now: number,
 ): Promise<PlayerChange[]> {
   const before = await currentRating(db, accountId, pool, now);
-  return [{ accountId, before, after: rateVsComputer(before, computer, score) }];
+  return [{ accountId, before, after: rateVsComputer(before, computer, score), score }];
 }
 
 /**
@@ -146,7 +148,8 @@ async function storedChanges(db: D1Database, gameId: string): Promise<Record<str
  * Keeping the players' new ratings and the game's changes to them, for one
  * batch. Each rating changes only while the game has no changes kept yet,
  * so a game is rated once even if two saves of it overlap (D1 runs a batch
- * as one transaction): the second changes nothing. `computerRecall` marks a
+ * as one transaction): the second changes nothing. Each row keeps the
+ * player's result (`score`). `computerRecall` marks a
  * ladder game against a computer (Dev Plan item 19p), also counted on the
  * player's rating row for the boards (`computer_games`, item 19x).
  */
@@ -160,10 +163,10 @@ export function ratingStatements(
        ON CONFLICT (account_id, pool) DO UPDATE SET
          rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6, computer_games = computer_games + ?8`,
     ).bind(accountId, pool, rating, rd, volatility, now, gameId, computerRecall === undefined ? 0 : 1)),
-    ...changes.map(({ accountId, before, after }) => db.prepare(
-      `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
-    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now, computerRecall ?? null)),
+    ...changes.map(({ accountId, before, after, score }) => db.prepare(
+      `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall, score)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now, computerRecall ?? null, score ?? null)),
   ];
 }
 

@@ -119,13 +119,15 @@ export async function usageAt(db: D1Database, now: number): Promise<Usage> {
       `SELECT day, difficulty, COUNT(*) AS n FROM ${DIFFICULTY_TABLES[mode]} WHERE day >= ?1 GROUP BY day, difficulty`,
     ).bind(firstDay)),
     db.prepare(`SELECT country, COUNT(*) AS count FROM profiles WHERE country IS NOT NULL GROUP BY country ORDER BY count DESC, country`),
-    // Ladder games against a computer (Dev Plan item 19q): a win raised the player's rating, a loss lowered it and
-    // a draw left it alone, grouped by the rating they went in with, to the point. Settled players only: a
+    // Ladder games against a computer (Dev Plan item 19q): each game's result (`score`, Dev Plan item 19zh; a row
+    // from before it was kept has none, and then a win raised the player's rating, a loss lowered it and a draw
+    // left it alone), grouped by the rating they went in with, to the point. Settled players only: a
     // provisional player's computer was picked by their average guesses, so their rating predicts badly.
     // (A game read before rd_before was kept counts as provisional.) The last 90 days only (item 19x), read
     // through their index (migration 0029), so a refresh never reads every computer game ever played.
     db.prepare(
-      `SELECT computer_recall AS recall, ROUND(rating_before) AS rating, CASE WHEN rating_after > rating_before THEN 1 WHEN rating_after < rating_before THEN -1 ELSE 0 END AS result, COUNT(*) AS n
+      `SELECT computer_recall AS recall, ROUND(rating_before) AS rating, CASE WHEN score IS NOT NULL THEN CASE score WHEN 1 THEN 1 WHEN 0 THEN -1 ELSE 0 END
+         WHEN rating_after > rating_before THEN 1 WHEN rating_after < rating_before THEN -1 ELSE 0 END AS result, COUNT(*) AS n
        FROM rated_games WHERE computer_recall IS NOT NULL AND rated_at >= ?2 AND rd_before <= ?1 GROUP BY 1, 2, 3`,
     ).bind(PROVISIONAL_RD, now - LADDER_DAYS * DAY_MS),
   ]);
