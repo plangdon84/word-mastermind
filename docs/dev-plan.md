@@ -1,6 +1,6 @@
 # Dev Plan
 
-Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -31,6 +31,46 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 **Later**
 
+- [ ] **19zh. Rated draws follow plain Glicko-2, and every rated game
+  re-rated** (from the owner, 10 November 2026; reverses item 18t's draw
+  rule; worker and a one-off script, review gate; a fix release, its
+  notes OK'd by the owner before the first commit)
+  - A draw moves ratings as Glicko-2 has it, with no changes: a 1200
+    drawing a 1600 gains and the 1600 loses. `rateGame` and
+    `rateVsComputer` (`src/game/rating.ts`) drop their draw override, so
+    a ladder draw against the computer moves half as much, like its wins
+    and losses. Competitive Rush's shared places (`rateGroup`) already
+    count as draws; 19j's question then compares with this rule. Updates
+    README "Rating" and the rating tests
+  - Checked with the owner on 10 November 2026 from production: 26 rated
+    draws between people and 12 against the computer had been rated as no
+    change. At settled ratings (RD about 60) a plain draw is worth about
+    1.4 points per 50 points of gap, so the bigger figures seen came from
+    unsettled ratings (higher RD), not the rule
+  - A one-off script re-rates every rated game: it replays them all in
+    the order they were rated (`rated_games.rated_at`), from a new rating,
+    with idle-week widening and each game's result from its record, then
+    rewrites `ratings` and every `rated_games` row in one batch. It first
+    replays under the old rule and must reproduce today's ratings exactly
+    before it writes anything; run on staging, then production
+  - Done by hand while rated play is paused: the owner asks players to
+    hold off, and the script runs once no rated game is in progress. A
+    built-in maintenance pause is 19zi; if 19zi lands first, this uses it
+- [ ] **19zi. A maintenance pause** (from the owner, 10 November 2026;
+  the third change where games in progress were a risk; worker and app,
+  review gate; a feature release, its notes OK'd by the owner before the
+  first commit)
+  - A way to take the game down for a short, announced maintenance
+    window, then bring it back, for changes like 19zh's re-rating. In
+    steps: announce the window ahead in the app; at its start stop new
+    games starting (rated first, everything if needed) while games in
+    progress finish; once none are left, a maintenance screen and the
+    worker refusing changes until the owner lifts it
+  - Settled with the owner when it's built: how it's switched (a D1 row
+    or a Worker variable, not a deploy), what each mode does with games in
+    progress (correspondence clocks run for days, so whether they're
+    paused or simply waited out), and how players are told (in the app,
+    and whether a push notification)
 - [ ] **19r. A stronger ladder computer** (from 19q, 3 November 2026;
   if a player regularly beats the 1.0 computer)
   - A stronger guesser than full recall, rated by `npm run calibrate`
