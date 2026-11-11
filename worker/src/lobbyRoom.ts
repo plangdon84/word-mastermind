@@ -5,6 +5,7 @@ import {
 } from '../../src/game';
 import type { LobbyAnswer, LobbyErrorCode } from '../../src/app/lobbyApi';
 import { showRating } from '../../src/app/ratingsApi';
+import { SAVE_RETRY_MS, saveMarked } from './finishSave';
 import { checkedLobby } from './names';
 import { lobbyFinishedNotice, lobbyOverNotice, type Notice } from './notices';
 import { rateGroupGame, type RatingChange } from './ratings';
@@ -113,7 +114,8 @@ async function answer(deps: LobbyDeps, room: LobbyRoom, asker: Asker, now: numbe
 /**
  * Brings the lobby up to `now`: a player who has finished is announced to
  * the others, and once the game is over, it's saved to D1 and everyone
- * hears their final place. The alarm wakes the lobby when a computer
+ * hears their final place (`saveMarked`: until it's saved, `saved` is false,
+ * and a failed save is tried again). The alarm wakes the lobby when a computer
  * finishes or the time runs out, so this happens even with nobody looking;
  * every request checks too.
  */
@@ -128,10 +130,22 @@ async function settle(storage: RoomStorage, deps: LobbyDeps, room: LobbyRoom, no
   const { game } = room.lobby;
   const endedAt = lobbyEndedAt(room.lobby, now);
   if (game && endedAt !== null && !room.saved) {
-    const ratings = await deps.saveFinished(room.lobby, endedAt);
-    await storage.deleteAlarm();
-    deps.notify(lobbyOverNotice(room.lobby, now));
-    next = { ...next, saved: true, alarmAt: null, announced: game.seats.map((s) => s.id), ...(ratings ? { ratings } : {}) };
+    // Saved once, then everyone hears their final place; if D1 fails, the alarm (or the next request) tries again.
+    const retryAt = now + SAVE_RETRY_MS;
+    const outcome = await saveMarked(storage, next, {
+      key: ROOM_KEY,
+      save: () => deps.saveFinished(room.lobby, endedAt),
+      retryAt,
+      cleared: (marked, ratings) => ({
+        ...marked, saved: true, alarmAt: null, announced: game.seats.map((s) => s.id), ...(ratings ? { ratings } : {}),
+      }),
+      afterSave: async () => {
+        await storage.deleteAlarm();
+        deps.notify(lobbyOverNotice(room.lobby, now));
+      },
+    });
+    if (outcome.saved) return outcome.value;
+    next = { ...next, alarmAt: retryAt };
   } else if (game && endedAt === null) {
     const finished = game.seats.filter((s, i) => !room.announced.includes(s.id) && seatRun(game, i, now).status === 'over');
     for (const seat of finished) deps.notify(lobbyFinishedNotice(room.lobby, seat.id, now));

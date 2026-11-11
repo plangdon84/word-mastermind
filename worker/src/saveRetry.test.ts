@@ -1,12 +1,16 @@
 // A finished game whose save to D1 fails is never lost from the history
-// (Dev Plan item 19m): the room keeps it over, marked unsaved, and its alarm
-// (or, for a daily game, the player's next request) saves it later; a game
-// is rated once however its saves overlap.
+// (Dev Plan items 19m and 19zo): the room keeps it over, marked unsaved, and
+// its alarm (or, for a daily game, the player's next request) saves it later;
+// a lobby does the same, telling everyone once it's saved; a game is rated
+// once however its saves overlap.
 import { describe, expect, it } from 'vitest';
 import { dailyDay, NEW_RATING } from '../../src/game';
 import { handleDaily, type DailyDeps } from './dailyRoom';
+import { handleLobby, handleLobbyAlarm, type LobbyDeps, type LobbyRoom } from './lobbyRoom';
+import type { Notice } from './notices';
 import { memoryStorage } from './fakeRooms';
-import { handleAlarm, handleRoom, SAVE_RETRY_MS, type Room, type RoomDeps } from './room';
+import { SAVE_RETRY_MS } from './finishSave';
+import { handleAlarm, handleRoom, type Room, type RoomDeps } from './room';
 import { fakeD1 } from './fakeD1';
 import { batchRated, rateFinishedGame, ratedGameChanges, rateGroupGame, ratingStatements, type PlayerChange } from './ratings';
 
@@ -75,6 +79,47 @@ describe('a daily game', () => {
     expect(looked.body).toMatchObject({ run: { status: 'finished' } });
     expect(saves.done).toBe(1);
     expect(storage.data.get('word:player-id')).not.toHaveProperty('unsaved');
+  });
+});
+
+describe('a Rush with Friends lobby', () => {
+  it('ends when saving the finished game fails, then its alarm saves it and tells everyone once (Dev Plan item 19zo)', async () => {
+    const storage = memoryStorage();
+    const { saves, save } = flakySave(2);
+    const told: Notice[][] = [];
+    const deps: LobbyDeps = { random: () => 0, saveFinished: save, notify: (n) => { told.push([...n]); }, friendCodes: async () => ({}) };
+    const ann = { playerId: 'ann-id' };
+    const bob = { playerId: 'bob-id' };
+    await handleLobby(storage, deps, { action: 'create', ...ann, code: 'ABCDEF', name: 'Ann', difficulty: 'medium' }, NOW);
+    await handleLobby(storage, deps, { action: 'join', ...bob, name: 'Bob' }, NOW);
+    await handleLobby(storage, deps, {
+      action: 'settings', ...ann, settings: { difficulty: 'medium', minutes: 30, computers: 0, strength: 'skilled' },
+    }, NOW);
+    await handleLobby(storage, deps, { action: 'start', ...ann }, NOW);
+    await handleLobby(storage, deps, { action: 'give-up', ...ann }, NOW + 1000);
+    told.length = 0;
+    // Bob giving up ends the game: D1 is down, but the move still answers, with the game over.
+    const over = await handleLobby(storage, deps, { action: 'give-up', ...bob }, NOW + 2000);
+    expect(over.status).toBe(200);
+    expect(over.body).toMatchObject({ lobby: { state: 'over' } });
+    expect(storage.data.get('lobby')).toMatchObject({ saved: false, alarmAt: NOW + 2000 + SAVE_RETRY_MS });
+    expect(storage.alarm).toBe(NOW + 2000 + SAVE_RETRY_MS);
+    expect(told).toEqual([]);
+    // A look meanwhile tries again, and fails again: still nobody told.
+    expect((await handleLobby(storage, deps, { action: 'get', ...ann }, NOW + 3000)).status).toBe(200);
+    expect(storage.alarm).toBe(NOW + 3000 + SAVE_RETRY_MS);
+    expect(told).toEqual([]);
+
+    await handleLobbyAlarm(storage, deps, NOW + 3000 + SAVE_RETRY_MS);
+    expect(saves.done).toBe(1);
+    expect(storage.data.get('lobby')).toMatchObject({ saved: true, alarmAt: null });
+    expect(storage.alarm).toBeNull();
+    expect(told).toHaveLength(1);
+    // Looking again saves nothing more and tells nobody again.
+    await handleLobby(storage, deps, { action: 'get', ...bob }, NOW + 4000 + SAVE_RETRY_MS);
+    expect(saves.calls).toBe(3);
+    expect(told).toHaveLength(1);
+    expect((storage.data.get('lobby') as LobbyRoom).announced).toEqual(['ann-id', 'bob-id']);
   });
 });
 

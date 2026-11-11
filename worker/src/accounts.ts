@@ -219,26 +219,6 @@ export async function signIn(db: D1Database, loginToken: string, guestId: string
   return { ok: true, token, account: toAccount(account) };
 }
 
-export interface Session {
-  accountId: string;
-  /** The guest ID of the device that signed in. */
-  guestId: string;
-}
-
-/** The session a token belongs to, if it hasn't ended; using it keeps it going. */
-export async function findSession(db: D1Database, token: string, now: number): Promise<Session | null> {
-  const hash = await hashToken(token);
-  const row = await db.prepare(
-    'SELECT account_id, guest_id, last_seen_at FROM sessions WHERE token_hash = ?1 AND expires_at > ?2',
-  ).bind(hash, now).first<{ account_id: string; guest_id: string; last_seen_at: number }>();
-  if (!row) return null;
-  if (now - row.last_seen_at >= SESSION_REFRESH_MS) {
-    await db.prepare('UPDATE sessions SET last_seen_at = ?2, expires_at = ?3 WHERE token_hash = ?1')
-      .bind(hash, now, now + SESSION_MS).run();
-  }
-  return { accountId: row.account_id, guestId: row.guest_id };
-}
-
 /** The bearer token a request carries, if it looks like one. */
 export function bearerToken(request: Request): string | null {
   const match = /^Bearer (\S+)$/.exec(request.headers.get('authorization') ?? '');
@@ -291,18 +271,46 @@ export async function identify(request: Request, db: D1Database, now: number): P
   if (!isGuestId(deviceId)) return { ok: false, status: 400, error: 'bad-guest-id' };
   if (request.headers.get('authorization') !== null) {
     const token = bearerToken(request);
-    const session = token && await findSession(db, token, now);
+    const session = token && await sessionPlayer(db, token, deviceId, now);
     if (!session) return { ok: false, status: 401, error: 'signed-out' };
-    const player = await playerOfAccount(db, session.accountId);
     // A device ID linked to another account is that account's alone (Dev Plan item 19zj), so a session can't
     // speak for it, say to register turn alerts under it. The app plays on as a new guest on this answer.
-    if (deviceId !== player.id && !player.aliases.includes(deviceId) && await isLinked(db, deviceId)) {
+    if (session.deviceAccount !== null && session.deviceAccount !== session.player.id) {
       return { ok: false, status: 401, error: 'sign-in-needed' };
     }
-    return { ok: true, player: { ...player, deviceId } };
+    return { ok: true, player: { ...session.player, deviceId } };
   }
   if (await isLinked(db, deviceId)) return { ok: false, status: 401, error: 'sign-in-needed' };
   return { ok: true, player: { id: deviceId, aliases: [], deviceId, accountId: null } };
+}
+
+/**
+ * The account a session token is for, if it hasn't ended, as a player (as
+ * `playerOfAccount` gives it), and the account this device ID is linked to,
+ * if any: one query joining the session to the account's guest IDs (Dev
+ * Plan item 19zo). Using a session keeps it going, written once a day.
+ */
+async function sessionPlayer(
+  db: D1Database, token: string, deviceId: string, now: number,
+): Promise<{ player: Player; deviceAccount: string | null } | null> {
+  const hash = await hashToken(token);
+  // A row per guest ID the account linked, oldest first; one with no alias if it has none.
+  const { results } = await db.prepare(
+    `SELECT s.account_id, s.last_seen_at, g.id AS alias,
+       (SELECT account_id FROM guests WHERE id = ?3) AS device_account
+     FROM sessions s LEFT JOIN guests g ON g.account_id = s.account_id
+     WHERE s.token_hash = ?1 AND s.expires_at > ?2
+     ORDER BY g.created_at`,
+  ).bind(hash, now, deviceId).all<{ account_id: string; last_seen_at: number; alias: string | null; device_account: string | null }>();
+  const [first] = results;
+  if (!first) return null;
+  if (now - first.last_seen_at >= SESSION_REFRESH_MS) {
+    await db.prepare('UPDATE sessions SET last_seen_at = ?2, expires_at = ?3 WHERE token_hash = ?1')
+      .bind(hash, now, now + SESSION_MS).run();
+  }
+  const accountId = first.account_id;
+  const aliases = results.map((r) => r.alias).filter((id): id is string => id !== null && id !== accountId);
+  return { player: { id: accountId, aliases, deviceId: accountId, accountId }, deviceAccount: first.device_account };
 }
 
 /** Whether a device ID is linked to an account, any account. */
