@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '../../src/app/ids';
-import { EMAILS_PER_HOUR, LOGIN_LINK_MS, normalizeEmail, SESSION_MS } from './accounts';
+import { EMAILS_PER_HOUR, LOGIN_LINK_MS, normalizeEmail, SESSION_MS, SIGN_IN_EMAILS_PER_DAY, signInAddressHash } from './accounts';
 import { fakeD1 } from './fakeD1';
 import { GOOGLE_TOKEN_URL, parseIdToken } from './google';
 import { handle, type Env } from './index';
@@ -184,6 +184,48 @@ describe('signing in by email', () => {
     expect(server.emails).toHaveLength(EMAILS_PER_HOUR + 1);
   });
 
+  it('caps the sign-in emails one internet address asks for in a day, to any emails', async () => {
+    const server = setup();
+    const from = (ip: string, email: string, now = NOW) =>
+      server.call('POST', '/api/auth/email', { email, returnTo: APP }, { 'cf-connecting-ip': ip }, now);
+    for (let i = 0; i < SIGN_IN_EMAILS_PER_DAY; i++) {
+      expect((await from('203.0.113.7', `p${i}@example.com`, NOW + i)).status).toBe(200);
+    }
+    // A repeat the email's own limit refuses doesn't count, before or after the cap.
+    const refused = await from('203.0.113.7', 'new@example.com', NOW + 1000);
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({ error: 'too-many-emails' });
+    expect((await from('203.0.113.8', 'new@example.com', NOW + 1000)).status).toBe(200);
+    // One IPv6 home is its /64, whichever address in it asks.
+    for (let i = 0; i < SIGN_IN_EMAILS_PER_DAY; i++) {
+      expect((await from(`2001:db8:0:1::${i + 1}`, `v6-${i}@example.com`, NOW + i)).status).toBe(200);
+    }
+    expect((await from('2001:db8:0:1::ff', 'v6-new@example.com', NOW + 1000)).status).toBe(429);
+    expect(server.emails).toHaveLength(2 * SIGN_IN_EMAILS_PER_DAY + 1);
+    // Only the address's hash is kept, and a day on it's forgotten and may ask again.
+    const kept = server.sqlite.prepare('SELECT DISTINCT ip_hash FROM sign_in_emails ORDER BY ip_hash').all()
+      .map((row) => row.ip_hash);
+    expect(kept).toEqual((await Promise.all(['203.0.113.7', '203.0.113.8', '2001:db8:0:1::/64'].map(signInAddressHash))).sort());
+    expect((await from('203.0.113.7', 'new@example.com', NOW + 24 * 60 * 60 * 1000 + 1000)).status).toBe(200);
+    expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get()).toEqual({ n: 1 });
+  });
+
+  it('counts no sign-in emails where they are only printed', async () => {
+    const server = setup({ RESEND_API_KEY: undefined, LOG_LOGIN_LINKS: 'true' });
+    const log = console.log;
+    console.log = () => {};
+    try {
+      for (let i = 0; i <= SIGN_IN_EMAILS_PER_DAY; i++) {
+        const response = await server.call('POST', '/api/auth/email', { email: `p${i}@example.com`, returnTo: APP },
+          { 'cf-connecting-ip': '203.0.113.7' });
+        expect(response.status).toBe(200);
+      }
+    } finally {
+      console.log = log;
+    }
+    expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get()).toEqual({ n: 0 });
+  });
+
   it('refuses a bad address, an app it doesn\'t serve, and a server without email', async () => {
     const server = setup();
     expect(await (await server.call('POST', '/api/auth/email', { email: 'ann', returnTo: APP })).json())
@@ -357,6 +399,30 @@ describe('a device already linked to another account', () => {
     const signedIn = await server.signIn(token, fresh);
     expect(signedIn.status).toBe(200);
     expect((await signedIn.json() as { account: { email: string } }).account.email).toBe('bob@example.com');
+  });
+
+  it("can't be used by another account's session, say to register turn alerts (Dev Plan item 19zj)", async () => {
+    const server = setup();
+    const annDevice = newId();
+    await emailSignIn(server, 'ann@example.com', annDevice);
+    const bobDevice = newId();
+    const bob = await emailSignIn(server, 'bob@example.com', bobDevice);
+    const asBob = (guestId: string) => ({ authorization: `Bearer ${bob.token}`, 'x-guest-id': guestId });
+    const subscription = { endpoint: 'https://fcm.googleapis.com/fcm/send/x', keys: { p256dh: 'a', auth: 'b' } };
+    for (const refused of [
+      await server.call('GET', '/api/auth/me', undefined, asBob(annDevice)),
+      await server.call('POST', '/api/push/subscribe', subscription, asBob(annDevice)),
+    ]) {
+      expect(refused.status).toBe(401);
+      expect(await refused.json()).toEqual({ error: 'sign-in-needed' });
+    }
+    expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM push_subscriptions').get()).toEqual({ n: 0 });
+    // Bob's own device, and a device no account has, still work with his session.
+    for (const guestId of [bobDevice, newId()]) {
+      const ok = await server.call('GET', '/api/auth/me', undefined, asBob(guestId));
+      expect(ok.status).toBe(200);
+      expect((await ok.json() as { account: { email: string } }).account.email).toBe('bob@example.com');
+    }
   });
 
   it('can sign in to its own account again', async () => {

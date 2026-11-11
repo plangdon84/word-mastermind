@@ -11,6 +11,7 @@ import { DAILY_MODES, type DailyMode } from '../game';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';
 import { dailyGames, type DailyToday } from './dailyApi';
+import { placesHeldThrough } from './dailyStorage';
 
 export type DailyGamesToday = Record<DailyMode, DailyToday | null>;
 
@@ -79,7 +80,7 @@ export function useDailyToday(identity: ApiIdentity, onAnswer: (games: DailyGame
     setKnown((k) => (cache?.who === who ? k : { games: NONE, offset: 0, failed: false }));
     const ask = () => {
       // One request for both (Issue 213).
-      dailyGames(apiUrl, identity).then((answer) => {
+      dailyGames(apiUrl, identity, fetch, (mode) => placesHeldThrough(identity, mode)).then((answer) => {
         if (!live) return;
         onAnswer(answer);
         const before = knownDailies(identity, Date.now());

@@ -37,6 +37,8 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   - Wave 1: 19zj, 19zk, 19zl, 19zm
   - Wave 2: 19zo, once 19zj and 19zl are merged into the release branch
   - Wave 3: 19zp, once every other item is merged
+  - 19zm merged straight after 19zk, ahead of 19zl, since it needs
+    nothing from it (owner, 11 November 2026)
 - Release note (OK'd by the owner, 11 November 2026), added by the
   release PR, never an item PR: "If two of your rated games end at the
   same moment, both now count towards your rating.", "Finished games and
@@ -52,27 +54,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
-  plangdon84/word-mastermind-archive#289 and
-  plangdon84/word-mastermind-archive#291; worker, sign-in,
-  review gate)
-  - Issue 289: a signed-in request whose device ID is linked to a
-    different account is refused with `sign-in-needed` (the app already
-    switches to a new device ID on that), so no one can register turn
-    alerts under another account's device ID; with a test like the review's
-    probe
-  - Issue 291: a player's friends list reads only their newest 10 open
-    lobby invites and deletes the rest (owner's decision, 10 November
-    2026); no friend is refused
-- [ ] **19zk. A daily cap on sign-in emails per internet address** (2.7.2, stacked on 19zj; issue
-  plangdon84/word-mastermind-archive#290; worker, sign-in,
-  review gate)
-  - Decided with the owner on 10 November 2026: each internet address may
-    ask for 10 sign-in emails a day (to any emails), counted in D1 with the
-    address kept hashed and forgotten after a day; the per-email limit
-    stays. The privacy page gets one line saying so, and the route is added
-    to `limitOf` if it needs it. No warning in the app or the release
-    notes (owner, 11 November 2026)
 - [ ] **19zl. Game rooms and the daily referee: no overlapping requests**
   (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
   review gate)
@@ -85,14 +66,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
     one player both count
   - Run `npm run load-test` after, since the day's object serves every
     daily player
-- [ ] **19zm. Daily past places: stop working them out on every request**
-  (2.7.2, stacked on 19zl; issue plangdon84/word-mastermind-archive#295; worker,
-  review gate)
-  - Actions (guess, Suggest, Pause, Resume, give up) stop sending past
-    places; a request can say the latest day the app already holds and gets
-    only later days. A request without that gets the full list, so older
-    apps keep their top 10 badges. Storing each final place is left for
-    later
 - [ ] **19zo. One way to save a finished game, and two worker savings**
   (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
   plangdon84/word-mastermind-archive#297; worker, review gate;
@@ -204,6 +177,38 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zm. Daily past places: stop working them out on every request**
+  (2.7.2, stacked on 19zl; issue plangdon84/word-mastermind-archive#295; worker,
+  review gate)
+  - Actions (guess, Suggest, Pause, Resume, give up) stop sending past
+    places; a request can say the latest day the app already holds and gets
+    only later days. A request without that gets the full list, so older
+    apps keep their top 10 badges. Storing each final place is left for
+    later
+  - Built in PR #101, merged into the 2.7.2 release PR (#97)
+- [x] **19zk. A daily cap on sign-in emails per internet address** (2.7.2, stacked on 19zj; issue
+  plangdon84/word-mastermind-archive#290; worker, sign-in,
+  review gate)
+  - Decided with the owner on 10 November 2026: each internet address may
+    ask for 10 sign-in emails a day (to any emails), counted in D1 with the
+    address kept hashed and forgotten after a day; the per-email limit
+    stays. The privacy page gets one line saying so, and the route is added
+    to `limitOf` if it needs it. No warning in the app or the release
+    notes (owner, 11 November 2026)
+  - Built in PR #100, merged into the 2.7.2 release PR (#97)
+- [x] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
+  plangdon84/word-mastermind-archive#289 and
+  plangdon84/word-mastermind-archive#291; worker, sign-in,
+  review gate)
+  - Issue 289: a signed-in request whose device ID is linked to a
+    different account is refused with `sign-in-needed` (the app already
+    switches to a new device ID on that), so no one can register turn
+    alerts under another account's device ID; with a test like the review's
+    probe
+  - Issue 291: a player's friends list reads only their newest 10 open
+    lobby invites and deletes the rest (owner's decision, 10 November
+    2026); no friend is refused
+  - Built in PR #99, merged into the 2.7.2 release PR (#97)
 - [x] **19zq. A lighter start-up script** (2.7.1; issue
   plangdon84/word-mastermind-archive#297, part 3; app only; stacked on 19zn;
   a release line OK'd by the owner before the first commit)

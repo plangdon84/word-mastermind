@@ -176,7 +176,7 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 | `POST /api/queue/leave` | `{ timeControl, difficulty }` | `{ state: "idle" }` |
 | `GET /api/admin/figures` | | `Usage` (`src/admin/usage.ts`): the usage dashboard's totals, for a request carrying a valid Cloudflare Access token (`cf-access-jwt-assertion`); 403 `forbidden` without one, 404 `off` until `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are set, 503 `access-unavailable` if Access's keys can't be fetched ("Usage dashboard", below) |
 | `GET /api/auth/me` | | `{ account, methods }`: the signed-in account (null without an `authorization` header) and `{ email, google }`, the ways to sign in; 401 `signed-out` if the session ended |
-| `POST /api/auth/email` | `{ email, returnTo }` | `{ ok: true }`: emails a sign-in link to `returnTo` (an allowed origin) `/?login=…`; 400 `bad-email`, 429 `too-many-emails`, 404 `email-off`, 502 `email-failed` |
+| `POST /api/auth/email` | `{ email, returnTo }` | `{ ok: true }`: emails a sign-in link to `returnTo` (an allowed origin) `/?login=…`; 400 `bad-email`, 429 `too-many-emails` (5 an hour per email, or 10 a day per internet address, `sign_in_emails`), 404 `email-off`, 502 `email-failed` |
 | `POST /api/auth/google` | `{ returnTo }` | `{ url }`, Google's sign-in page; 404 `google-off` |
 | `GET /api/auth/google/callback` | | Google sends the browser here; it's sent on to `returnTo/?login=…`, or `?login-error=google` |
 | `POST /api/auth/session` | `{ token }`, from `?login=` | `{ token, account }`, a session for this device (`x-guest-id`); 400 `bad-login` if the link is used or expired |

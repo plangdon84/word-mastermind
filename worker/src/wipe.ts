@@ -18,7 +18,7 @@ export const WIPE_TABLES = [
  * link to; and the Daily Rush's themes and the Daily Word's words.
  */
 export const KEEP_TABLES = [
-  'guests', 'push_subscriptions', 'accounts', 'sessions', 'login_links', 'oauth_states', 'reports', 'profiles',
+  'guests', 'push_subscriptions', 'accounts', 'sessions', 'login_links', 'oauth_states', 'sign_in_emails', 'reports', 'profiles',
   'friends', 'email_declines', 'friend_declines', 'friend_request_alerts', 'lobby_invites', 'daily_themes', 'daily_words',
 ] as const;
 
