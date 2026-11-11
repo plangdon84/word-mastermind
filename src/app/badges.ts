@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { Badge, DailyMode, DailyPlacement, EarnedBadge, StatsGame } from '../game';
-import { loadPlacements, savePlacements } from './dailyStorage';
+import type { Badge, DailyMode, EarnedBadge, StatsGame } from '../game';
+import type { ApiIdentity } from './apiIdentity';
+import type { DailyToday } from './dailyApi';
+import { keepPlacements, loadPlacements } from './dailyStorage';
 import { loadAllMatching, statsGame, whenSaved } from './historyDb';
 import { writeStored } from './localStore';
 
@@ -121,12 +123,14 @@ export function useEarnedBadges(games: readonly StatsGame[] | null, active: bool
 }
 
 /**
- * Keeps your final Daily Set or (`mode`) Daily Word places as the server sent
- * them, and announces a badge they earn (with the profile dot: there's no
- * result screen when a day's places become final at midnight).
+ * Keeps your final Daily Set or (`mode`) Daily Word places from a server's
+ * answer for `identity` (`keepPlacements`), and announces a badge they earn
+ * (with the profile dot: there's no result screen when a day's places
+ * become final at midnight).
  */
-export function receivePlacements(placements: readonly DailyPlacement[], mode: DailyMode = 'daily'): void {
-  savePlacements(placements, mode);
+export function receivePlacements(identity: ApiIdentity, today: DailyToday, mode: DailyMode = 'daily'): void {
+  const placements = keepPlacements(identity, mode, today);
+  if (!placements) return;
   // A badge's toast and dot wait for the badges to load; a load that fails waits for the next visit.
   void achievements().then(({ computeAchievements }) => announceBadges(computeAchievements([], localDay, placements).map((b) => b.id)), () => {});
 }
