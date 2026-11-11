@@ -45,7 +45,9 @@ WebSocket:
 
 ## Checked and fine
 
-- **Authorization:** every route checks who is asking (`identify`); a guest
+- **Authorization:** every route checks who is asking (`identify`, run
+  once by the route table in `worker/src/index.ts` for every route not
+  marked `open`, since Dev Plan item 19zp); a guest
   ID linked to an account needs that account's session. Friend games,
   lobbies and Daily Rush act only on the asker's own seat or run; hosts
   alone change a lobby or cancel an invite; a challenge is taken only by its

@@ -8,7 +8,7 @@ import { API_URL } from './config';
 import { addFriendGame } from './friendGames';
 import { SecretStep } from './friendParts';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
-import { busyText, clockText, secretErrorMessage } from './messages';
+import { busyText, clockText, OFFENSIVE_NAME, secretErrorMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
 import { queueApi, QueueApiError, type QueueBusy, type QueueError, type QueueStatus } from './queueApi';
 import { addRecentSecret, loadRecentSecrets, saveRecentSecrets } from './recentSecrets';
@@ -26,6 +26,7 @@ function queueErrorMessage(code: QueueError, word: string): string {
   if (WORD_ERRORS.includes(code)) return secretErrorMessage(code as WordError, word);
   if (code === 'unreachable') return "Can't reach the game server. Check your connection and try again.";
   if (code === 'signed-out' || code === 'sign-in-needed') return 'You were signed out. Sign in again from your profile.';
+  if (code === 'offensive-name') return OFFENSIVE_NAME;
   return 'Something went wrong. Reload the page and try again.';
 }
 

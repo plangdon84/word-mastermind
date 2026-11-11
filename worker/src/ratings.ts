@@ -1,6 +1,6 @@
 import { ageRating, NEW_RATING, rateGame, rateGroup, rateVsComputer, SHOWN_POOLS, type Rating, type RatingPool, type Seat } from '../../src/game';
 import { showRating, type PoolRating } from '../../src/app/ratingsApi';
-import { identify } from './accounts';
+import type { Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
 
@@ -278,12 +278,8 @@ export const deleteRatings = (db: D1Database, accountId: string): D1PreparedStat
   db.prepare('DELETE FROM rated_games WHERE account_id = ?1').bind(accountId),
 ];
 
-/** `GET /api/ratings`: your ratings, signed in. Returns null for any other path. */
-export async function routeRatings(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (pathname !== '/api/ratings') return null;
-  if (request.method !== 'GET') return errorResponse(405, 'bad-request');
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  if (!who.player.accountId) return errorResponse(401, 'signed-out');
-  return json({ ratings: await listRatings(env.DB, who.player.accountId, now) });
+/** `GET /api/ratings`: your ratings, signed in. */
+export async function routeRatings(env: Env, now: number, player: Player): Promise<Response> {
+  if (!player.accountId) return errorResponse(401, 'signed-out');
+  return json({ ratings: await listRatings(env.DB, player.accountId, now) });
 }

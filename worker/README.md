@@ -48,7 +48,12 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 - `migrations/`: D1's tables, one numbered SQL file per change. Never edit an
   applied migration; add a new one.
 - `src/index.ts`: routing (`handle`, which takes the time as an argument,
-  like the game logic). `src/http.ts` has the JSON answers, errors and
+  like the game logic): one table of routes (`ROUTES`, Dev Plan item 19zp),
+  the first that owns a path answering it. `identify` is done once there
+  for every route not marked `open`, after the route's `before` checks (a
+  method or launch switch it refuses), so a new route can't forget it.
+  `src/requestChecks.ts` has the name and word checks every route shares
+  (`sentName`, `isSentWord`). `src/http.ts` has the JSON answers, errors and
   CORS, and `src/limits.ts` the rate limits by internet address (`limitOf`
   names the routes limited).
 - `src/guests.ts`: guest identity. A guest is the ID their device created

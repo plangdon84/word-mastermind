@@ -1,16 +1,17 @@
 import {
-  addDays, DAILY_BOARDS, DAILY_MODES, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, validateName, type DailyDay,
+  addDays, DAILY_BOARDS, DAILY_MODES, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, type DailyDay,
   type DailyMode, type DailyPlacement, type Difficulty, type RankBy,
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyGames, DailyToday } from '../../src/app/dailyApi';
 import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
-import { identify, isPlayers, type Player } from './accounts';
+import { isPlayers, type Player } from './accounts';
 import { RESULTS_TABLE, type DailyRequest, type DailyResponse } from './dailyRoom';
 import { themeFor } from './dailyThemes';
 import { DAILY_WORD_FROM, wordFor } from './dailyWords';
 import { friendCodeSql } from './friends';
 import { registerGuest, renameGuest, setGuestName } from './guests';
 import { errorResponse, json, readJson } from './http';
+import { isSentWord, sentName } from './requestChecks';
 import type { Env } from './index';
 import { inCircle } from './leaderboards';
 import { shownName } from './names';
@@ -253,18 +254,19 @@ async function board(
   return json(body);
 }
 
-/** Routes `/api/daily…` (the Daily Set) and `/api/daily/word…` (the Daily Word), or returns null for any other path. */
-export async function routeDaily(request: Request, env: Env, now: number, fullPath: string): Promise<Response | null> {
-  if (fullPath !== '/api/daily' && !fullPath.startsWith('/api/daily/')) return null;
+/** The paths `routeDaily` answers. */
+export const isDailyPath = (pathname: string) => pathname === '/api/daily' || pathname.startsWith('/api/daily/');
+
+/**
+ * Routes `/api/daily…` (the Daily Set) and `/api/daily/word…` (the Daily
+ * Word) for `player` (a signed-in player plays as their account; a guest as
+ * their device), or returns null for a path it doesn't know.
+ */
+export async function routeDaily(request: Request, env: Env, now: number, fullPath: string, player: Player): Promise<Response | null> {
   // The Daily Word's routes are the Daily Set's, under `/api/daily/word`.
   const mode: DailyMode = fullPath === '/api/daily/word' || fullPath.startsWith('/api/daily/word/') ? 'dailyWord' : 'daily';
   const pathname = mode === 'daily' ? fullPath : `/api/daily${fullPath.slice('/api/daily/word'.length)}`;
   const method = request.method;
-  // A signed-in player plays as their account; a guest as their device.
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const { player } = who;
-
   const query = new URL(request.url).searchParams;
   if (pathname === '/api/daily') {
     return method === 'GET' ? today(env, mode, player, now, placesAfter(query.get('placesAfter'))) : errorResponse(405, 'bad-request');
@@ -281,9 +283,8 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
     if (method !== 'POST') return errorResponse(405, 'bad-request');
     if (player.accountId) return errorResponse(409, 'signed-in');
     const body = await readJson(request);
-    const name = isObject(body) && typeof body.name === 'string' && body.name.length <= 64 ? validateName(body.name) : null;
-    if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
-    if (!name?.ok) return errorResponse(400, 'bad-request');
+    const name = sentName(isObject(body) ? body.name : undefined);
+    if (!name.ok) return errorResponse(400, name.error);
     // Kept only for a guest who has started a daily game (item 19n): nothing is made or kept for anyone else.
     await renameGuest(env.DB, player.id, name.name);
     return json({ name: name.name });
@@ -323,15 +324,15 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
 
   let dailyRequest: DailyRequest;
   if (action === 'start') {
-    const name = typeof body.name === 'string' && body.name.length <= 64 ? validateName(body.name) : null;
-    if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
-    if (!name?.ok || !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
+    const name = sentName(body.name);
+    if (!name.ok) return errorResponse(400, name.error);
+    if (!isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
     await registerGuest(env.DB, player.id, now);
     // A guest's name now, for every board they're on (item 18zw).
     if (!player.accountId) await setGuestName(env.DB, player.id, name.name);
     dailyRequest = { ...asker, action, name: name.name, difficulty: body.difficulty };
   } else if (action === 'guess' || action === 'suggest') {
-    if (typeof body.word !== 'string' || body.word.length > 64) return errorResponse(400, 'bad-request');
+    if (!isSentWord(body.word)) return errorResponse(400, 'bad-request');
     dailyRequest = { ...asker, action, word: body.word };
   } else {
     dailyRequest = { ...asker, action: action as 'give-up' | 'pause' | 'resume' };

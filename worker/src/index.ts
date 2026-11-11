@@ -2,21 +2,22 @@
 // All rights reserved.
 // Proprietary software. See the repository README for terms.
 
-import { GUESS_WORDS, isObject, SECRET_WORDS } from '../../src/game';
+import { FEATURES, GUESS_WORDS, isObject, SECRET_WORDS } from '../../src/game';
+import { identify, type Player } from './accounts';
 import { routeAdmin } from './admin';
-import { routeAuth } from './authRoutes';
-import { routeDaily } from './dailyRoutes';
-import { routeProfileShare } from './friendProfiles';
-import { forgetOldDeclines, routeFriends } from './friends';
-import { routeGames, routeLiveSocket } from './games';
+import { authMe, deleteOwnAccount, routeAuth } from './authRoutes';
+import { isDailyPath, routeDaily } from './dailyRoutes';
+import { PROFILE_SHARE_PATHS, routeProfileShare } from './friendProfiles';
+import { forgetOldDeclines, isFriendsPath, routeFriends } from './friends';
+import { isGamesPath, routeGames, routeLiveSocket } from './games';
 import { routeLeaderboards } from './leaderboards';
-import { routeLobbies } from './lobbyRoutes';
+import { isLobbyPath, routeLobbies } from './lobbyRoutes';
 import { routePlayed } from './played';
-import { routePush, vapidKeysOf } from './pushRoutes';
-import { routeQueue } from './queueRoutes';
+import { pushKey, routePush, vapidKeysOf } from './pushRoutes';
+import { isQueuePath, routeQueue } from './queueRoutes';
 import { routeRatings } from './ratings';
-import { routeReports } from './reports';
-import { routeSync } from './sync';
+import { isScreenshotPath, routeReports } from './reports';
+import { routeSync, SYNC_PATHS } from './sync';
 import { isGuestId, registerGuest } from './guests';
 import { corsHeaders, errorResponse, json, readJson } from './http';
 import { overLimit } from './limits';
@@ -95,57 +96,130 @@ export async function handle(
   return response;
 }
 
+/** What every route is called with: the request and its path, and the worker's clock, bindings and helpers. */
+interface Call {
+  request: Request;
+  env: Env;
+  now: number;
+  pathname: string;
+  fetchFn: typeof fetch;
+  defer: ((work: Promise<unknown>) => void) | undefined;
+}
+
+/**
+ * One entry of the route table: the paths (and method) it owns, and its
+ * answer, null for a path it doesn't know (404). An `open` route answers
+ * without knowing who's asking; every other route answers only once
+ * `identify` has said who the player is, after `before`'s checks (a method
+ * or launch switch it refuses), which come first so a refused request costs
+ * no lookup and answers the same with or without a guest ID.
+ */
+type Route = { owns: (pathname: string, method: string) => boolean } & (
+  | { open: true; answer: (call: Call) => Promise<Response | null> | Response }
+  | { open?: false; before?: (call: Call) => Response | null; answer: (call: Call, player: Player) => Promise<Response | null> }
+);
+
+const exactly = (path: string, method?: string) => (pathname: string, m: string) => pathname === path && (!method || m === method);
+const oneOf = (paths: readonly string[]) => (pathname: string) => paths.includes(pathname);
+const onlyMethod = (method: string, status = 405, error = 'bad-request') => ({ request }: Call) =>
+  request.method === method ? null : errorResponse(status, error);
+
+/**
+ * Every API route, the first that owns a path answering it (Dev Plan item
+ * 19zp). A new route is identified unless it's marked `open`, so none
+ * forgets to check who's asking. The open ones are deliberate: health,
+ * guests and word checks need no player; sign-in links, Google and signing
+ * out happen before or without a session; reports are filed by anyone; the
+ * usage dashboard checks Cloudflare Access's token itself; and the push key
+ * is public.
+ */
+const ROUTES: readonly Route[] = [
+  {
+    owns: exactly('/api/health', 'GET'), open: true,
+    answer: () => json({ ok: true, secretWords: SECRET_WORDS.length, guessWords: GUESS_WORDS.length }),
+  },
+  // A device introduces its guest ID (created on the device) before using
+  // anything that needs one; repeating it just updates when it was last seen.
+  {
+    owns: exactly('/api/guests', 'POST'), open: true,
+    answer: async ({ request, env, now }) => {
+      const body = await readJson(request);
+      const id = isObject(body) ? body.id : undefined;
+      if (!isGuestId(id)) return errorResponse(400, 'bad-guest-id');
+      return json(await registerGuest(env.DB, id, now));
+    },
+  },
+  // The same word checks as the app, for games the server referees.
+  {
+    owns: exactly('/api/words/check', 'POST'), open: true,
+    answer: async ({ request }) => {
+      const check = parseWordCheck(await readJson(request));
+      if (!check) return errorResponse(400, 'bad-request');
+      return json(checkWord(check));
+    },
+  },
+  { owns: exactly('/api/auth/me', 'GET'), answer: ({ env, fetchFn }, player) => authMe(env, player, fetchFn) },
+  { owns: exactly('/api/auth/delete', 'POST'), answer: ({ env }, player) => deleteOwnAccount(env, player) },
+  {
+    owns: (pathname) => pathname.startsWith('/api/auth/'), open: true,
+    answer: ({ request, env, now, pathname, fetchFn }) => routeAuth(request, env, now, pathname, fetchFn),
+  },
+  { owns: isGamesPath, answer: ({ request, env, now, pathname, fetchFn }, player) => routeGames(request, env, now, pathname, player, fetchFn) },
+  { owns: isDailyPath, answer: ({ request, env, now, pathname }, player) => routeDaily(request, env, now, pathname, player) },
+  {
+    owns: isQueuePath,
+    // Off for the 1.0 launch (the launch switches, `src/game/features.ts`).
+    before: (call) => (FEATURES.randomOpponent ? onlyMethod('POST')(call) : errorResponse(404, 'off')),
+    answer: ({ request, env, now, pathname }, player) => routeQueue(request, env, now, pathname, player),
+  },
+  { owns: isLobbyPath, answer: ({ request, env, now, pathname, fetchFn }, player) => routeLobbies(request, env, now, pathname, player, fetchFn) },
+  {
+    owns: isFriendsPath,
+    answer: ({ request, env, now, pathname, fetchFn, defer }, player) => routeFriends(request, env, now, pathname, player, fetchFn, defer),
+  },
+  {
+    owns: oneOf(PROFILE_SHARE_PATHS), before: onlyMethod('POST'),
+    answer: ({ request, env, now, pathname }, player) => routeProfileShare(request, env, now, pathname, player),
+  },
+  { owns: oneOf(SYNC_PATHS), answer: ({ request, env, now, pathname }, player) => routeSync(request, env, now, pathname, player) },
+  { owns: exactly('/api/played'), before: onlyMethod('GET'), answer: ({ request, env }, player) => routePlayed(request, env, player) },
+  { owns: exactly('/api/ratings'), before: onlyMethod('GET'), answer: ({ env, now }, player) => routeRatings(env, now, player) },
+  {
+    owns: (pathname) => pathname.startsWith('/api/leaderboards/'),
+    before: (call) => (call.pathname === '/api/leaderboards/ratings' ? onlyMethod('GET')(call) : errorResponse(404, 'not-found')),
+    answer: ({ request, env, now }, player) => routeLeaderboards(request, env, now, player),
+  },
+  { owns: exactly('/api/push/key', 'GET'), open: true, answer: ({ env }) => pushKey(env) },
+  {
+    owns: (pathname) => pathname.startsWith('/api/push/'), before: onlyMethod('POST', 404, 'not-found'),
+    answer: ({ request, env, now, pathname }, player) => routePush(request, env, now, pathname, player),
+  },
+  {
+    owns: (pathname, method) => (pathname === '/api/reports' && method === 'POST') || (isScreenshotPath(pathname) && method === 'GET'),
+    open: true, answer: ({ request, env, now, pathname, fetchFn }) => routeReports(request, env, now, pathname, fetchFn),
+  },
+  {
+    owns: exactly('/api/admin/figures'), open: true,
+    answer: ({ request, env, now, pathname, fetchFn }) => routeAdmin(request, env, now, pathname, fetchFn),
+  },
+];
+
 async function route(
   request: Request, env: Env, now: number, fetchFn: typeof fetch, defer: ((work: Promise<unknown>) => void) | undefined,
 ): Promise<Response> {
-  const { pathname } = new URL(request.url);
-  const method = request.method;
-  if (pathname === '/api/health' && method === 'GET') {
-    return json({ ok: true, secretWords: SECRET_WORDS.length, guessWords: GUESS_WORDS.length });
+  const call: Call = { request, env, now, pathname: new URL(request.url).pathname, fetchFn, defer };
+  const found = ROUTES.find((r) => r.owns(call.pathname, request.method));
+  let answer: Response | null = null;
+  if (found?.open) answer = await found.answer(call);
+  else if (found) {
+    answer = found.before?.(call) ?? null;
+    if (!answer) {
+      // A signed-in player plays as their account; a guest as their device.
+      const who = await identify(request, env.DB, now);
+      answer = who.ok ? await found.answer(call, who.player) : errorResponse(who.status, who.error);
+    }
   }
-  // A device introduces its guest ID (created on the device) before using
-  // anything that needs one; repeating it just updates when it was last seen.
-  if (pathname === '/api/guests' && method === 'POST') {
-    const body = await readJson(request);
-    const id = isObject(body) ? body.id : undefined;
-    if (!isGuestId(id)) return errorResponse(400, 'bad-guest-id');
-    return json(await registerGuest(env.DB, id, now));
-  }
-  // The same word checks as the app, for games the server referees.
-  if (pathname === '/api/words/check' && method === 'POST') {
-    const check = parseWordCheck(await readJson(request));
-    if (!check) return errorResponse(400, 'bad-request');
-    return json(checkWord(check));
-  }
-  const auth = await routeAuth(request, env, now, pathname, fetchFn);
-  if (auth) return auth;
-  const games = await routeGames(request, env, now, pathname, fetchFn);
-  if (games) return games;
-  const daily = await routeDaily(request, env, now, pathname);
-  if (daily) return daily;
-  const queue = await routeQueue(request, env, now, pathname);
-  if (queue) return queue;
-  const lobbies = await routeLobbies(request, env, now, pathname, fetchFn);
-  if (lobbies) return lobbies;
-  const friends = await routeFriends(request, env, now, pathname, fetchFn, defer);
-  if (friends) return friends;
-  const shared = await routeProfileShare(request, env, now, pathname);
-  if (shared) return shared;
-  const sync = await routeSync(request, env, now, pathname);
-  if (sync) return sync;
-  const played = await routePlayed(request, env, now, pathname);
-  if (played) return played;
-  const ratings = await routeRatings(request, env, now, pathname);
-  if (ratings) return ratings;
-  const leaderboards = await routeLeaderboards(request, env, now, pathname);
-  if (leaderboards) return leaderboards;
-  const push = await routePush(request, env, now, pathname);
-  if (push) return push;
-  const reports = await routeReports(request, env, now, pathname, fetchFn);
-  if (reports) return reports;
-  const admin = await routeAdmin(request, env, now, pathname, fetchFn);
-  if (admin) return admin;
-  return errorResponse(404, 'not-found');
+  return answer ?? errorResponse(404, 'not-found');
 }
 
 export { DailyRush } from './dailyRush';

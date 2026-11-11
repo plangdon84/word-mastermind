@@ -1,9 +1,10 @@
 import {
-  COMPUTER_RECALL_FLOOR, FEATURES, isDifficulty, isObject, isTimeControl, parseMarks, isTurnDays, validateName, validateSecretWord, type Difficulty, type TimeControl,
+  COMPUTER_RECALL_FLOOR, FEATURES, isDifficulty, isObject, isTimeControl, parseMarks, isTurnDays, validateSecretWord, type Difficulty, type TimeControl,
 } from '../../src/game';
+import { isSentWord, sentName } from './requestChecks';
 import type { FriendGame } from '../../src/app/friendApi';
 import { isFriendCode } from '../../src/app/friendsApi';
-import { identify, isPlayers, type Player } from './accounts';
+import { isPlayers, type Player } from './accounts';
 import { addLadderOpponent, friendByCode, sendNotices } from './friends';
 import { registerGuest } from './guests';
 import { corsHeaders, errorResponse, json, readJson } from './http';
@@ -23,46 +24,38 @@ const GAME_ID = /^[0-9a-f]{64}$/;
 
 const GAME_PATH = /^\/api\/games\/([^/]+)(?:\/(join|guess|concede|decline|difficulty|suggest|rematch|friend))?$/;
 
-// Longer than any word or name by far; not worth normalizing.
-export const isShortString = (value: unknown, max = 64): value is string => typeof value === 'string' && value.length <= max;
-
-/** A display name as the profile allows it, normalized. */
-export function nameOf(value: unknown): string | null {
-  if (!isShortString(value)) return null;
-  const name = validateName(value);
-  return name.ok ? name.name : null;
-}
-
 /** The time control a new game asks for; apps from before live games send `turnDays`. */
 function timeControlOf(body: Record<string, unknown>): TimeControl | null {
   if (isTimeControl(body.timeControl)) return body.timeControl;
   return body.timeControl === undefined && isTurnDays(body.turnDays) ? `${body.turnDays}d` : null;
 }
 
-/** Reads the body each action needs, or null if it's missing or malformed. */
-function parseAction(action: string, body: unknown, player: Player): RoomRequest | null {
-  if (!isObject(body)) return null;
+/** Reads the body each action needs, or the error for one that's missing or malformed. */
+function parseAction(action: string, body: unknown, player: Player): RoomRequest | { error: string } {
+  const bad = { error: 'bad-request' };
+  if (!isObject(body)) return bad;
   const { id: guestId, aliases } = player;
   switch (action) {
     case 'join': {
-      const name = nameOf(body.name);
-      if (!name || !isShortString(body.secret) || !isDifficulty(body.difficulty)) return null;
-      return { action: 'join', guestId, aliases, name, secret: body.secret, difficulty: body.difficulty };
+      const name = sentName(body.name);
+      if (!name.ok) return name;
+      if (!isSentWord(body.secret) || !isDifficulty(body.difficulty)) return bad;
+      return { action: 'join', guestId, aliases, name: name.name, secret: body.secret, difficulty: body.difficulty };
     }
     case 'guess': {
       // The guesser's Medium marks, shared with their opponent: only letters a–z marked in or out are kept.
-      if (!isShortString(body.word) || (body.marks !== undefined && !isObject(body.marks))) return null;
+      if (!isSentWord(body.word) || (body.marks !== undefined && !isObject(body.marks))) return bad;
       return { action, guestId, aliases, word: body.word, ...(body.marks ? { marks: parseMarks(body.marks) } : {}) };
     }
     case 'suggest':
-      return isShortString(body.word) ? { action, guestId, aliases, word: body.word } : null;
+      return isSentWord(body.word) ? { action, guestId, aliases, word: body.word } : bad;
     case 'concede':
     case 'decline':
       return { action, guestId, aliases };
     case 'difficulty':
-      return isDifficulty(body.difficulty) ? { action: 'difficulty', guestId, aliases, difficulty: body.difficulty } : null;
+      return isDifficulty(body.difficulty) ? { action: 'difficulty', guestId, aliases, difficulty: body.difficulty } : bad;
     default:
-      return null;
+      return bad;
   }
 }
 
@@ -185,8 +178,10 @@ async function rematch(
   env: Env, oldId: DurableObjectId, player: Player, body: unknown, now: number, fetchFn: typeof fetch,
 ): Promise<Response> {
   if (!isObject(body)) return errorResponse(400, 'bad-request');
-  const name = nameOf(body.name);
-  if (!name || !isShortString(body.secret)) return errorResponse(400, 'bad-request');
+  const sent = sentName(body.name);
+  if (!sent.ok) return errorResponse(400, sent.error);
+  const { name } = sent;
+  if (!isSentWord(body.secret)) return errorResponse(400, 'bad-request');
   // An older app sends no difficulty: it then plays at the one it ended the last game on.
   if (body.difficulty !== undefined && !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
   const difficulty = isDifficulty(body.difficulty) ? body.difficulty : undefined;
@@ -277,28 +272,28 @@ async function friendOpponent(
   return toRoom(env, id, { action: 'get', tell: true, ...asker });
 }
 
-/** Routes `/api/games…`, or returns null for any other path. */
+/** The paths `routeGames` answers. */
+export const isGamesPath = (pathname: string) => pathname === '/api/games' || GAME_PATH.test(pathname);
+
+/** Routes `/api/games…` for `player` (a signed-in player plays as their account; a guest as their device). */
 export async function routeGames(
-  request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
+  request: Request, env: Env, now: number, pathname: string, player: Player, fetchFn: typeof fetch = fetch,
 ): Promise<Response | null> {
   const method = request.method;
   const isRoot = pathname === '/api/games';
   const match = isRoot ? null : GAME_PATH.exec(pathname);
   if (!isRoot && !match) return null;
 
-  // A signed-in player plays as their account; a guest as their device.
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const { player } = who;
-
   if (isRoot && method === 'GET') return json({ games: await listGames(env.DB, player) });
   if (isRoot) {
     if (method !== 'POST') return errorResponse(405, 'bad-request');
     const body = await readJson(request);
     if (!isObject(body)) return errorResponse(400, 'bad-request');
-    const name = nameOf(body.name);
+    const sent = sentName(body.name);
+    if (!sent.ok) return errorResponse(400, sent.error);
+    const { name } = sent;
     const timeControl = timeControlOf(body);
-    if (!name || !isShortString(body.secret) || !isDifficulty(body.difficulty) || !timeControl) {
+    if (!isSentWord(body.secret) || !isDifficulty(body.difficulty) || !timeControl) {
       return errorResponse(400, 'bad-request');
     }
     // A challenge to a friend (signed in): only they can accept it, and it's in their list at once.
@@ -350,7 +345,7 @@ export async function routeGames(
   if (action === 'rematch') return rematch(env, id, player, await readJson(request), now, fetchFn);
   if (action === 'friend') return friendOpponent(env, id, player, now, fetchFn);
   const roomRequest = parseAction(action, await readJson(request), player);
-  if (!roomRequest) return errorResponse(400, 'bad-request');
+  if ('error' in roomRequest) return errorResponse(400, roomRequest.error);
   if (roomRequest.action !== 'join') return toRoom(env, id, roomRequest);
   await registerGuest(env.DB, player.id, now);
   const response = await toRoom(env, id, roomRequest);

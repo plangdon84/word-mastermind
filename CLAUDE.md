@@ -90,6 +90,11 @@ Run `npm test` and `npm run typecheck` before committing.
   through `markFinished` / `saveMarked` (`worker/src/finishSave.ts`, Dev Plan
   item 19zo), so a lobby's results and ratings wait for its save too; small
   shared helpers (hex, SHA-256, random, JSON) are `worker/src/secure.ts`.
+  Every route is a row of `ROUTES` (`worker/src/index.ts`, Dev Plan item
+  19zp), which runs `identify` once for each row not marked `open` and
+  passes the routers the player; check a sent name with `sentName` and a
+  sent word with `isSentWord` (`worker/src/requestChecks.ts`), so a name
+  the filter refuses answers `offensive-name` everywhere.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
   (the worker). Add every new D1 table to `WIPE_TABLES` or `KEEP_TABLES` in
   `worker/src/wipe.ts` (`npm run wipe`).

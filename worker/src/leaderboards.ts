@@ -6,7 +6,7 @@ import {
   isCircle, RATING_BOARD_SIZE, type Circle, type RatingBoard, type RatingBoardRow, type YourRatingPlace,
 } from '../../src/app/leaderboardsApi';
 import { showRating } from '../../src/app/ratingsApi';
-import { identify } from './accounts';
+import type { Player } from './accounts';
 import { friendCodeSql } from './friends';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -96,13 +96,8 @@ export async function ratingBoard(
   return { pool, circle, total: results[0]?.total ?? 0, top, you };
 }
 
-/** Routes `/api/leaderboards…`, or returns null for any other path. */
-export async function routeLeaderboards(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (!pathname.startsWith('/api/leaderboards/')) return null;
-  if (pathname !== '/api/leaderboards/ratings') return errorResponse(404, 'not-found');
-  if (request.method !== 'GET') return errorResponse(405, 'bad-request');
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
+/** Answers `GET /api/leaderboards/ratings` for `player`. */
+export async function routeLeaderboards(request: Request, env: Env, now: number, player: Player): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const pool = params.get('pool');
   const circle = params.get('circle') ?? 'everyone';
@@ -110,7 +105,7 @@ export async function routeLeaderboards(request: Request, env: Env, now: number,
   // Only the boards switched on (the launch switches, `src/game/features.ts`; Correspondence alone since item 19l).
   if (!FEATURES.ratingBoards.includes(pool)) return errorResponse(404, 'off');
   // Anyone can see a board; only an account has friends, or a place on one.
-  const { accountId } = who.player;
+  const { accountId } = player;
   if (circle === 'friends' && !accountId) return errorResponse(401, 'signed-out');
   return json(await ratingBoard(env.DB, pool, circle, accountId, now));
 }

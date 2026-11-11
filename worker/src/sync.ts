@@ -1,6 +1,6 @@
 import { isObject, isServerMode, parseHistoryEntry, type HistoryEntry } from '../../src/game';
 import { DOWNLOAD_PAGE, parseSyncedProfile, UPLOAD_BATCH, type SyncedProfile } from '../../src/app/syncApi';
-import { identify } from './accounts';
+import type { Player } from './accounts';
 import { errorResponse, json, readJson } from './http';
 import { checkedName, NO_NAME } from './names';
 import type { Env } from './index';
@@ -148,14 +148,14 @@ export async function loadEntries(db: D1Database, accountId: string, cursor: num
   return `{"entries":[${page.map((r) => r.entry).join(',')}],"cursor":${last},"next":${results.length > DOWNLOAD_PAGE ? last : null}}`;
 }
 
-/** Routes `/api/profile` and `/api/history`, or returns null for any other path. */
-export async function routeSync(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (pathname !== '/api/profile' && pathname !== '/api/history') return null;
+/** The paths `routeSync` answers. */
+export const SYNC_PATHS: readonly string[] = ['/api/profile', '/api/history'];
+
+/** Routes `/api/profile` and `/api/history` for `player`, or returns null for a path it doesn't know. */
+export async function routeSync(request: Request, env: Env, now: number, pathname: string, player: Player): Promise<Response | null> {
   const method = request.method;
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
   // Only an account has a synced profile; a guest's stays on their device.
-  const accountId = who.player.accountId;
+  const accountId = player.accountId;
   if (!accountId) return errorResponse(401, 'signed-out');
 
   if (pathname === '/api/profile') {

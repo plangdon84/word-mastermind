@@ -1,6 +1,6 @@
 import { FEATURES, isObject, isProvisional, LADDER_CHOICE, ladderComputer, type QueueChoice, TWO_PLAYER_POOL } from '../../src/game';
-import { identify } from './accounts';
-import { isShortString, nameOf } from './games';
+import type { Player } from './accounts';
+import { isSentWord, sentName } from './requestChecks';
 import { registerGuest } from './guests';
 import { errorResponse, readJson } from './http';
 import type { Env } from './index';
@@ -33,16 +33,14 @@ async function toQueue(env: Env, request: MatchmakerRequest): Promise<Response> 
   return new Response(response.body, response);
 }
 
-/** Routes `/api/queue…`, or returns null for any other path. */
-export async function routeQueue(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
+/** The paths `routeQueue` answers: POST only, while the launch switch is on. */
+export const isQueuePath = (pathname: string) => QUEUE_PATH.test(pathname);
+
+/** Routes `POST /api/queue…` for `player`. */
+export async function routeQueue(request: Request, env: Env, now: number, pathname: string, player: Player): Promise<Response | null> {
   const match = QUEUE_PATH.exec(pathname);
   if (!match) return null;
-  // Off for the 1.0 launch (the launch switches, `src/game/features.ts`).
-  if (!FEATURES.randomOpponent) return errorResponse(404, 'off');
-  if (request.method !== 'POST') return errorResponse(405, 'bad-request');
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const accountId = who.player.accountId;
+  const accountId = player.accountId;
   if (!accountId) return errorResponse(401, 'signed-out');
   const body = await readJson(request);
   const choice = isObject(body) ? choiceOf(body) : null;
@@ -51,8 +49,10 @@ export async function routeQueue(request: Request, env: Env, now: number, pathna
   const action = match[1];
   if (action === 'busy') return toQueue(env, { ...choice, action });
   if (action === 'poll' || action === 'leave') return toQueue(env, { ...choice, action, accountId });
-  const name = nameOf(body.name);
-  if (!name || !isShortString(body.secret)) return errorResponse(400, 'bad-request');
+  const sent = sentName(body.name);
+  if (!sent.ok) return errorResponse(400, sent.error);
+  const { name } = sent;
+  if (!isSentWord(body.secret)) return errorResponse(400, 'bad-request');
   await registerGuest(env.DB, accountId, now);
   const rating = await currentRating(env.DB, accountId, TWO_PLAYER_POOL, now);
   // The computer they'd play if nobody is free: by rating once it's settled, else by their shared average.
