@@ -11,7 +11,6 @@ import { HowToPlay, type Review } from './panels';
 import { API_URL } from './config';
 import { NO_GUESSES, useOpponentMarks, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
-import { useDefinitions } from './definitions';
 import {
   friendApi, FriendApiError, liveSocketUrl, opponentName, type FriendApi, type FriendGame, type LadderFriend, type RatingLine,
 } from './friendApi';
@@ -134,7 +133,6 @@ export function FriendScreen({
   const view = game?.view ?? null;
   const opponent = (game && opponentName(game)) ?? 'your friend';
   const over = game?.state === 'over' || game?.state === 'cancelled' || game?.state === 'expired' || game?.state === 'declined';
-  const definitions = useDefinitions(openYou >= 0 || openThem >= 0 || view?.status === 'over');
   const outcome = view ? outcomeOf(view) : null;
   // A loss where you never found their word can be played on, for practice (README "Play on after a loss").
   const lost = outcome === 'lost' || outcome === 'lost-final' || outcome === 'gave-up' || outcome === 'ran-out';
@@ -728,7 +726,7 @@ export function FriendScreen({
                 marks={shownMarks} practiceFrom={playOn.guesses.length > 0 ? view.yourGuesses.length : undefined}
                 onMark={medium && !over ? (letter) => setMarks(cycleMark(marks, letter))
                   : medium && practising ? (letter) => playOn.setMarks(cycleMark(playOn.marks, letter)) : undefined}
-                onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} definitions={definitions} />
+                onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} />
             )}
           </section>
           <section class="board computer" aria-label={`${opponent}'s guesses`}>
@@ -739,7 +737,7 @@ export function FriendScreen({
             )}
             <History guesses={view.theirGuesses} newestFirst={newestFirst} openDef={openThem}
               label={`${opponent}'s guesses`} emptyText={`${opponent} hasn't guessed yet.`} marks={theirMarks}
-              onToggleDef={(i) => setOpenThem(openThem === i ? -1 : i)} definitions={definitions} />
+              onToggleDef={(i) => setOpenThem(openThem === i ? -1 : i)} />
           </section>
         </div>
 
@@ -860,7 +858,7 @@ export function FriendScreen({
         {/* A cancelled game (item 18zv) keeps both words hidden but still has its result, and Rematch. */}
         {over && outcome && (view.theirSecret || outcome === 'cancelled-you' || outcome === 'cancelled-them') && !practising && (
           <FriendResult view={{ ...view, theirSecret: view.theirSecret ?? '' }} outcome={outcome} opponent={opponent} live={live}
-            definitions={definitions} rating={review ? review.rating : game.ratings?.you}
+            rating={review ? review.rating : game.ratings?.you}
             choice={playOn.stage === 'choose' && (
               <PlayOnChoice whose={`${opponent}'s word`} onKeepGuessing={() => {
                 playOn.start();

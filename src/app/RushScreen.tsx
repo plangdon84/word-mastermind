@@ -20,7 +20,6 @@ import { BadgeToast } from './Badge';
 import { useBadgesEarnedBy } from './badges';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
-import { useDefinitions } from './definitions';
 import { saveFinishedGame } from './historyDb';
 import { useMessage, usePhysicalKeyboard } from './hooks';
 import { errorMessage, guessCount, marksCheckMessage, repeatMessage, RUSH_NO_SUGGESTIONS, scoreMessage } from './messages';
@@ -133,7 +132,6 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
   const wordMarks = marks[run.current] ?? {};
   const checks = useCheckLimit(`rush:${id}:${run.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
-  const definitions = useDefinitions(openDef >= 0 || over || showFound);
 
   // A reviewed Rush is already saved, and must not replace the Rush in progress.
   useEffect(() => {
@@ -470,7 +468,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
         )}
 
         {found && (
-          <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+          <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]}
             playing={!over} onBack={() => setShowFound(false)} />
         )}
 
@@ -481,7 +479,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
               ? 'No guesses yet. Type a 5-letter word and press Enter.'
               : `Word ${run.current + 1}: no guesses yet.`}
             marks={shownMarks} onMark={medium ? markLetter : undefined}
-            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
+            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)}
             entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
             suggested={word.suggested} onSuggest={reviewing ? undefined : suggest}
             onShuffle={shuffle} onLetter={typeLetter} onEnter={enter} onBackspace={backspace} />
@@ -535,7 +533,7 @@ export function RushScreen({ settings, profile, onProfile, resume, onExit, revie
                 : givenUp === 0 ? `All ${run.words.length} words in ${clock}.`
                   : `${rankByName(rankBy)} done in ${clock}.`}
             </h2>
-            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions} rows={rows} />
+            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} rows={rows} />
             {review?.heading ? review.result : summary && (
               <RushSummary tiers={[
                 ['Score', rankBy === 'rush' ? rushScoreText(summary.score) : summary.score.toFixed(1)],

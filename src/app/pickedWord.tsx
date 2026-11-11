@@ -1,7 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { DefinitionBox, InfoIcon } from './components';
-import { useDefinitions } from './definitions';
 import { type ReportRequest, WordReportContext } from './reportIssue';
 
 /**
@@ -25,7 +24,6 @@ export function usePickedWord({ draft, picked, report, slots }: {
 }): { slots: ComponentChildren; definition: ComponentChildren } {
   const shown = picked !== null && draft === picked;
   const [open, setOpen] = useState(false);
-  const definitions = useDefinitions(open);
   useEffect(() => {
     if (!shown) setOpen(false);
   }, [shown]);
@@ -51,7 +49,7 @@ export function usePickedWord({ draft, picked, report, slots }: {
       <div class="setup-definition">
         {shown && open && (
           <WordReportContext.Provider value={report}>
-            <DefinitionBox word={draft} state={definitions} />
+            <DefinitionBox word={draft} />
           </WordReportContext.Provider>
         )}
       </div>

@@ -166,8 +166,8 @@ Where things are (`CLAUDE.md` has more on each feature):
   `identityHeaders` in `apiIdentity.ts`). Games in progress, settings and
   the profile are kept in `localStorage` (`*Storage.ts`, `settings.ts`),
   finished games in IndexedDB (`historyDb.ts`), and signed in, synced to
-  the account (`profileSync.ts`). `definitions.ts` loads the definitions
-  the first time one is needed. `public/sw.js` is the service worker that
+  the account (`profileSync.ts`). `definitions.ts` loads a word's definitions
+  the first time one is needed, from a file for its first letter. `public/sw.js` is the service worker that
   shows turn notifications (`turnAlerts.ts`), and
   `public/manifest.webmanifest` lets the game be added to a Home Screen,
   which iPhones need for notifications.
@@ -1833,8 +1833,10 @@ update (`wordlist/rules/`).
 
 Definitions come from [Open English WordNet](https://github.com/globalwordnet/english-wordnet)
 (CC BY 4.0, so the app must credit it), extracted at build time by the
-word-list ETL from a pinned edition. They ship with the app, loaded the first
-time someone taps ⓘ, and never come from a third-party service at runtime.
+word-list ETL from a pinned edition. They ship with the app, in 26 files by first letter (1 to 30 kB
+gzipped each, against 212 kB for all of them at once), and the first ⓘ tap on
+a word loads only its letter's file, showing "Loading definition…" for a
+moment; they never come from a third-party service at runtime.
 Each word gets up to two short definitions; an inflected word (`plots`,
 `dying`) is defined through its base word (`plot`, `die`). Words WordNet
 doesn't cover show "No definition available". Every secret word has a

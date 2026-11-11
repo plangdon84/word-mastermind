@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef } from 'preact/hooks';
 import type { GuessResult, Marks, Strength } from '../game';
-import type { DefinitionsState } from './definitions';
+import { useDefinition } from './definitions';
 import { EnterSide } from './keyboard';
 import { openReport, wordReportRequest, WordReportContext } from './reportIssue';
 import type { Difficulty } from './settings';
@@ -122,16 +122,17 @@ function ReportWord({ word }: { word: string }) {
 }
 
 /** The definition of one word, as shown under a guess or on the result screen. */
-export function DefinitionBox({ word, state }: { word: string; state: DefinitionsState }) {
+export function DefinitionBox({ word }: { word: string }) {
   return (
     <div class="definition">
-      <DefinitionText word={word} state={state} />
+      <DefinitionText word={word} />
       <ReportWord word={word} />
     </div>
   );
 }
 
-function DefinitionText({ word, state }: { word: string; state: DefinitionsState }) {
+function DefinitionText({ word }: { word: string }) {
+  const state = useDefinition(word);
   if (state.status !== 'ready') {
     return (
       <span class="loading">
@@ -139,7 +140,7 @@ function DefinitionText({ word, state }: { word: string; state: DefinitionsState
       </span>
     );
   }
-  const entries = state.definitions[word];
+  const entries = state.entries;
   if (!entries) return <span class="none">No definition available for {word}.</span>;
   // One shared base word goes in the heading ("plots · form of plot"); mixed
   // entries ("dying": die, dying) name the base word per line. A screen reader
@@ -170,7 +171,7 @@ function DefinitionText({ word, state }: { word: string; state: DefinitionsState
 }
 
 export function History({
-  guesses, marks, onMark, newestFirst, openDef, onToggleDef, definitions, practiceFrom,
+  guesses, marks, onMark, newestFirst, openDef, onToggleDef, practiceFrom,
   label = 'Your guesses', emptyText = 'No guesses yet. Type a 5-letter word and press Enter.',
 }: {
   guesses: readonly GuessResult[];
@@ -182,12 +183,11 @@ export function History({
   newestFirst: boolean;
   openDef: number;
   onToggleDef: (index: number) => void;
-  definitions: DefinitionsState;
   /** Guesses from this index on are practice, after a loss (README "Play on after a loss"). */
   practiceFrom?: number;
 }) {
   const wrap = useNewestInView(guesses.length, newestFirst);
-  useOpenDefinitionInView(wrap, openDef, definitions.status);
+  useOpenDefinitionInView(wrap, openDef, useDefinition(guesses[openDef]?.guess).status);
 
   return (
     <div class="history-wrap" ref={wrap}>
@@ -217,7 +217,7 @@ export function History({
                 <span class="score"><span aria-hidden="true">{g.score}</span><span class="visually-hidden">Score {g.score}</span></span>
               </>
             )}
-            {openDef === i && <DefinitionBox word={g.guess} state={definitions} />}
+            {openDef === i && <DefinitionBox word={g.guess} />}
           </li>,
         ])}
       </ol>

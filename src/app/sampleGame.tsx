@@ -90,7 +90,7 @@ export function useSampleSteps(): Step[] {
     <div class="tut-live">
       <InSet marks={marks} />
       <History guesses={GUESSES.slice(0, count)} newestFirst={false} marks={marks} onMark={onMark}
-        openDef={-1} onToggleDef={() => {}} definitions={{ status: 'idle' }} />
+        openDef={-1} onToggleDef={() => {}} />
     </div>
   );
 

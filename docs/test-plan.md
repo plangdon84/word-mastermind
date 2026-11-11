@@ -47,8 +47,8 @@ gallery locally (`e2e-gallery/index.html`).
   screen-size checks, no accessibility checks, no size budget for what a
   phone downloads, and no load test of the server.
 - **Download size today:** the app is 115 KB (gzipped script) plus 9 KB of
-  styles and the fonts. The word definitions (212 KB) load only when you
-  tap ⓘ.
+  styles and the fonts. The word definitions (212 KB in all, in 26 files by first letter,
+  1 to 30 KB each) load only when you tap ⓘ, one letter's file at a time.
 
 ## How each part is tested
 

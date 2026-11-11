@@ -20,7 +20,6 @@ import { receivePlacements } from './badges';
 import { loadDaily, saveDaily } from './dailyStorage';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
-import { useDefinitions } from './definitions';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { countdownText, DAILY_NAME, dailyErrorMessage, dayEndingStartText, dayEndingText, errorMessage, guessCount, marksCheckMessage, repeatMessage, scoreMessage } from './messages';
 import { displayName, type Profile } from './profileStorage';
@@ -253,7 +252,6 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   const wordMarks = (run && marks[run.current]) ?? {};
   const checks = useCheckLimit(`${mode}:${run?.day}:${run?.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
-  const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing) || showFound);
 
   const setToday = (t: DailyToday) => {
     todayRef.current = t;
@@ -601,7 +599,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
         )}
 
         {run && found && (
-          <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+          <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]}
             playing={playing} onBack={() => setShowFound(false)} />
         )}
 
@@ -614,7 +612,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
                 ? `${run.day === today.day ? "Today's" : "Yesterday's"} theme: ${today.runTheme}. Type a 5-letter word and press Enter.`
                 : `Word ${run.current + 1}: no guesses yet.`}
             marks={shownMarks} onMark={medium ? markLetter : undefined}
-            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
+            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)}
             entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
             suggested={word.suggested} onSuggest={() => void suggest()}
             onShuffle={shuffle} onLetter={typeLetter} onEnter={() => void enter()} onBackspace={backspace} />
@@ -649,7 +647,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
               {run.status === 'finished' ? (set ? `All 4 words in ${clock}.` : `Found in ${guessCount(totalGuesses)}, ${clock}.`)
                 : late ? `You gave up this ${name}.` : `You gave up today's ${name}.`}
             </h2>
-            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]}
               hiddenLabel={late ? "On that day's leaderboard" : 'Hidden until tomorrow'}
               rows={rows} />
             {late ? (

@@ -1,10 +1,10 @@
 import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { evaluateGuess, FEATURES, type GuessResult, type Marks } from '../game';
+import { preloadDefinition } from './definitions';
 import { Bubble, History, InSet, Keyboard, MarkKey, ScoreHistory, Slots } from './components';
 import { GameMenuItems } from './gameHeader';
 import { HOW_TO_UNLOCK, LockIcon, Modal } from './panels';
-import { useDefinitions } from './definitions';
 import { StepDots, useArrowSteps, useSampleSteps, type Step } from './sampleGame';
 
 /*
@@ -52,10 +52,10 @@ const Notes = ({ notes }: { notes: ComponentChildren[] }) => (
   </ol>
 );
 
-function steps(definitions: ReturnType<typeof useDefinitions>): Step[] {
+function steps(): Step[] {
   const history = (guesses: GuessResult[], marks?: Marks, openDef = -1) => (
     <History guesses={guesses} newestFirst={false} openDef={openDef} marks={marks}
-      onMark={marks ? noop : undefined} onToggleDef={noop} definitions={definitions} />
+      onMark={marks ? noop : undefined} onToggleDef={noop} />
   );
   return [
     {
@@ -244,9 +244,10 @@ export function Tutorial({ hidden, onClose, onPlay }: {
 }) {
   const [index, setIndex] = useState(0);
   const [hide, setHide] = useState(hidden);
-  // The definitions file is big: loaded from the step before the one that shows one.
-  const definitions = useDefinitions(index >= 3);
-  const intro = steps(definitions);
+    useEffect(() => {
+    if (index >= 3) preloadDefinition('crane');
+  }, [index >= 3]);
+  const intro = steps();
   const sample = useSampleSteps();
   // The sample game follows marking, where it puts that step into practice.
   const at = intro.findIndex((s) => s.title === 'Mark what you know') + 1;

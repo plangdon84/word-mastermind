@@ -4,7 +4,6 @@ import {
   FEATURES, RANK_BYS, rankByHow, rankByName, SUGGEST_LIMIT, type Difficulty, type GuessResult, type Marks, type RankBy,
 } from '../game';
 import { Bubble, DefinitionBox, History, InfoIcon, Keyboard, ScoreHistory, Slots, SuggestButton } from './components';
-import type { DefinitionsState } from './definitions';
 import type { Message } from './hooks';
 import { guessCount } from './messages';
 
@@ -110,7 +109,7 @@ export function RushBar({ dots, found, clock, clockLabel, paused = false, childr
  * Easy's Suggest and the keyboard.
  */
 export function RushBoard({
-  difficulty, guesses, newestFirst, label, emptyText, marks, onMark, openDef, onToggleDef, definitions,
+  difficulty, guesses, newestFirst, label, emptyText, marks, onMark, openDef, onToggleDef,
   entry, draft, shake, onShakeEnd, message, suggested, onSuggest, onShuffle, onLetter, onEnter, onBackspace,
 }: {
   difficulty: Difficulty;
@@ -123,7 +122,6 @@ export function RushBoard({
   onMark?: (letter: string) => void;
   openDef: number;
   onToggleDef: (index: number) => void;
-  definitions: DefinitionsState;
   entry: boolean;
   draft: string;
   shake: boolean;
@@ -143,7 +141,7 @@ export function RushBoard({
         <ScoreHistory guesses={guesses} newestFirst={newestFirst} />
       ) : (
         <History guesses={guesses} newestFirst={newestFirst} openDef={openDef} label={label} emptyText={emptyText}
-          marks={marks} onMark={onMark} onToggleDef={onToggleDef} definitions={definitions} />
+          marks={marks} onMark={onMark} onToggleDef={onToggleDef} />
       )}
       {entry && (
         <>
@@ -187,11 +185,10 @@ export interface RushWordRow {
  * guesses (a tap shows them, with their marks, as they were) and its time.
  * `hiddenLabel` reads out a word that's still hidden.
  */
-export function RushWords({ rows, marks, newestFirst, definitions, hiddenLabel }: {
+export function RushWords({ rows, marks, newestFirst, hiddenLabel }: {
   rows: readonly RushWordRow[];
   marks: readonly Marks[];
   newestFirst: boolean;
-  definitions: DefinitionsState;
   hiddenLabel?: string;
 }) {
   const [openDef, setOpenDef] = useState(-1);
@@ -227,11 +224,11 @@ export function RushWords({ rows, marks, newestFirst, definitions, hiddenLabel }
           )}
           <span class="rush-stat time">{r.seconds === null ? '' : formatClock(r.seconds)}</span>
           {r.setBy && <span class="rush-setter">{r.setBy}'s word</span>}
-          {openDef === i && r.word && <DefinitionBox word={r.word} state={definitions} />}
+          {openDef === i && r.word && <DefinitionBox word={r.word} />}
           {openWord === i && (
             <History guesses={r.guesses} newestFirst={newestFirst} openDef={openGuessDef}
               label={`Your guesses at word ${r.position ?? i + 1}`} emptyText="No guesses." marks={marks[i]}
-              onToggleDef={(g) => setOpenGuessDef(openGuessDef === g ? -1 : g)} definitions={definitions} />
+              onToggleDef={(g) => setOpenGuessDef(openGuessDef === g ? -1 : g)} />
           )}
         </li>
       ))}
@@ -284,12 +281,11 @@ export const someFound = (words: readonly { outcome: string | null }[]) =>
  * times, as `RushWords` shows them. Only your own, and only those found.
  * While playing, the clock keeps running.
  */
-export function FoundSoFar({ rows, marks, newestFirst, definitions, playing, onBack }: {
+export function FoundSoFar({ rows, marks, newestFirst, playing, onBack }: {
   /** Every word of the run, in order: those not found are left out here. */
   rows: readonly RushWordRow[];
   marks: readonly Marks[];
   newestFirst: boolean;
-  definitions: DefinitionsState;
   playing: boolean;
   onBack: () => void;
 }) {
@@ -298,7 +294,7 @@ export function FoundSoFar({ rows, marks, newestFirst, definitions, playing, onB
     <section class="panel rush-result">
       <h2>Found so far</h2>
       <RushWords rows={found.map((f) => f.row)} marks={found.map((f) => marks[f.i] ?? {})} newestFirst={newestFirst}
-        definitions={definitions} />
+        />
       <p class="board-note">
         {found.length} of {rows.length} words found{playing ? '. The clock keeps running.' : '.'}
       </p>

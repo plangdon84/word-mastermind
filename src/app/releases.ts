@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.7.1',
+    notes: [
+      { text: 'Tapping ⓘ for a definition is now much lighter: it loads only the definitions you need, so the first tap uses far less data.' },
+    ],
+  },
+  {
     version: '2.7.0',
     notes: [
       { text: "A friend's profile now shows your Win % against them in the You vs. box, with a draw counting as half a win." },

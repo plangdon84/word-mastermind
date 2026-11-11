@@ -29,6 +29,11 @@ Run `npm test` and `npm run typecheck` before committing.
 - The same ETL run writes `wordlist/lists/definitions.json` from Open English
   WordNet (pinned by URL and SHA-256; `wordlist/definitions.py`). Fix a bad or
   missing definition in `wordlist/rules/definitions.txt`, never in the JSON.
+- Definitions load by first letter (Dev Plan item 19zn): a plugin in
+  `vite.config.ts` makes one `virtual:definitions-<letter>` chunk per letter
+  from `wordlist/lists/definitions.json`, and `useDefinition(word)`
+  (`src/app/definitions.ts`) loads the one it needs; `DefinitionBox` calls it,
+  so screens never load definitions themselves.
 - The UI is Preact in `src/app/` (Vite; `npm run dev`, `npm run build` →
   `dist/`). Single player, two player vs. computer, a friend or a random opponent, Solo Rush, Daily Rush, the Daily Word, Rush with Friends and Competitive Rush are playable at Easy,
   Medium, Hard and Extreme (Easy everywhere but rated play; README "Easy"). Keep game

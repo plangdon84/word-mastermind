@@ -5,7 +5,6 @@ import { Bubble, DefinitionBox, Slots } from './components';
 import { SuggestNote } from './Badge';
 import { BackIcon } from './panels';
 import { ResultCard, TheirWord } from './resultCard';
-import type { DefinitionsState } from './definitions';
 import type { FriendGame, RatingLine } from './friendApi';
 import { inviteLink, inviteMessage, smsLink } from './friendGames';
 import { durationText, guessCount } from './messages';
@@ -220,12 +219,11 @@ export function RatingChange({ line }: { line: RatingLine }) {
  * The end of a game against a friend: how it ended, their word (with its
  * definition), your rating change, and `children`, the buttons.
  */
-export function FriendResult({ view, outcome, opponent, live, definitions, rating, choice, practice, found = false, children }: {
+export function FriendResult({ view, outcome, opponent, live, rating, choice, practice, found = false, children }: {
   view: PvpView & { theirSecret: string };
   outcome: Outcome;
   opponent: string;
   live: boolean;
-  definitions: DefinitionsState;
   rating: RatingLine | null | undefined;
   /**
    * After a loss (README "Play on after a loss"): the choice to keep
@@ -287,7 +285,7 @@ export function FriendResult({ view, outcome, opponent, live, definitions, ratin
           {!youFoundTheirs && <p>{opponent}'s word was</p>}
           <TheirWord word={view.theirSecret}
             motion={outcome === 'clutch' ? 'flip' : outcome.startsWith('won') || outcome.startsWith('they') || found ? 'pop' : undefined} />
-          <DefinitionBox word={view.theirSecret} state={definitions} />
+          <DefinitionBox word={view.theirSecret} />
           {practice}
         </>
       )}

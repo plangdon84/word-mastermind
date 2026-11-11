@@ -37,14 +37,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   and 19zl touch the referees), 19zp. Each release's notes are OK'd by the
   owner before its first commit.
 
-- [ ] **19zn. Definitions load by first letter** (2.7.1; issue
-  plangdon84/word-mastermind-archive#296; app only; a
-  release, its note OK'd by the owner before the first commit)
-  - Split the definitions into 26 files at build time (a small plugin in
-    `vite.config.ts`, leaving `wordlist/lists/` alone), load only the
-    letter tapped and show a brief loading state in the ⓘ popover; keep
-    `definitions` in the file names so `npm run check:size` still checks
-    they aren't loaded up front
 - [ ] **19zq. A lighter start-up script** (2.7.1; issue
   plangdon84/word-mastermind-archive#297, part 3; app only)
   - Load `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the
@@ -204,6 +196,21 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zn. Definitions load by first letter** (2.7.1; issue
+  plangdon84/word-mastermind-archive#296; app only; a
+  release, its note OK'd by the owner before the first commit)
+  - Split the definitions into 26 files at build time (a small plugin in
+    `vite.config.ts`, leaving `wordlist/lists/` alone), load only the
+    letter tapped and show a brief loading state in the ⓘ popover; keep
+    `definitions` in the file names so `npm run check:size` still checks
+    they aren't loaded up front
+  - Built: `virtual:definitions-<letter>` modules from a plugin in
+    `vite.config.ts` (chunks named `_virtual_definitions-<letter>`, 0.3 to
+    29 kB gzipped, against 212 kB at once); `useDefinition(word)` in
+    `definitions.ts` loads a letter once and `DefinitionBox` uses it, so the
+    screens no longer pass a definitions state around. The tutorial loads
+    CRANE's letter from the step before it shows a definition. Release 2.7.1
+    (its generic start-up line comes with 19zq)
 - [x] **19zg. A Win % in a friend's "You vs." box** (issue
   plangdon84/word-mastermind-archive#287; from the owner, 9 November 2026,
   in Next after 19ze at their word;
