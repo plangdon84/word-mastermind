@@ -14,7 +14,6 @@ import { ConfirmDialog, HowToPlay } from './panels';
 import { API_URL } from './config';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
-import { useDefinitions } from './definitions';
 import { RatingChange } from './friendParts';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
 import { InviteFriends, JoinCode, lobbyName, rankByLine, rankedText, scoreText, Seats, Standings, WordStep } from './lobbyParts';
@@ -110,7 +109,6 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   const wordMarks = (run && marks[run.current]) ?? {};
   const checks = useCheckLimit(`lobby:${lobby?.code}:${run?.current}`);
   const shownMarks = useShownMarks(difficulty, wordMarks, word?.guesses ?? NO_GUESSES);
-  const definitions = useDefinitions(openDef >= 0 || (run !== null && !playing) || showFound);
 
   const setAnswer = (a: LobbyAnswer) => {
     answerRef.current = a;
@@ -576,7 +574,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     return (
       <div class="app">
         {header}
-        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+        <FoundSoFar rows={rows} marks={marks} newestFirst={settings.newestFirst[difficulty]}
           playing={playing} onBack={() => setShowFound(false)} />
       </div>
     );
@@ -625,7 +623,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
             emptyText={run.current === 0 ? `The clock is running${run.setBy ? `: this is ${run.setBy[0]}'s word` : ''}. Type a 5-letter word and press Enter.`
               : `Word ${run.current + 1}${run.setBy ? `, ${run.setBy[run.current]}'s` : ''}: no guesses yet.`}
             marks={shownMarks} onMark={medium ? markLetter : undefined}
-            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions}
+            openDef={openDef} onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)}
             entry={!confirming} draft={draft} shake={shake} onShakeEnd={() => setShake(false)} message={message}
             suggested={word.suggested} onSuggest={() => void suggest()}
             onShuffle={shuffle} onLetter={typeLetter} onEnter={() => void enter()} onBackspace={backspace} />
@@ -664,7 +662,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
         {run && !playing && (
           <section class="panel rush-result">
             <h2>{heading}</h2>
-            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]} definitions={definitions}
+            <RushWords marks={marks} newestFirst={settings.newestFirst[difficulty]}
               hiddenLabel={`Hidden until the ${rush} is over`}
               rows={rows} />
             {mine?.score != null && (

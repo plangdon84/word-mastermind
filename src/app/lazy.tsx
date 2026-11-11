@@ -10,6 +10,14 @@ import { useEffect, useState } from 'preact/hooks';
 const preloads: (() => Promise<unknown>)[] = [];
 
 /**
+ * Has `preloadScreens` also fetch a module the app loads with `import()`
+ * itself (the badges, say), so it's there when first needed.
+ */
+export function preloadToo(load: () => Promise<unknown>): void {
+  preloads.push(load);
+}
+
+/**
  * A component that loads `load()` when it's first needed, then renders it
  * like the original. With `quiet` (a popup that can wait for another
  * visit), it shows nothing while loading or if loading fails.

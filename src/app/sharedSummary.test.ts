@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { addDays, computeStats, dailyDay, replayEntry, summarizeGame, type HistoryEntry } from '../game';
+import { addDays, dailyDay, replayEntry, summarizeGame, type HistoryEntry } from '../game';
+import { computeStats } from '../game/stats';
 import { dailyEntry, dailyWordEntry, friendEntry, lobbyEntry, soloEntry } from '../game/testGames';
-import { FriendsApiError, parseSharedSummary, SHARED_FORMAT, type FriendsApi } from './friendsApi';
+import { FriendsApiError, SHARED_FORMAT, type FriendsApi } from './friendsApi';
+import { parseSharedSummary } from './sharedParse';
 import { shareProfile } from './profileShare';
 import { sharedSummary } from './sharedSummary';
 

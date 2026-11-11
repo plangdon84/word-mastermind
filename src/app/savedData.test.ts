@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { computeAchievements, computeStats, computeUnlocks, replayEntry, type StatsGame } from '../game';
+import { computeUnlocks, replayEntry, type StatsGame } from '../game';
+import { computeStats } from '../game/stats';
+import { computeAchievements } from '../game/achievements';
 import { parseSession } from './account';
 import { parseBackup } from './backup';
 import { parseBadgeNotices } from './badges';

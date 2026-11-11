@@ -1,7 +1,8 @@
 import type { OpenProfile } from './profilePages';
 import type { JSX } from 'preact';
 import { useId } from 'preact/hooks';
-import { BADGE_BY_ID, BADGES, suggestVoidedFewGuesses, UNLOCKS, type Badge, type BadgeFamily, type EarnedBadge, type Metal } from '../game';
+import { type Badge, type BadgeFamily, type EarnedBadge, type Metal } from '../game';
+import { BADGE_BY_ID, BADGES, UNLOCKS } from '../game/achievements';
 
 /*
  * The achievement badges as inline SVG (README "Achievements"), drawn as in
@@ -194,12 +195,6 @@ export function BadgeArt({ badge, locked = false, size = 96 }: { badge: Badge; l
       </g>
     </svg>
   );
-}
-
-/** On the result screen, when Suggest kept you from a few-guesses badge (README "Achievements"). */
-export function SuggestNote({ found, guesses, suggested }: { found: boolean; guesses: number; suggested: number }) {
-  return suggestVoidedFewGuesses(found, guesses, suggested)
-    ? <p class="tally">Suggest used: no few-guesses badge</p> : null;
 }
 
 /**

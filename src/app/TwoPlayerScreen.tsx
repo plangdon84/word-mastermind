@@ -13,11 +13,11 @@ import {
 import { GameHeader, GameMenuItems } from './gameHeader';
 import { ResultCard, TheirWord } from './resultCard';
 import { BackIcon, HowToPlay, ReplaceGamePanel, type Review } from './panels';
-import { BadgeToast, SuggestNote } from './Badge';
+import { BadgeToast } from './screens';
+import { SuggestNote } from './SuggestNote';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useBadgesEarnedBy } from './badges';
 import { NO_GUESSES, useOpponentMarks, useShownMarks } from './easyMarks';
-import { useDefinitions } from './definitions';
 import { gameSource } from './gameSource';
 import { saveFinishedGame } from './historyDb';
 import { useMessage, usePhysicalKeyboard } from './hooks';
@@ -159,7 +159,6 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
   const computerMarks = useOpponentMarks('easy', null, game?.computerGuesses ?? NO_GUESSES);
   const finalGuess = game?.status === 'final-guess';
   const yourLastChance = finalGuess && turn === 'human';
-  const definitions = useDefinitions(openYou >= 0 || openComputer >= 0 || over);
 
   /** What this page last saved, so coming back can tell whether another page saved since. */
   const written = useRef<string | null>(null);
@@ -511,7 +510,7 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
                 onMark={medium && !reviewing
                   ? (letter) => (playOn.practised ? playOn.setMarks(cycleMark(playOn.marks, letter)) : setMarks(cycleMark(marks, letter)))
                   : undefined}
-                onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} definitions={definitions} />
+                onToggleDef={(i) => setOpenYou(openYou === i ? -1 : i)} />
             )}
           </section>
           <section class="board computer" aria-label="The computer's guesses">
@@ -520,7 +519,7 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
             <History guesses={game.computerGuesses} newestFirst={settings.newestFirst[difficulty]} openDef={openComputer}
               label="The computer's guesses" emptyText="The computer hasn't guessed yet."
               marks={computerMarks}
-              onToggleDef={(i) => setOpenComputer(openComputer === i ? -1 : i)} definitions={definitions} />
+              onToggleDef={(i) => setOpenComputer(openComputer === i ? -1 : i)} />
           </section>
         </div>
 
@@ -636,7 +635,7 @@ export function TwoPlayerScreen({ settings, profile, onProfile, resume, onExit, 
                 {!yourFoundTheirs && <p>The computer's word was</p>}
                 <TheirWord word={game.computerSecret}
                   motion={outcome === 'clutch' ? 'flip' : outcome.startsWith('won') || playOn.stage === 'found' ? 'pop' : undefined} />
-                <DefinitionBox word={game.computerSecret} state={definitions} />
+                <DefinitionBox word={game.computerSecret} />
                 <PracticeLine stage={playOn.stage} practice={playOn.guesses.length} game={game.humanGuesses.length} />
               </>
             )}

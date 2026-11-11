@@ -10,9 +10,9 @@ import {
 } from './components';
 import { GameHeader, GameMenuItems } from './gameHeader';
 import { HowToPlay, ReplaceGamePanel, type Review } from './panels';
-import { BadgeToast, SuggestNote } from './Badge';
+import { BadgeToast } from './screens';
+import { SuggestNote } from './SuggestNote';
 import { useBadgesEarnedBy } from './badges';
-import { useDefinitions } from './definitions';
 import { useShownMarks } from './easyMarks';
 import { saveFinishedGame } from './historyDb';
 import { useMessage, usePhysicalKeyboard } from './hooks';
@@ -80,7 +80,6 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
     }
     : undefined;
   const shownMarks = useShownMarks(difficulty, marks, game.guesses);
-  const definitions = useDefinitions(openDef >= 0 || over);
 
   /** What this page last saved, so coming back can tell whether another page saved since. */
   const written = useRef<string | null>(null);
@@ -267,7 +266,7 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
           <History guesses={game.guesses} newestFirst={settings.newestFirst[difficulty]} openDef={openDef}
             marks={shownMarks}
             onMark={medium && !reviewing ? (letter) => setMarks(cycleMark(marks, letter)) : undefined}
-            onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} definitions={definitions} />
+            onToggleDef={(i) => setOpenDef(openDef === i ? -1 : i)} />
         )}
 
         {!over && !confirming && (
@@ -314,7 +313,7 @@ export function SoloScreen({ settings, profile, onProfile, resume, onExit, revie
             <div class="letters reveal">
               {[...game.secret].map((c, i) => <Bubble key={i} letter={c} mark="in" />)}
             </div>
-            <DefinitionBox word={game.secret} state={definitions} />
+            <DefinitionBox word={game.secret} />
             {game.status === 'gave-up' && <p>You made {guesses}.</p>}
             <SuggestNote found={game.status === 'won'} guesses={game.guesses.length} suggested={game.suggested} />
             <BadgeToast badges={newBadges} onOpen={onProfile} />

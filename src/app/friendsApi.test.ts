@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { computeStats } from '../game';
+import { computeStats } from '../game/stats';
 import { sharedSummary } from './sharedSummary';
+import { parseFriendProfileAnswer, parseSharedSummary } from './sharedParse';
 import {
-  parseFriendProfileAnswer, parseSharedSummary,
   friendGamesAfter, friendGamesParams, parseFriendGamesAfter, parseFriendGamesPage, parseFriendGamesParams, parseFriendsList,
   parsePendingInvite, PENDING_INVITE_MS,
 } from './friendsApi';

@@ -90,7 +90,7 @@ export function useSampleSteps(): Step[] {
     <div class="tut-live">
       <InSet marks={marks} />
       <History guesses={GUESSES.slice(0, count)} newestFirst={false} marks={marks} onMark={onMark}
-        openDef={-1} onToggleDef={() => {}} definitions={{ status: 'idle' }} />
+        openDef={-1} onToggleDef={() => {}} />
     </div>
   );
 
@@ -169,7 +169,7 @@ export function StepDots({ index, count, label }: { index: number; count: number
 }
 
 /** The sample game on its own, from How to play: its steps, then Done. */
-export function SampleGame({ onDone }: { onDone: () => void }) {
+export function SampleGame({ onClose: onDone }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const steps = useSampleSteps();
   const last = index === steps.length - 1;

@@ -49,6 +49,22 @@ export default defineConfig(({ mode }) => {
         },
       },
       {
+        // The definitions, one chunk per first letter (Dev Plan item 19zn): the first ⓘ tap loads 1 to 30 kB (gzipped)
+        // rather than all 212 kB. Each virtual module is that letter's slice of wordlist/lists/definitions.json,
+        // which stays as it is. "definitions" stays in the chunks' names for npm run check:size.
+        name: 'definitions-by-letter',
+        resolveId(id) {
+          return /^virtual:definitions-[a-z]$/.test(id) ? `\0${id}` : null;
+        },
+        load(id) {
+          const letter = /^\0virtual:definitions-([a-z])$/.exec(id)?.[1];
+          if (!letter) return null;
+          const all = JSON.parse(readFileSync(resolve(import.meta.dirname, 'wordlist/lists/definitions.json'), 'utf8')) as Record<string, unknown>;
+          const slice = Object.fromEntries(Object.entries(all).filter(([word]) => word.startsWith(letter)));
+          return `export default ${JSON.stringify(JSON.stringify(slice))};`;
+        },
+      },
+      {
         // The app reads this to find out a newer build is out (issue #136, src/app/appUpdate.ts).
         name: 'version-file',
         apply: 'build',
@@ -80,9 +96,7 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      // The definitions chunk (~700 kB, ~210 kB gzipped) is deliberately one
-      // lazy-loaded file; everything else stays well under the default limit.
-      chunkSizeWarningLimit: 800,
+      // The definitions are 26 lazy-loaded chunks (above); every chunk stays well under the default limit.
     },
     test: {
       // e2e/ is Playwright's (npm run e2e), and its build is dist-e2e/.

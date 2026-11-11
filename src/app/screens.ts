@@ -1,4 +1,4 @@
-import { lazy } from './lazy';
+import { lazy, preloadToo } from './lazy';
 
 /*
  * The screens and pages that load when first needed (`lazy.tsx`, Dev Plan
@@ -24,3 +24,16 @@ export const Tutorial = lazy(() => import('./Tutorial').then((m) => m.Tutorial))
 // Quiet: a release popup that can't load waits for the next visit rather than showing a panel there's no closing.
 export const ReleasePopup = lazy(() => import('./ReleaseNotes').then((m) => m.ReleasePopup), { quiet: true });
 export const WhatsNew = lazy(() => import('./ReleaseNotes').then((m) => m.WhatsNew));
+// Quiet: the toast waits for the next result rather than show a hole. The badges load after the page has (Dev Plan item 19zq).
+export const BadgeToast = lazy(() => import('./Badge').then((m) => m.BadgeToast), { quiet: true });
+export const StatsPage = lazy(() => import('./profileSubpages').then((m) => m.StatsPage));
+export const AchievementsPage = lazy(() => import('./profileSubpages').then((m) => m.AchievementsPage));
+export const ReportForm = lazy(() => import('./ReportIssue').then((m) => m.ReportForm));
+export const SampleGame = lazy(() => import('./sampleGame').then((m) => m.SampleGame));
+export const MovedNotice = lazy(() => import('./MovedNotice').then((m) => m.MovedNotice));
+
+// Modules the start-up code loads with `import()` when it first needs them: fetched with the screens, after the page has loaded.
+preloadToo(() => import('../game/achievements'));
+preloadToo(() => import('../game/stats'));
+preloadToo(() => import('./sharedSummary'));
+preloadToo(() => import('./sharedParse'));

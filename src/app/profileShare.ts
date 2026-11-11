@@ -2,7 +2,6 @@ import type { DailyPlacement } from '../game';
 import { localDay } from './badges';
 import { FriendsApiError, type FriendsApi, type SharedSummary } from './friendsApi';
 import type { HistoryGame } from './historyDb';
-import { sharedSummary } from './sharedSummary';
 import { removeStored, writeStored } from './localStore';
 
 /*
@@ -73,6 +72,8 @@ export async function shareProfile(
       await wait(LIMIT_WAIT_MS);
     }
   }
+  // Worked out by a module that loads with the stats and badges (Dev Plan item 19zq).
+  const { sharedSummary } = await import('./sharedSummary');
   const summary = sharedSummary(games, placements, now, localDay);
   const print = fingerprint(accountId, summary);
   // Sent again at least once a day, in case the server lost it.

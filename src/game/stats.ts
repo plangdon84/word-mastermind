@@ -2,6 +2,7 @@ import type { Strength } from './computer';
 import { DIFFICULTIES, DIFFICULTY_FACTOR, type Difficulty } from './difficulty';
 import { STRENGTHS } from './records';
 import { summarizeGame, type GameSummary, type HistoryMode, type ReplayedGame } from './history';
+import { summaryOf, type StatsGame } from './statsGame';
 import { runElapsedMs, runRankBy, wordSeconds } from './run';
 import { otherSeat, type PvpGame, type Seat } from './pvp';
 import type { TwoPlayerGame } from './twoPlayer';
@@ -11,17 +12,6 @@ import type { TwoPlayerGame } from './twoPlayer';
  * never kept as counters. Only finished games are passed in, and each counts at
  * the easiest difficulty used.
  */
-
-/** A finished game from the history, rebuilt from its record. */
-export interface StatsGame {
-  id: string;
-  replayed: ReplayedGame;
-  /** Its summary, if already worked out, so it isn't worked out again (Dev Plan item 19c). */
-  summary?: GameSummary;
-}
-
-/** A game's summary: the one it carries, else worked out from the replayed game. */
-export const summaryOf = (game: StatsGame): GameSummary => game.summary ?? summarizeGame(game.replayed);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Trends compare this many days with the same number before them. */

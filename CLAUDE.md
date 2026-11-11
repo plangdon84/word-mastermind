@@ -29,6 +29,11 @@ Run `npm test` and `npm run typecheck` before committing.
 - The same ETL run writes `wordlist/lists/definitions.json` from Open English
   WordNet (pinned by URL and SHA-256; `wordlist/definitions.py`). Fix a bad or
   missing definition in `wordlist/rules/definitions.txt`, never in the JSON.
+- Definitions load by first letter (Dev Plan item 19zn): a plugin in
+  `vite.config.ts` makes one `virtual:definitions-<letter>` chunk per letter
+  from `wordlist/lists/definitions.json`, and `useDefinition(word)`
+  (`src/app/definitions.ts`) loads the one it needs; `DefinitionBox` calls it,
+  so screens never load definitions themselves.
 - The UI is Preact in `src/app/` (Vite; `npm run dev`, `npm run build` →
   `dist/`). Single player, two player vs. computer, a friend or a random opponent, Solo Rush, Daily Rush, the Daily Word, Rush with Friends and Competitive Rush are playable at Easy,
   Medium, Hard and Extreme (Easy everywhere but rated play; README "Easy"). Keep game
@@ -39,7 +44,12 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/app/screens.ts` (`lazy` in `src/app/lazy.tsx`), never their own
   modules, or they load at start-up again; `preloadScreens` fetches them
   once the page has loaded. The build puts all start-up code in one `app`
-  chunk (`codeSplitting` in `vite.config.ts`). Browser storage writes go through
+  chunk (`codeSplitting` in `vite.config.ts`). The badges and stats (`game/achievements.ts`, `game/stats.ts`),
+  `Badge.tsx`, the report form, the sample game and `MovedNotice.tsx` load after
+  the page too (Dev Plan item 19zq): start-up code never imports them (`src/game/index.ts`
+  exports only their types; import values from their own modules, `import()` them
+  as `badges.ts` does, and add a module loaded that way to `preloadToo` in
+  `screens.ts`); `npm run check:size` guards the budget. Browser storage writes go through
   `readStored` / `writeStored` / `removeStored` (`src/app/localStore.ts`);
   a read that parses a saved game keeps its own try/catch, which guards the
   parsing too,
