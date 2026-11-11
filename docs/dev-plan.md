@@ -54,18 +54,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19zl. Game rooms and the daily referee: no overlapping requests**
-  (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
-  review gate)
-  - The owner's decision, 10 November 2026: fix. Wrap `GameRoom`'s and
-    `DailyRush`'s request and alarm handlers in `blockConcurrencyWhile`,
-    as `RushLobby` does, and correct the comments that say requests can't
-    overlap
-  - Make a rating's write conditional on the rating it was worked out from,
-    and work it out again if it changed, so two games ending together for
-    one player both count
-  - Run `npm run load-test` after, since the day's object serves every
-    daily player
 - [ ] **19zo. One way to save a finished game, and two worker savings**
   (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
   plangdon84/word-mastermind-archive#297; worker, review gate;
@@ -177,6 +165,19 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zl. Game rooms and the daily referee: no overlapping requests**
+  (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
+  review gate)
+  - The owner's decision, 10 November 2026: fix. Wrap `GameRoom`'s and
+    `DailyRush`'s request and alarm handlers in `blockConcurrencyWhile`,
+    as `RushLobby` does, and correct the comments that say requests can't
+    overlap
+  - Make a rating's write conditional on the rating it was worked out from,
+    and work it out again if it changed, so two games ending together for
+    one player both count
+  - Run `npm run load-test` after, since the day's object serves every
+    daily player
+  - Built in PR #102, merged into the 2.7.2 release PR (#97)
 - [x] **19zm. Daily past places: stop working them out on every request**
   (2.7.2, stacked on 19zl; issue plangdon84/word-mastermind-archive#295; worker,
   review gate)
