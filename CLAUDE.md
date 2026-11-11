@@ -86,7 +86,9 @@ Run `npm test` and `npm run typecheck` before committing.
   worked out from, else worked out again, `batchRated`, Dev Plan item 19zl;
   the game rooms, lobbies and daily games handle each request whole,
   `blockConcurrencyWhile`); a failed save is retried by the room's alarm or the
-  next request (Dev Plan item 19m); small
+  next request (Dev Plan item 19m), the room, daily and lobby referees all
+  through `markFinished` / `saveMarked` (`worker/src/finishSave.ts`, Dev Plan
+  item 19zo), so a lobby's results and ratings wait for its save too; small
   shared helpers (hex, SHA-256, random, JSON) are `worker/src/secure.ts`.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
   (the worker). Add every new D1 table to `WIPE_TABLES` or `KEEP_TABLES` in
