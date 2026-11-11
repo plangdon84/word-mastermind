@@ -46,10 +46,10 @@ each is ready.
   ```markdown
   ### Stack tracker
 
-  Merge order is fixed. An item PR is **ready to merge into <version>**
-  when its tests and typecheck pass, its browser tests for what it touched
-  pass in Chromium and WebKit, it's marked ready and CI is green, and every
-  item before it is merged.
+  An item PR is **ready to merge into <version>** when its tests and
+  typecheck pass, its browser tests for what it touched pass in Chromium
+  and WebKit, it's marked ready and CI is green, and every item it needs
+  (its wave line, or the one before it in a single-thread stack) is merged.
 
   | Order | Item | Wave | PR | Session | Status |
   | --- | --- | --- | --- | --- | --- |
@@ -88,7 +88,7 @@ Read CLAUDE.md, then `docs/dev-plan.md` on the release branch: the **Stack <VERS
 4. <MIGRATIONS: "Migrations: your item takes migration `<NNNN>` (the release PR reserved it); add its table to `WIPE_TABLES` or `KEEP_TABLES`." or "Migrations: if you find you need one, ask the coordinator for the number first.">
 5. Open a draft PR after your first commit (title "<VERSION> (<ITEM>, into #<PR>): <title>"), fill in every section of `.github/pull_request_template.md` in plain words, and subscribe to it. <REVIEW: "The stack is reviewed as a whole on #<PR>, so your PR skips the review gate: its Reviews section says "On #<PR>, over the whole stack."" or, for a stack with no review, "Reviews: Not needed (Low risk).">
 6. Questions about how the game behaves for players, security or money: ask the owner, and also tell the coordinator (send_message to <COORDINATOR SESSION ID>). Design defaults: pick the recommended option and list it under **Choices made**.
-7. Done means: `npm test` and `npm run typecheck` pass; the browser tests for what you touched pass in Chromium and WebKit in this session (`npx playwright test e2e/<file>`; install WebKit per docs/test-plan.md); `npm run load-test` if your item says so. Then mark the PR ready (this starts the browser tests in CI) and, once CI is green, send the coordinator one message: "<ITEM> ready to merge into <VERSION>: PR #N, CI green." Don't merge it yourself: the owner merges in the stack's order.
+7. Done means: `npm test` and `npm run typecheck` pass; the browser tests for what you touched pass in Chromium and WebKit in this session (`npx playwright test e2e/<file>`; install WebKit per docs/test-plan.md); `npm run load-test` if your item says so. Then mark the PR ready (this starts the browser tests in CI) and, once CI is green, send the coordinator one message: "<ITEM> ready to merge into <VERSION>: PR #N, CI green." Don't merge it yourself: the owner merges in the order the coordinator gives.
 8. Other items are merged into the release branch while you work (<PEERS: "same wave: 19zk, 19zl" or "single thread: the items before yours are merged">). When the coordinator tells you one merged, or before you mark ready, merge `origin/<RELEASE BRANCH>` into your branch (a merge, never a rebase or force-push), resolve any clash keeping both items' behaviour, rerun the tests, and push.
 9. After your PR merges into the release branch, stop: unsubscribe from it and reply to the coordinator "<ITEM> merged."
 ```
@@ -101,13 +101,27 @@ Read CLAUDE.md, then `docs/dev-plan.md` on the release branch: the **Stack <VERS
 The coordinator is woken by an item session's message, an event on the
 release PR, or its check-in.
 
-- **"<item> ready to merge"**: check it before saying so to the owner:
-  the PR's base is the release branch; `get_check_runs` is green on its
-  head; it touches neither `src/app/releases.ts` nor `docs/dev-plan.md`;
-  every item before it in merge order is **Merged**. Then set **Ready to
-  merge** and tell the owner one line: "<item> (PR #N) is ready to merge
-  into <version>." If an earlier item isn't merged yet, say it's ready
-  but waits for that one, and tell the owner which to merge first.
+- **"<item> ready to merge"**: check it: the PR's base is the release
+  branch; `get_check_runs` is green on its head; it touches neither
+  `src/app/releases.ts` nor `docs/dev-plan.md`; every item it needs is
+  **Merged**. Then set **Ready to merge** in the tracker, and work out the
+  merge plan (below) for every item now ready, not just this one.
+- **The merge plan.** Whenever one or more items are ready, tell the owner
+  which to merge, in what order, and whether **at once** (one after the
+  other, no waiting) or **one at a time** (wait between merges, and for
+  what). Decide it by testing the ready items together: in a scratch
+  worktree of the release branch, merge their branches in the stack's
+  merge order, then run `npm test` and `npm run typecheck`.
+  - Merged clean and green: **at once**, in merge order.
+  - A conflict, or a failure only in the combination: **one at a time**.
+    The owner merges the first; that item's next one merges the release
+    branch in, fixes the clash in its own session and reports ready
+    again before the owner merges it.
+  - An item ready before one it doesn't need (a later item in merge
+    order, same wave): include it, and say it goes ahead of the one still
+    building. Record that in the Stack block when it merges.
+  An item that turns ready while the owner is still merging a plan joins
+  the next plan, not this one.
 - **A question or a block** from an item session: if it's the owner's to
   decide (rules, security, money), relay it in plain words, once; add it
   to the release PR's **Decisions needed before review**. A migration
@@ -132,7 +146,22 @@ release PR, or its check-in.
 - **The release PR's CI red**: it should only ever hold merged items, so
   find which merge broke it, tell that item's session (or, once archived,
   fix it on the release branch) and say so in one line.
-- Status updates to the owner are one line (CLAUDE.md "Keep PR status
+- **Status to the owner is by wave, not by PR.** Don't report each item
+  PR's events (a deploy, a check, a single item turning ready) on their
+  own. Write to the owner when a wave's state changes: an item turns
+  ready (with the merge plan), merges land, a wave finishes, the next
+  wave starts, or something is blocked. Each update is one short block:
+
+  ```text
+  Wave 1 (19zj, 19zk, 19zl, 19zm): 3 of 4 ready, 1 building (19zl).
+  Merge now, at once, in this order: #99, #100, #101 (tested together: clean, all tests pass).
+  Wave 2 (19zo): waits for 19zl. Wave 3 (19zp): waits for all.
+  ```
+
+  When the owner asks for status, answer the same way: each wave's
+  counts (not started, building, ready, merged), then the merge plan if
+  any are ready. Routine events on the release PR itself (a deploy, a
+  green check) get one line or nothing (CLAUDE.md "Keep PR status
   updates to one line").
 
 ## 4. Review the whole stack

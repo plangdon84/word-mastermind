@@ -617,8 +617,9 @@ runs one: its session coordinates, opening the release PR and one cloud
 session per item, and tracks each item PR until it's ready to merge into
 the release branch. When the next dev item is inside a **Stack** block,
 "start the next dev item" means `/execute-stack` for that stack. The
-owner merges every PR, item PRs into the release branch in the stack's
-order.
+owner merges every PR, item PRs into the release branch as the
+coordinator's merge plan says (which, in what order, at once or one at a
+time); the coordinator reports by wave, not by PR.
 
 **The owner checks the release note before any commit.** Before the first
 commit of a dev item (and before any later commit that adds or changes a
