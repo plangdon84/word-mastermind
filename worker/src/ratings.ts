@@ -21,11 +21,31 @@ interface RatingRow {
 
 const toRating = (row: RatingRow): Rating => ({ rating: row.rating, rd: row.rd, volatility: row.volatility });
 
-/** A player's rating in a pool as of `now`: a new player's if they have none. */
-export async function currentRating(db: D1Database, accountId: string, pool: RatingPool, now: number): Promise<Rating> {
+/**
+ * Which write of a player's rating row a change was worked out from (Dev
+ * Plan item 19zl): its count of games and when it was last rated, or null
+ * if they had no rating yet. Each write adds a game, so a row still at
+ * these hasn't been written since.
+ */
+export interface RatingVersion {
+  games: number;
+  ratedAt: number;
+}
+
+/** A player's rating in a pool as of `now` (a new player's if they have none), with the row it was read from. */
+async function readRating(
+  db: D1Database, accountId: string, pool: RatingPool, now: number,
+): Promise<{ rating: Rating; from: RatingVersion | null }> {
   const row = await db.prepare('SELECT rating, rd, volatility, games, rated_at FROM ratings WHERE account_id = ?1 AND pool = ?2')
     .bind(accountId, pool).first<RatingRow>();
-  return row ? ageRating(toRating(row), now - row.rated_at) : NEW_RATING;
+  return row
+    ? { rating: ageRating(toRating(row), now - row.rated_at), from: { games: row.games, ratedAt: row.rated_at } }
+    : { rating: NEW_RATING, from: null };
+}
+
+/** A player's rating in a pool as of `now`: a new player's if they have none. */
+export async function currentRating(db: D1Database, accountId: string, pool: RatingPool, now: number): Promise<Rating> {
+  return (await readRating(db, accountId, pool, now)).rating;
 }
 
 /** Both players' ratings in a pool as of `now`. */
@@ -46,6 +66,12 @@ export interface PlayerChange {
   after: Rating;
   /** Their result (1 a win, ½ a draw, 0 a loss), kept on `rated_games` (item 19zh); none for Competitive Rush. */
   score?: 0 | 0.5 | 1;
+  /**
+   * The rating row `before` was read from (null: none yet). Given, the
+   * game is rated only while every player's row is still at it, so a
+   * rating another game wrote meanwhile is never overwritten (item 19zl).
+   */
+  from?: RatingVersion | null;
 }
 
 /**
@@ -58,11 +84,12 @@ export interface PlayerChange {
 export async function ratedGameChanges(
   db: D1Database, pool: RatingPool, players: Record<Seat, string>, hostScore: 0 | 0.5 | 1, now: number,
 ): Promise<PlayerChange[]> {
-  const before = await ratingsOf(db, players, pool, now);
-  const [host, guest] = rateGame(before.host, before.guest, hostScore);
+  const host = await readRating(db, players.host, pool, now);
+  const guest = await readRating(db, players.guest, pool, now);
+  const [hostAfter, guestAfter] = rateGame(host.rating, guest.rating, hostScore);
   return [
-    { accountId: players.host, before: before.host, after: host, score: hostScore },
-    { accountId: players.guest, before: before.guest, after: guest, score: (1 - hostScore) as 0 | 0.5 | 1 },
+    { accountId: players.host, before: host.rating, after: hostAfter, score: hostScore, from: host.from },
+    { accountId: players.guest, before: guest.rating, after: guestAfter, score: (1 - hostScore) as 0 | 0.5 | 1, from: guest.from },
   ];
 }
 
@@ -74,8 +101,8 @@ export async function ratedGameChanges(
 export async function computerGameChanges(
   db: D1Database, pool: RatingPool, accountId: string, computer: Rating, score: 0 | 0.5 | 1, now: number,
 ): Promise<PlayerChange[]> {
-  const before = await currentRating(db, accountId, pool, now);
-  return [{ accountId, before, after: rateVsComputer(before, computer, score), score }];
+  const { rating: before, from } = await readRating(db, accountId, pool, now);
+  return [{ accountId, before, after: rateVsComputer(before, computer, score), score, from }];
 }
 
 /**
@@ -86,9 +113,33 @@ export async function computerGameChanges(
 export async function rateFinishedGame(
   db: D1Database, gameId: string, pool: RatingPool, players: Record<Seat, string>, hostScore: 0 | 0.5 | 1, now: number,
 ): Promise<Record<Seat, RatingChange>> {
-  const changes = await ratedGameChanges(db, pool, players, hostScore, now);
-  await db.batch(ratingStatements(db, gameId, pool, changes, now));
-  return seatChanges(await keptChanges(db, gameId, changes), players)!;
+  const { kept } = await batchRated(db, gameId,
+    () => ratedGameChanges(db, pool, players, hostScore, now), (changes) => ratingStatements(db, gameId, pool, changes, now));
+  return seatChanges(kept, players)!;
+}
+
+/** Tries at rating a game while other games keep changing its players' ratings, before its save fails (to be retried). */
+const RATING_TRIES = 5;
+
+/**
+ * Works out a game's rating changes (`changesOf`) and runs the batch that
+ * keeps them (`batchOf`, with `ratingStatements`), working them out again
+ * if a player's rating changed in between, as when two of their games end
+ * at once (item 19zl). Returns the changes and those the game was rated
+ * with (`keptChanges`). Throws if it still can't, so the save is retried.
+ */
+export async function batchRated(
+  db: D1Database, gameId: string, changesOf: () => Promise<PlayerChange[]>,
+  batchOf: (changes: PlayerChange[]) => D1PreparedStatement[],
+): Promise<{ changes: PlayerChange[]; kept: Record<string, RatingChange> }> {
+  for (let tries = 1; ; tries++) {
+    const changes = await changesOf();
+    await db.batch(batchOf(changes));
+    if (changes.length === 0) return { changes, kept: {} };
+    const kept = await keptChanges(db, gameId, changes);
+    if (Object.keys(kept).length > 0) return { changes, kept };
+    if (tries >= RATING_TRIES) throw new Error('rating-changed');
+  }
 }
 
 /** The changes a game was rated with, by account ID: these, if they're the ones stored, else the stored ones. */
@@ -125,11 +176,12 @@ export async function rateGroupGame(
 ): Promise<Record<string, RatingChange>> {
   const stored = await storedChanges(db, gameId);
   if (Object.keys(stored).length > 0) return stored;
-  const before = await Promise.all(players.map((p) => currentRating(db, p.accountId, pool, now)));
-  const after = rateGroup(players.map((p, i) => ({ rating: before[i], place: p.place })));
-  const changes = players.map(({ accountId }, i) => ({ accountId, before: before[i], after: after[i] }));
-  await db.batch(ratingStatements(db, gameId, pool, changes, now));
-  return keptChanges(db, gameId, changes);
+  const { kept } = await batchRated(db, gameId, async () => {
+    const before = await Promise.all(players.map((p) => readRating(db, p.accountId, pool, now)));
+    const after = rateGroup(players.map((p, i) => ({ rating: before[i].rating, place: p.place })));
+    return players.map(({ accountId }, i) => ({ accountId, before: before[i].rating, after: after[i], from: before[i].from }));
+  }, (changes) => ratingStatements(db, gameId, pool, changes, now));
+  return kept;
 }
 
 /** A rated game's stored changes, by account ID: none if it hasn't been rated. */
@@ -146,27 +198,65 @@ async function storedChanges(db: D1Database, gameId: string): Promise<Record<str
 
 /**
  * Keeping the players' new ratings and the game's changes to them, for one
- * batch. Each rating changes only while the game has no changes kept yet,
- * so a game is rated once even if two saves of it overlap (D1 runs a batch
- * as one transaction): the second changes nothing. Each row keeps the
- * player's result (`score`). `computerRecall` marks a
- * ladder game against a computer (Dev Plan item 19p), also counted on the
- * player's rating row for the boards (`computer_games`, item 19x).
+ * batch (D1 runs a batch as one transaction). A game is rated once: if it
+ * has changes kept already (`rated_games`), as when two saves of it
+ * overlap, the second changes nothing. Changes worked out from rating rows
+ * (`from`, as the game rooms and lobbies give) are kept only while every
+ * player's row is still at the one read: the first statement keeps the
+ * changes only then, and each rating changes only if its change was kept
+ * just now and its row hasn't moved. So a rating another game wrote
+ * meanwhile is never overwritten (item 19zl): nothing is kept, and
+ * `batchRated` works the changes out again. Each row keeps the player's
+ * result (`score`). `computerRecall` marks a ladder game against a
+ * computer (Dev Plan item 19p), also counted on the player's rating row for
+ * the boards (`computer_games`, item 19x).
  */
 export function ratingStatements(
   db: D1Database, gameId: string, pool: RatingPool, changes: readonly PlayerChange[], now: number, computerRecall?: number,
 ): D1PreparedStatement[] {
+  if (changes.length === 0) return [];
+  const recall = computerRecall ?? null;
+  const computerGame = computerRecall === undefined ? 0 : 1;
+  const update = `ON CONFLICT (account_id, pool) DO UPDATE SET
+         rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6, computer_games = computer_games + ?8`;
+  if (changes.some((c) => c.from === undefined)) {
+    // Unchecked (tests, and re-rating the whole history): rated whatever the ratings now.
+    return [
+      ...changes.map(({ accountId, after: { rating, rd, volatility } }) => db.prepare(
+        `INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at, computer_games)
+         SELECT ?1, ?2, ?3, ?4, ?5, 1, ?6, ?8 WHERE NOT EXISTS (SELECT 1 FROM rated_games WHERE game_id = ?7)
+         ${update}`,
+      ).bind(accountId, pool, rating, rd, volatility, now, gameId, computerGame)),
+      ...changes.map(({ accountId, before, after, score }) => db.prepare(
+        `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall, score)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+      ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now, recall, score ?? null)),
+    ];
+  }
+  // ?1 game, ?2 pool, ?3 time, ?4 recall; then six values a player and three for their row.
+  const values: unknown[] = [gameId, pool, now, recall];
+  const param = (value: unknown) => `?${values.push(value)}`;
+  const rows = changes.map(({ accountId, before, after, score }) => `(?1, ${param(accountId)}, ?2, ${param(before.rating)}, ${
+    param(before.rd)}, ${param(after.rating)}, ${param(after.rd)}, ?3, ?4, ${param(score ?? null)})`);
+  const unmoved = changes.map(({ accountId, from }) => {
+    const id = param(accountId);
+    const column = (name: string) => `(SELECT ${name} FROM ratings WHERE account_id = ${id} AND pool = ?2)`;
+    return ` AND ${column('games')} IS ${param(from?.games ?? null)} AND ${column('rated_at')} IS ${param(from?.ratedAt ?? null)}`;
+  });
   return [
-    ...changes.map(({ accountId, after: { rating, rd, volatility } }) => db.prepare(
-      `INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at, computer_games)
-       SELECT ?1, ?2, ?3, ?4, ?5, 1, ?6, ?8 WHERE NOT EXISTS (SELECT 1 FROM rated_games WHERE game_id = ?7)
-       ON CONFLICT (account_id, pool) DO UPDATE SET
-         rating = ?3, rd = ?4, volatility = ?5, games = games + 1, rated_at = ?6, computer_games = computer_games + ?8`,
-    ).bind(accountId, pool, rating, rd, volatility, now, gameId, computerRecall === undefined ? 0 : 1)),
-    ...changes.map(({ accountId, before, after, score }) => db.prepare(
+    db.prepare(
       `INSERT OR IGNORE INTO rated_games (game_id, account_id, pool, rating_before, rd_before, rating_after, rd_after, rated_at, computer_recall, score)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
-    ).bind(gameId, accountId, pool, before.rating, before.rd, after.rating, after.rd, now, computerRecall ?? null, score ?? null)),
+       SELECT * FROM (VALUES ${rows.join(', ')})
+       WHERE NOT EXISTS (SELECT 1 FROM rated_games WHERE game_id = ?1)${unmoved.join('')}`,
+    ).bind(...values),
+    ...changes.map(({ accountId, after: { rating, rd, volatility }, from }) => db.prepare(
+      `INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at, computer_games)
+       SELECT ?1, ?2, ?3, ?4, ?5, 1, ?6, ?8
+       WHERE EXISTS (SELECT 1 FROM rated_games WHERE game_id = ?7 AND account_id = ?1 AND rated_at = ?6 AND rating_after = ?3 AND rd_after = ?4)
+         AND (SELECT games FROM ratings WHERE account_id = ?1 AND pool = ?2) IS ?9
+         AND (SELECT rated_at FROM ratings WHERE account_id = ?1 AND pool = ?2) IS ?10
+       ${update}`,
+    ).bind(accountId, pool, rating, rd, volatility, now, gameId, computerGame, from?.games ?? null, from?.ratedAt ?? null)),
   ];
 }
 

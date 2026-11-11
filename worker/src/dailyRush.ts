@@ -8,8 +8,11 @@ import type { Env } from './index';
 
 /**
  * One Durable Object per day's daily games (the Daily Set and the Daily
- * Word), named by its day: the day's referee (`dailyRoom.ts`). Cloudflare handles its requests one at a time,
- * so a player's two guesses can't race. The worker (`dailyRoutes.ts`) checks
+ * Word), named by its day: the day's referee (`dailyRoom.ts`). Each
+ * request is handled whole before the next starts (`blockConcurrencyWhile`),
+ * even while it waits on D1 (Cloudflare only holds a request back while
+ * storage is in use), so a player's two guesses can't race and a finished
+ * run is saved once. The worker (`dailyRoutes.ts`) checks
  * each request before passing it on.
  */
 export class DailyRush implements DurableObject {
@@ -27,7 +30,8 @@ export class DailyRush implements DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const dailyRequest = await request.json<DailyRequest>();
-    const { status, body } = await handleDaily(this.state.storage, this.deps, dailyRequest, Date.now());
+    const { status, body } = await this.state.blockConcurrencyWhile(
+      () => handleDaily(this.state.storage, this.deps, dailyRequest, Date.now()));
     return json(body, status);
   }
 }

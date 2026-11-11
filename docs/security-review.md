@@ -52,8 +52,9 @@ WebSocket:
   invitee; rated games need both players to be accounts and fix difficulty.
 - **Words and scores are never trusted from the app:** the referees in the
   Durable Objects validate every word, compute every score, keep the
-  records, time moves by the server's clock and handle one request at a
-  time, so moves can't race or be replayed. Uploaded history must replay to a
+  records, time moves by the server's clock and handle each request whole
+  before the next starts (`blockConcurrencyWhile`, Dev Plan item 19zl), so
+  moves can't race or be replayed. Uploaded history must replay to a
   finished game, and the server's own modes are never taken from uploads.
 - **Other players' words** stay hidden (`pvpView`, `dailyView`, `lobbyView`)
   until found or the game is over; leaderboard and lobby rows never carry a

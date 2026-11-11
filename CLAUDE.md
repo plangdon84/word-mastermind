@@ -82,7 +82,10 @@ Run `npm test` and `npm run typecheck` before committing.
   (`worker/src/fakeD1.ts`), and `npm run typecheck` covers it. A finished
   game is stored in its Durable Object at once, marked `unsaved`, then put in
   D1 in one batch with its rating (rated once, however saves overlap,
-  `ratingStatements`); a failed save is retried by the room's alarm or the
+  `ratingStatements`, and only while each player's rating is the one it was
+  worked out from, else worked out again, `batchRated`, Dev Plan item 19zl;
+  the game rooms, lobbies and daily games handle each request whole,
+  `blockConcurrencyWhile`); a failed save is retried by the room's alarm or the
   next request (Dev Plan item 19m); small
   shared helpers (hex, SHA-256, random, JSON) are `worker/src/secure.ts`.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
