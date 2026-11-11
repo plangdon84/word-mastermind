@@ -28,7 +28,7 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 **Stack 2.7.2** (planned with the owner on 11 November 2026; run by
 `/execute-stack`)
 
-- Release PR: branch `claude/zealous-archimedes-t97pkm` into `main`. Each
+- Release PR: #97, branch `claude/zealous-archimedes-t97pkm` into `main`. Each
   item is its own PR into that branch, never into `main`
 - Items, in merge order: 19zj, 19zk, 19zl, 19zm, 19zo, 19zp. 19zo comes
   after 19zj and 19zl, since it uses 19zj's check and, like 19zl, touches
