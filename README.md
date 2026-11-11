@@ -2432,7 +2432,8 @@ first.
   each with **Invite**. The invite shows on the friend's title screen (**Rush
   invites · Ann's Rush with Friends**) until they join, the lobby starts or
   closes, or a day passes, with a turn alert if they have them on. They still
-  tap **Join** in the lobby.
+  tap **Join** in the lobby. The title screen shows the newest 10 Rush
+  invites; older ones are dropped.
 - **Turn alerts** also tell you about a friend request, an accepted request,
   a challenge and a lobby invite; the first two open the friends list.
   A friend request alerts its player once a week from the same sender

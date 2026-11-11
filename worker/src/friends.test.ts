@@ -18,7 +18,7 @@ import { fakeD1 } from './fakeD1';
 import { fakeLobbies } from './fakeLobbies';
 import { fakeRooms } from './fakeRooms';
 import { LINKED_GAMES_SQL, NEXT_LINKS_SQL, RETRY_PLAYED_SQL } from './friendProfiles';
-import { addFriend, EMAIL_DECLINE_MS, newFriendCode } from './friends';
+import { addFriend, EMAIL_DECLINE_MS, MAX_LOBBY_INVITES, newFriendCode } from './friends';
 import { cleanUp, handle, type Env } from './index';
 import { saveSubscription, toBase64Url, topicOf, type VapidKeys } from './push';
 
@@ -815,6 +815,26 @@ describe('inviting a friend to a lobby', () => {
 
     await bob.lobbies.join(lobby.code, 'Bob');
     expect((await bob.friends.list()).lobbyInvites).toEqual([]);
+  });
+
+  it('reads only the newest 10 and deletes the rest, refusing no friend (Dev Plan item 19zj)', async () => {
+    const { player, sqlite } = await setup();
+    const ann = await player(ANN, 'Ann');
+    const bob = await player(BOB, 'Bob');
+    const bobCode = (await bob.friends.list()).code;
+    await ann.friends.add(bobCode);
+    await bob.friends.add((await ann.friends.list()).code);
+    const codes: string[] = [];
+    for (let i = 0; i < MAX_LOBBY_INVITES + 2; i++) {
+      const { lobby } = await ann.lobbies.create('Ann', 'medium');
+      await ann.lobbies.invite(lobby.code, bobCode);
+      codes.push(lobby.code);
+    }
+    // Invites made in the same moment: spread them out, oldest first.
+    codes.forEach((code, i) => sqlite.prepare('UPDATE lobby_invites SET created_at = created_at + ?1 WHERE code = ?2').run(i, code));
+    const newest = codes.slice(-MAX_LOBBY_INVITES).reverse();
+    expect((await bob.friends.list()).lobbyInvites.map((i) => i.code)).toEqual(newest);
+    expect(sqlite.prepare('SELECT COUNT(*) AS n FROM lobby_invites').get()).toEqual({ n: MAX_LOBBY_INVITES });
   });
 });
 
