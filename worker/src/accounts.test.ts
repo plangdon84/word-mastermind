@@ -28,9 +28,12 @@ function setup(env: Partial<Env> = {}) {
   const emails: { to: string[]; text: string }[] = [];
   let claims: Record<string, unknown> = googleClaims();
   const tokenRequests: URLSearchParams[] = [];
+  /** While true, the mail service answers with an error. */
+  const mail = { down: false };
   const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === 'https://api.resend.com/emails') {
+      if (mail.down) return new Response('down', { status: 500 });
       emails.push(JSON.parse(String(init?.body)));
       return new Response('{}');
     }
@@ -59,7 +62,7 @@ function setup(env: Partial<Env> = {}) {
   const setClaims = (next: Record<string, unknown>) => {
     claims = next;
   };
-  return { db, sqlite, env: fullEnv, emails, tokenRequests, call, emailedToken, signIn, peek, setClaims };
+  return { mail, db, sqlite, env: fullEnv, emails, tokenRequests, call, emailedToken, signIn, peek, setClaims };
 }
 
 type Server = ReturnType<typeof setup>;
@@ -210,6 +213,17 @@ describe('signing in by email', () => {
     expect(kept).toEqual((await Promise.all(['203.0.113.7', '203.0.113.8', '2001:db8:0:1::/64'].map(signInAddressHash))).sort());
     expect((await from('203.0.113.7', 'new@example.com', NOW + 24 * 60 * 60 * 1000 + 1000)).status).toBe(200);
     expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get()).toEqual({ n: 1 });
+  });
+
+  it("gives back an address's count when the email couldn't be sent (2.7.2 review)", async () => {
+    const server = setup();
+    const send = (email: string, now: number) =>
+      server.call('POST', '/api/auth/email', { email, returnTo: APP }, { 'cf-connecting-ip': '203.0.113.9' }, now);
+    server.mail.down = true;
+    for (let i = 0; i < SIGN_IN_EMAILS_PER_DAY; i++) expect((await send(`down${i}@example.com`, NOW + i)).status).toBe(502);
+    expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get()).toEqual({ n: 0 });
+    server.mail.down = false;
+    expect((await send('up@example.com', NOW + 1000)).status).toBe(200);
   });
 
   it('counts no sign-in emails where they are only printed', async () => {

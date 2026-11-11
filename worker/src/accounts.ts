@@ -100,6 +100,17 @@ export async function countSignInEmail(db: D1Database, address: string, now: num
 }
 
 /**
+ * Gives back the sign-in email `countSignInEmail` just counted for `address`
+ * at `now`, when it couldn't be sent, so a mail service outage doesn't use
+ * up the address's day (2.7.2 review, round 1).
+ */
+export async function uncountSignInEmail(db: D1Database, address: string, now: number): Promise<void> {
+  await db.prepare(
+    `DELETE FROM sign_in_emails WHERE rowid = (SELECT rowid FROM sign_in_emails WHERE ip_hash = ?1 AND at = ?2 LIMIT 1)`,
+  ).bind(await signInAddressHash(address), now).run();
+}
+
+/**
  * Makes a one-use sign-in link for `email` (and, from Google, the person's
  * Google ID) and returns its token. With `guestId` (Google's, from the
  * device that started it), only that device can use it. Old links are

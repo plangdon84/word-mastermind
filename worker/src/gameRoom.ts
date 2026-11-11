@@ -9,6 +9,7 @@ import { currentNames } from './sync';
 import { TWO_PLAYER_POOL } from '../../src/game';
 import { ladderEnded } from './matchmaker';
 import { handleAlarm, handleRoom, mayChange, saveFinishedGame, type RoomDeps, type RoomRequest } from './room';
+import { wholeAlarm, wholeRequest } from './whole';
 
 /** Most open pages one game tells about its moves; a new one past this closes the oldest. */
 const MAX_SOCKETS = 8;
@@ -54,15 +55,16 @@ export class GameRoom implements DurableObject {
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') return this.openSocket();
     const roomRequest = await request.json<RoomRequest>();
-    const { status, body } = await this.state.blockConcurrencyWhile(
-      () => handleRoom(this.state.storage, this.deps, roomRequest, Date.now()));
+    const done = await wholeRequest(this.state, () => handleRoom(this.state.storage, this.deps, roomRequest, Date.now()));
+    if (!done.ok) return done.response;
+    const { status, body } = done.value;
     if (mayChange(roomRequest) && status < 300) this.tellPages();
     return json(body, status);
   }
 
   /** Set by the referee for the player to move's deadline: if they haven't moved, they concede. */
   async alarm(): Promise<void> {
-    await this.state.blockConcurrencyWhile(() => handleAlarm(this.state.storage, this.deps, Date.now()));
+    await wholeAlarm(this.state, () => handleAlarm(this.state.storage, this.deps, Date.now()));
     this.tellPages();
   }
 

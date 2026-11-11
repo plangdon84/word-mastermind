@@ -1,7 +1,7 @@
 import { isObject } from '../../src/game';
 import {
   bearerToken, countSignInEmail, createLoginLink, deleteAccount, endSessionAndAlerts, existingAccountId, findAccount, isToken, mayEmail,
-  normalizeEmail, peekLoginLink, signIn,
+  normalizeEmail, peekLoginLink, signIn, uncountSignInEmail,
   type Player,
 } from './accounts';
 import { finishGoogle, googleConfigOf, googleNameHash, redirectUriOf, startGoogle } from './google';
@@ -69,12 +69,15 @@ export async function routeAuth(
     // Each internet address's daily cap (Dev Plan item 19zk), after the email's own limit so a refused repeat
     // uses none of it. Not counted where links are only printed (local development and the browser tests).
     const address = addressOf(request);
-    if (address && sendsMail(env) && !await countSignInEmail(env.DB, address, now)) {
+    const counted = address !== null && sendsMail(env);
+    if (counted && !await countSignInEmail(env.DB, address, now)) {
       return errorResponse(429, 'too-many-emails');
     }
     const token = await createLoginLink(env.DB, email, null, now);
-    return await mailer(loginMail(email, loginUrl(origin, token)))
-      ? json({ ok: true }) : errorResponse(502, 'email-failed');
+    if (await mailer(loginMail(email, loginUrl(origin, token)))) return json({ ok: true });
+    // A send that failed doesn't use up one of the address's day (2.7.2 review, round 1).
+    if (counted) await uncountSignInEmail(env.DB, address, now);
+    return errorResponse(502, 'email-failed');
   }
 
   if (pathname === '/api/auth/google' && method === 'POST') {

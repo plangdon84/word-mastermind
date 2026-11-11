@@ -85,7 +85,9 @@ Run `npm test` and `npm run typecheck` before committing.
   `ratingStatements`, and only while each player's rating is the one it was
   worked out from, else worked out again, `batchRated`, Dev Plan item 19zl;
   the game rooms, lobbies and daily games handle each request whole,
-  `blockConcurrencyWhile`); a failed save is retried by the room's alarm or the
+  `blockConcurrencyWhile` through `wholeRequest` / `wholeAlarm`
+  (`worker/src/whole.ts`), which catch an error inside so it never resets
+  the object; the day's object remembers its theme and Daily Word); a failed save is retried by the room's alarm or the
   next request (Dev Plan item 19m), the room, daily and lobby referees all
   through `markFinished` / `saveMarked` (`worker/src/finishSave.ts`, Dev Plan
   item 19zo), so a lobby's results and ratings wait for its save too; small

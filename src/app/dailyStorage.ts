@@ -146,9 +146,10 @@ export function keepPlacements(identity: ApiIdentity, mode: DailyMode, today: Da
     kept = [...before, ...placements];
   }
   savePlacements(kept, mode);
-  // Complete through the day before the server's today: every day that's over. Written after the list, so a list
-  // storage refused is asked for whole next time.
-  writeStored(HELD_KEY[mode], JSON.stringify({ of, through: addDays(today.day, -1) } satisfies Held));
+  // Complete through the day before yesterday: yesterday's board can still change after midnight (a run finished in
+  // time whose save is retried later), so it's asked for again (2.7.2 review, round 1). Written after the list, so a
+  // list storage refused is asked for whole next time.
+  writeStored(HELD_KEY[mode], JSON.stringify({ of, through: addDays(today.day, -2) } satisfies Held));
   return kept;
 }
 

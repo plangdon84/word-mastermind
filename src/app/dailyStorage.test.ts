@@ -41,13 +41,20 @@ describe('keepPlacements (item 19zm)', () => {
     });
   });
 
-  it('holds a whole list through the day before, then merges the later days', () => {
+  it('holds a whole list through the day before yesterday, then merges the later days', () => {
     expect(placesHeldThrough(ann, 'daily')).toBeNull();
     keepPlacements(ann, 'daily', answer('2026-10-31', [place('2026-10-29')]));
-    expect(placesHeldThrough(ann, 'daily')).toBe('2026-10-30');
-    keepPlacements(ann, 'daily', answer('2026-11-02', [place('2026-11-01')], '2026-10-30'));
+    expect(placesHeldThrough(ann, 'daily')).toBe('2026-10-29');
+    keepPlacements(ann, 'daily', answer('2026-11-02', [place('2026-11-01')], '2026-10-29'));
     expect(loadPlacements().map((p) => p.day)).toEqual(['2026-10-29', '2026-11-01']);
-    expect(placesHeldThrough(ann, 'daily')).toBe('2026-11-01');
+    expect(placesHeldThrough(ann, 'daily')).toBe('2026-10-31');
+  });
+
+  it("asks for yesterday's place again, so one that changed after midnight replaces the old one", () => {
+    keepPlacements(ann, 'daily', answer('2026-11-01', [place('2026-10-31')]));
+    expect(placesHeldThrough(ann, 'daily')).toBe('2026-10-30');
+    keepPlacements(ann, 'daily', answer('2026-11-01', [{ ...place('2026-10-31'), rank: 3 }], '2026-10-30'));
+    expect(loadPlacements()).toMatchObject([{ day: '2026-10-31', rank: 3 }]);
   });
 
   it("keeps what it holds for an action's answer, and ignores later days for a list it no longer holds", () => {
