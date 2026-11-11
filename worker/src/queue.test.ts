@@ -11,7 +11,7 @@ import { fakeQueues } from './fakeQueues';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
 import {
-  allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, PLAYING_KEEP_MS, STALE_MS, STARTING_MS, type QueueDeps, type Seeker,
+  allowedGap, COMPUTER_TRIES, handleQueue, pickOpponent, PLAYING_KEEP_MS, SEEN_WRITE_MS, STALE_MS, STARTING_MS, type QueueDeps, type Seeker,
 } from './queue';
 import { abandonComputerGame } from './games';
 import { listRatings } from './ratings';
@@ -368,6 +368,53 @@ describe('a computer when nobody is free (Dev Plan item 19p)', () => {
     const matched = await ann.queue.poll(LADDER);
     if (matched.state !== 'matched') throw new Error('not matched');
     expect(await ann.games.get(matched.gameId)).toMatchObject({ guestName: '🤖 Computer', computer: true });
+  });
+});
+
+describe('checking in (Dev Plan item 19zo)', () => {
+  const deps: QueueDeps = {
+    startGame: async () => { throw new Error('no game expected'); },
+    startComputerGame: async () => { throw new Error('no game expected'); },
+    abandonComputerGame: async () => {},
+  };
+  const poll = (accountId: string) => ({ action: 'poll' as const, accountId });
+  /** A queue whose writes are counted. */
+  function counted() {
+    const storage = memoryStorage();
+    const count = { writes: 0 };
+    const put = storage.put;
+    storage.put = async (key, value) => { count.writes += 1; return put(key, value); };
+    return { storage, count };
+  }
+
+  it('writes nothing when a check-in changes nothing, and writes when seenAt gets old', async () => {
+    const { storage, count } = counted();
+    const join = { action: 'join' as const, accountId: 'ann', name: 'Ann', secret: 'storm', rating: NEW_RATING, computer: 0.38 };
+    await handleQueue(storage, deps, join, NOW);
+    expect(count.writes).toBe(1);
+    for (let ms = 2_000; ms < SEEN_WRITE_MS; ms += 2_000) {
+      expect((await handleQueue(storage, deps, poll('ann'), NOW + ms)).body).toMatchObject({ state: 'waiting' });
+    }
+    expect(count.writes).toBe(1);
+    await handleQueue(storage, deps, poll('ann'), NOW + SEEN_WRITE_MS);
+    expect(count.writes).toBe(2);
+    // A player who isn't queued writes nothing either.
+    expect((await handleQueue(storage, deps, poll('bob'), NOW + SEEN_WRITE_MS + 1)).body).toEqual({ state: 'idle' });
+    expect(count.writes).toBe(2);
+  });
+
+  it('never lets a player who keeps checking in go stale', async () => {
+    const { storage, count } = counted();
+    // Ann has used up her computer tries, so she waits for a person for as long as she likes.
+    await storage.put('queue', { seekers: [{ ...seeker('ann', 1500), computerFails: COMPUTER_TRIES }], matches: {} });
+    count.writes = 0;
+    for (let ms = 2_000; ms <= 4 * STALE_MS; ms += 2_000) {
+      expect((await handleQueue(storage, deps, poll('ann'), NOW + ms)).body).toMatchObject({ state: 'waiting' });
+    }
+    expect(count.writes).toBe((4 * STALE_MS) / SEEN_WRITE_MS);
+    // Stopping, she's dropped once STALE_MS has passed since the last seenAt written.
+    expect((await handleQueue(storage, deps, poll('ann'), NOW + 5 * STALE_MS)).body).toEqual({ state: 'idle' });
+    expect(count.writes).toBe((4 * STALE_MS) / SEEN_WRITE_MS + 1);
   });
 });
 
