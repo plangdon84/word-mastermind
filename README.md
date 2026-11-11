@@ -2224,7 +2224,9 @@ friends list ([Friends](#friends)).
 - **Where:** the profile's **Account** section, when the app has a server.
 - **Email link:** type your address and tap **Email me a link**. The email
   holds one sign-in link, which works once, for 15 minutes, in whichever
-  browser opens it. An address gets at most 5 links an hour, a minute apart.
+  browser opens it. An address gets at most 5 links an hour, a minute apart,
+  and each internet address may ask for at most 10 sign-in emails a day, to
+  any emails (counted by a hashed form of the address, forgotten after a day).
   The server sends them through [Resend](https://resend.com), from
   `signin@wordmastermind.app`; locally they're printed in the `wrangler dev`
   console instead. Opening the link asks **Sign in as ann@example.com?**

@@ -23,6 +23,13 @@ const SESSION_REFRESH_MS = 24 * 60 * 60 * 1000;
 export const EMAILS_PER_HOUR = 5;
 export const EMAIL_GAP_MS = 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+/**
+ * Most sign-in emails one internet address may ask for in a day, to any
+ * emails (Dev Plan item 19zk), so nobody can send links to a long list of
+ * strangers. Counted only by a server that really sends them.
+ */
+export const SIGN_IN_EMAILS_PER_DAY = 10;
+const DAY_MS = 24 * HOUR_MS;
 
 /** What the app is told about an account. */
 export interface Account {
@@ -70,6 +77,26 @@ export async function mayEmail(db: D1Database, email: string, now: number): Prom
   ).bind(email, now - HOUR_MS).first<{ sent: number; latest: number | null }>();
   if (!row) return true;
   return row.sent < EMAILS_PER_HOUR && (row.latest === null || now - row.latest >= EMAIL_GAP_MS);
+}
+
+/** An internet address (`addressOf`), hashed: enough to count its sign-in emails, kept for a day only. */
+export const signInAddressHash = (address: string): Promise<string> => sha256Hex(`sign-in:${address}`);
+
+/**
+ * Counts a sign-in email asked for from `address` (`addressOf`), unless it
+ * already has `SIGN_IN_EMAILS_PER_DAY` in the past day; false if it has.
+ * Forgets every address's rows a day on, on the way.
+ */
+export async function countSignInEmail(db: D1Database, address: string, now: number): Promise<boolean> {
+  const ipHash = await signInAddressHash(address);
+  const [, insert] = await db.batch([
+    db.prepare('DELETE FROM sign_in_emails WHERE at <= ?1').bind(now - DAY_MS),
+    db.prepare(
+      `INSERT INTO sign_in_emails (ip_hash, at) SELECT ?1, ?2
+       WHERE (SELECT COUNT(*) FROM sign_in_emails WHERE ip_hash = ?1) < ${SIGN_IN_EMAILS_PER_DAY}`,
+    ).bind(ipHash, now),
+  ]);
+  return insert.meta.changes > 0;
 }
 
 /**

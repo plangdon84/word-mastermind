@@ -136,7 +136,10 @@ Run `npm test` and `npm run typecheck` before committing.
   worker runs OpenID Connect with PKCE; the app loads nothing from Google),
   both ending in a `?login=` token the app trades for a session
   (`worker/src/accounts.ts`, `authRoutes.ts`, `mail.ts`, `google.ts`;
-  `src/app/account.ts`, `AccountSection.tsx`). Google's name goes to the
+  `src/app/account.ts`, `AccountSection.tsx`). Sign-in emails are capped
+  per email (`mayEmail`) and, where really sent, at 10 a day per internet
+  address (Dev Plan item 19zk, `countSignInEmail`, D1 `sign_in_emails`,
+  hashed and forgotten after a day). Google's name goes to the
   app once, after the `#` of a new account's return address
   (`googleNameHash`), for `GoogleNamePrompt.tsx` to offer (Dev Plan item
   18zz); the server never stores it. A new account takes the

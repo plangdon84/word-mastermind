@@ -19,6 +19,9 @@ export type Mailer = (mail: Mail) => Promise<boolean>;
 
 const RESEND_URL = 'https://api.resend.com/emails';
 
+/** Does this server really send emails (Resend), rather than print them or have none? */
+export const sendsMail = (env: Env): boolean => Boolean(env.RESEND_API_KEY && env.EMAIL_FROM);
+
 /** How this environment sends email, or null if it can't (sign-in by email is off). */
 export function mailerOf(env: Env, fetchFn: typeof fetch = fetch): Mailer | null {
   const { RESEND_API_KEY: key, EMAIL_FROM: from } = env;
