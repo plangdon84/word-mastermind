@@ -16,7 +16,43 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 (none: 19zg is in Done)
 
-- [ ] **19zj. Two small security fixes from the full review** (issues
+**Release plan** (owner, 11 November 2026). Two releases, not eight:
+
+- **2.7.1** (19zn, 19zq; app only, no review gate): the only release
+  players can see change. One detailed note (the ⓘ popover loads only the
+  definitions it needs, using far less data on the first tap) and one
+  generic line (the app starts a little faster; drop it if 19zq's measured
+  saving is underwhelming).
+- **2.7.2** (19zj, 19zk, 19zl, 19zm, 19zo, 19zp; worker, review gate, one
+  stack reviewed as a whole): generic notes, since most of it is security
+  and behind-the-scenes (the repo is public, so no note describes a
+  hole): "Squashed some obscure bugs and tightened security behind the
+  curtain" and "Finished games and Daily Rush are saved and served more
+  reliably and quickly", plus one detailed line for 19zl: "If two of your
+  rated games end at the same moment, both now count towards your
+  rating." 19zj's lobby invite cap and 19zk's email cap get no note of
+  their own (the owner chose not to warn about the email cap). 19zm and
+  19zp may ship with no note of their own, as 19zb did.
+- Order inside 2.7.2: 19zj, 19zk, 19zl, 19zm, 19zo (after 19zj; both it
+  and 19zl touch the referees), 19zp. Each release's notes are OK'd by the
+  owner before its first commit.
+
+- [ ] **19zn. Definitions load by first letter** (2.7.1; issue
+  plangdon84/word-mastermind-archive#296; app only; a
+  release, its note OK'd by the owner before the first commit)
+  - Split the definitions into 26 files at build time (a small plugin in
+    `vite.config.ts`, leaving `wordlist/lists/` alone), load only the
+    letter tapped and show a brief loading state in the ⓘ popover; keep
+    `definitions` in the file names so `npm run check:size` still checks
+    they aren't loaded up front
+- [ ] **19zq. A lighter start-up script** (2.7.1; issue
+  plangdon84/word-mastermind-archive#297, part 3; app only)
+  - Load `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the
+    sample game and `MovedNotice.tsx` after the page has loaded, as
+    `preloadScreens` does for screens (about 8 to 10 kB gzipped, to be
+    measured), keeping the badge toast and profile dot working and Report
+    an issue openable from any screen
+- [ ] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
   plangdon84/word-mastermind-archive#289 and
   plangdon84/word-mastermind-archive#291; worker, sign-in,
   review gate)
@@ -28,16 +64,17 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   - Issue 291: a player's friends list reads only their newest 10 open
     lobby invites and deletes the rest (owner's decision, 10 November
     2026); no friend is refused
-- [ ] **19zk. A daily cap on sign-in emails per internet address** (issue
+- [ ] **19zk. A daily cap on sign-in emails per internet address** (2.7.2, stacked on 19zj; issue
   plangdon84/word-mastermind-archive#290; worker, sign-in,
   review gate)
   - Decided with the owner on 10 November 2026: each internet address may
     ask for 10 sign-in emails a day (to any emails), counted in D1 with the
     address kept hashed and forgotten after a day; the per-email limit
     stays. The privacy page gets one line saying so, and the route is added
-    to `limitOf` if it needs it
+    to `limitOf` if it needs it. No warning in the app or the release
+    notes (owner, 11 November 2026)
 - [ ] **19zl. Game rooms and the daily referee: no overlapping requests**
-  (issue plangdon84/word-mastermind-archive#292; worker,
+  (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
   review gate)
   - The owner's decision, 10 November 2026: fix. Wrap `GameRoom`'s and
     `DailyRush`'s request and alarm handlers in `blockConcurrencyWhile`,
@@ -49,23 +86,15 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   - Run `npm run load-test` after, since the day's object serves every
     daily player
 - [ ] **19zm. Daily past places: stop working them out on every request**
-  (issue plangdon84/word-mastermind-archive#295; worker,
+  (2.7.2, stacked on 19zl; issue plangdon84/word-mastermind-archive#295; worker,
   review gate)
   - Actions (guess, Suggest, Pause, Resume, give up) stop sending past
     places; a request can say the latest day the app already holds and gets
     only later days. A request without that gets the full list, so older
     apps keep their top 10 badges. Storing each final place is left for
     later
-- [ ] **19zn. Definitions load by first letter** (issue
-  plangdon84/word-mastermind-archive#296; app only; a
-  release, its note OK'd by the owner before the first commit)
-  - Split the definitions into 26 files at build time (a small plugin in
-    `vite.config.ts`, leaving `wordlist/lists/` alone), load only the
-    letter tapped and show a brief loading state in the ⓘ popover; keep
-    `definitions` in the file names so `npm run check:size` still checks
-    they aren't loaded up front
 - [ ] **19zo. One way to save a finished game, and two worker savings**
-  (issues plangdon84/word-mastermind-archive#293 and
+  (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
   plangdon84/word-mastermind-archive#297; worker, review gate;
   after 19zj)
   - Issue 293: one shared "mark finished, save, clear the mark, retry
@@ -76,7 +105,7 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
     sessions to guests, keeping the daily session refresh and 19zj's check
   - Issue 297, part 2: the ladder queue skips its write when a check-in
     changes nothing, still saving `seenAt` so no seeker goes stale
-- [ ] **19zp. Worker clean-ups** (issues
+- [ ] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
   plangdon84/word-mastermind-archive#294 and
   plangdon84/word-mastermind-archive#288; worker, review
   gate)
@@ -93,13 +122,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   - Issue 294, part 3 happens in the archive repo, not here: replace its
     stale CLAUDE.md with a few lines pointing at this repo's (no review
     gate)
-- [ ] **19zq. A lighter start-up script** (issue
-  plangdon84/word-mastermind-archive#297, part 3; app only)
-  - Load `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the
-    sample game and `MovedNotice.tsx` after the page has loaded, as
-    `preloadScreens` does for screens (about 8 to 10 kB gzipped, to be
-    measured), keeping the badge toast and profile dot working and Report
-    an issue openable from any screen
 
 **Later**
 
