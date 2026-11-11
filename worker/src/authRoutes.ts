@@ -1,13 +1,14 @@
 import { isObject } from '../../src/game';
 import {
-  bearerToken, createLoginLink, deleteAccount, endSessionAndAlerts, existingAccountId, findAccount, identify, isToken, mayEmail,
+  bearerToken, countSignInEmail, createLoginLink, deleteAccount, endSessionAndAlerts, existingAccountId, findAccount, identify, isToken, mayEmail,
   normalizeEmail, peekLoginLink, signIn,
 } from './accounts';
 import { finishGoogle, googleConfigOf, googleNameHash, redirectUriOf, startGoogle } from './google';
 import { isGuestId } from './guests';
 import { errorResponse, isAllowedOrigin, json, readJson } from './http';
 import type { Env } from './index';
-import { loginMail, mailerOf } from './mail';
+import { addressOf } from './limits';
+import { loginMail, mailerOf, sendsMail } from './mail';
 
 /** The app's origin to send someone back to, if it's one the API serves. */
 function appOrigin(value: unknown, env: Env): string | null {
@@ -59,6 +60,12 @@ export async function routeAuth(
     const mailer = mailerOf(env, fetchFn);
     if (!mailer) return errorResponse(404, 'email-off');
     if (!await mayEmail(env.DB, email, now)) return errorResponse(429, 'too-many-emails');
+    // Each internet address's daily cap (Dev Plan item 19zk), after the email's own limit so a refused repeat
+    // uses none of it. Not counted where links are only printed (local development and the browser tests).
+    const address = addressOf(request);
+    if (address && sendsMail(env) && !await countSignInEmail(env.DB, address, now)) {
+      return errorResponse(429, 'too-many-emails');
+    }
     const token = await createLoginLink(env.DB, email, null, now);
     return await mailer(loginMail(email, loginUrl(origin, token)))
       ? json({ ok: true }) : errorResponse(502, 'email-failed');
