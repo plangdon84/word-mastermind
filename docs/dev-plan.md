@@ -54,23 +54,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
-  plangdon84/word-mastermind-archive#294 and
-  plangdon84/word-mastermind-archive#288; worker, review
-  gate)
-  - Issue 294, part 1: one shared name check and one word check for the
-    friend game, lobby and daily routes; a refused name answers
-    `offensive-name` everywhere (a design default for the owner to change),
-    with the friend-game screen's message checked
-  - Issue 294, part 2: a table of path prefixes with `identify` done once
-    for the routes that need it, keeping the routes that deliberately skip
-    it and the launch-switch check
-  - Issue 288, items 3 to 5: put `wranglerArgs`' comment back, prefer a
-    stored `score` in `ratedGames`, and refuse a rule time that doesn't
-    exist (`2026-02-30`, `T24:00`)
-  - Issue 294, part 3 happens in the archive repo, not here: replace its
-    stale CLAUDE.md with a few lines pointing at this repo's (no review
-    gate)
 
 **Later**
 
@@ -153,6 +136,25 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
+  plangdon84/word-mastermind-archive#294 and
+  plangdon84/word-mastermind-archive#288; worker, review
+  gate)
+  - Issue 294, part 1: one shared name check and one word check for the
+    friend game, lobby and daily routes; a refused name answers
+    `offensive-name` everywhere (a design default for the owner to change),
+    with the friend-game screen's message checked
+  - Issue 294, part 2: a table of path prefixes with `identify` done once
+    for the routes that need it, keeping the routes that deliberately skip
+    it and the launch-switch check
+  - Issue 288, items 3 to 5: put `wranglerArgs`' comment back, prefer a
+    stored `score` in `ratedGames`, and refuse a rule time that doesn't
+    exist (`2026-02-30`, `T24:00`)
+  - Issue 294, part 3 happens in the archive repo, not here: replace its
+    stale CLAUDE.md with a few lines pointing at this repo's (no review
+    gate)
+  - Built in PR #105, merged into the 2.7.2 release PR (#97); part 3 in
+    plangdon84/word-mastermind-archive#299
 - [x] **19zo. One way to save a finished game, and two worker savings**
   (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
   plangdon84/word-mastermind-archive#297; worker, review gate;
