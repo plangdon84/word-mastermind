@@ -23,19 +23,34 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   definitions it needs, using far less data on the first tap) and one
   generic line (the app starts a little faster; drop it if 19zq's measured
   saving is underwhelming).
-- **2.7.2** (19zj, 19zk, 19zl, 19zm, 19zo, 19zp; worker, review gate, one
-  stack reviewed as a whole): generic notes, since most of it is security
-  and behind-the-scenes (the repo is public, so no note describes a
-  hole): "Squashed some obscure bugs and tightened security behind the
-  curtain" and "Finished games and Daily Rush are saved and served more
-  reliably and quickly", plus one detailed line for 19zl: "If two of your
-  rated games end at the same moment, both now count towards your
-  rating." 19zj's lobby invite cap and 19zk's email cap get no note of
-  their own (the owner chose not to warn about the email cap). 19zm and
-  19zp may ship with no note of their own, as 19zb did.
-- Order inside 2.7.2: 19zj, 19zk, 19zl, 19zm, 19zo (after 19zj; both it
-  and 19zl touch the referees), 19zp. Each release's notes are OK'd by the
-  owner before its first commit.
+- **2.7.2**: the stack below.
+
+**Stack 2.7.2** (planned with the owner on 11 November 2026; run by
+`/execute-stack`)
+
+- Release PR: branch `claude/zealous-archimedes-t97pkm` into `main`. Each
+  item is its own PR into that branch, never into `main`
+- Items, in merge order: 19zj, 19zk, 19zl, 19zm, 19zo, 19zp. 19zo comes
+  after 19zj and 19zl, since it uses 19zj's check and, like 19zl, touches
+  the referees
+- Threads: waves (owner, 11 November 2026)
+  - Wave 1: 19zj, 19zk, 19zl, 19zm
+  - Wave 2: 19zo, once 19zj and 19zl are merged into the release branch
+  - Wave 3: 19zp, once every other item is merged
+- Release note (OK'd by the owner, 11 November 2026), added by the
+  release PR, never an item PR: "If two of your rated games end at the
+  same moment, both now count towards your rating.", "Finished games and
+  Daily Rush are saved and served more reliably and quickly." and
+  "Squashed some obscure bugs and tightened security behind the curtain."
+  The repo is public, so no note describes a hole; 19zj's lobby invite
+  cap and 19zk's email cap get no note of their own (the owner chose not
+  to warn about the email cap), and 19zm and 19zp none either
+- Migrations: 19zk takes `0036`; an item that finds it needs one asks the
+  coordinator for the next number
+- Review: worker, so the review gate, run once on the release PR over the
+  whole stack after the last item merges; item PRs skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
 
 - [ ] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
   plangdon84/word-mastermind-archive#289 and

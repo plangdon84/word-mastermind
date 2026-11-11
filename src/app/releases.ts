@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.7.2',
+    notes: [
+      { text: 'If two of your rated games end at the same moment, both now count towards your rating.' },
+      { text: 'Finished games and Daily Rush are saved and served more reliably and quickly.' },
+      { text: 'Squashed some obscure bugs and tightened security behind the curtain.' },
+    ],
+  },
+  {
     version: '2.7.1',
     notes: [
       { text: 'Tapping ⓘ for a definition is now much lighter: it loads only the definitions you need, so the first tap uses far less data.' },
