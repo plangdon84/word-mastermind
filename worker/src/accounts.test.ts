@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { newId } from '../../src/app/ids';
-import { EMAILS_PER_HOUR, LOGIN_LINK_MS, normalizeEmail, SESSION_MS, SIGN_IN_EMAILS_PER_DAY, signInAddressHash } from './accounts';
+import {
+  EMAILS_PER_HOUR, hashToken, identify, LOGIN_LINK_MS, normalizeEmail, SESSION_MS, SIGN_IN_EMAILS_PER_DAY, signInAddressHash,
+} from './accounts';
 import { fakeD1 } from './fakeD1';
 import { GOOGLE_TOKEN_URL, parseIdToken } from './google';
 import { handle, type Env } from './index';
@@ -454,5 +456,32 @@ describe('sessions', () => {
   it('refuse a malformed token', async () => {
     const server = setup();
     expect((await me(server, 'nope')).status).toBe(401);
+  });
+});
+
+describe('identifying a signed-in player', () => {
+  it('reads the session, its guest IDs and the device\'s link in one query (Dev Plan item 19zo)', async () => {
+    const { db, sqlite } = fakeD1();
+    const [account, phone, laptop, other] = [newId(), newId(), newId(), newId()];
+    sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, ?)').run(account, 'ann@example.com', NOW);
+    sqlite.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?, ?, ?)').run(other, 'bob@example.com', NOW);
+    for (const [id, owner, at] of [[account, account, NOW], [phone, account, NOW + 1], [laptop, account, NOW + 2], [other, other, NOW]] as const) {
+      sqlite.prepare('INSERT INTO guests (id, created_at, last_seen_at, account_id) VALUES (?, ?, ?, ?)').run(id, at, at, owner);
+    }
+    const token = 'a'.repeat(43);
+    sqlite.prepare('INSERT INTO sessions (token_hash, account_id, guest_id, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(await hashToken(token), account, phone, NOW, NOW, NOW + SESSION_MS);
+    let queries = 0;
+    const prepare = db.prepare.bind(db);
+    db.prepare = ((sql: string) => { queries += 1; return prepare(sql); }) as typeof db.prepare;
+    const asked = (guestId: string) => new Request(API, { headers: { authorization: `Bearer ${token}`, 'x-guest-id': guestId } });
+
+    expect(await identify(asked(phone), db, NOW + 1000)).toEqual({
+      ok: true, player: { id: account, aliases: [phone, laptop], deviceId: phone, accountId: account },
+    });
+    expect(queries).toBe(1);
+    expect(await identify(asked(newId()), db, NOW + 1000)).toMatchObject({ ok: true, player: { id: account } });
+    expect(await identify(asked(other), db, NOW + 1000)).toEqual({ ok: false, status: 401, error: 'sign-in-needed' });
+    expect(queries).toBe(3);
   });
 });
