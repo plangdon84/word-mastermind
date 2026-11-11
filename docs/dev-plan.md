@@ -54,18 +54,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19zo. One way to save a finished game, and two worker savings**
-  (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
-  plangdon84/word-mastermind-archive#297; worker, review gate;
-  after 19zj)
-  - Issue 293: one shared "mark finished, save, clear the mark, retry
-    later" helper for the room, daily and lobby referees, so a lobby also
-    survives a failed D1 save; its notifications and ratings still happen
-    once after a retried save
-  - Issue 297, part 1: identify a signed-in player with one query joining
-    sessions to guests, keeping the daily session refresh and 19zj's check
-  - Issue 297, part 2: the ladder queue skips its write when a check-in
-    changes nothing, still saving `seenAt` so no seeker goes stale
 - [ ] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
   plangdon84/word-mastermind-archive#294 and
   plangdon84/word-mastermind-archive#288; worker, review
@@ -165,6 +153,19 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zo. One way to save a finished game, and two worker savings**
+  (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
+  plangdon84/word-mastermind-archive#297; worker, review gate;
+  after 19zj)
+  - Issue 293: one shared "mark finished, save, clear the mark, retry
+    later" helper for the room, daily and lobby referees, so a lobby also
+    survives a failed D1 save; its notifications and ratings still happen
+    once after a retried save
+  - Issue 297, part 1: identify a signed-in player with one query joining
+    sessions to guests, keeping the daily session refresh and 19zj's check
+  - Issue 297, part 2: the ladder queue skips its write when a check-in
+    changes nothing, still saving `seenAt` so no seeker goes stale
+  - Built in PR #104, merged into the 2.7.2 release PR (#97)
 - [x] **19zl. Game rooms and the daily referee: no overlapping requests**
   (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
   review gate)
