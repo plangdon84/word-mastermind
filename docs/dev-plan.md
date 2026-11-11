@@ -200,7 +200,8 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
     `game/achievements` and `game/stats`); `summaryOf` and `StatsGame`
     moved to `statsGame.ts` and Suggest's few-guesses check to `suggest.ts`,
     which start-up code needs. The toast, the profile dot and Report an
-    issue work as before; the script budget is now 105 KB.
+    issue work as before; the script budget stays 150 KB, and `check:size` flags anything
+    over 105 KB for the owner to agree.
   - Release 2.7.1 gains "The app now starts a little faster."
 
 - [x] **19zn. Definitions load by first letter** (2.7.1; issue
