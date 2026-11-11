@@ -41,3 +41,14 @@ export function suggestWord(guesses: Scored, random: () => number, secretWords?:
   const candidates = suggestionCandidates(guesses, secretWords);
   return candidates.length ? candidates[Math.floor(random() * candidates.length)] : null;
 }
+
+/** Guess counts for the few-guesses badges, easiest first. */
+export const FEW_GUESSES = [20, 15, 10] as const;
+
+/**
+ * Whether Suggest kept a found word from a few-guesses badge it would have
+ * earned (README "Achievements"), so the result can say so. Here, not with the
+ * badges, so the result screen needn't load them.
+ */
+export const suggestVoidedFewGuesses = (found: boolean, guesses: number, suggested: number) =>
+  found && suggested > 0 && guesses <= FEW_GUESSES[0];

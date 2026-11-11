@@ -2,8 +2,9 @@ import {
   addDays, dailyDay, isServerMode, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
-  friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, parseSharedSummary, type FriendGamesQuery, type SharedSummary,
+  friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, type FriendGamesQuery, type SharedSummary,
 } from '../../src/app/friendsApi';
+import { parseSharedSummary } from '../../src/app/sharedParse';
 import { withoutRating } from '../../src/app/sharedSummary';
 import { identify, isPlayers, playerOfAccount, type Player } from './accounts';
 import { errorResponse, json } from './http';

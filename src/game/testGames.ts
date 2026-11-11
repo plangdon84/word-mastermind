@@ -7,7 +7,7 @@ import { otherSeat, type PvpMove, type Seat } from './pvp';
 import type { RunMove } from './run';
 import type { SoloMove } from './solo';
 import type { Side, TwoPlayerMove } from './twoPlayer';
-import type { StatsGame } from './stats';
+import type { StatsGame } from './statsGame';
 
 /*
  * Finished games for the stats and achievements tests, built from moves and

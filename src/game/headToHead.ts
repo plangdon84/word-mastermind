@@ -1,5 +1,5 @@
 import { summarizeGame, type HistoryMode, type HistoryResult } from './history';
-import type { StatsGame } from './stats';
+import type { StatsGame } from './statsGame';
 
 /*
  * Your record against a friend (Dev Plan item 18c, README "Friends'

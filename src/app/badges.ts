@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { BADGE_BY_ID, computeAchievements, type Badge, type DailyMode, type DailyPlacement, type EarnedBadge } from '../game';
+import type { Badge, DailyMode, DailyPlacement, EarnedBadge, StatsGame } from '../game';
 import { loadPlacements, savePlacements } from './dailyStorage';
 import { loadAllMatching, statsGame, whenSaved } from './historyDb';
 import { writeStored } from './localStore';
@@ -9,7 +9,13 @@ import { writeStored } from './localStore';
  * themselves are worked out from the history each time; this only remembers
  * the toast and the profile-icon dot: each badge is announced once, and stays
  * "new" until you open Achievements on your profile.
+ *
+ * The badges themselves (`game/achievements.ts`) load after the page has
+ * (Dev Plan item 19zq), so the start-up code here never imports them.
  */
+
+/** The badges' module, loaded when a badge is first worked out. */
+const achievements = () => import('../game/achievements');
 
 const KEY = 'word-mastermind:badges:v1';
 
@@ -20,15 +26,16 @@ export interface BadgeNotices {
   unseen: string[];
 }
 
-const ids = (value: unknown): string[] =>
-  Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === 'string' && BADGE_BY_ID.has(id)))] : [];
+/** Each ID once; with `known`, only the badges it holds (the game's `BADGE_BY_ID`). */
+const ids = (value: unknown, known?: ReadonlyMap<string, unknown>): string[] =>
+  Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === 'string' && (!known || known.has(id))))] : [];
 
-export function parseBadgeNotices(raw: string | null): BadgeNotices {
+export function parseBadgeNotices(raw: string | null, known?: ReadonlyMap<string, unknown>): BadgeNotices {
   try {
     const data: unknown = raw ? JSON.parse(raw) : null;
     if (typeof data !== 'object' || data === null) return { announced: [], unseen: [] };
     const { announced, unseen } = data as Record<string, unknown>;
-    return { announced: ids(announced), unseen: ids(unseen) };
+    return { announced: ids(announced, known), unseen: ids(unseen, known) };
   } catch {
     return { announced: [], unseen: [] };
   }
@@ -90,8 +97,27 @@ export function localDay(ms: number): number {
 
 /** Every badge earned, from the whole history and your Daily Rush places. */
 export async function loadEarnedBadges(): Promise<EarnedBadge[]> {
-  const games = await loadAllMatching({});
+  const [{ computeAchievements }, games] = await Promise.all([achievements(), loadAllMatching({})]);
   return computeAchievements(games.map(statsGame), localDay, loadPlacements());
+}
+
+/** Every badge earned, and how many there are, while `active` (the profile is open) and the games have loaded; else null. */
+export function useEarnedBadges(games: readonly StatsGame[] | null, active: boolean): { list: EarnedBadge[]; total: number } | null {
+  const [earned, setEarned] = useState<{ list: EarnedBadge[]; total: number } | null>(null);
+  useEffect(() => {
+    if (!active || !games) {
+      setEarned(null);
+      return undefined;
+    }
+    let live = true;
+    achievements().then(({ BADGES, computeAchievements }) => {
+      if (live) setEarned({ list: computeAchievements(games, localDay, loadPlacements()), total: BADGES.length });
+    }, () => {});
+    return () => {
+      live = false;
+    };
+  }, [games, active]);
+  return earned;
 }
 
 /**
@@ -101,7 +127,8 @@ export async function loadEarnedBadges(): Promise<EarnedBadge[]> {
  */
 export function receivePlacements(placements: readonly DailyPlacement[], mode: DailyMode = 'daily'): void {
   savePlacements(placements, mode);
-  announceBadges(computeAchievements([], localDay, placements).map((b) => b.id));
+  // A badge's toast and dot wait for the badges to load; a load that fails waits for the next visit.
+  void achievements().then(({ computeAchievements }) => announceBadges(computeAchievements([], localDay, placements).map((b) => b.id)), () => {});
 }
 
 /**
@@ -115,10 +142,10 @@ export function useBadgesEarnedBy(gameId: string | null): Badge[] {
     if (!gameId) return;
     let live = true;
     whenSaved(gameId)
-      .then(loadEarnedBadges)
-      .then((earned) => {
+      .then(async () => [await loadEarnedBadges(), (await achievements()).BADGE_BY_ID] as const)
+      .then(([earned, byId]) => {
         const fresh = announceBadges(earned.filter((b) => b.gameId === gameId).map((b) => b.id));
-        if (live) setBadges(fresh.map((id) => BADGE_BY_ID.get(id)!));
+        if (live) setBadges(fresh.map((id) => byId.get(id)!));
       })
       .catch(() => {});
     return () => {

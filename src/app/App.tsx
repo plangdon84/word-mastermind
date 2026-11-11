@@ -9,20 +9,19 @@ import { DIFFICULTY_LABEL } from './components';
 import { NoServerSection, UpdateBar } from './panels';
 import { forgetTappedLink, TAP_LOOKS_MS, takeTappedLink } from './notificationTaps';
 import {
-  BADGES, computeAchievements, computeStats, computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
-  type DailyMode, type DailyPlacement, type EarnedBadge, type StatsGame, type HistoryFilter, type HistoryMode, type LobbyKind,
+  computeUnlocks, dailyDay, openModes, isTwoPlayerOver, runRankBy, wordSetName,
+  type DailyMode, type DailyPlacement, type EarnedBadge, type HistoryFilter, type HistoryMode, type LobbyKind,
 } from '../game';
 import { DAILY_NAME } from './messages';
 import type { ApiIdentity } from './apiIdentity';
 import { API_URL } from './config';
 import { noteRename, spotRename, syncBoardName, type NameState } from './boardName';
-import { fetchRatings, type PoolRating } from './ratingsApi';
 import { friendApi } from './friendApi';
 import { clearFriendGames, gameIdFromUrl, loadFriendGames } from './friendGames';
 import { friendCodeFromUrl, friendsApi, inviteFromUrl, loadPendingInvite, savePendingInvite, type Friend } from './friendsApi';
 import { OpenFriend } from './friendLink';
 import { dailyInProgress, loadPlacements } from './dailyStorage';
-import { announceBadges, loadBadgeNotices, loadEarnedBadges, localDay, markBadgesSeen } from './badges';
+import { announceBadges, loadBadgeNotices, loadEarnedBadges, useEarnedBadges } from './badges';
 import { activeLobby, activeLobbyKind, lobbyCodeFromUrl, lobbyInProgress } from './lobbyStorage';
 import { getAllIds, getGames, onGameSaved, putGames, statsGame, type HistoryGame } from './historyDb';
 import { useHistoryGames } from './hooks';
@@ -37,15 +36,13 @@ import {
 } from './profileSync';
 import { displayName, loadProfile, saveProfile, type Profile } from './profileStorage';
 import { loadRush } from './rushStorage';
-import { Achievements } from './Badge';
 import { EnterSide } from './keyboard';
 import type { AccountNotice, LoginAsk } from './AccountSection';
-import type { RatingsState } from './Analytics';
 import type { FriendPage } from './FriendProfileScreen';
 import type { BoardId } from './LeaderboardsScreen';
 import {
-  AccountSection, Analytics, DailyScreen, FriendProfileScreen, FriendScreen, FriendsSection, GameHistory,
-  GoogleNamePrompt, LeaderboardsScreen, LobbyScreen, MatchScreen, ProfileScreen, RushScreen,
+  AccountSection, AchievementsPage, DailyScreen, FriendProfileScreen, FriendScreen, FriendsSection, GameHistory,
+  GoogleNamePrompt, LeaderboardsScreen, LobbyScreen, MatchScreen, ProfileScreen, RushScreen, StatsPage,
 } from './screens';
 import { loadSettings, saveSettings, type Mode, type Settings } from './settings';
 import { SoloScreen } from './SoloScreen';
@@ -116,41 +113,10 @@ const PROFILE_SYNC_DELAY_MS = 1500;
 /** How long after the history loads or changes it is shared with friends: it loads in bursts on opening and syncing. */
 const SHARE_DELAY_MS = 3000;
 
-/** The profile's stats subpage, from every saved game. */
-function StatsPage({ games, replayed, identity, signedIn, onOpen }: {
-  games: HistoryGame[] | null;
-  /** The same games as stats read them (`statsGame`). */
-  replayed: StatsGame[] | null;
-  identity: ApiIdentity;
-  signedIn: boolean;
-  onOpen: (game: HistoryGame) => void;
-}) {
-  const [ratingList, setRatingList] = useState<PoolRating[] | null>(null);
-  useEffect(() => {
-    let live = true;
-    if (API_URL && signedIn) void fetchRatings(API_URL, identity).then((list) => live && setRatingList(list));
-    return () => {
-      live = false;
-    };
-  }, [identity, signedIn]);
-  const ratings: RatingsState | undefined = API_URL ? { signedIn, list: signedIn ? ratingList : null } : undefined;
-  const stats = useMemo(() => replayed && computeStats(replayed, Date.now()), [replayed]);
-  return <Analytics stats={stats} games={games ?? []} onOpen={onOpen} ratings={ratings} />;
-}
-
-/** The profile's achievements subpage: every badge, earned or not, from every saved game. */
-function AchievementsPage({ earned }: { earned: EarnedBadge[] | null }) {
-  // Badges new since you last looked are marked as such here, and the profile dot goes.
-  const [fresh] = useState(() => new Set(loadBadgeNotices().unseen));
-  useEffect(markBadgesSeen, []);
-  return <Achievements earned={earned} fresh={fresh} />;
-}
-
-
 /** Each profile row's one-line summary. */
 function profileSummaries({ games, earned, session, settings }: {
   games: HistoryGame[] | null;
-  earned: EarnedBadge[] | null;
+  earned: { list: EarnedBadge[]; total: number } | null;
   session: Session | null;
   settings: Settings;
 }): Partial<Record<ProfilePage, string>> {
@@ -160,7 +126,7 @@ function profileSummaries({ games, earned, session, settings }: {
     friends: session ? 'Your friend code, friends and invites' : 'Sign in to add friends',
     stats: 'Your results in each mode',
     achievements: earned
-      ? unseen > 0 ? `${plural(unseen, 'new badge')} to see · ${earned.length} of ${BADGES.length}` : `${earned.length} of ${BADGES.length} badges`
+      ? unseen > 0 ? `${plural(unseen, 'new badge')} to see · ${earned.list.length} of ${earned.total}` : `${earned.list.length} of ${earned.total} badges`
       : undefined,
     history: games ? plural(games.length, 'game') : undefined,
     settings: `New games start at ${DIFFICULTY_LABEL[settings.difficulty]}`,
@@ -579,9 +545,7 @@ export function App() {
   const statsGames = useMemo(() => historyGames?.map(statsGame) ?? null, [historyGames]);
   const open = useMemo(() => statsGames && openModes(computeUnlocks(statsGames)), [statsGames]);
   const onProfilePage = screen.name === 'profile';
-  const earned = useMemo(
-    () => (onProfilePage && statsGames ? computeAchievements(statsGames, localDay, loadPlacements()) : null),
-    [statsGames, onProfilePage]);
+  const earned = useEarnedBadges(statsGames, onProfilePage);
 
   // The server keeps turn alerts under this device's guest ID, which signing out changes, with the reminders it
   // wants. Sent on opening, and again when either changes.
@@ -745,7 +709,7 @@ export function App() {
                 }} />
             </>) : <NoServerSection label="Friends" needs="Friends" />,
             stats: <StatsPage games={historyGames} replayed={statsGames} identity={identity} signedIn={session !== null} onOpen={openReview} />,
-            achievements: <AchievementsPage earned={earned} />,
+            achievements: <AchievementsPage earned={earned?.list ?? null} />,
             history: <GameHistory key={historyVersion} filter={historyFilter} onFilter={setHistoryFilter} onOpen={openReview} />,
           }} />
       );

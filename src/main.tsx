@@ -12,7 +12,7 @@ import { App } from './app/App';
 import { API_URL } from './app/config';
 import { preventDoubleTapZoom } from './app/doubleTap';
 import { trackInputKind } from './app/inputKind';
-import { ReportHost } from './app/ReportIssue';
+import { ReportHost } from './app/ReportHost';
 import { newAddress, redirectDue } from './app/moved';
 import { preloadScreens } from './app/lazy';
 import { registerServiceWorker } from './app/turnAlerts';

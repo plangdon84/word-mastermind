@@ -44,7 +44,12 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/app/screens.ts` (`lazy` in `src/app/lazy.tsx`), never their own
   modules, or they load at start-up again; `preloadScreens` fetches them
   once the page has loaded. The build puts all start-up code in one `app`
-  chunk (`codeSplitting` in `vite.config.ts`). Browser storage writes go through
+  chunk (`codeSplitting` in `vite.config.ts`). The badges and stats (`game/achievements.ts`, `game/stats.ts`),
+  `Badge.tsx`, the report form, the sample game and `MovedNotice.tsx` load after
+  the page too (Dev Plan item 19zq): start-up code never imports them (`src/game/index.ts`
+  exports only their types; import values from their own modules, `import()` them
+  as `badges.ts` does, and add a module loaded that way to `preloadToo` in
+  `screens.ts`); `npm run check:size` guards the budget. Browser storage writes go through
   `readStored` / `writeStored` / `removeStored` (`src/app/localStore.ts`);
   a read that parses a saved game keeps its own try/catch, which guards the
   parsing too,

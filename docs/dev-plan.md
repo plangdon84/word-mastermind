@@ -37,13 +37,6 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   and 19zl touch the referees), 19zp. Each release's notes are OK'd by the
   owner before its first commit.
 
-- [ ] **19zq. A lighter start-up script** (2.7.1; issue
-  plangdon84/word-mastermind-archive#297, part 3; app only)
-  - Load `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the
-    sample game and `MovedNotice.tsx` after the page has loaded, as
-    `preloadScreens` does for screens (about 8 to 10 kB gzipped, to be
-    measured), keeping the badge toast and profile dot working and Report
-    an issue openable from any screen
 - [ ] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
   plangdon84/word-mastermind-archive#289 and
   plangdon84/word-mastermind-archive#291; worker, sign-in,
@@ -195,6 +188,20 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   view during play
 
 ## Done, latest first
+
+- [x] **19zq. A lighter start-up script** (2.7.1; issue
+  plangdon84/word-mastermind-archive#297, part 3; app only; stacked on 19zn;
+  a release line OK'd by the owner before the first commit)
+  - `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the sample
+    game, `MovedNotice.tsx` and the friend-summary and share-summary code
+    now load after the page has, as `preloadScreens` does for screens:
+    the start-up script went from 107.1 KB to 97.6 KB gzipped (9.5 KB less).
+    `src/game/index.ts` no longer exports their values (import them from
+    `game/achievements` and `game/stats`); `summaryOf` and `StatsGame`
+    moved to `statsGame.ts` and Suggest's few-guesses check to `suggest.ts`,
+    which start-up code needs. The toast, the profile dot and Report an
+    issue work as before; the script budget is now 105 KB.
+  - Release 2.7.1 gains "The app now starts a little faster."
 
 - [x] **19zn. Definitions load by first letter** (2.7.1; issue
   plangdon84/word-mastermind-archive#296; app only; a

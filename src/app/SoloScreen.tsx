@@ -10,7 +10,8 @@ import {
 } from './components';
 import { GameHeader, GameMenuItems } from './gameHeader';
 import { HowToPlay, ReplaceGamePanel, type Review } from './panels';
-import { BadgeToast, SuggestNote } from './Badge';
+import { BadgeToast } from './screens';
+import { SuggestNote } from './SuggestNote';
 import { useBadgesEarnedBy } from './badges';
 import { useShownMarks } from './easyMarks';
 import { saveFinishedGame } from './historyDb';
