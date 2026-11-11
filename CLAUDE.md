@@ -142,7 +142,8 @@ Run `npm test` and `npm run typecheck` before committing.
   18zz); the server never stores it. A new account takes the
   guest ID of the device that made it, and each device that signs in links
   its guest ID; `identify` then refuses a linked guest ID without the
-  account's session. A query for a player's games matches their IDs with
+  account's session, even with another account's (`sign-in-needed`, Dev
+  Plan item 19zj). A query for a player's games matches their IDs with
   `isPlayers` (one bound parameter, since D1 allows 100 and an account
   gains a guest ID per browser), never a list of them. Requests send
   `x-guest-id` plus `authorization: Bearer` once signed in; every API client
@@ -166,7 +167,8 @@ Run `npm test` and `npm run typecheck` before committing.
   in an issue. `worker/src/friends.ts` (D1 `friends`, `lobby_invites`; routes
   `/api/friends`, `/add`, `/remove`); a challenge is `POST /api/games` with
   `friend` (the room's `invitee` alone may join), a lobby invite is
-  `POST /api/lobbies/CODE/invite`. The app side is `src/app/friendsApi.ts`
+  `POST /api/lobbies/CODE/invite` (the friends list reads the newest
+  10, `MAX_LOBBY_INVITES`, and deletes the rest). The app side is `src/app/friendsApi.ts`
   (shared with the worker), `FriendsSection.tsx` (profile; `useFriendsList`),
   challenges in `FriendScreen.tsx` and `FriendGamesList.tsx`, lobby invites
   in `LobbyScreen.tsx` and on the title screen's Games in progress (`LobbyInviteButton`).

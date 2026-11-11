@@ -138,14 +138,28 @@ export async function sendNotices(env: Env, notices: readonly Notice[], now: num
 }
 
 /**
- * Lobby invites still worth showing: a day old at most, for a lobby still
- * open that you haven't joined. The rest are cleared out on the way.
+ * The most lobby invites a friends list reads (Dev Plan item 19zj): the
+ * newest, each a call to its lobby, so a flood of invites can't use up the
+ * request's calls. Older ones are deleted; no friend's invite is refused.
+ */
+export const MAX_LOBBY_INVITES = 10;
+
+/**
+ * Lobby invites still worth showing: a day old at most, among the newest
+ * `MAX_LOBBY_INVITES`, for a lobby still open that you haven't joined. The
+ * rest are cleared out on the way.
  */
 async function openLobbyInvites(env: Env, accountId: string, now: number): Promise<LobbyInvite[]> {
-  await env.DB.prepare('DELETE FROM lobby_invites WHERE created_at < ?1').bind(now - OPEN_LOBBY_MS).run();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM lobby_invites WHERE created_at < ?1').bind(now - OPEN_LOBBY_MS),
+    env.DB.prepare(
+      `DELETE FROM lobby_invites WHERE account_id = ?1 AND code NOT IN
+       (SELECT code FROM lobby_invites WHERE account_id = ?1 ORDER BY created_at DESC, code LIMIT ?2)`,
+    ).bind(accountId, MAX_LOBBY_INVITES),
+  ]);
   const { results } = await env.DB.prepare(
-    'SELECT code, from_name, created_at FROM lobby_invites WHERE account_id = ?1 ORDER BY created_at DESC',
-  ).bind(accountId).all<{ code: string; from_name: string; created_at: number }>();
+    'SELECT code, from_name, created_at FROM lobby_invites WHERE account_id = ?1 ORDER BY created_at DESC, code LIMIT ?2',
+  ).bind(accountId, MAX_LOBBY_INVITES).all<{ code: string; from_name: string; created_at: number }>();
   const invites = await Promise.all(results.map(async (r): Promise<LobbyInvite | null> => {
     const response = await toLobby(env, r.code, { action: 'get', playerId: accountId });
     const answer = response.ok ? parseLobbyAnswer(await response.json()) : null;

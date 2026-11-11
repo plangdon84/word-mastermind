@@ -359,6 +359,30 @@ describe('a device already linked to another account', () => {
     expect((await signedIn.json() as { account: { email: string } }).account.email).toBe('bob@example.com');
   });
 
+  it("can't be used by another account's session, say to register turn alerts (Dev Plan item 19zj)", async () => {
+    const server = setup();
+    const annDevice = newId();
+    await emailSignIn(server, 'ann@example.com', annDevice);
+    const bobDevice = newId();
+    const bob = await emailSignIn(server, 'bob@example.com', bobDevice);
+    const asBob = (guestId: string) => ({ authorization: `Bearer ${bob.token}`, 'x-guest-id': guestId });
+    const subscription = { endpoint: 'https://fcm.googleapis.com/fcm/send/x', keys: { p256dh: 'a', auth: 'b' } };
+    for (const refused of [
+      await server.call('GET', '/api/auth/me', undefined, asBob(annDevice)),
+      await server.call('POST', '/api/push/subscribe', subscription, asBob(annDevice)),
+    ]) {
+      expect(refused.status).toBe(401);
+      expect(await refused.json()).toEqual({ error: 'sign-in-needed' });
+    }
+    expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM push_subscriptions').get()).toEqual({ n: 0 });
+    // Bob's own device, and a device no account has, still work with his session.
+    for (const guestId of [bobDevice, newId()]) {
+      const ok = await server.call('GET', '/api/auth/me', undefined, asBob(guestId));
+      expect(ok.status).toBe(200);
+      expect((await ok.json() as { account: { email: string } }).account.email).toBe('bob@example.com');
+    }
+  });
+
   it('can sign in to its own account again', async () => {
     const server = setup();
     const device = newId();

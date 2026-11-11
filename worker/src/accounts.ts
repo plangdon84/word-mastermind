@@ -266,12 +266,23 @@ export async function identify(request: Request, db: D1Database, now: number): P
     const token = bearerToken(request);
     const session = token && await findSession(db, token, now);
     if (!session) return { ok: false, status: 401, error: 'signed-out' };
-    return { ok: true, player: { ...await playerOfAccount(db, session.accountId), deviceId } };
+    const player = await playerOfAccount(db, session.accountId);
+    // A device ID linked to another account is that account's alone (Dev Plan item 19zj), so a session can't
+    // speak for it, say to register turn alerts under it. The app plays on as a new guest on this answer.
+    if (deviceId !== player.id && !player.aliases.includes(deviceId) && await isLinked(db, deviceId)) {
+      return { ok: false, status: 401, error: 'sign-in-needed' };
+    }
+    return { ok: true, player: { ...player, deviceId } };
   }
+  if (await isLinked(db, deviceId)) return { ok: false, status: 401, error: 'sign-in-needed' };
+  return { ok: true, player: { id: deviceId, aliases: [], deviceId, accountId: null } };
+}
+
+/** Whether a device ID is linked to an account, any account. */
+async function isLinked(db: D1Database, deviceId: string): Promise<boolean> {
   const guest = await db.prepare('SELECT account_id FROM guests WHERE id = ?1').bind(deviceId)
     .first<{ account_id: string | null }>();
-  if (guest?.account_id) return { ok: false, status: 401, error: 'sign-in-needed' };
-  return { ok: true, player: { id: deviceId, aliases: [], deviceId, accountId: null } };
+  return Boolean(guest?.account_id);
 }
 
 /**
