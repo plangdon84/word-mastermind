@@ -59,6 +59,13 @@ describe('inviting a friend', () => {
     expect(await refusal(as('nobody').create(invite))).toBe('bad-guest-id');
   });
 
+  it('refuses a name the profanity filter refuses with offensive-name, as the lobby and daily routes do', async () => {
+    const { as } = setup();
+    expect(await refusal(as(HOST).create({ ...invite, name: 'Shithead' }))).toBe('offensive-name');
+    const { id } = await as(HOST).create(invite);
+    expect(await refusal(as(GUEST).join(id, { ...answer, name: 'Shithead' }))).toBe('offensive-name');
+  });
+
   it('shows the invite to whoever opens the link, without the game', async () => {
     const { as } = setup();
     const { id } = await as(HOST).create(invite);

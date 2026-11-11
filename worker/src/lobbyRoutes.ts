@@ -1,4 +1,5 @@
-import { FEATURES, isDifficulty, isObject, isRankBy, isStrength, lobbyRankBy, newLobbyCode, validateName } from '../../src/game';
+import { FEATURES, isDifficulty, isObject, isRankBy, isStrength, lobbyRankBy, newLobbyCode } from '../../src/game';
+import { isSentWord, sentName } from './requestChecks';
 import { isFriendCode } from '../../src/app/friendsApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
 import { identify } from './accounts';
@@ -30,17 +31,6 @@ export async function toLobby(env: Env, code: string, request: LobbyRequest): Pr
   return new Response(response.body, response);
 }
 
-/** A word as sent: checked properly by the lobby, which says what's wrong with it. */
-const isWord = (value: unknown): value is string => typeof value === 'string' && value.length <= 64;
-
-/** A display name, shown to the other players: it must pass the profile's rules, profanity filter included. */
-function nameOf(value: unknown): { name: string } | { error: string } {
-  if (typeof value !== 'string' || value.length > 64) return { error: 'bad-request' };
-  const name = validateName(value);
-  if (name.ok) return { name: name.name };
-  return { error: name.error === 'offensive' ? 'offensive-name' : 'bad-request' };
-}
-
 /** Routes `/api/lobbies…`, or returns null for any other path. */
 export async function routeLobbies(
   request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
@@ -60,11 +50,11 @@ export async function routeLobbies(
     if (!isObject(body) || !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
     if (body.rankBy !== undefined && !isRankBy(body.rankBy)) return errorResponse(400, 'bad-request');
     const competitive = body.kind === 'competitive';
-    if ((body.kind !== undefined && !competitive) || (competitive && !isWord(body.word))) return errorResponse(400, 'bad-request');
+    if ((body.kind !== undefined && !competitive) || (competitive && !isSentWord(body.word))) return errorResponse(400, 'bad-request');
     // Off for the 1.0 launch (the launch switches, `src/game/features.ts`).
     if (competitive && !FEATURES.competitiveRush) return errorResponse(404, 'off');
-    const name = nameOf(body.name);
-    if ('error' in name) return errorResponse(400, name.error);
+    const name = sentName(body.name);
+    if (!name.ok) return errorResponse(400, name.error);
     await registerGuest(env.DB, asker.playerId, now);
     for (let i = 0; i < CODE_TRIES; i++) {
       const code = newLobbyCode(secureRandom);
@@ -111,15 +101,15 @@ export async function routeLobbies(
   let lobbyRequest: LobbyRequest;
   switch (action) {
     case 'join': {
-      const name = nameOf(body.name);
-      if ('error' in name) return errorResponse(400, name.error);
-      if (body.word !== undefined && !isWord(body.word)) return errorResponse(400, 'bad-request');
+      const name = sentName(body.name);
+      if (!name.ok) return errorResponse(400, name.error);
+      if (body.word !== undefined && !isSentWord(body.word)) return errorResponse(400, 'bad-request');
       await registerGuest(env.DB, asker.playerId, now);
       lobbyRequest = { ...asker, action, name: name.name, ...(body.word !== undefined ? { word: body.word as string } : {}) };
       break;
     }
     case 'word':
-      if (!isWord(body.word)) return errorResponse(400, 'bad-request');
+      if (!isSentWord(body.word)) return errorResponse(400, 'bad-request');
       lobbyRequest = { ...asker, action, word: body.word };
       break;
     case 'settings': {
@@ -133,7 +123,7 @@ export async function routeLobbies(
     }
     case 'guess':
     case 'suggest':
-      if (!isWord(body.word)) return errorResponse(400, 'bad-request');
+      if (!isSentWord(body.word)) return errorResponse(400, 'bad-request');
       lobbyRequest = { ...asker, action, word: body.word };
       break;
     default:

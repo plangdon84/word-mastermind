@@ -31,7 +31,7 @@ export interface QueueBusy {
   playing: number;
 }
 
-export type QueueError = WordError | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'unreachable';
+export type QueueError = WordError | 'offensive-name' | 'bad-request' | 'bad-guest-id' | 'signed-out' | 'sign-in-needed' | 'unreachable';
 
 
 export function parseQueueStatus(value: unknown): QueueStatus | null {

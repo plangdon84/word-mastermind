@@ -1,5 +1,5 @@
 import {
-  addDays, DAILY_BOARDS, DAILY_MODES, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, validateName, type DailyDay,
+  addDays, DAILY_BOARDS, DAILY_MODES, dailyDay, FEATURES, dayEnd, isDailyDay, isDifficulty, isObject, isRankBy, type DailyDay,
   type DailyMode, type DailyPlacement, type Difficulty, type RankBy,
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyGames, DailyToday } from '../../src/app/dailyApi';
@@ -11,6 +11,7 @@ import { DAILY_WORD_FROM, wordFor } from './dailyWords';
 import { friendCodeSql } from './friends';
 import { registerGuest, renameGuest, setGuestName } from './guests';
 import { errorResponse, json, readJson } from './http';
+import { isSentWord, sentName } from './requestChecks';
 import type { Env } from './index';
 import { inCircle } from './leaderboards';
 import { shownName } from './names';
@@ -281,9 +282,8 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
     if (method !== 'POST') return errorResponse(405, 'bad-request');
     if (player.accountId) return errorResponse(409, 'signed-in');
     const body = await readJson(request);
-    const name = isObject(body) && typeof body.name === 'string' && body.name.length <= 64 ? validateName(body.name) : null;
-    if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
-    if (!name?.ok) return errorResponse(400, 'bad-request');
+    const name = sentName(isObject(body) ? body.name : undefined);
+    if (!name.ok) return errorResponse(400, name.error);
     // Kept only for a guest who has started a daily game (item 19n): nothing is made or kept for anyone else.
     await renameGuest(env.DB, player.id, name.name);
     return json({ name: name.name });
@@ -323,15 +323,15 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
 
   let dailyRequest: DailyRequest;
   if (action === 'start') {
-    const name = typeof body.name === 'string' && body.name.length <= 64 ? validateName(body.name) : null;
-    if (name && !name.ok && name.error === 'offensive') return errorResponse(400, 'offensive-name');
-    if (!name?.ok || !isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
+    const name = sentName(body.name);
+    if (!name.ok) return errorResponse(400, name.error);
+    if (!isDifficulty(body.difficulty)) return errorResponse(400, 'bad-request');
     await registerGuest(env.DB, player.id, now);
     // A guest's name now, for every board they're on (item 18zw).
     if (!player.accountId) await setGuestName(env.DB, player.id, name.name);
     dailyRequest = { ...asker, action, name: name.name, difficulty: body.difficulty };
   } else if (action === 'guess' || action === 'suggest') {
-    if (typeof body.word !== 'string' || body.word.length > 64) return errorResponse(400, 'bad-request');
+    if (!isSentWord(body.word)) return errorResponse(400, 'bad-request');
     dailyRequest = { ...asker, action, word: body.word };
   } else {
     dailyRequest = { ...asker, action: action as 'give-up' | 'pause' | 'resume' };

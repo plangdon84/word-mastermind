@@ -121,7 +121,8 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
 
   it('takes a won game\'s winner from its stored result, and refuses one that differs from the record', async () => {
     const { sqlite } = await history(OLD_RULES);
-    sqlite.exec(rerateSql(checkRerate(...Object.values(read(sqlite)) as Parameters<typeof checkRerate>)));
+    const first = read(sqlite);
+    sqlite.exec(rerateSql(checkRerate(first.rows, first.ratings, first.records)));
     const { rows, records } = read(sqlite);
     // Ann won game 1: with the ratings' direction turned round, her stored win still says so.
     const turned = rows.map((r) => (r.game_id === 'game-1' ? { ...r, rating_before: r.rating_after, rating_after: r.rating_before } : r));
