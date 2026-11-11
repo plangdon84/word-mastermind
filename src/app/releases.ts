@@ -28,6 +28,7 @@ export const RELEASES: Release[] = [
     version: '2.7.1',
     notes: [
       { text: 'Tapping ⓘ for a definition is now much lighter: it loads only the definitions you need, so the first tap uses far less data.' },
+      { text: 'The app now starts a little faster.' },
     ],
   },
   {

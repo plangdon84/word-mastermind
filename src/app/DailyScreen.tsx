@@ -1,11 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import type { OpenProfile } from './profilePages';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import {
-  addDays, BADGE_BY_ID, betterThan, DAILY_BOARDS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow,
-  rankByName, validateGuess, type Badge, type DailyDay, type DailyMode, type DailyView, type DailyWordView, type Difficulty, type Marks,
-  type RankBy,
-} from '../game';
+import { addDays, betterThan, DAILY_BOARDS, dailyElapsedMs, dayEnd, cycleMark, DIFFICULTIES, earlierGuess, marksFitScores, ordinal, rankByHow, rankByName, validateGuess, type Badge, type DailyDay, type DailyMode, type DailyView, type DailyWordView, type Difficulty, type Marks, type RankBy } from '../game';
+import { BADGE_BY_ID } from '../game/achievements';
 import { useCheckLimit } from './checkLimit';
 import type { ApiIdentity } from './apiIdentity';
 import { Bubble, DIFFICULTY_LABEL, InSet } from './components';

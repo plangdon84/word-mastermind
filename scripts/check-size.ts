@@ -11,6 +11,9 @@ import { gzipSync } from 'node:zlib';
 
 const KB = 1024;
 const BUDGETS = { script: 150 * KB, style: 12 * KB };
+// Past this the check still passes but says so: the script has grown back towards the budget (Dev Plan item 19zq, 97.6 KB),
+// so raising it again is a decision to take with the owner.
+const SCRIPT_FLAG = 105 * KB;
 
 const dist = join(import.meta.dirname, '..', 'dist');
 const html = readFileSync(join(dist, 'index.html'), 'utf8');
@@ -31,6 +34,9 @@ for (const kind of ['script', 'style'] as const) {
   const line = `${kind}s: ${(total[kind] / KB).toFixed(1)} KB of ${BUDGETS[kind] / KB} KB`;
   console.log(line);
   if (total[kind] > BUDGETS[kind]) problems.push(`over budget, ${line}`);
+  else if (kind === 'script' && total.script > SCRIPT_FLAG) {
+    console.warn(`⚠ scripts are over ${SCRIPT_FLAG / KB} KB, where 19zq left them: say so in the PR and agree the rise with the owner`);
+  }
 }
 if (assets.some(({ path }) => path.includes('definitions'))) problems.push('the definitions load up front; they should wait for ⓘ');
 // The licence asks for its copyright line in every copy of the lists: the /*! comment in src/game/wordLists.ts.

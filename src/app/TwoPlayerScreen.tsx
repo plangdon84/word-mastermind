@@ -13,7 +13,8 @@ import {
 import { GameHeader, GameMenuItems } from './gameHeader';
 import { ResultCard, TheirWord } from './resultCard';
 import { BackIcon, HowToPlay, ReplaceGamePanel, type Review } from './panels';
-import { BadgeToast, SuggestNote } from './Badge';
+import { BadgeToast } from './screens';
+import { SuggestNote } from './SuggestNote';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useBadgesEarnedBy } from './badges';
 import { NO_GUESSES, useOpponentMarks, useShownMarks } from './easyMarks';

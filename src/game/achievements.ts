@@ -7,7 +7,8 @@ import { otherSeat } from './pvp';
 import { STRENGTHS } from './records';
 import { runRankBy, summarizeSoloRun } from './run';
 import { RANK_BYS, type RankBy } from './scoring';
-import { summaryOf, type StatsGame } from './stats';
+import { FEW_GUESSES } from './suggest';
+import { summaryOf, type StatsGame } from './statsGame';
 import { computeOldUnlocks, computeUnlocks, OLD_UNLOCK_STEPS, type UnlockStep } from './unlocks';
 
 /*
@@ -58,16 +59,8 @@ const LEVEL_METAL: Record<Strength, Metal> = { casual: 'bronze', skilled: 'silve
 const COUNT_METALS: readonly Metal[] = ['bronze', 'silver', 'gold'];
 const title = (word: string) => word[0].toUpperCase() + word.slice(1);
 
-/** Guess counts for the few-guesses badges, easiest first. */
-export const FEW_GUESSES = [20, 15, 10] as const;
 export const WIN_STREAKS = [3, 5, 10] as const;
 
-/**
- * Whether Suggest kept a found word from a few-guesses badge it would have
- * earned (README "Achievements"), so the result can say so.
- */
-export const suggestVoidedFewGuesses = (found: boolean, guesses: number, suggested: number) =>
-  found && suggested > 0 && guesses <= FEW_GUESSES[0];
 export const DAILY_STREAKS = [7, 30, 100] as const;
 /** Achievement Hunter: this percentage of every other badge. */
 export const HUNTER_PERCENTS = [25, 50, 75, 100] as const;

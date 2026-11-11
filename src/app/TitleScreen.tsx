@@ -30,9 +30,8 @@ import {
 import { loadRush } from './rushStorage';
 import type { BoardId } from './LeaderboardsScreen';
 import { TurnAlertsPrompt } from './TurnAlerts';
-import { MovedNotice } from './MovedNotice';
 import { movedNoticeDue } from './moved';
-import { ReleasePopup, Tutorial, WhatsNew } from './screens';
+import { MovedNotice, ReleasePopup, Tutorial, WhatsNew } from './screens';
 import { VersionLink } from './VersionLink';
 import { markVersionSeen, readSeenVersion, releasePopupDue } from './version';
 import { readStored, writeStored } from './localStore';

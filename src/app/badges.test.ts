@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { BADGE_BY_ID } from '../game/achievements';
 import { localDay, parseBadgeNotices } from './badges';
 
 describe('parseBadgeNotices', () => {
   it('keeps known badge IDs once each, and drops the rest', () => {
     const raw = JSON.stringify({ announced: ['solo-medium', 'solo-medium', 'nope', 7], unseen: ['clutch'] });
-    expect(parseBadgeNotices(raw)).toEqual({ announced: ['solo-medium'], unseen: ['clutch'] });
+    expect(parseBadgeNotices(raw, BADGE_BY_ID)).toEqual({ announced: ['solo-medium'], unseen: ['clutch'] });
+    // Start-up code reads the dot before the badges load: IDs only, each once.
+    expect(parseBadgeNotices(raw)).toEqual({ announced: ['solo-medium', 'nope'], unseen: ['clutch'] });
   });
 
   it('starts empty from nothing or garbage', () => {

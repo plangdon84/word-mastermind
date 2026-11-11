@@ -1,7 +1,6 @@
-import {
-  addDays, computeAchievements, computeStats, dailyDay, HISTORY_MODES, ladderAverage, type DailyPlacement, type GameSummary, type HistoryEntry,
-  type LadderStats, type ReplayedGame, type Stats, type StatsGame,
-} from '../game';
+import { addDays, dailyDay, HISTORY_MODES, ladderAverage, type DailyPlacement, type GameSummary, type HistoryEntry, type LadderStats, type ReplayedGame, type Stats, type StatsGame } from '../game';
+import { computeStats } from '../game/stats';
+import { computeAchievements } from '../game/achievements';
 import { SHARED_FORMAT, type SharedSummary } from './friendsApi';
 
 /*

@@ -169,7 +169,7 @@ export function StepDots({ index, count, label }: { index: number; count: number
 }
 
 /** The sample game on its own, from How to play: its steps, then Done. */
-export function SampleGame({ onDone }: { onDone: () => void }) {
+export function SampleGame({ onClose: onDone }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const steps = useSampleSteps();
   const last = index === steps.length - 1;

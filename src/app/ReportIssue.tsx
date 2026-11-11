@@ -183,14 +183,12 @@ export function ReportIssue({ request, apiUrl, guestId, from, onClose }: {
   );
 }
 
-/** Shows the form whenever a screen calls `openReport`. Mounted beside the app, over every screen. */
-export function ReportHost() {
-  const [request, close] = useReportRequest();
-  if (!request) return null;
+/** The form for a request a screen made with `openReport` (ReportHost.tsx shows it once this has loaded). */
+export function ReportForm({ request, onClose }: { request: ReportRequest; onClose: () => void }) {
   // The profile as the app last saved it: its device ID is who the report is from.
   const profile = loadProfile();
   return (
     <ReportIssue request={request} apiUrl={API_URL} guestId={profile.deviceId}
-      from={reportFrom(displayName(profile), loadSession() !== null)} onClose={close} />
+      from={reportFrom(displayName(profile), loadSession() !== null)} onClose={onClose} />
   );
 }

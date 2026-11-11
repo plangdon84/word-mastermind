@@ -1,4 +1,4 @@
-import { summaryOf, type StatsGame } from './stats';
+import { summaryOf, type StatsGame } from './statsGame';
 
 /*
  * Unlocking modes (README "Unlocking modes"): a new player starts with

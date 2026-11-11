@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { FEATURES } from '../game';
 import type { Circle } from './leaderboardsApi';
 import { Bubble, MarkKey, type Mark } from './components';
-import { SampleGame } from './sampleGame';
+import { SampleGame } from './screens';
 
 /** Panels and dialogs shared by the screens: How to play, confirmations, reviews and the board pages. */
 
@@ -167,7 +167,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
   if (sample) {
     return (
       <Modal title="Sample game" class="tutorial" onClose={() => setSample(false)}>
-        <SampleGame onDone={() => setSample(false)} />
+        <SampleGame onClose={() => setSample(false)} />
       </Modal>
     );
   }

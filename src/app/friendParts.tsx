@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { pickRandomSecret, SECRET_WORDS, turnDaysOf, type PvpView, type TimeControl } from '../game';
 import { Bubble, DefinitionBox, Slots } from './components';
-import { SuggestNote } from './Badge';
+import { SuggestNote } from './SuggestNote';
 import { BackIcon } from './panels';
 import { ResultCard, TheirWord } from './resultCard';
 import type { FriendGame, RatingLine } from './friendApi';

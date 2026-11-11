@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BADGES, computeAchievements, cpuBadgeId, FEW_GUESSES, HUNTED_BADGES, suggestVoidedFewGuesses } from './achievements';
+import { BADGES, computeAchievements, cpuBadgeId, HUNTED_BADGES } from './achievements';
+import { FEW_GUESSES, suggestVoidedFewGuesses } from './suggest';
 import { DIFFICULTIES, type Difficulty } from './difficulty';
 import { STRENGTHS } from './records';
-import type { StatsGame } from './stats';
+import type { StatsGame } from './statsGame';
 import { daily, DAY, dailyWord, friend, lobby, rush, solo, versus } from './testGames';
 
 // Every mode on, so every badge is offered; features.test.ts checks the launch's switches.

@@ -1,9 +1,7 @@
 import { Component, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import {
-  BADGES, HEAD_TO_HEAD_MODES, initials, tallyWinPct, type HeadToHead, type HeadToHeadMode, type DailyPlacement, type HistoryEntry,
-  type HistoryFilter,
-} from '../game';
+import { HEAD_TO_HEAD_MODES, initials, tallyWinPct, type HeadToHead, type HeadToHeadMode, type DailyPlacement, type HistoryEntry, type HistoryFilter } from '../game';
+import { BADGES } from '../game/achievements';
 import { Analytics } from './Analytics';
 import type { ApiIdentity } from './apiIdentity';
 import { Achievements } from './Badge';

@@ -13,9 +13,11 @@ export * from './difficulty';
 export * from './records';
 export * from './history';
 export * from './profile';
-export * from './stats';
+// Values from stats and achievements are imported from their own modules: they load after the page has (Dev Plan item 19zq).
+export type * from './stats';
+export * from './statsGame';
 export * from './headToHead';
-export * from './achievements';
+export type * from './achievements';
 export * from './pvp';
 export * from './report';
 export * from './daily';
