@@ -255,7 +255,11 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/game/daily.ts` (`dailyView` hides unfound words). The app side is
   `src/app/DailyScreen.tsx`, `dailyApi.ts` and `dailyStorage.ts`; the top 10
   and top 10% badges come from the server's final places, passed to
-  `computeAchievements`. Names shown to others pass `validateName`'s
+  `computeAchievements`. The app holds them per player and asks only for
+  days after those it holds (`placesHeldThrough`, `keepPlacements` in
+  `dailyStorage.ts`; `placesAfter`), and actions ask for none
+  (`places: false`); a request without either gets them all (Dev Plan
+  item 19zm). Names shown to others pass `validateName`'s
   profanity filter (`isOffensive`).
 - Daily Word (Dev Plan item 7b, README "Daily Word"): one word a day for
   everyone, a run of one word with the Daily Set's Pause (twice, since item 18zx), refereed beside the Daily Set

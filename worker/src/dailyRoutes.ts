@@ -77,16 +77,19 @@ const toPlacement = (r: PlaceRow, rankBy: RankBy, mode: DailyMode): DailyPlaceme
  * Your places on days that are over, which are final: for the Daily Set's
  * top 10 and top 10% badges, and the history. A day's Crush place comes
  * before its Rush place, so an older app, which takes a day's first, shows
- * the Crush one.
+ * the Crush one. Only the days after `after`, if given (Dev Plan item 19zm):
+ * the app already holds the rest, and none at all once that's yesterday.
  */
 export async function pastPlacements(
-  db: D1Database, player: Player, today: DailyDay, mode: DailyMode = 'daily',
+  db: D1Database, player: Player, today: DailyDay, mode: DailyMode = 'daily', after: DailyDay | null = null,
 ): Promise<DailyPlacement[]> {
+  if (after !== null && after >= addDays(today, -1)) return [];
   const boards = await Promise.all(DAILY_BOARDS[mode].map(async (rankBy) => {
     const { results } = await db.prepare(
       `SELECT r.day, r.difficulty, r.guesses, r.ms, r.finished_at, ${placeColumns(RESULTS_TABLE[mode], rankBy)}
-       FROM ${RESULTS_TABLE[mode]} r WHERE r.day < ?1 AND ${isPlayers('r.player_id', '?2')} ORDER BY r.day`,
-    ).bind(today, player.id).all<PlaceRow>();
+       FROM ${RESULTS_TABLE[mode]} r WHERE r.day < ?1 AND ${isPlayers('r.player_id', '?2')}
+       ${after === null ? '' : 'AND r.day > ?3'} ORDER BY r.day`,
+    ).bind(today, player.id, ...(after === null ? [] : [after])).all<PlaceRow>();
     return results.map((r) => toPlacement(r, rankBy, mode));
   }));
   return boards.flat().sort((a, b) => a.day.localeCompare(b.day) || (a.rankBy ? 1 : 0) - (b.rankBy ? 1 : 0));
@@ -104,9 +107,19 @@ async function currentRun(env: Env, mode: DailyMode, player: Player, day: DailyD
   return 'run' in yesterdays.body && yesterdays.body.run?.status === 'playing' ? yesterdays : todays;
 }
 
+/**
+ * Which past places a request wants (Dev Plan item 19zm): every one (`all`,
+ * an app from before), those after the latest day the app holds, or none
+ * (`none`: an action, which can't change a past place).
+ */
+export type PlacesAsked = 'all' | 'none' | { after: DailyDay };
+
+/** A query's or body's `placesAfter`: the latest day the app holds places for. Anything else asks for them all. */
+const placesAfter = (value: unknown): PlacesAsked => (isDailyDay(value) ? { after: value } : 'all');
+
 /** Today's game from your side, or the referee's refusal. The Daily Word has no theme, so its `theme` and `runTheme` are null. */
 async function todayOf(
-  env: Env, mode: DailyMode, player: Player, now: number, run: DailyResponse | null = null,
+  env: Env, mode: DailyMode, player: Player, now: number, places: PlacesAsked, run: DailyResponse | null = null,
 ): Promise<DailyToday | DailyResponse> {
   const day = dailyDay(now);
   const answer = run ?? await currentRun(env, mode, player, day);
@@ -114,8 +127,10 @@ async function todayOf(
   const runDay = answer.body.run?.day;
   // Independent reads, side by side.
   const themeOf = async (of: DailyDay) => (mode === 'daily' ? (await themeFor(env.DB, of))?.theme ?? null : null);
+  const after = typeof places === 'object' ? places.after : null;
   const [theme, runTheme, placements] = await Promise.all([
-    themeOf(day), runDay && runDay !== day ? themeOf(runDay) : null, pastPlacements(env.DB, player, day, mode),
+    themeOf(day), runDay && runDay !== day ? themeOf(runDay) : null,
+    places === 'none' ? [] : pastPlacements(env.DB, player, day, mode, after),
   ]);
   return {
     day,
@@ -125,13 +140,17 @@ async function todayOf(
     now,
     run: answer.body.run,
     placements,
+    // An app from before reads every answer as the whole list, so only an answer that isn't says so.
+    ...(places === 'all' ? {} : { placementsAfter: after }),
   };
 }
 
 const refused = (t: DailyToday | DailyResponse): t is DailyResponse => 'status' in t;
 
-async function today(env: Env, mode: DailyMode, player: Player, now: number, run: DailyResponse | null = null): Promise<Response> {
-  const body = await todayOf(env, mode, player, now, run);
+async function today(
+  env: Env, mode: DailyMode, player: Player, now: number, places: PlacesAsked, run: DailyResponse | null = null,
+): Promise<Response> {
+  const body = await todayOf(env, mode, player, now, places, run);
   return refused(body) ? json(body.body, body.status) : json(body);
 }
 
@@ -155,9 +174,9 @@ async function placeSoFar(db: D1Database, mode: DailyMode, player: Player, today
  * `GET /api/daily/games`: both of today's daily games for the title screen
  * in one request (Issue 213), each with your place so far once played.
  */
-async function bothToday(env: Env, player: Player, now: number): Promise<Response> {
+async function bothToday(env: Env, player: Player, now: number, places: Record<DailyMode, PlacesAsked>): Promise<Response> {
   const games = await Promise.all(DAILY_MODES.map(async (mode) => {
-    const body = await todayOf(env, mode, player, now);
+    const body = await todayOf(env, mode, player, now, places[mode]);
     if (refused(body)) return body;
     return { ...body, place: await placeSoFar(env.DB, mode, player, body) };
   }));
@@ -246,8 +265,17 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
   if (!who.ok) return errorResponse(who.status, who.error);
   const { player } = who;
 
-  if (pathname === '/api/daily') return method === 'GET' ? today(env, mode, player, now) : errorResponse(405, 'bad-request');
-  if (fullPath === '/api/daily/games') return method === 'GET' ? bothToday(env, player, now) : errorResponse(405, 'bad-request');
+  const query = new URL(request.url).searchParams;
+  if (pathname === '/api/daily') {
+    return method === 'GET' ? today(env, mode, player, now, placesAfter(query.get('placesAfter'))) : errorResponse(405, 'bad-request');
+  }
+  if (fullPath === '/api/daily/games') {
+    if (method !== 'GET') return errorResponse(405, 'bad-request');
+    // The Daily Word's places are held apart from the Daily Set's, so each says its own latest day.
+    return bothToday(env, player, now, {
+      daily: placesAfter(query.get('placesAfter')), dailyWord: placesAfter(query.get('wordPlacesAfter')),
+    });
+  }
   // A guest's new name, shown on every Daily board at once (item 18zw). An account's comes from its synced profile.
   if (fullPath === '/api/daily/name') {
     if (method !== 'POST') return errorResponse(405, 'bad-request');
@@ -262,7 +290,7 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
   }
   if (pathname === '/api/daily/board') {
     if (method !== 'GET') return errorResponse(405, 'bad-request');
-    const params = new URL(request.url).searchParams;
+    const params = query;
     const day = params.get('day');
     const difficulty = params.get('difficulty');
     const circle = params.get('circle') ?? 'everyone';
@@ -308,5 +336,8 @@ export async function routeDaily(request: Request, env: Env, now: number, fullPa
   } else {
     dailyRequest = { ...asker, action: action as 'give-up' | 'pause' | 'resume' };
   }
-  return today(env, mode, player, now, await toDay(env, dailyRequest));
+  // An action can't change a past place, so an app that says so (`places: false`) gets none; starting is asked like
+  // opening the game, and an app from before gets them all, as it always did.
+  const places: PlacesAsked = action !== 'start' && body.places === false ? 'none' : placesAfter(body.placesAfter);
+  return today(env, mode, player, now, places, await toDay(env, dailyRequest));
 }

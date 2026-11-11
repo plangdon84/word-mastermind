@@ -524,7 +524,7 @@ export function TitleScreen({
   const { games: daily, offset, failed: dailyFailed } = useDailyToday(identity, (games) => {
     for (const mode of DAILY_MODES) {
       const t = games[mode];
-      if (t) receivePlacements(t.placements, mode);
+      if (t) receivePlacements(identity, t, mode);
     }
   });
   const now = useNow(30_000) + offset;

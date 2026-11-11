@@ -14,7 +14,7 @@ import { PlayerName } from './friendLink';
 import type { Circle } from './leaderboardsApi';
 import { BadgeToast } from './Badge';
 import { receivePlacements } from './badges';
-import { loadDaily, saveDaily } from './dailyStorage';
+import { loadDaily, placesHeldThrough, saveDaily } from './dailyStorage';
 import { NO_GUESSES, useShownMarks } from './easyMarks';
 import { NO_SUGGESTION, pickSuggestion, suggestedMessage } from './suggestion';
 import { useMessage, useNow, usePhysicalKeyboard } from './hooks';
@@ -193,7 +193,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
   /** Brings the finished game into the history, resolving to the IDs of badges it newly earned. */
   onFinished: () => Promise<string[]>;
 }) {
-  const api = useMemo(() => dailyApi(API_URL ?? '', identity, fetch, mode), [identity, mode]);
+  const api = useMemo(() => dailyApi(API_URL ?? '', identity, fetch, mode, (m) => placesHeldThrough(identity, m)), [identity, mode]);
   const name = DAILY_NAME[mode];
   const set = mode === 'daily';
   /** What comes out each day: "set" or "word". */
@@ -254,7 +254,7 @@ export function DailyScreen({ mode = 'daily', settings, onBoardRankBy, profile, 
     todayRef.current = t;
     setTodayState(t);
     setOffset(t.now - Date.now());
-    receivePlacements(t.placements, mode);
+    receivePlacements(identity, t, mode);
   };
   const setDraft = (d: string) => {
     draftRef.current = d;
