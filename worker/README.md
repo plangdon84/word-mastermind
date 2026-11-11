@@ -77,8 +77,9 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   request, then pass it to the game's Durable Object, and note who sent or
   accepted each invite (`friend_game_players`) for listing a player's games.
 - `src/gameRoom.ts`: `GameRoom`, the Durable Object, one per game. Cloudflare
-  runs one instance per game and handles its requests one at a time, so two
-  moves can't race. It stores the game in its own storage, and keeps open
+  runs one instance per game, and it handles each request and alarm whole
+  before the next starts (`blockConcurrencyWhile`, as the lobbies and the
+  daily games do), even while it waits on D1, so two moves can't race. It stores the game in its own storage, and keeps open
   game pages' WebSockets (`/api/games/:id/live`, via `routeLiveSocket` in
   `src/games.ts`), saying `changed` down each after every move (hibernation
   API; `ping` is answered with `pong` without waking it).
@@ -117,7 +118,8 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   who is asking and the request, pass moves to the day's Durable Object,
   and read the leaderboards (`daily_results`) from D1.
 - `src/dailyRush.ts`: `DailyRush`, the Durable Object, one per day, named by
-  its day (`DAILY.idFromName`). It keeps every player's run for that day.
+  its day (`DAILY.idFromName`). It keeps every player's run for that day,
+  and handles each request whole before the next (`blockConcurrencyWhile`).
 - `src/dailyRoom.ts`: the referee `DailyRush` runs (`handleDaily`): once a
   day per player (any of an account's IDs), the run engine with the day's
   words, no start after the day ends (midnight in New York) but a run's

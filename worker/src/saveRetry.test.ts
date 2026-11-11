@@ -3,12 +3,12 @@
 // (or, for a daily game, the player's next request) saves it later; a game
 // is rated once however its saves overlap.
 import { describe, expect, it } from 'vitest';
-import { dailyDay } from '../../src/game';
+import { dailyDay, NEW_RATING } from '../../src/game';
 import { handleDaily, type DailyDeps } from './dailyRoom';
 import { memoryStorage } from './fakeRooms';
 import { handleAlarm, handleRoom, SAVE_RETRY_MS, type Room, type RoomDeps } from './room';
 import { fakeD1 } from './fakeD1';
-import { rateFinishedGame, ratedGameChanges, ratingStatements } from './ratings';
+import { batchRated, rateFinishedGame, ratedGameChanges, rateGroupGame, ratingStatements, type PlayerChange } from './ratings';
 
 const NOW = Date.parse('2026-11-02T12:00:00Z');
 
@@ -109,5 +109,70 @@ describe('rating a game against a friend', () => {
       .first<{ games: number; rating: number }>();
     expect(row?.games).toBe(1);
     expect(row?.rating).toBeCloseTo(first[0].after.rating);
+  });
+
+  it('counts both of a player\'s games that end together, working the later one out again (Dev Plan item 19zl)', async () => {
+    const { db } = fakeD1();
+    for (const id of ['ann', 'bob', 'cat']) {
+      await db.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?1, ?2, ?3)').bind(id, `${id}@example.com`, NOW).run();
+    }
+    const withBob = { host: 'ann', guest: 'bob' };
+    const withCat = { host: 'ann', guest: 'cat' };
+    // Both games read Ann's rating before either writes, as two rooms saving at once would.
+    const [first, second] = await Promise.all([
+      ratedGameChanges(db, 'correspondence', withBob, 1, NOW), ratedGameChanges(db, 'correspondence', withCat, 1, NOW),
+    ]);
+    await db.batch(ratingStatements(db, 'game-1', 'correspondence', first, NOW));
+    // The later one is kept from a rating that's moved: nothing of it is kept.
+    await db.batch(ratingStatements(db, 'game-2', 'correspondence', second, NOW));
+    const ann = () => db.prepare('SELECT games, rating FROM ratings WHERE account_id = ?1').bind('ann')
+      .first<{ games: number; rating: number }>();
+    expect(await ann()).toMatchObject({ games: 1, rating: first[0].after.rating });
+    expect(await db.prepare('SELECT 1 FROM rated_games WHERE game_id = ?1').bind('game-2').first()).toBeNull();
+    expect(await db.prepare('SELECT 1 FROM ratings WHERE account_id = ?1').bind('cat').first()).toBeNull();
+    // Saved again, it's worked out from Ann's rating now, after the first game.
+    let tries = 0;
+    const { kept } = await batchRated(db, 'game-2',
+      async () => (++tries === 1 ? second : ratedGameChanges(db, 'correspondence', withCat, 1, NOW)),
+      (changes) => ratingStatements(db, 'game-2', 'correspondence', changes, NOW));
+    expect(tries).toBe(2);
+    const now = await ann();
+    expect(now?.games).toBe(2);
+    expect(now!.rating).toBeGreaterThan(first[0].after.rating);
+    expect(kept.ann.before.rating).toBeCloseTo(first[0].after.rating);
+    expect(kept.ann.after.rating).toBeCloseTo(now!.rating);
+    expect(kept.cat).toBeDefined();
+  });
+
+  it('gives up, to be saved again later, while the ratings keep changing', async () => {
+    const { db } = fakeD1();
+    const stale: PlayerChange[] = [{ accountId: 'ann', before: NEW_RATING, after: { ...NEW_RATING, rating: 1600 }, from: { games: 9, ratedAt: 0 } }];
+    await expect(batchRated(db, 'game', async () => stale, (changes) => ratingStatements(db, 'game', 'correspondence', changes, NOW)))
+      .rejects.toThrow('rating-changed');
+    expect(await db.prepare('SELECT 1 FROM rated_games').first()).toBeNull();
+  });
+
+  it('works a Competitive Rush out again if a player\'s rating moved meanwhile', async () => {
+    const { db } = fakeD1();
+    for (const id of ['ann', 'bob', 'cat']) {
+      await db.prepare('INSERT INTO accounts (id, email, created_at) VALUES (?1, ?2, ?3)').bind(id, `${id}@example.com`, NOW).run();
+    }
+    // Another Competitive Rush ends for Ann after the lobby read her rating, before its batch runs.
+    const other = await ratedGameChanges(db, 'rush', { host: 'ann', guest: 'cat' }, 1, NOW);
+    const batch = db.batch.bind(db);
+    let raced = false;
+    db.batch = (async (statements: D1PreparedStatement[]) => {
+      if (!raced) {
+        raced = true;
+        await batch(ratingStatements(db, 'other', 'rush', other, NOW));
+      }
+      return batch(statements);
+    }) as typeof db.batch;
+    const changes = await rateGroupGame(db, 'lobby', 'rush', [{ accountId: 'ann', place: 1 }, { accountId: 'bob', place: 2 }], NOW);
+    const row = await db.prepare('SELECT games, rating FROM ratings WHERE account_id = ?1').bind('ann')
+      .first<{ games: number; rating: number }>();
+    expect(row?.games).toBe(2);
+    expect(changes.ann.before.rating).toBeCloseTo(other[0].after.rating);
+    expect(row!.rating).toBeCloseTo(changes.ann.after.rating);
   });
 });
