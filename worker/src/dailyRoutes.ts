@@ -4,7 +4,7 @@ import {
 } from '../../src/game';
 import type { DailyBoard, DailyBoardRow, DailyGames, DailyToday } from '../../src/app/dailyApi';
 import { isCircle, type Circle } from '../../src/app/leaderboardsApi';
-import { identify, isPlayers, type Player } from './accounts';
+import { isPlayers, type Player } from './accounts';
 import { RESULTS_TABLE, type DailyRequest, type DailyResponse } from './dailyRoom';
 import { themeFor } from './dailyThemes';
 import { DAILY_WORD_FROM, wordFor } from './dailyWords';
@@ -254,18 +254,19 @@ async function board(
   return json(body);
 }
 
-/** Routes `/api/daily…` (the Daily Set) and `/api/daily/word…` (the Daily Word), or returns null for any other path. */
-export async function routeDaily(request: Request, env: Env, now: number, fullPath: string): Promise<Response | null> {
-  if (fullPath !== '/api/daily' && !fullPath.startsWith('/api/daily/')) return null;
+/** The paths `routeDaily` answers. */
+export const isDailyPath = (pathname: string) => pathname === '/api/daily' || pathname.startsWith('/api/daily/');
+
+/**
+ * Routes `/api/daily…` (the Daily Set) and `/api/daily/word…` (the Daily
+ * Word) for `player` (a signed-in player plays as their account; a guest as
+ * their device), or returns null for a path it doesn't know.
+ */
+export async function routeDaily(request: Request, env: Env, now: number, fullPath: string, player: Player): Promise<Response | null> {
   // The Daily Word's routes are the Daily Set's, under `/api/daily/word`.
   const mode: DailyMode = fullPath === '/api/daily/word' || fullPath.startsWith('/api/daily/word/') ? 'dailyWord' : 'daily';
   const pathname = mode === 'daily' ? fullPath : `/api/daily${fullPath.slice('/api/daily/word'.length)}`;
   const method = request.method;
-  // A signed-in player plays as their account; a guest as their device.
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const { player } = who;
-
   const query = new URL(request.url).searchParams;
   if (pathname === '/api/daily') {
     return method === 'GET' ? today(env, mode, player, now, placesAfter(query.get('placesAfter'))) : errorResponse(405, 'bad-request');

@@ -4,7 +4,7 @@ import {
 } from '../../src/game';
 import { opponentName, type FriendGame } from '../../src/app/friendApi';
 import { PLAYED_PAGE, PLAYED_RETRIES, type PlayedGame } from '../../src/app/playedApi';
-import { identify, isPlayers, type Player } from './accounts';
+import { isPlayers, type Player } from './accounts';
 import { checkedLobby } from './names';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -238,16 +238,12 @@ function parseRetries(params: URLSearchParams): PlayedRetries | null {
   return { retry, skip };
 }
 
-/** Routes `/api/played`, or returns null for any other path. */
-export async function routePlayed(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (pathname !== '/api/played') return null;
-  if (request.method !== 'GET') return errorResponse(405, 'bad-request');
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
+/** Answers `GET /api/played` for `player`. */
+export async function routePlayed(request: Request, env: Env, player: Player): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const after = Number(params.get('after') ?? 0);
   const retries = parseRetries(params);
   if (!Number.isSafeInteger(after) || after < 0 || !retries) return errorResponse(400, 'bad-request');
-  const { games, retried, retry, next, cursor } = await playedPage(env, who.player, after, retries);
+  const { games, retried, retry, next, cursor } = await playedPage(env, player, after, retries);
   return json({ games, retried, retry, next, cursor });
 }

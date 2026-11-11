@@ -4,7 +4,7 @@ import {
 import { isSentWord, sentName } from './requestChecks';
 import type { FriendGame } from '../../src/app/friendApi';
 import { isFriendCode } from '../../src/app/friendsApi';
-import { identify, isPlayers, type Player } from './accounts';
+import { isPlayers, type Player } from './accounts';
 import { addLadderOpponent, friendByCode, sendNotices } from './friends';
 import { registerGuest } from './guests';
 import { corsHeaders, errorResponse, json, readJson } from './http';
@@ -272,19 +272,17 @@ async function friendOpponent(
   return toRoom(env, id, { action: 'get', tell: true, ...asker });
 }
 
-/** Routes `/api/games…`, or returns null for any other path. */
+/** The paths `routeGames` answers. */
+export const isGamesPath = (pathname: string) => pathname === '/api/games' || GAME_PATH.test(pathname);
+
+/** Routes `/api/games…` for `player` (a signed-in player plays as their account; a guest as their device). */
 export async function routeGames(
-  request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
+  request: Request, env: Env, now: number, pathname: string, player: Player, fetchFn: typeof fetch = fetch,
 ): Promise<Response | null> {
   const method = request.method;
   const isRoot = pathname === '/api/games';
   const match = isRoot ? null : GAME_PATH.exec(pathname);
   if (!isRoot && !match) return null;
-
-  // A signed-in player plays as their account; a guest as their device.
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const { player } = who;
 
   if (isRoot && method === 'GET') return json({ games: await listGames(env.DB, player) });
   if (isRoot) {

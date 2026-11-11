@@ -7,7 +7,7 @@ import {
 } from '../../src/app/friendsApi';
 import type { LadderFriend } from '../../src/app/friendApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
-import { identify, normalizeEmail, playerOfAccount } from './accounts';
+import { normalizeEmail, playerOfAccount, type Player } from './accounts';
 import { pastPlacements } from './dailyRoutes';
 import { listRatings } from './ratings';
 import { friendGamesPage, sharedSummaryOf, versusOf } from './friendProfiles';
@@ -575,17 +575,17 @@ async function friendProfile(db: D1Database, friendId: string, now: number): Pro
   };
 }
 
-/** Routes `/api/friends…`, or returns null for any other path. */
+/** The paths `routeFriends` answers. */
+export const isFriendsPath = (pathname: string) => pathname === '/api/friends' || pathname.startsWith('/api/friends/');
+
+/** Routes `/api/friends…` for `player`, or returns null for a path it doesn't know. */
 export async function routeFriends(
-  request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
+  request: Request, env: Env, now: number, pathname: string, player: Player, fetchFn: typeof fetch = fetch,
   /** Runs work after the answer is sent (the worker's `waitUntil`); without it, the work is awaited first. */
   defer?: (work: Promise<unknown>) => void,
 ): Promise<Response | null> {
-  if (pathname !== '/api/friends' && !pathname.startsWith('/api/friends/')) return null;
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
   // Friends are accounts: a guest has no list.
-  const accountId = who.player.accountId;
+  const accountId = player.accountId;
   if (!accountId) return errorResponse(401, 'signed-out');
   const method = request.method;
   /**

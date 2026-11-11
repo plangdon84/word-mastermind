@@ -1,5 +1,5 @@
 import { isObject } from '../../src/game';
-import { identify } from './accounts';
+import type { Player } from './accounts';
 import { registerGuest } from './guests';
 import { errorResponse, json, readJson } from './http';
 import type { Env } from './index';
@@ -12,23 +12,21 @@ export function vapidKeysOf(env: Env): VapidKeys | null {
   return { publicKey, privateKey, subject };
 }
 
-/**
- * `/api/push/…`: the public key the app subscribes with, and turning a
- * device's turn notifications on (`subscribe`, which also says which
- * reminders it wants) or off (`unsubscribe`).
- * Returns null for any other path.
- */
-export async function routePush(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (!pathname.startsWith('/api/push/')) return null;
+/** `GET /api/push/key`: the public key the app subscribes with. */
+export function pushKey(env: Env): Response {
   const keys = vapidKeysOf(env);
-  if (pathname === '/api/push/key' && request.method === 'GET') {
-    return keys ? json({ publicKey: keys.publicKey }) : errorResponse(404, 'push-off');
-  }
-  if (request.method !== 'POST') return errorResponse(404, 'not-found');
+  return keys ? json({ publicKey: keys.publicKey }) : errorResponse(404, 'push-off');
+}
+
+/**
+ * `POST /api/push/…`: turning `player`'s device's turn notifications on
+ * (`subscribe`, which also says which reminders it wants) or off
+ * (`unsubscribe`).
+ */
+export async function routePush(request: Request, env: Env, now: number, pathname: string, player: Player): Promise<Response> {
+  const keys = vapidKeysOf(env);
   // Turn alerts belong to the device (its guest ID), which reach its account's games once it signs in.
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const guestId = who.player.deviceId;
+  const guestId = player.deviceId;
   const body = await readJson(request);
   if (pathname === '/api/push/subscribe') {
     if (!keys) return errorResponse(404, 'push-off');

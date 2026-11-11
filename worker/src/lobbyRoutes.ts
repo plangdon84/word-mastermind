@@ -2,7 +2,7 @@ import { FEATURES, isDifficulty, isObject, isRankBy, isStrength, lobbyRankBy, ne
 import { isSentWord, sentName } from './requestChecks';
 import { isFriendCode } from '../../src/app/friendsApi';
 import { parseLobbyAnswer } from '../../src/app/lobbyApi';
-import { identify } from './accounts';
+import type { Player } from './accounts';
 import { friendByCode, sendNotices } from './friends';
 import { registerGuest } from './guests';
 import { errorResponse, json, readJson } from './http';
@@ -31,18 +31,18 @@ export async function toLobby(env: Env, code: string, request: LobbyRequest): Pr
   return new Response(response.body, response);
 }
 
-/** Routes `/api/lobbies…`, or returns null for any other path. */
+/** The paths `routeLobbies` answers. */
+export const isLobbyPath = (pathname: string) => pathname === '/api/lobbies' || LOBBY_PATH.test(pathname);
+
+/** Routes `/api/lobbies…` for `player` (a signed-in player plays as their account; a guest as their device). */
 export async function routeLobbies(
-  request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
+  request: Request, env: Env, now: number, pathname: string, player: Player, fetchFn: typeof fetch = fetch,
 ): Promise<Response | null> {
   const isRoot = pathname === '/api/lobbies';
   const match = isRoot ? null : LOBBY_PATH.exec(pathname);
   if (!isRoot && !match) return null;
   const method = request.method;
-  // A signed-in player plays as their account; a guest as their device.
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const asker = { playerId: who.player.id, aliases: who.player.aliases, signedIn: who.player.accountId !== null };
+  const asker = { playerId: player.id, aliases: player.aliases, signedIn: player.accountId !== null };
 
   if (isRoot) {
     if (method !== 'POST') return errorResponse(405, 'bad-request');
@@ -79,7 +79,7 @@ export async function routeLobbies(
 
   // The host invites a friend (both signed in): it's on the friend's title screen, and they're notified.
   if (action === 'invite') {
-    const accountId = who.player.accountId;
+    const accountId = player.accountId;
     if (!accountId) return errorResponse(401, 'signed-out');
     if (!isFriendCode(body.friend)) return errorResponse(400, 'bad-request');
     const friend = await friendByCode(env.DB, accountId, body.friend);
