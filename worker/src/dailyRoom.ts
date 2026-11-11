@@ -42,6 +42,13 @@ export interface DailyDeps {
   wordFor(day: DailyDay): Promise<string>;
   /** Notes that a player started one of the day's games, for the 8pm reminder (`noteDailyStarted`). */
   started(mode: DailyMode, day: DailyDay, playerId: string, now: number): Promise<void>;
+  /**
+   * Runs a just-finished run's save to D1 after the request's turn with the
+   * day's object, before its answer goes back (2.7.2 review): the run is
+   * already stored, marked `unsaved`, so the other players' requests needn't
+   * wait for D1. Left out (tests), the save runs at once, as before.
+   */
+  afterTurn?(work: () => Promise<void>): void;
 }
 
 /** Who is asking: their player ID, and (signed in) their account's other guest IDs. */
@@ -166,6 +173,16 @@ async function saveFinishedEntry(
     cleared: ({ unsaved: _unsaved, ...saved }) => saved,
     retryAt: null,
   };
+  if (fresh && deps.afterTurn) {
+    // Stored and marked now, inside the turn; saved just after it. A request that finds it still marked saves it
+    // itself, and saving twice is harmless. Nothing changes a finished run, so clearing the mark afterwards
+    // can't undo another request's change.
+    await storage.put(how.key, entry);
+    deps.afterTurn(async () => {
+      await saveMarked(storage, entry, how);
+    });
+    return entry;
+  }
   return (await (fresh ? markFinished(storage, entry, how) : saveMarked(storage, entry, how))).value;
 }
 

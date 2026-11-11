@@ -82,6 +82,62 @@ describe('a daily game', () => {
   });
 });
 
+describe("a daily game's save after its turn (2.7.2 review)", () => {
+  const setup = () => {
+    const storage = memoryStorage();
+    const { saves, save } = flakySave(0);
+    const later: (() => Promise<void>)[] = [];
+    const deps: DailyDeps = {
+      saveFinished: async () => {
+        await save();
+      },
+      random: () => 0, themeFor: async () => null, wordFor: async () => 'brick', started: async () => {},
+      afterTurn: (work) => later.push(work),
+    };
+    const day = dailyDay(NOW);
+    const asker = { playerId: 'player-id', day, mode: 'dailyWord' as const };
+    return { storage, saves, later, deps, asker };
+  };
+
+  it('answers the finishing guess with the run stored and marked, then saves it once the turn is over', async () => {
+    const { storage, saves, later, deps, asker } = setup();
+    await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
+    expect(later).toHaveLength(0);
+    const found = await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1000);
+    expect(found.body).toMatchObject({ run: { status: 'finished' } });
+    expect(saves.calls).toBe(0);
+    expect(storage.data.get('word:player-id')).toMatchObject({ unsaved: true });
+    // Another request during that time finds it over.
+    expect((await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1100)).status).toBe(409);
+    expect(later).toHaveLength(1);
+    await later[0]();
+    expect(saves.done).toBeGreaterThanOrEqual(1);
+    expect(storage.data.get('word:player-id')).not.toHaveProperty('unsaved');
+  });
+
+  it('is still saved by the next request if the save after the turn fails', async () => {
+    const storage = memoryStorage();
+    const { saves, save } = flakySave(1);
+    const later: (() => Promise<void>)[] = [];
+    const deps: DailyDeps = {
+      saveFinished: async () => {
+        await save();
+      },
+      random: () => 0, themeFor: async () => null, wordFor: async () => 'brick', started: async () => {},
+      afterTurn: (work) => later.push(work),
+    };
+    const asker = { playerId: 'player-id', day: dailyDay(NOW), mode: 'dailyWord' as const };
+    await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
+    await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1000);
+    await later[0]();
+    expect(saves.done).toBe(0);
+    expect(storage.data.get('word:player-id')).toMatchObject({ unsaved: true });
+    await handleDaily(storage, deps, { ...asker, action: 'get' }, NOW + 2000);
+    expect(saves.done).toBe(1);
+    expect(storage.data.get('word:player-id')).not.toHaveProperty('unsaved');
+  });
+});
+
 describe('a Rush with Friends lobby', () => {
   it('ends when saving the finished game fails, then its alarm saves it and tells everyone once (Dev Plan item 19zo)', async () => {
     const storage = memoryStorage();

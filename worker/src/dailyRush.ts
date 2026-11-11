@@ -49,8 +49,13 @@ export class DailyRush implements DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const dailyRequest = await request.json<DailyRequest>();
-    const done = await wholeRequest(this.state, () => handleDaily(this.state.storage, this.deps, dailyRequest, Date.now()));
+    // A finished run's save to D1 runs after this request's turn, so the day's other players don't wait for it, but
+    // before its answer, so the player's place is on the board by the time the app looks (2.7.2 review).
+    const afterTurn: (() => Promise<void>)[] = [];
+    const deps: DailyDeps = { ...this.deps, afterTurn: (work) => afterTurn.push(work) };
+    const done = await wholeRequest(this.state, () => handleDaily(this.state.storage, deps, dailyRequest, Date.now()));
     if (!done.ok) return done.response;
+    for (const work of afterTurn) await work().catch((error) => console.error('daily save failed', error));
     return json(done.value.body, done.value.status);
   }
 }
