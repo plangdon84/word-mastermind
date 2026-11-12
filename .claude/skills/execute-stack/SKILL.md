@@ -175,17 +175,43 @@ Once every item is **Merged** (skip this for **Review: none**):
   in a fresh session given this session's ID. Fixes are made on the
   release branch by this session (or a fresh session for a big one),
   never in the archived item sessions. Keep the Reviews table.
+- **Load test on staging** when the plan or a review asks for one: only
+  with the owner's OK (it sends a few thousand requests to staging). It
+  needs the staging host on the environment's allowed hosts
+  (`update_environment`), the private daily repo's themes (`add_repo`
+  `plangdon84/word-mastermind-daily`, read, for `--themes`), and
+  `NODE_USE_ENV_PROXY=1`, or Node's fetch skips the session's proxy and
+  every request fails with "fetch failed". Before calling anything slow a
+  regression, measure `main` the same way: push `origin/main` to a
+  throwaway branch so staging deploys it, check which code staging runs
+  (a request whose answer differs between the two), run the same test,
+  then push to the release branch to put staging back and check again.
+  Record both runs in `docs/test-plan.md`. The proxy can't delete a
+  branch; ask the owner to delete the throwaway one.
 
 ## 5. Hand over
 
-- Run the browser tests for everything the stack touched, Chromium and
-  WebKit, in this session. Fill in the release PR's preview checklist,
+- Run the **whole** browser suite, Chromium and WebKit, in this session
+  (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, `--trace off`): a stack
+  changes more than any one item tested, and CI's Chromium run on the PR
+  has no retries. A test that fails: rerun it alone with
+  `--repeat-each` (10 or more), and run it the same way on `main` (a
+  worktree of `origin/main`) before calling it this stack's or a known
+  random failure; a failing run's `trace.zip` holds its network log. Fill in the release PR's preview checklist,
   Risk and Reviews, and mark it ready (this starts CI's browser tests and
   Lighthouse).
 - When CI is green, tell the owner: "Release <version> (PR #N) is ready to
   merge into main." After it merges: close each archive issue it fixed by
   hand (CLAUDE.md "Close the issues a PR fixes"), unsubscribe, cancel the
   check-in, and archive any item session left.
+
+## Usage limits
+
+Every item and review session runs on the owner's account, so a stack can
+hit its 5-hour usage limit. A session stopped by it shows as failed with
+the limit in its `post_turn_summary`. After the reset time, resume it with
+`send_message` (it keeps the work it had done) rather than starting a new
+one, and set the fallback check-in again.
 
 ## Resuming
 
