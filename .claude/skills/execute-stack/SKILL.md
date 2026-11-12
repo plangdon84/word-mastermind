@@ -191,6 +191,15 @@ Once every item is **Merged** (skip this for **Review: none**):
 
 ## 5. Hand over
 
+- **Close out the plan**, in the release PR, before marking it ready:
+  every item is already ticked and in **Done**; now move the **Stack**
+  block itself from **To build** to the top of **Done**, just above its
+  items, retitled "**Stack <version>, shipped in PR #N**", with one last
+  bullet on how it was checked (review rounds, load test, browser suite).
+  Remove the release plan's line for this version (and the release plan
+  heading if nothing is left under it), and say in **Next** in one line
+  that the release shipped, naming its items and the PR. Nothing of a
+  finished stack stays above **Later**.
 - Run the **whole** browser suite, Chromium and WebKit, in this session
   (`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, `--trace off`): a stack
   changes more than any one item tested, and CI's Chromium run on the PR

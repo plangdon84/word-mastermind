@@ -11,49 +11,11 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 **Next, in this order**
 
-Release 2.4.0 (19z, with 19za stacked on it, both in Done below)
-shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
+Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
+in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
+in PR #96.
 
-(none: 19zg is in Done)
-
-**Release plan** (owner, 11 November 2026). Two releases, not eight:
-
-- **2.7.1** (19zn, 19zq; app only, no review gate): the only release
-  players can see change. One detailed note (the ⓘ popover loads only the
-  definitions it needs, using far less data on the first tap) and one
-  generic line (the app starts a little faster; drop it if 19zq's measured
-  saving is underwhelming).
-- **2.7.2**: the stack below.
-
-**Stack 2.7.2** (planned with the owner on 11 November 2026; run by
-`/execute-stack`)
-
-- Release PR: #97, branch `claude/zealous-archimedes-t97pkm` into `main`. Each
-  item is its own PR into that branch, never into `main`
-- Items, in merge order: 19zj, 19zk, 19zl, 19zm, 19zo, 19zp. 19zo comes
-  after 19zj and 19zl, since it uses 19zj's check and, like 19zl, touches
-  the referees
-- Threads: waves (owner, 11 November 2026)
-  - Wave 1: 19zj, 19zk, 19zl, 19zm
-  - Wave 2: 19zo, once 19zj and 19zl are merged into the release branch
-  - Wave 3: 19zp, once every other item is merged
-  - 19zm merged straight after 19zk, ahead of 19zl, since it needs
-    nothing from it (owner, 11 November 2026)
-- Release note (OK'd by the owner, 11 November 2026), added by the
-  release PR, never an item PR: "If two of your rated games end at the
-  same moment, both now count towards your rating.", "Finished games and
-  Daily Rush are saved and served more reliably and quickly." and
-  "Squashed some obscure bugs and tightened security behind the curtain."
-  The repo is public, so no note describes a hole; 19zj's lobby invite
-  cap and 19zk's email cap get no note of their own (the owner chose not
-  to warn about the email cap), and 19zm and 19zp none either
-- Migrations: 19zk takes `0036`; an item that finds it needs one asks the
-  coordinator for the next number
-- Review: worker, so the review gate, run once on the release PR over the
-  whole stack after the last item merges; item PRs skip it
-- The release PR alone edits this plan and `src/app/releases.ts`: it
-  ticks each item and moves it to **Done** as its PR merges
-
+(none)
 
 **Later**
 
@@ -135,6 +97,38 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   view during play
 
 ## Done, latest first
+
+**Stack 2.7.2, shipped in PR #97** (planned with the owner on 11 November
+2026; run by `/execute-stack`; its items are just below)
+
+- Release PR: #97, branch `claude/zealous-archimedes-t97pkm` into `main`. Each
+  item is its own PR into that branch, never into `main`
+- Items, in merge order: 19zj, 19zk, 19zl, 19zm, 19zo, 19zp. 19zo comes
+  after 19zj and 19zl, since it uses 19zj's check and, like 19zl, touches
+  the referees
+- Threads: waves (owner, 11 November 2026)
+  - Wave 1: 19zj, 19zk, 19zl, 19zm
+  - Wave 2: 19zo, once 19zj and 19zl are merged into the release branch
+  - Wave 3: 19zp, once every other item is merged
+  - 19zm merged straight after 19zk, ahead of 19zl, since it needs
+    nothing from it (owner, 11 November 2026)
+- Release note (OK'd by the owner, 11 November 2026), added by the
+  release PR, never an item PR: "If two of your rated games end at the
+  same moment, both now count towards your rating.", "Finished games and
+  Daily Rush are saved and served more reliably and quickly." and
+  "Squashed some obscure bugs and tightened security behind the curtain."
+  The repo is public, so no note describes a hole; 19zj's lobby invite
+  cap and 19zk's email cap get no note of their own (the owner chose not
+  to warn about the email cap), and 19zm and 19zp none either
+- Migrations: 19zk takes `0036`; an item that finds it needs one asks the
+  coordinator for the next number
+- Review: worker, so the review gate, run once on the release PR over the
+  whole stack after the last item merges; item PRs skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+- Shipped: reviewed as a whole in three rounds, load-tested on staging
+  against `main`, and the full browser suite run in both browsers; the
+  details are in PR #97
 
 - [x] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
   plangdon84/word-mastermind-archive#294 and
