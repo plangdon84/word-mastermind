@@ -452,6 +452,8 @@ export function App() {
         void authApi(apiUrl, latest.current.profile.deviceId).signOut(from.token).catch(() => {});
         signedOut(true, deviceId);
       }
+      // Saved at once, not only once the screen updates, so a reload straight after signing in keeps it (2.7.2).
+      saveSession(signedIn);
       setSession(signedIn);
       const offer = googleName.current;
       googleName.current = null;
