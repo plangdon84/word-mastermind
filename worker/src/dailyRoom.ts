@@ -3,6 +3,7 @@ import {
   type DailyMode, type DailyView, type Difficulty, type RunRecord,
 } from '../../src/game';
 import type { DailyError } from '../../src/app/dailyApi';
+import { markFinished, saveMarked, type FinishedSave } from './finishSave';
 import type { DailyTheme } from './dailyThemes';
 import type { RoomStorage } from './room';
 
@@ -41,6 +42,13 @@ export interface DailyDeps {
   wordFor(day: DailyDay): Promise<string>;
   /** Notes that a player started one of the day's games, for the 8pm reminder (`noteDailyStarted`). */
   started(mode: DailyMode, day: DailyDay, playerId: string, now: number): Promise<void>;
+  /**
+   * Runs a just-finished run's save to D1 after the request's turn with the
+   * day's object, before its answer goes back (2.7.2 review): the run is
+   * already stored, marked `unsaved`, so the other players' requests needn't
+   * wait for D1. Left out (tests), the save runs at once, as before.
+   */
+  afterTurn?(work: () => Promise<void>): void;
 }
 
 /** Who is asking: their player ID, and (signed in) their account's other guest IDs. */
@@ -143,32 +151,39 @@ export async function handleDaily(
     await storage.put(keyOf(mode, next.playerId), next);
     return answer(next);
   }
-  const over: DailyEntry = { ...next, unsaved: true };
-  await storage.put(keyOf(mode, over.playerId), over);
-  return answer(await saveFinishedEntry(storage, deps, mode, day, over, now));
+  return answer(await saveFinishedEntry(storage, deps, mode, day, { ...next, unsaved: true }, now, true));
 }
 
 /**
  * Puts a finished run into D1 (its board row and history) and clears
- * `unsaved`; if that fails, it stays `unsaved` for the next request to try
- * again, and the request still answers. Saving twice is harmless: D1
- * ignores rows it has.
+ * `unsaved` (`saveMarked`); if that fails, it stays `unsaved` for the next
+ * request to try again, since the day has no alarm, and the request still
+ * answers. Saving twice is harmless: D1 ignores rows it has.
  */
 async function saveFinishedEntry(
-  storage: RoomStorage, deps: DailyDeps, mode: DailyMode, day: DailyDay, entry: DailyEntry, now: number,
+  storage: RoomStorage, deps: DailyDeps, mode: DailyMode, day: DailyDay, entry: DailyEntry, now: number, fresh = false,
 ): Promise<DailyEntry> {
   const run = replay(entry);
   const totals = dailyTotals(run);
-  if (totals) {
-    try {
-      await deps.saveFinished(mode, day, entry, totals, finishedLate(day, run), now);
-    } catch {
-      return entry;
-    }
+  const how: FinishedSave<DailyEntry, void> = {
+    key: keyOf(mode, entry.playerId),
+    save: async () => {
+      if (totals) await deps.saveFinished(mode, day, entry, totals, finishedLate(day, run), now);
+    },
+    cleared: ({ unsaved: _unsaved, ...saved }) => saved,
+    retryAt: null,
+  };
+  if (fresh && deps.afterTurn) {
+    // Stored and marked now, inside the turn; saved just after it. A request that finds it still marked saves it
+    // itself, and saving twice is harmless. Nothing changes a finished run, so clearing the mark afterwards
+    // can't undo another request's change.
+    await storage.put(how.key, entry);
+    deps.afterTurn(async () => {
+      await saveMarked(storage, entry, how);
+    });
+    return entry;
   }
-  const { unsaved: _unsaved, ...saved } = entry;
-  await storage.put(keyOf(mode, saved.playerId), saved);
-  return saved;
+  return (await (fresh ? markFinished(storage, entry, how) : saveMarked(storage, entry, how))).value;
 }
 
 /** Each daily game's leaderboard table. */

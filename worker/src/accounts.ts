@@ -23,6 +23,13 @@ const SESSION_REFRESH_MS = 24 * 60 * 60 * 1000;
 export const EMAILS_PER_HOUR = 5;
 export const EMAIL_GAP_MS = 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+/**
+ * Most sign-in emails one internet address may ask for in a day, to any
+ * emails (Dev Plan item 19zk), so nobody can send links to a long list of
+ * strangers. Counted only by a server that really sends them.
+ */
+export const SIGN_IN_EMAILS_PER_DAY = 10;
+const DAY_MS = 24 * HOUR_MS;
 
 /** What the app is told about an account. */
 export interface Account {
@@ -70,6 +77,37 @@ export async function mayEmail(db: D1Database, email: string, now: number): Prom
   ).bind(email, now - HOUR_MS).first<{ sent: number; latest: number | null }>();
   if (!row) return true;
   return row.sent < EMAILS_PER_HOUR && (row.latest === null || now - row.latest >= EMAIL_GAP_MS);
+}
+
+/** An internet address (`addressOf`), hashed: enough to count its sign-in emails, kept for a day only. */
+export const signInAddressHash = (address: string): Promise<string> => sha256Hex(`sign-in:${address}`);
+
+/**
+ * Counts a sign-in email asked for from `address` (`addressOf`), unless it
+ * already has `SIGN_IN_EMAILS_PER_DAY` in the past day; false if it has.
+ * Forgets every address's rows a day on, on the way.
+ */
+export async function countSignInEmail(db: D1Database, address: string, now: number): Promise<boolean> {
+  const ipHash = await signInAddressHash(address);
+  const [, insert] = await db.batch([
+    db.prepare('DELETE FROM sign_in_emails WHERE at <= ?1').bind(now - DAY_MS),
+    db.prepare(
+      `INSERT INTO sign_in_emails (ip_hash, at) SELECT ?1, ?2
+       WHERE (SELECT COUNT(*) FROM sign_in_emails WHERE ip_hash = ?1) < ${SIGN_IN_EMAILS_PER_DAY}`,
+    ).bind(ipHash, now),
+  ]);
+  return insert.meta.changes > 0;
+}
+
+/**
+ * Gives back the sign-in email `countSignInEmail` just counted for `address`
+ * at `now`, when it couldn't be sent, so a mail service outage doesn't use
+ * up the address's day (2.7.2 review, round 1).
+ */
+export async function uncountSignInEmail(db: D1Database, address: string, now: number): Promise<void> {
+  await db.prepare(
+    `DELETE FROM sign_in_emails WHERE rowid = (SELECT rowid FROM sign_in_emails WHERE ip_hash = ?1 AND at = ?2 LIMIT 1)`,
+  ).bind(await signInAddressHash(address), now).run();
 }
 
 /**
@@ -192,26 +230,6 @@ export async function signIn(db: D1Database, loginToken: string, guestId: string
   return { ok: true, token, account: toAccount(account) };
 }
 
-export interface Session {
-  accountId: string;
-  /** The guest ID of the device that signed in. */
-  guestId: string;
-}
-
-/** The session a token belongs to, if it hasn't ended; using it keeps it going. */
-export async function findSession(db: D1Database, token: string, now: number): Promise<Session | null> {
-  const hash = await hashToken(token);
-  const row = await db.prepare(
-    'SELECT account_id, guest_id, last_seen_at FROM sessions WHERE token_hash = ?1 AND expires_at > ?2',
-  ).bind(hash, now).first<{ account_id: string; guest_id: string; last_seen_at: number }>();
-  if (!row) return null;
-  if (now - row.last_seen_at >= SESSION_REFRESH_MS) {
-    await db.prepare('UPDATE sessions SET last_seen_at = ?2, expires_at = ?3 WHERE token_hash = ?1')
-      .bind(hash, now, now + SESSION_MS).run();
-  }
-  return { accountId: row.account_id, guestId: row.guest_id };
-}
-
 /** The bearer token a request carries, if it looks like one. */
 export function bearerToken(request: Request): string | null {
   const match = /^Bearer (\S+)$/.exec(request.headers.get('authorization') ?? '');
@@ -264,14 +282,53 @@ export async function identify(request: Request, db: D1Database, now: number): P
   if (!isGuestId(deviceId)) return { ok: false, status: 400, error: 'bad-guest-id' };
   if (request.headers.get('authorization') !== null) {
     const token = bearerToken(request);
-    const session = token && await findSession(db, token, now);
+    const session = token && await sessionPlayer(db, token, deviceId, now);
     if (!session) return { ok: false, status: 401, error: 'signed-out' };
-    return { ok: true, player: { ...await playerOfAccount(db, session.accountId), deviceId } };
+    // A device ID linked to another account is that account's alone (Dev Plan item 19zj), so a session can't
+    // speak for it, say to register turn alerts under it. The app plays on as a new guest on this answer.
+    if (session.deviceAccount !== null && session.deviceAccount !== session.player.id) {
+      return { ok: false, status: 401, error: 'sign-in-needed' };
+    }
+    return { ok: true, player: { ...session.player, deviceId } };
   }
+  if (await isLinked(db, deviceId)) return { ok: false, status: 401, error: 'sign-in-needed' };
+  return { ok: true, player: { id: deviceId, aliases: [], deviceId, accountId: null } };
+}
+
+/**
+ * The account a session token is for, if it hasn't ended, as a player (as
+ * `playerOfAccount` gives it), and the account this device ID is linked to,
+ * if any: one query joining the session to the account's guest IDs (Dev
+ * Plan item 19zo). Using a session keeps it going, written once a day.
+ */
+async function sessionPlayer(
+  db: D1Database, token: string, deviceId: string, now: number,
+): Promise<{ player: Player; deviceAccount: string | null } | null> {
+  const hash = await hashToken(token);
+  // A row per guest ID the account linked, oldest first; one with no alias if it has none.
+  const { results } = await db.prepare(
+    `SELECT s.account_id, s.last_seen_at, g.id AS alias,
+       (SELECT account_id FROM guests WHERE id = ?3) AS device_account
+     FROM sessions s LEFT JOIN guests g ON g.account_id = s.account_id
+     WHERE s.token_hash = ?1 AND s.expires_at > ?2
+     ORDER BY g.created_at`,
+  ).bind(hash, now, deviceId).all<{ account_id: string; last_seen_at: number; alias: string | null; device_account: string | null }>();
+  const [first] = results;
+  if (!first) return null;
+  if (now - first.last_seen_at >= SESSION_REFRESH_MS) {
+    await db.prepare('UPDATE sessions SET last_seen_at = ?2, expires_at = ?3 WHERE token_hash = ?1')
+      .bind(hash, now, now + SESSION_MS).run();
+  }
+  const accountId = first.account_id;
+  const aliases = results.map((r) => r.alias).filter((id): id is string => id !== null && id !== accountId);
+  return { player: { id: accountId, aliases, deviceId: accountId, accountId }, deviceAccount: first.device_account };
+}
+
+/** Whether a device ID is linked to an account, any account. */
+async function isLinked(db: D1Database, deviceId: string): Promise<boolean> {
   const guest = await db.prepare('SELECT account_id FROM guests WHERE id = ?1').bind(deviceId)
     .first<{ account_id: string | null }>();
-  if (guest?.account_id) return { ok: false, status: 401, error: 'sign-in-needed' };
-  return { ok: true, player: { id: deviceId, aliases: [], deviceId, accountId: null } };
+  return Boolean(guest?.account_id);
 }
 
 /**

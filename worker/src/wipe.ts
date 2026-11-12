@@ -18,7 +18,7 @@ export const WIPE_TABLES = [
  * link to; and the Daily Rush's themes and the Daily Word's words.
  */
 export const KEEP_TABLES = [
-  'guests', 'push_subscriptions', 'accounts', 'sessions', 'login_links', 'oauth_states', 'reports', 'profiles',
+  'guests', 'push_subscriptions', 'accounts', 'sessions', 'login_links', 'oauth_states', 'sign_in_emails', 'reports', 'profiles',
   'friends', 'email_declines', 'friend_declines', 'friend_request_alerts', 'lobby_invites', 'daily_themes', 'daily_words',
 ] as const;
 
@@ -36,11 +36,11 @@ export function wipeSql(): string {
 /** The wipe goes ahead only if you typed the environment's name exactly. */
 export const confirmed = (environment: Environment, typed: string) => typed.trim() === environment;
 
-/** Arguments for `wrangler` that run the wipe against `environment`. */
 /** Wrangler's flags for an environment's D1 database: the local one, or a deployed one. */
 export const wranglerTarget = (environment: Environment): string[] =>
   environment === 'local' ? ['--local', '--env='] : ['--remote', `--env=${environment}`];
 
+/** Arguments for `wrangler` that run the wipe against `environment`. */
 export function wranglerArgs(environment: Environment, config: string): string[] {
   return ['d1', 'execute', 'DB', '--config', config, ...wranglerTarget(environment), '--command', wipeSql()];
 }

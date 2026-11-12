@@ -31,6 +31,12 @@ export interface DailyToday {
   /** Your places on past days' leaderboards, which are final once the day is over. */
   placements: DailyPlacement[];
   /**
+   * Which of them came (Dev Plan item 19zm). Left out: all of them, for days
+   * before `day`. A day: those after it, which the app asked for since it
+   * holds the rest. Null: none, the answer to an action (keep what you hold).
+   */
+  placementsAfter?: DailyDay | null;
+  /**
    * Your place so far on today's board for your run's difficulty (by fewest
    * guesses), once you've finished today's run; final after midnight New
    * York time. Only from `dailyGames`, the title screen's request; null
@@ -134,7 +140,9 @@ export function parseDailyToday(value: unknown): DailyToday | null {
   // An older server only sends today's run.
   const runTheme = typeof value.runTheme === 'string' ? value.runTheme : theme;
   const place = value.place === undefined || value.place === null ? null : parsePlacement(value.place);
-  return { day, theme, runTheme, nextAt, now, run, placements, place };
+  // An older server sends every place, always.
+  const after = value.placementsAfter === null || isDailyDay(value.placementsAfter) ? { placementsAfter: value.placementsAfter } : {};
+  return { day, theme, runTheme, nextAt, now, run, placements, place, ...after };
 }
 
 export function parseDailyGames(value: unknown): DailyGames | null {
@@ -197,6 +205,15 @@ export interface DailyApi {
 }
 
 /**
+ * The latest day whose places this device holds for a game, complete up to
+ * it (`placesHeldThrough` in `dailyStorage.ts`), or null for none: the
+ * server then sends only later ones (Dev Plan item 19zm).
+ */
+export type PlacesHeld = (mode: DailyMode) => DailyDay | null;
+
+const NONE_HELD: PlacesHeld = () => null;
+
+/**
  * Both of today's daily games for the title screen in one request (Issue
  * 213), each with your place so far. If that fails (a server from before
  * it, or one game's day failing), the app asks for each game on its own
@@ -205,19 +222,21 @@ export interface DailyApi {
  * didn't hold, it doesn't (issue 248): those would be refused too.
  */
 export async function dailyGames(
-  apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch,
+  apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch, held: PlacesHeld = NONE_HELD,
 ): Promise<Record<DailyMode, DailyToday | null>> {
   const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new DailyApiError(code as DailyError, status));
   let refused = false;
-  const games = await request('GET', '/api/daily/games').then(parseDailyGames, (e: unknown) => {
+  const [daily, dailyWord] = DAILY_MODES.map(held);
+  const query = [daily && `placesAfter=${daily}`, dailyWord && `wordPlacesAfter=${dailyWord}`].filter(Boolean).join('&');
+  const games = await request('GET', `/api/daily/games${query ? `?${query}` : ''}`).then(parseDailyGames, (e: unknown) => {
     refused = e instanceof DailyApiError && (e.status === 429 || e.status === 401);
     return null;
   });
   if (games) return games;
   if (refused) return { daily: null, dailyWord: null };
-  const [daily, dailyWord] = await Promise.all(DAILY_MODES.map((mode) => dailyApi(apiUrl, identity, fetchFn, mode).today()
-    .catch(() => null)));
-  return { daily, dailyWord };
+  const [dailyToday, dailyWordToday] = await Promise.all(DAILY_MODES.map((mode) => dailyApi(apiUrl, identity, fetchFn, mode, held)
+    .today().catch(() => null)));
+  return { daily: dailyToday, dailyWord: dailyWordToday };
 }
 
 /**
@@ -225,7 +244,9 @@ export async function dailyGames(
  * account (`identity`), about the Daily Set or (`mode`) the Daily Word. Every
  * call rejects with a `DailyApiError`.
  */
-export function dailyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch, mode: DailyMode = 'daily'): DailyApi {
+export function dailyApi(
+  apiUrl: string, identity: ApiIdentity, fetchFn: typeof fetch = fetch, mode: DailyMode = 'daily', held: PlacesHeld = NONE_HELD,
+): DailyApi {
   const request = apiRequester(apiUrl, identity, fetchFn, (code, status) => new DailyApiError(code as DailyError, status));
   const base = mode === 'daily' ? '/api/daily' : '/api/daily/word';
   const today = async (method: 'GET' | 'POST', path: string, body?: unknown): Promise<DailyToday> => {
@@ -233,14 +254,24 @@ export function dailyApi(apiUrl: string, identity: ApiIdentity, fetchFn: typeof 
     if (!parsed) throw new DailyApiError('bad-request', 200);
     return parsed;
   };
+  // Opening and starting ask for the places after those held; an action can't change one, so it asks for none.
+  const after = () => held(mode);
+  const placesAfter = () => {
+    const day = after();
+    return day ? { placesAfter: day } : {};
+  };
+  const action = (path: string, body: Record<string, unknown>) => today('POST', path, { ...body, places: false });
   return {
-    today: () => today('GET', ''),
-    start: (day, difficulty, name) => today('POST', '/start', { day, difficulty, name }),
-    guess: (day, word) => today('POST', '/guess', { day, word }),
-    giveUp: (day) => today('POST', '/give-up', { day }),
-    pause: (day) => today('POST', '/pause', { day }),
-    resume: (day) => today('POST', '/resume', { day }),
-    suggest: (day, word) => today('POST', '/suggest', { day, word }),
+    today: () => {
+      const day = after();
+      return today('GET', day ? `?placesAfter=${day}` : '');
+    },
+    start: (day, difficulty, name) => today('POST', '/start', { day, difficulty, name, ...placesAfter() }),
+    guess: (day, word) => action('/guess', { day, word }),
+    giveUp: (day) => action('/give-up', { day }),
+    pause: (day) => action('/pause', { day }),
+    resume: (day) => action('/resume', { day }),
+    suggest: (day, word) => action('/suggest', { day, word }),
     board: async (day, difficulty, circle = 'everyone', rankBy = 'crush') => {
       const query = `day=${day}&difficulty=${difficulty}${circle === 'friends' ? '&circle=friends' : ''}${rankBy === 'rush' ? '&by=rush' : ''}`;
       const board = parseDailyBoard(await request('GET', `${base}/board?${query}`));

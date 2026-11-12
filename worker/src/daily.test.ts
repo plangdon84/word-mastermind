@@ -391,6 +391,37 @@ describe('the leaderboard', () => {
     ]);
     expect((await as(CAT).today()).placements).toMatchObject([{ rank: 1, total: 1 }, { rank: 1, total: 1, rankBy: 'rush' }]);
   });
+
+  it('sends only the places after those the app holds, and none to an action (item 19zm)', async () => {
+    const { fetchFn, setClock } = await played();
+    // Two days on, so the day is over and the next one too.
+    setClock(END + DAY_MS + 60 * 60 * 1000);
+    const heldThrough = (day: string | null) => dailyApi('https://api.example', { guestId: ANN, token: null }, fetchFn, 'daily', () => day);
+    const all = await heldThrough(null).today();
+    expect(all.placements).toHaveLength(2);
+    expect(all).not.toHaveProperty('placementsAfter');
+    const before = await heldThrough('2026-10-30').today();
+    expect(before.placementsAfter).toBe('2026-10-30');
+    expect(before.placements).toEqual(all.placements);
+    const after = await heldThrough(DAY).today();
+    expect(after).toMatchObject({ placementsAfter: DAY, placements: [] });
+    // The title screen's request says each game's day on its own.
+    const both: Record<string, unknown> = await (await fetchFn(`https://api.example/api/daily/games?placesAfter=${DAY}`, { headers: { 'x-guest-id': ANN } })).json();
+    expect(both.daily).toMatchObject({ placementsAfter: DAY, placements: [] });
+    expect(both.dailyWord).not.toHaveProperty('placementsAfter');
+    // An action, from an app that says it holds them, gets none; one from an app before that gets them all.
+    const today = all.day;
+    const act = async (action: string, body: Record<string, unknown>): Promise<Record<string, unknown>> => (await fetchFn(`https://api.example/api/daily/${action}`, {
+      method: 'POST', headers: { 'x-guest-id': ANN, 'content-type': 'application/json' }, body: JSON.stringify({ day: today, ...body }),
+    })).json();
+    // Starting is asked like opening the game; `places: false` there is no different.
+    expect(await act('start', { difficulty: 'medium', name: 'Ann', placesAfter: DAY, places: false }))
+      .toMatchObject({ placementsAfter: DAY, placements: [] });
+    expect(await act('guess', { word: 'bunny', places: false })).toMatchObject({ placementsAfter: null, placements: [] });
+    const older = await act('guess', { word: 'crane' });
+    expect(older.placements as unknown[]).toHaveLength(2);
+    expect(older).not.toHaveProperty('placementsAfter');
+  });
 });
 
 describe("each player's name now (item 18zw)", () => {

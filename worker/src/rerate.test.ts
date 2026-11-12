@@ -4,7 +4,7 @@ import {
 } from '../../src/game';
 import { fakeD1 } from './fakeD1';
 import { currentRating, ratingStatements, type PlayerChange } from './ratings';
-import { checkRerate, NEW_RULES, OLD_RULES, parseRuleTime, rerateSql, type RatedGameRow, type RatingRow, type Rules } from './rerate';
+import { checkRerate, NEW_RULES, OLD_RULES, parseRuleTime, ratedGames, rerateSql, type RatedGameRow, type RatingRow, type Rules } from './rerate';
 
 const T = Date.UTC(2026, 9, 1);
 const POOL = 'correspondence';
@@ -119,6 +119,24 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
     expect(after.alreadyNew).toBeGreaterThan(0);
   });
 
+  it('takes a won game\'s winner from its stored result, and refuses one that differs from the record', async () => {
+    const { sqlite } = await history(OLD_RULES);
+    const first = read(sqlite);
+    sqlite.exec(rerateSql(checkRerate(first.rows, first.ratings, first.records)));
+    const { rows, records } = read(sqlite);
+    // Ann won game 1: with the ratings' direction turned round, her stored win still says so.
+    const turned = rows.map((r) => (r.game_id === 'game-1' ? { ...r, rating_before: r.rating_after, rating_after: r.rating_before } : r));
+    const won = ratedGames(turned, records);
+    expect(won.problems).toEqual([]);
+    expect(won.games.find((g) => g.id === 'game-1')?.players).toEqual(expect.arrayContaining([{ accountId: 'ann', score: 1 }, { accountId: 'bob', score: 0 }]));
+    // A stored result that differs from the record: a win stored as a loss, a draw as a win, a computer game's result.
+    const computerGame = rows.find((r) => r.computer_recall !== null)!.game_id;
+    for (const [game, account, score] of [['game-1', 'ann', 0], ['game-13', 'bob', 1], [computerGame, 'ann', 0.5]] as const) {
+      const wrong = rows.map((r) => (r.game_id === game && r.account_id === account ? { ...r, score: score === r.score ? 1 - score : score } : r));
+      expect(ratedGames(wrong, records).problems, game).toEqual([expect.stringMatching(/stored result/)]);
+    }
+  });
+
   it('takes a draw rated by the new rules after the deploy, given its time, and still ends as rating every game afresh', async () => {
     const { sqlite, versus } = await history(OLD_RULES);
     const deploy = T + 40 * DAY_MS;
@@ -197,6 +215,15 @@ describe('re-rating every rated game (Dev Plan item 19zh)', () => {
     expect(parseRuleTime('2026-10-08T01:00+01:00', 0)).toBe(Date.UTC(2026, 9, 8));
     expect(parseRuleTime('2026-11-10T04:25:00.500Z', 0)).toBe(Date.UTC(2026, 10, 10, 4, 25, 0, 500));
     for (const bad of ['2026-10-08', '2026-10-08T00:00:00', '2026-10-08T00:00+0000', '1z', '12345Z', 'Oct 8 2026 +00:00']) {
+      expect(parseRuleTime(bad, 0), bad).toBeNaN();
+    }
+  });
+
+  it('refuses a rule time that does not exist rather than rolling it on', () => {
+    expect(parseRuleTime('2028-02-29T00:00Z', 0)).toBe(Date.UTC(2028, 1, 29));
+    expect(parseRuleTime('2026-10-08T23:59:59-05:00', 0)).toBe(Date.UTC(2026, 9, 9, 4, 59, 59));
+    for (const bad of ['2026-02-30T00:00Z', '2026-02-29T00:00Z', '2026-04-31T00:00Z', '2026-13-01T00:00Z', '2026-00-10T00:00Z',
+      '2026-10-00T00:00Z', '2026-10-08T24:00Z', '2026-10-08T12:60Z', '2026-10-08T12:00:60Z', '2026-10-08T12:00+24:00', '2026-10-08T12:00+01:60']) {
       expect(parseRuleTime(bad, 0), bad).toBeNaN();
     }
   });

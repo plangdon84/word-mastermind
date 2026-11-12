@@ -6,7 +6,7 @@ import {
 } from '../../src/app/friendsApi';
 import { parseSharedSummary } from '../../src/app/sharedParse';
 import { withoutRating } from '../../src/app/sharedSummary';
-import { identify, isPlayers, playerOfAccount, type Player } from './accounts';
+import { isPlayers, playerOfAccount, type Player } from './accounts';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
 import { toPlayed, TryAgain, type GameRow } from './played';
@@ -323,13 +323,12 @@ export async function friendGamesPage(
   return { games: entriesOf(results.slice(0, limit)), next: last && friendGamesAfter(last.ended_at, last.id) };
 }
 
-/** Routes `/api/profile/shared` and `/api/profile/index` (an account's own), or returns null for any other path. */
-export async function routeProfileShare(request: Request, env: Env, now: number, pathname: string): Promise<Response | null> {
-  if (pathname !== '/api/profile/shared' && pathname !== '/api/profile/index') return null;
-  if (request.method !== 'POST') return errorResponse(405, 'bad-request');
-  const who = await identify(request, env.DB, now);
-  if (!who.ok) return errorResponse(who.status, who.error);
-  const accountId = who.player.accountId;
+/** The paths `routeProfileShare` answers: POST only. */
+export const PROFILE_SHARE_PATHS: readonly string[] = ['/api/profile/shared', '/api/profile/index'];
+
+/** Routes `POST /api/profile/shared` and `/api/profile/index` (an account's own) for `player`. */
+export async function routeProfileShare(request: Request, env: Env, now: number, pathname: string, player: Player): Promise<Response> {
+  const accountId = player.accountId;
   if (!accountId) return errorResponse(401, 'signed-out');
   if (pathname === '/api/profile/index') return json(await indexStep(env, accountId));
   const ok = await saveShared(env.DB, accountId, await request.text(), now);

@@ -132,11 +132,28 @@ export type QueueResponse = { status: number; body: QueueStatus | QueueBusy | { 
 
 const KEY = 'queue';
 
+/**
+ * How old a seeker's stored `seenAt` may get before a check-in writes it
+ * again (Dev Plan item 19zo): well inside `STALE_MS`, so a seeker checking
+ * in every 2 seconds never goes stale, with a write every 5th check-in
+ * rather than every one.
+ */
+export const SEEN_WRITE_MS = STALE_MS / 3;
+
+/** The queue, without anything that has gone stale. */
 async function load(storage: QueueStorage, now: number): Promise<QueueState> {
-  const state = (await storage.get<QueueState>(KEY)) ?? { seekers: [], matches: {} };
-  const matches = Object.fromEntries(Object.entries(state.matches).filter(([, m]) => now - m.at < MATCH_KEEP_MS));
-  const playing = Object.fromEntries(Object.entries(state.playing ?? {}).filter(([, g]) => now - g.at < PLAYING_KEEP_MS));
-  return { seekers: state.seekers.filter((s) => now - s.seenAt < STALE_MS), matches, playing };
+  return (await loadPruned(storage, now)).state;
+}
+
+/** The queue, without anything that has gone stale, and whether anything had (so it's worth writing back). */
+async function loadPruned(storage: QueueStorage, now: number): Promise<{ state: QueueState; pruned: boolean }> {
+  const stored = (await storage.get<QueueState>(KEY)) ?? { seekers: [], matches: {} };
+  const matches = Object.fromEntries(Object.entries(stored.matches).filter(([, m]) => now - m.at < MATCH_KEEP_MS));
+  const playing = Object.fromEntries(Object.entries(stored.playing ?? {}).filter(([, g]) => now - g.at < PLAYING_KEEP_MS));
+  const seekers = stored.seekers.filter((s) => now - s.seenAt < STALE_MS);
+  const pruned = seekers.length !== stored.seekers.length || Object.keys(matches).length !== Object.keys(stored.matches).length
+    || Object.keys(playing).length !== Object.keys(stored.playing ?? {}).length;
+  return { state: { seekers, matches, playing }, pruned };
 }
 
 /** How many people are in the ladder's games now: never who, just how many. */
@@ -234,7 +251,7 @@ async function playComputer(storage: QueueStorage, deps: QueueDeps, state: Queue
 }
 
 export async function handleQueue(storage: QueueStorage, deps: QueueDeps, request: QueueRequest, now: number): Promise<QueueResponse> {
-  const state = await load(storage, now);
+  const { state, pruned } = await loadPruned(storage, now);
   if (request.action === 'busy') return { status: 200, body: { waiting: state.seekers.length, playing: peoplePlaying(state) } };
   if (request.action === 'ended') {
     // A game it isn't counting (started before item 19w, or already gone) needs no write (review round 1).
@@ -255,13 +272,14 @@ export async function handleQueue(storage: QueueStorage, deps: QueueDeps, reques
   if (request.action === 'poll') {
     if (match) return { status: 200, body: { state: 'matched', gameId: match.gameId } };
     const seeker = state.seekers.find((s) => s.accountId === accountId);
+    // A check-in that changes nothing writes nothing (Dev Plan item 19zo), but `seenAt` is written before it's old.
     if (!seeker) {
-      await storage.put(KEY, state);
+      if (pruned) await storage.put(KEY, state);
       return { status: 200, body: { state: 'idle' } };
     }
     const seen = { ...seeker, seenAt: now };
     const next = { ...state, seekers: [...others, seen] };
-    await storage.put(KEY, next);
+    if (pruned || now - seeker.seenAt >= SEEN_WRITE_MS) await storage.put(KEY, next);
     return tryMatch(storage, deps, next, seen, now);
   }
 

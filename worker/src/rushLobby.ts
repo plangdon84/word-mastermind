@@ -4,6 +4,7 @@ import type { Env } from './index';
 import { handleLobby, handleLobbyAlarm, saveFinishedLobby, type LobbyDeps, type LobbyRequest } from './lobbyRoom';
 import { notifyGuest } from './push';
 import { vapidKeysOf } from './pushRoutes';
+import { wholeAlarm, wholeRequest } from './whole';
 
 /**
  * One Durable Object per Rush with Friends or Competitive Rush lobby, named
@@ -36,12 +37,12 @@ export class RushLobby implements DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const lobbyRequest = await request.json<LobbyRequest>();
-    const { status, body } = await this.state.blockConcurrencyWhile(
-      () => handleLobby(this.state.storage, this.deps, lobbyRequest, Date.now()));
-    return json(body, status);
+    const done = await wholeRequest(this.state, () => handleLobby(this.state.storage, this.deps, lobbyRequest, Date.now()));
+    if (!done.ok) return done.response;
+    return json(done.value.body, done.value.status);
   }
 
   async alarm(): Promise<void> {
-    await this.state.blockConcurrencyWhile(() => handleLobbyAlarm(this.state.storage, this.deps, Date.now()));
+    await wholeAlarm(this.state, () => handleLobbyAlarm(this.state.storage, this.deps, Date.now()));
   }
 }

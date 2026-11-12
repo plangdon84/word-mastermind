@@ -48,7 +48,12 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 - `migrations/`: D1's tables, one numbered SQL file per change. Never edit an
   applied migration; add a new one.
 - `src/index.ts`: routing (`handle`, which takes the time as an argument,
-  like the game logic). `src/http.ts` has the JSON answers, errors and
+  like the game logic): one table of routes (`ROUTES`, Dev Plan item 19zp),
+  the first that owns a path answering it. `identify` is done once there
+  for every route not marked `open`, after the route's `before` checks (a
+  method or launch switch it refuses), so a new route can't forget it.
+  `src/requestChecks.ts` has the name and word checks every route shares
+  (`sentName`, `isSentWord`). `src/http.ts` has the JSON answers, errors and
   CORS, and `src/limits.ts` the rate limits by internet address (`limitOf`
   names the routes limited).
 - `src/guests.ts`: guest identity. A guest is the ID their device created
@@ -77,8 +82,9 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   request, then pass it to the game's Durable Object, and note who sent or
   accepted each invite (`friend_game_players`) for listing a player's games.
 - `src/gameRoom.ts`: `GameRoom`, the Durable Object, one per game. Cloudflare
-  runs one instance per game and handles its requests one at a time, so two
-  moves can't race. It stores the game in its own storage, and keeps open
+  runs one instance per game, and it handles each request and alarm whole
+  before the next starts (`blockConcurrencyWhile`, as the lobbies and the
+  daily games do), even while it waits on D1, so two moves can't race. It stores the game in its own storage, and keeps open
   game pages' WebSockets (`/api/games/:id/live`, via `routeLiveSocket` in
   `src/games.ts`), saying `changed` down each after every move (hibernation
   API; `ping` is answered with `pong` without waking it).
@@ -117,7 +123,8 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
   who is asking and the request, pass moves to the day's Durable Object,
   and read the leaderboards (`daily_results`) from D1.
 - `src/dailyRush.ts`: `DailyRush`, the Durable Object, one per day, named by
-  its day (`DAILY.idFromName`). It keeps every player's run for that day.
+  its day (`DAILY.idFromName`). It keeps every player's run for that day,
+  and handles each request whole before the next (`blockConcurrencyWhile`).
 - `src/dailyRoom.ts`: the referee `DailyRush` runs (`handleDaily`): once a
   day per player (any of an account's IDs), the run engine with the day's
   words, no start after the day ends (midnight in New York) but a run's
@@ -174,7 +181,7 @@ for the game rooms (`src/fakeRooms.ts`) that run the same referee code.
 | `POST /api/queue/leave` | `{ timeControl, difficulty }` | `{ state: "idle" }` |
 | `GET /api/admin/figures` | | `Usage` (`src/admin/usage.ts`): the usage dashboard's totals, for a request carrying a valid Cloudflare Access token (`cf-access-jwt-assertion`); 403 `forbidden` without one, 404 `off` until `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are set, 503 `access-unavailable` if Access's keys can't be fetched ("Usage dashboard", below) |
 | `GET /api/auth/me` | | `{ account, methods }`: the signed-in account (null without an `authorization` header) and `{ email, google }`, the ways to sign in; 401 `signed-out` if the session ended |
-| `POST /api/auth/email` | `{ email, returnTo }` | `{ ok: true }`: emails a sign-in link to `returnTo` (an allowed origin) `/?login=…`; 400 `bad-email`, 429 `too-many-emails`, 404 `email-off`, 502 `email-failed` |
+| `POST /api/auth/email` | `{ email, returnTo }` | `{ ok: true }`: emails a sign-in link to `returnTo` (an allowed origin) `/?login=…`; 400 `bad-email`, 429 `too-many-emails` (5 an hour per email, or 10 a day per internet address, `sign_in_emails`), 404 `email-off`, 502 `email-failed` |
 | `POST /api/auth/google` | `{ returnTo }` | `{ url }`, Google's sign-in page; 404 `google-off` |
 | `GET /api/auth/google/callback` | | Google sends the browser here; it's sent on to `returnTo/?login=…`, or `?login-error=google` |
 | `POST /api/auth/session` | `{ token }`, from `?login=` | `{ token, account }`, a session for this device (`x-guest-id`); 400 `bad-login` if the link is used or expired |

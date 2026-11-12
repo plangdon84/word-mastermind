@@ -76,7 +76,7 @@ export type FriendError =
   | 'not-invited' | 'not-a-friend'
   | 'invite-closed' | 'invite-expired' | 'not-started' | 'not-over' | 'game-over' | 'not-your-turn' | 'time-up' | 'time-left'
   | 'wrong-length' | 'not-letters' | 'repeated-letters' | 'not-in-word-list' | 'difficulty-fixed' | 'difficulty-harder'
-  | 'easy-unrated' | 'not-easy' | 'no-suggestions' | 'too-many-friends' | 'declined';
+  | 'easy-unrated' | 'not-easy' | 'no-suggestions' | 'too-many-friends' | 'declined' | 'offensive-name';
 
 /** The opponent's name, from your seat. */
 export const opponentName = (game: FriendGame): string | null =>

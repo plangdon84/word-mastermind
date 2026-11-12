@@ -150,6 +150,9 @@ async function screenshot(db: D1Database, id: string): Promise<Response> {
   });
 }
 
+/** A screenshot's path, `GET` by anyone with its link. */
+export const isScreenshotPath = (pathname: string) => SCREENSHOT_PATH.test(pathname);
+
 /** Routes `/api/reports…`, or returns null for any other path. */
 export async function routeReports(
   request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch,

@@ -82,9 +82,21 @@ Run `npm test` and `npm run typecheck` before committing.
   (`worker/src/fakeD1.ts`), and `npm run typecheck` covers it. A finished
   game is stored in its Durable Object at once, marked `unsaved`, then put in
   D1 in one batch with its rating (rated once, however saves overlap,
-  `ratingStatements`); a failed save is retried by the room's alarm or the
-  next request (Dev Plan item 19m); small
+  `ratingStatements`, and only while each player's rating is the one it was
+  worked out from, else worked out again, `batchRated`, Dev Plan item 19zl;
+  the game rooms, lobbies and daily games handle each request whole,
+  `blockConcurrencyWhile` through `wholeRequest` / `wholeAlarm`
+  (`worker/src/whole.ts`), which catch an error inside so it never resets
+  the object; the day's object remembers its theme and Daily Word); a failed save is retried by the room's alarm or the
+  next request (Dev Plan item 19m), the room, daily and lobby referees all
+  through `markFinished` / `saveMarked` (`worker/src/finishSave.ts`, Dev Plan
+  item 19zo), so a lobby's results and ratings wait for its save too; small
   shared helpers (hex, SHA-256, random, JSON) are `worker/src/secure.ts`.
+  Every route is a row of `ROUTES` (`worker/src/index.ts`, Dev Plan item
+  19zp), which runs `identify` once for each row not marked `open` and
+  passes the routers the player; check a sent name with `sentName` and a
+  sent word with `isSentWord` (`worker/src/requestChecks.ts`), so a name
+  the filter refuses answers `offensive-name` everywhere.
   `src/app/gameSource.ts` has a local source (today's modes) and a remote one
   (the worker). Add every new D1 table to `WIPE_TABLES` or `KEEP_TABLES` in
   `worker/src/wipe.ts` (`npm run wipe`).
@@ -136,13 +148,17 @@ Run `npm test` and `npm run typecheck` before committing.
   worker runs OpenID Connect with PKCE; the app loads nothing from Google),
   both ending in a `?login=` token the app trades for a session
   (`worker/src/accounts.ts`, `authRoutes.ts`, `mail.ts`, `google.ts`;
-  `src/app/account.ts`, `AccountSection.tsx`). Google's name goes to the
+  `src/app/account.ts`, `AccountSection.tsx`). Sign-in emails are capped
+  per email (`mayEmail`) and, where really sent, at 10 a day per internet
+  address (Dev Plan item 19zk, `countSignInEmail`, D1 `sign_in_emails`,
+  hashed and forgotten after a day). Google's name goes to the
   app once, after the `#` of a new account's return address
   (`googleNameHash`), for `GoogleNamePrompt.tsx` to offer (Dev Plan item
   18zz); the server never stores it. A new account takes the
   guest ID of the device that made it, and each device that signs in links
   its guest ID; `identify` then refuses a linked guest ID without the
-  account's session. A query for a player's games matches their IDs with
+  account's session, even with another account's (`sign-in-needed`, Dev
+  Plan item 19zj). A query for a player's games matches their IDs with
   `isPlayers` (one bound parameter, since D1 allows 100 and an account
   gains a guest ID per browser), never a list of them. Requests send
   `x-guest-id` plus `authorization: Bearer` once signed in; every API client
@@ -166,7 +182,8 @@ Run `npm test` and `npm run typecheck` before committing.
   in an issue. `worker/src/friends.ts` (D1 `friends`, `lobby_invites`; routes
   `/api/friends`, `/add`, `/remove`); a challenge is `POST /api/games` with
   `friend` (the room's `invitee` alone may join), a lobby invite is
-  `POST /api/lobbies/CODE/invite`. The app side is `src/app/friendsApi.ts`
+  `POST /api/lobbies/CODE/invite` (the friends list reads the newest
+  10, `MAX_LOBBY_INVITES`, and deletes the rest). The app side is `src/app/friendsApi.ts`
   (shared with the worker), `FriendsSection.tsx` (profile; `useFriendsList`),
   challenges in `FriendScreen.tsx` and `FriendGamesList.tsx`, lobby invites
   in `LobbyScreen.tsx` and on the title screen's Games in progress (`LobbyInviteButton`).
@@ -255,7 +272,11 @@ Run `npm test` and `npm run typecheck` before committing.
   `src/game/daily.ts` (`dailyView` hides unfound words). The app side is
   `src/app/DailyScreen.tsx`, `dailyApi.ts` and `dailyStorage.ts`; the top 10
   and top 10% badges come from the server's final places, passed to
-  `computeAchievements`. Names shown to others pass `validateName`'s
+  `computeAchievements`. The app holds them per player and asks only for
+  days after those it holds (`placesHeldThrough`, `keepPlacements` in
+  `dailyStorage.ts`; `placesAfter`), and actions ask for none
+  (`places: false`); a request without either gets them all (Dev Plan
+  item 19zm). Names shown to others pass `validateName`'s
   profanity filter (`isOffensive`).
 - Daily Word (Dev Plan item 7b, README "Daily Word"): one word a day for
   everyone, a run of one word with the Daily Set's Pause (twice, since item 18zx), refereed beside the Daily Set

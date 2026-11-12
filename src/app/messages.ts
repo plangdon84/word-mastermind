@@ -13,6 +13,9 @@ export const NAME_ERROR: Record<NameError, string> = {
   offensive: "Choose another name: this one can't be shown to other players.",
 };
 
+/** A name the server's profanity filter refuses (`offensive-name`), in a game shown to other players. */
+export const OFFENSIVE_NAME = "Your name can't be shown to other players. Change it on your profile to play.";
+
 /** "1 game", "3 games". */
 export const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -140,6 +143,8 @@ export function friendErrorMessage(error: FriendError | 'unreachable', word = ''
       return 'One of you already has 200 friends and requests. Remove some from the friends list first.';
     case 'declined':
       return "They've turned down a friend request from you lately. You can ask again within a week.";
+    case 'offensive-name':
+      return OFFENSIVE_NAME;
     case 'bad-request':
     case 'bad-guest-id':
       return 'Something went wrong. Reload the page and try again.';
@@ -304,7 +309,7 @@ export function lobbyErrorMessage(error: LobbyErrorCode, word = '', secret = fal
     case 'time-up':
       return "Time's up: this game is over.";
     case 'offensive-name':
-      return "Your name can't be shown to other players. Change it on your profile to play.";
+      return OFFENSIVE_NAME;
     case 'not-a-friend':
       return 'You can only invite your friends.';
     case 'account-needed':

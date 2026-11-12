@@ -115,7 +115,9 @@ const poolKey = (accountId: string, pool: string) => `${accountId} ${pool}`;
  * the order they were rated, or what's wrong with them. Each result comes
  * from the record: a draw, else a win for the host. Against a person, the
  * record doesn't say which account was the host, so the winner is the
- * player whose rating went up, which a win always does.
+ * player whose stored result (`score`) is a win, or for rows rated before
+ * it was kept, whose rating went up, which a win always does. A stored
+ * result that disagrees with the record is a problem.
  */
 export function ratedGames(rows: readonly RatedGameRow[], records: ReadonlyMap<string, string>): { games: RatedGame[]; problems: string[] } {
   const problems: string[] = [];
@@ -159,16 +161,31 @@ export function ratedGames(rows: readonly RatedGameRow[], records: ReadonlyMap<s
         continue;
       }
       // The player is always the host against a computer.
+      if (first.score !== null && first.score !== hostScore(outcome)) {
+        problems.push(`${name}: its stored result differs from its record.`);
+        continue;
+      }
       games.push({ id, pool: first.pool, ratedAt: first.rated_at, players: [{ accountId: first.account_id, score: hostScore(outcome) }], computer: computerRating(computer) });
       continue;
     }
     if (outcome.winner === null) {
+      if (gameRows.some((r) => r.score !== null && r.score !== 0.5)) {
+        problems.push(`${name}: its stored result differs from its record.`);
+        continue;
+      }
       games.push({ id, pool: first.pool, ratedAt: first.rated_at, players: gameRows.map((r) => ({ accountId: r.account_id, score: 0.5 })), computer: null });
       continue;
     }
-    const up = gameRows.filter((r) => r.rating_after > r.rating_before);
+    const stored = gameRows.every((r) => r.score !== null);
+    const up = stored ? gameRows.filter((r) => r.score === 1) : gameRows.filter((r) => r.rating_after > r.rating_before);
     if (up.length !== 1) {
-      problems.push(`${name}: was won, but not by exactly one player's rating going up.`);
+      problems.push(stored
+        ? `${name}: was won, but its stored results aren't one win and one loss.`
+        : `${name}: was won, but not by exactly one player's rating going up.`);
+      continue;
+    }
+    if (gameRows.some((r) => r.score !== null && r.score !== (r === up[0] ? 1 : 0))) {
+      problems.push(`${name}: its stored result differs from its record.`);
       continue;
     }
     games.push({
@@ -221,11 +238,21 @@ const same = (a: number, b: number) => Math.abs(a - b) <= MATCH_TOLERANCE * Math
 /**
  * A rule time as given to `npm run rerate`: full ISO 8601 with its zone
  * (`Z` or `±hh:mm`), else NaN, so a time without a zone is never read as
- * local time and a typo isn't read as some other date. Left out, `fallback`.
+ * local time and a typo isn't read as some other date. A date or time that
+ * doesn't exist (`2026-02-30`, `T24:00`) is NaN too, never rolled on to the
+ * next one. Left out, `fallback`.
  */
 export function parseRuleTime(text: string | undefined, fallback: number): number {
   if (text === undefined) return fallback;
-  return /^\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d(\.\d+)?)?(Z|[+-]\d\d:\d\d)$/.test(text) ? Date.parse(text) : NaN;
+  const parts = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)(?::(\d\d)(\.\d+)?)?(Z|([+-])(\d\d):(\d\d))$/.exec(text);
+  if (!parts) return NaN;
+  const [, year, month, day, hour, minute, second = '0', , zone, , zoneHour, zoneMinute] = parts;
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return NaN;
+  if (zone !== 'Z' && (Number(zoneHour) > 23 || Number(zoneMinute) > 59)) return NaN;
+  // Date.parse rolls a date that doesn't exist (30 February) on to the next month: refuse it instead.
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return NaN;
+  return Date.parse(text);
 }
 
 /**

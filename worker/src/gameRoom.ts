@@ -9,6 +9,7 @@ import { currentNames } from './sync';
 import { TWO_PLAYER_POOL } from '../../src/game';
 import { ladderEnded } from './matchmaker';
 import { handleAlarm, handleRoom, mayChange, saveFinishedGame, type RoomDeps, type RoomRequest } from './room';
+import { wholeAlarm, wholeRequest } from './whole';
 
 /** Most open pages one game tells about its moves; a new one past this closes the oldest. */
 const MAX_SOCKETS = 8;
@@ -16,8 +17,10 @@ const MAX_SOCKETS = 8;
 /**
  * One Durable Object per game against a friend: the game's referee
  * (`room.ts`). Cloudflare runs one instance per game ID, anywhere in the
- * world, and handles its requests one at a time, so two moves can't race.
- * The worker (`index.ts`) checks each request before passing it on. Its
+ * world. Each request and alarm is handled whole before the next starts
+ * (`blockConcurrencyWhile`), even while it waits on D1 (Cloudflare only
+ * holds a request back while storage is in use), so two moves can't race
+ * and a game ending is saved, rated and announced once. The worker (`index.ts`) checks each request before passing it on. Its
  * alarm enforces the time per guess, even when nobody has the game open.
  * Open game pages keep a WebSocket to it, and it says "changed" down each
  * after every move, so a live game's clocks and guesses show at once. It
@@ -52,14 +55,16 @@ export class GameRoom implements DurableObject {
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') return this.openSocket();
     const roomRequest = await request.json<RoomRequest>();
-    const { status, body } = await handleRoom(this.state.storage, this.deps, roomRequest, Date.now());
+    const done = await wholeRequest(this.state, () => handleRoom(this.state.storage, this.deps, roomRequest, Date.now()));
+    if (!done.ok) return done.response;
+    const { status, body } = done.value;
     if (mayChange(roomRequest) && status < 300) this.tellPages();
     return json(body, status);
   }
 
   /** Set by the referee for the player to move's deadline: if they haven't moved, they concede. */
   async alarm(): Promise<void> {
-    await handleAlarm(this.state.storage, this.deps, Date.now());
+    await wholeAlarm(this.state, () => handleAlarm(this.state.storage, this.deps, Date.now()));
     this.tellPages();
   }
 

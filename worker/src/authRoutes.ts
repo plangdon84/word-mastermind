@@ -1,13 +1,15 @@
 import { isObject } from '../../src/game';
 import {
-  bearerToken, createLoginLink, deleteAccount, endSessionAndAlerts, existingAccountId, findAccount, identify, isToken, mayEmail,
-  normalizeEmail, peekLoginLink, signIn,
+  bearerToken, countSignInEmail, createLoginLink, deleteAccount, endSessionAndAlerts, existingAccountId, findAccount, isToken, mayEmail,
+  normalizeEmail, peekLoginLink, signIn, uncountSignInEmail,
+  type Player,
 } from './accounts';
 import { finishGoogle, googleConfigOf, googleNameHash, redirectUriOf, startGoogle } from './google';
 import { isGuestId } from './guests';
 import { errorResponse, isAllowedOrigin, json, readJson } from './http';
 import type { Env } from './index';
-import { loginMail, mailerOf } from './mail';
+import { addressOf } from './limits';
+import { loginMail, mailerOf, sendsMail } from './mail';
 
 /** The app's origin to send someone back to, if it's one the API serves. */
 function appOrigin(value: unknown, env: Env): string | null {
@@ -28,11 +30,25 @@ async function linkRequest(request: Request): Promise<{ guestId: string; loginTo
 
 const redirect = (location: string) => new Response(null, { status: 302, headers: { location } });
 
+/** `GET /api/auth/me`: who's signed in on this device (null if nobody), and the ways to sign in. */
+export async function authMe(env: Env, player: Player, fetchFn: typeof fetch = fetch): Promise<Response> {
+  const methods = { email: mailerOf(env, fetchFn) !== null, google: googleConfigOf(env) !== null };
+  const account = player.accountId && await findAccount(env.DB, player.accountId);
+  return json({ account: account || null, methods });
+}
+
+/** `POST /api/auth/delete`: deletes the signed-in account. */
+export async function deleteOwnAccount(env: Env, player: Player): Promise<Response> {
+  if (!player.accountId) return errorResponse(401, 'signed-out');
+  await deleteAccount(env.DB, player.accountId);
+  return json({ ok: true });
+}
+
 /**
- * `/api/auth/…`: which ways to sign in this server offers, sending an email
- * link, Google's round trip, who a link is for, trading a link for a session, signing out and
- * deleting the account.
- * Returns null for any other path.
+ * The rest of `/api/auth/…`, none of which identifies the player: sending
+ * an email link, Google's round trip, who a link is for, trading a link
+ * for a session and signing out. `/me` and `/delete` are `authMe` and
+ * `deleteOwnAccount`, which do.
  */
 export async function routeAuth(
   request: Request, env: Env, now: number, pathname: string, fetchFn: typeof fetch = fetch,
@@ -40,15 +56,6 @@ export async function routeAuth(
   if (!pathname.startsWith('/api/auth/')) return null;
   const method = request.method;
   const google = googleConfigOf(env);
-
-  // Who's signed in on this device (null if nobody), and the ways to sign in.
-  if (pathname === '/api/auth/me' && method === 'GET') {
-    const methods = { email: mailerOf(env, fetchFn) !== null, google: google !== null };
-    const who = await identify(request, env.DB, now);
-    if (!who.ok) return errorResponse(who.status, who.error);
-    const account = who.player.accountId && await findAccount(env.DB, who.player.accountId);
-    return json({ account: account || null, methods });
-  }
 
   if (pathname === '/api/auth/email' && method === 'POST') {
     const body = await readJson(request);
@@ -59,9 +66,18 @@ export async function routeAuth(
     const mailer = mailerOf(env, fetchFn);
     if (!mailer) return errorResponse(404, 'email-off');
     if (!await mayEmail(env.DB, email, now)) return errorResponse(429, 'too-many-emails');
+    // Each internet address's daily cap (Dev Plan item 19zk), after the email's own limit so a refused repeat
+    // uses none of it. Not counted where links are only printed (local development and the browser tests).
+    const address = addressOf(request);
+    const counted = address !== null && sendsMail(env);
+    if (counted && !await countSignInEmail(env.DB, address, now)) {
+      return errorResponse(429, 'too-many-emails');
+    }
     const token = await createLoginLink(env.DB, email, null, now);
-    return await mailer(loginMail(email, loginUrl(origin, token)))
-      ? json({ ok: true }) : errorResponse(502, 'email-failed');
+    if (await mailer(loginMail(email, loginUrl(origin, token)))) return json({ ok: true });
+    // A send that failed doesn't use up one of the address's day (2.7.2 review, round 1).
+    if (counted) await uncountSignInEmail(env.DB, address, now);
+    return errorResponse(502, 'email-failed');
   }
 
   if (pathname === '/api/auth/google' && method === 'POST') {
@@ -111,14 +127,6 @@ export async function routeAuth(
   if (pathname === '/api/auth/logout' && method === 'POST') {
     const token = bearerToken(request);
     if (token) await endSessionAndAlerts(env.DB, token);
-    return json({ ok: true });
-  }
-
-  if (pathname === '/api/auth/delete' && method === 'POST') {
-    const who = await identify(request, env.DB, now);
-    if (!who.ok) return errorResponse(who.status, who.error);
-    if (!who.player.accountId) return errorResponse(401, 'signed-out');
-    await deleteAccount(env.DB, who.player.accountId);
     return json({ ok: true });
   }
 

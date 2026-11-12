@@ -45,15 +45,18 @@ WebSocket:
 
 ## Checked and fine
 
-- **Authorization:** every route checks who is asking (`identify`); a guest
+- **Authorization:** every route checks who is asking (`identify`, run
+  once by the route table in `worker/src/index.ts` for every route not
+  marked `open`, since Dev Plan item 19zp); a guest
   ID linked to an account needs that account's session. Friend games,
   lobbies and Daily Rush act only on the asker's own seat or run; hosts
   alone change a lobby or cancel an invite; a challenge is taken only by its
   invitee; rated games need both players to be accounts and fix difficulty.
 - **Words and scores are never trusted from the app:** the referees in the
   Durable Objects validate every word, compute every score, keep the
-  records, time moves by the server's clock and handle one request at a
-  time, so moves can't race or be replayed. Uploaded history must replay to a
+  records, time moves by the server's clock and handle each request whole
+  before the next starts (`blockConcurrencyWhile`, Dev Plan item 19zl), so
+  moves can't race or be replayed. Uploaded history must replay to a
   finished game, and the server's own modes are never taken from uploads.
 - **Other players' words** stay hidden (`pvpView`, `dailyView`, `lobbyView`)
   until found or the game is over; leaderboard and lobby rows never carry a

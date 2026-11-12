@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GUESS_WORDS, SECRET_WORDS } from '../../src/game';
 import { handle, type Env } from './index';
 
@@ -38,5 +38,63 @@ describe('worker', () => {
     }), env, NOW);
     expect(response.status).toBe(204);
     expect(response.headers.get('access-control-allow-headers')).toContain('x-guest-id');
+  });
+});
+
+describe('the route table (Dev Plan item 19zp)', () => {
+  const ask = async (method: string, path: string) => {
+    const response = await handle(new Request(`https://api.example${path}`, { method, ...(method === 'POST' ? { body: '{}' } : {}) }), env, NOW);
+    return [response.status, ((await response.json()) as { error?: string }).error ?? 'ok'];
+  };
+
+  it('identifies the player for every route that needs it, so one without a guest ID is refused', async () => {
+    const id = 'a'.repeat(64);
+    for (const [method, path] of [
+      ['GET', '/api/auth/me'], ['POST', '/api/auth/delete'], ['GET', '/api/games'], ['POST', '/api/games'], ['GET', `/api/games/${id}`],
+      ['POST', `/api/games/${id}/guess`], ['GET', '/api/daily'], ['POST', '/api/daily/guess'], ['GET', '/api/daily/word'],
+      ['POST', '/api/daily/name'], ['POST', '/api/lobbies'], ['GET', '/api/lobbies/ABCDE'], ['GET', '/api/friends'],
+      ['POST', '/api/friends/add'], ['GET', '/api/friends/profile'], ['POST', '/api/profile/shared'], ['POST', '/api/profile/index'],
+      ['GET', '/api/profile'], ['POST', '/api/history'], ['GET', '/api/played'], ['GET', '/api/ratings'],
+      ['GET', '/api/leaderboards/ratings'], ['POST', '/api/push/subscribe'], ['POST', '/api/push/unsubscribe'],
+    ]) {
+      expect(await ask(method, path), `${method} ${path}`).toEqual([400, 'bad-guest-id']);
+    }
+  });
+
+  it('answers the open routes without a guest ID', async () => {
+    expect(await ask('GET', '/api/health')).toEqual([200, 'ok']);
+    expect(await ask('POST', '/api/guests')).toEqual([400, 'bad-guest-id']);
+    expect(await ask('POST', '/api/words/check')).toEqual([400, 'bad-request']);
+    expect(await ask('POST', '/api/auth/logout')).toEqual([200, 'ok']);
+    expect(await ask('POST', '/api/auth/email')).toEqual([400, 'bad-email']);
+    expect(await ask('GET', '/api/auth/nope')).toEqual([404, 'not-found']);
+    expect(await ask('GET', '/api/push/key')).toEqual([404, 'push-off']);
+    expect(await ask('GET', '/api/admin/figures')).toEqual([404, 'off']);
+  });
+
+  it("refuses a route's method or launch switch before asking who's there", async () => {
+    expect(await ask('GET', '/api/profile/shared')).toEqual([405, 'bad-request']);
+    expect(await ask('POST', '/api/played')).toEqual([405, 'bad-request']);
+    expect(await ask('POST', '/api/ratings')).toEqual([405, 'bad-request']);
+    expect(await ask('POST', '/api/leaderboards/ratings')).toEqual([405, 'bad-request']);
+    expect(await ask('GET', '/api/leaderboards/nope')).toEqual([404, 'not-found']);
+    expect(await ask('GET', '/api/push/subscribe')).toEqual([404, 'not-found']);
+    expect(await ask('GET', '/api/queue')).toEqual([405, 'bad-request']);
+    expect(await ask('POST', '/api/queue')).toEqual([400, 'bad-guest-id']);
+    expect(await ask('GET', '/api/games/not-an-id/nope')).toEqual([404, 'not-found']);
+    expect(await ask('POST', '/api/health')).toEqual([404, 'not-found']);
+  });
+
+  it('refuses the queue while its launch switch is off, before anything else', async () => {
+    vi.resetModules();
+    vi.doMock('../../src/game/features', async (original) => ({
+      FEATURES: { ...(await original<typeof import('../../src/game/features')>()).FEATURES, randomOpponent: false },
+    }));
+    const fresh = await import('./index');
+    for (const method of ['GET', 'POST']) {
+      const answer = await fresh.handle(new Request('https://api.example/api/queue', { method }), env, NOW);
+      expect([answer.status, ((await answer.json()) as { error: string }).error], method).toEqual([404, 'off']);
+    }
+    vi.doUnmock('../../src/game/features');
   });
 });

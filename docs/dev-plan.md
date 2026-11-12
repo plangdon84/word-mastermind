@@ -23,90 +23,37 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
   definitions it needs, using far less data on the first tap) and one
   generic line (the app starts a little faster; drop it if 19zq's measured
   saving is underwhelming).
-- **2.7.2** (19zj, 19zk, 19zl, 19zm, 19zo, 19zp; worker, review gate, one
-  stack reviewed as a whole): generic notes, since most of it is security
-  and behind-the-scenes (the repo is public, so no note describes a
-  hole): "Squashed some obscure bugs and tightened security behind the
-  curtain" and "Finished games and Daily Rush are saved and served more
-  reliably and quickly", plus one detailed line for 19zl: "If two of your
-  rated games end at the same moment, both now count towards your
-  rating." 19zj's lobby invite cap and 19zk's email cap get no note of
-  their own (the owner chose not to warn about the email cap). 19zm and
-  19zp may ship with no note of their own, as 19zb did.
-- Order inside 2.7.2: 19zj, 19zk, 19zl, 19zm, 19zo (after 19zj; both it
-  and 19zl touch the referees), 19zp. Each release's notes are OK'd by the
-  owner before its first commit.
+- **2.7.2**: the stack below.
 
-- [ ] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
-  plangdon84/word-mastermind-archive#289 and
-  plangdon84/word-mastermind-archive#291; worker, sign-in,
-  review gate)
-  - Issue 289: a signed-in request whose device ID is linked to a
-    different account is refused with `sign-in-needed` (the app already
-    switches to a new device ID on that), so no one can register turn
-    alerts under another account's device ID; with a test like the review's
-    probe
-  - Issue 291: a player's friends list reads only their newest 10 open
-    lobby invites and deletes the rest (owner's decision, 10 November
-    2026); no friend is refused
-- [ ] **19zk. A daily cap on sign-in emails per internet address** (2.7.2, stacked on 19zj; issue
-  plangdon84/word-mastermind-archive#290; worker, sign-in,
-  review gate)
-  - Decided with the owner on 10 November 2026: each internet address may
-    ask for 10 sign-in emails a day (to any emails), counted in D1 with the
-    address kept hashed and forgotten after a day; the per-email limit
-    stays. The privacy page gets one line saying so, and the route is added
-    to `limitOf` if it needs it. No warning in the app or the release
-    notes (owner, 11 November 2026)
-- [ ] **19zl. Game rooms and the daily referee: no overlapping requests**
-  (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
-  review gate)
-  - The owner's decision, 10 November 2026: fix. Wrap `GameRoom`'s and
-    `DailyRush`'s request and alarm handlers in `blockConcurrencyWhile`,
-    as `RushLobby` does, and correct the comments that say requests can't
-    overlap
-  - Make a rating's write conditional on the rating it was worked out from,
-    and work it out again if it changed, so two games ending together for
-    one player both count
-  - Run `npm run load-test` after, since the day's object serves every
-    daily player
-- [ ] **19zm. Daily past places: stop working them out on every request**
-  (2.7.2, stacked on 19zl; issue plangdon84/word-mastermind-archive#295; worker,
-  review gate)
-  - Actions (guess, Suggest, Pause, Resume, give up) stop sending past
-    places; a request can say the latest day the app already holds and gets
-    only later days. A request without that gets the full list, so older
-    apps keep their top 10 badges. Storing each final place is left for
-    later
-- [ ] **19zo. One way to save a finished game, and two worker savings**
-  (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
-  plangdon84/word-mastermind-archive#297; worker, review gate;
-  after 19zj)
-  - Issue 293: one shared "mark finished, save, clear the mark, retry
-    later" helper for the room, daily and lobby referees, so a lobby also
-    survives a failed D1 save; its notifications and ratings still happen
-    once after a retried save
-  - Issue 297, part 1: identify a signed-in player with one query joining
-    sessions to guests, keeping the daily session refresh and 19zj's check
-  - Issue 297, part 2: the ladder queue skips its write when a check-in
-    changes nothing, still saving `seenAt` so no seeker goes stale
-- [ ] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
-  plangdon84/word-mastermind-archive#294 and
-  plangdon84/word-mastermind-archive#288; worker, review
-  gate)
-  - Issue 294, part 1: one shared name check and one word check for the
-    friend game, lobby and daily routes; a refused name answers
-    `offensive-name` everywhere (a design default for the owner to change),
-    with the friend-game screen's message checked
-  - Issue 294, part 2: a table of path prefixes with `identify` done once
-    for the routes that need it, keeping the routes that deliberately skip
-    it and the launch-switch check
-  - Issue 288, items 3 to 5: put `wranglerArgs`' comment back, prefer a
-    stored `score` in `ratedGames`, and refuse a rule time that doesn't
-    exist (`2026-02-30`, `T24:00`)
-  - Issue 294, part 3 happens in the archive repo, not here: replace its
-    stale CLAUDE.md with a few lines pointing at this repo's (no review
-    gate)
+**Stack 2.7.2** (planned with the owner on 11 November 2026; run by
+`/execute-stack`)
+
+- Release PR: #97, branch `claude/zealous-archimedes-t97pkm` into `main`. Each
+  item is its own PR into that branch, never into `main`
+- Items, in merge order: 19zj, 19zk, 19zl, 19zm, 19zo, 19zp. 19zo comes
+  after 19zj and 19zl, since it uses 19zj's check and, like 19zl, touches
+  the referees
+- Threads: waves (owner, 11 November 2026)
+  - Wave 1: 19zj, 19zk, 19zl, 19zm
+  - Wave 2: 19zo, once 19zj and 19zl are merged into the release branch
+  - Wave 3: 19zp, once every other item is merged
+  - 19zm merged straight after 19zk, ahead of 19zl, since it needs
+    nothing from it (owner, 11 November 2026)
+- Release note (OK'd by the owner, 11 November 2026), added by the
+  release PR, never an item PR: "If two of your rated games end at the
+  same moment, both now count towards your rating.", "Finished games and
+  Daily Rush are saved and served more reliably and quickly." and
+  "Squashed some obscure bugs and tightened security behind the curtain."
+  The repo is public, so no note describes a hole; 19zj's lobby invite
+  cap and 19zk's email cap get no note of their own (the owner chose not
+  to warn about the email cap), and 19zm and 19zp none either
+- Migrations: 19zk takes `0036`; an item that finds it needs one asks the
+  coordinator for the next number
+- Review: worker, so the review gate, run once on the release PR over the
+  whole stack after the last item merges; item PRs skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+
 
 **Later**
 
@@ -189,6 +136,83 @@ shipped to `main` in PR #78. Its review follow-ups, 19zb, are in Done.
 
 ## Done, latest first
 
+- [x] **19zp. Worker clean-ups** (2.7.2, stacked on 19zo; issues
+  plangdon84/word-mastermind-archive#294 and
+  plangdon84/word-mastermind-archive#288; worker, review
+  gate)
+  - Issue 294, part 1: one shared name check and one word check for the
+    friend game, lobby and daily routes; a refused name answers
+    `offensive-name` everywhere (a design default for the owner to change),
+    with the friend-game screen's message checked
+  - Issue 294, part 2: a table of path prefixes with `identify` done once
+    for the routes that need it, keeping the routes that deliberately skip
+    it and the launch-switch check
+  - Issue 288, items 3 to 5: put `wranglerArgs`' comment back, prefer a
+    stored `score` in `ratedGames`, and refuse a rule time that doesn't
+    exist (`2026-02-30`, `T24:00`)
+  - Issue 294, part 3 happens in the archive repo, not here: replace its
+    stale CLAUDE.md with a few lines pointing at this repo's (no review
+    gate)
+  - Built in PR #105, merged into the 2.7.2 release PR (#97); part 3 in
+    plangdon84/word-mastermind-archive#299
+- [x] **19zo. One way to save a finished game, and two worker savings**
+  (2.7.2, stacked on 19zm; issues plangdon84/word-mastermind-archive#293 and
+  plangdon84/word-mastermind-archive#297; worker, review gate;
+  after 19zj)
+  - Issue 293: one shared "mark finished, save, clear the mark, retry
+    later" helper for the room, daily and lobby referees, so a lobby also
+    survives a failed D1 save; its notifications and ratings still happen
+    once after a retried save
+  - Issue 297, part 1: identify a signed-in player with one query joining
+    sessions to guests, keeping the daily session refresh and 19zj's check
+  - Issue 297, part 2: the ladder queue skips its write when a check-in
+    changes nothing, still saving `seenAt` so no seeker goes stale
+  - Built in PR #104, merged into the 2.7.2 release PR (#97)
+- [x] **19zl. Game rooms and the daily referee: no overlapping requests**
+  (2.7.2, stacked on 19zk; issue plangdon84/word-mastermind-archive#292; worker,
+  review gate)
+  - The owner's decision, 10 November 2026: fix. Wrap `GameRoom`'s and
+    `DailyRush`'s request and alarm handlers in `blockConcurrencyWhile`,
+    as `RushLobby` does, and correct the comments that say requests can't
+    overlap
+  - Make a rating's write conditional on the rating it was worked out from,
+    and work it out again if it changed, so two games ending together for
+    one player both count
+  - Run `npm run load-test` after, since the day's object serves every
+    daily player
+  - Built in PR #102, merged into the 2.7.2 release PR (#97)
+- [x] **19zm. Daily past places: stop working them out on every request**
+  (2.7.2, stacked on 19zl; issue plangdon84/word-mastermind-archive#295; worker,
+  review gate)
+  - Actions (guess, Suggest, Pause, Resume, give up) stop sending past
+    places; a request can say the latest day the app already holds and gets
+    only later days. A request without that gets the full list, so older
+    apps keep their top 10 badges. Storing each final place is left for
+    later
+  - Built in PR #101, merged into the 2.7.2 release PR (#97)
+- [x] **19zk. A daily cap on sign-in emails per internet address** (2.7.2, stacked on 19zj; issue
+  plangdon84/word-mastermind-archive#290; worker, sign-in,
+  review gate)
+  - Decided with the owner on 10 November 2026: each internet address may
+    ask for 10 sign-in emails a day (to any emails), counted in D1 with the
+    address kept hashed and forgotten after a day; the per-email limit
+    stays. The privacy page gets one line saying so, and the route is added
+    to `limitOf` if it needs it. No warning in the app or the release
+    notes (owner, 11 November 2026)
+  - Built in PR #100, merged into the 2.7.2 release PR (#97)
+- [x] **19zj. Two small security fixes from the full review** (2.7.2, first in its stack; issues
+  plangdon84/word-mastermind-archive#289 and
+  plangdon84/word-mastermind-archive#291; worker, sign-in,
+  review gate)
+  - Issue 289: a signed-in request whose device ID is linked to a
+    different account is refused with `sign-in-needed` (the app already
+    switches to a new device ID on that), so no one can register turn
+    alerts under another account's device ID; with a test like the review's
+    probe
+  - Issue 291: a player's friends list reads only their newest 10 open
+    lobby invites and deletes the rest (owner's decision, 10 November
+    2026); no friend is refused
+  - Built in PR #99, merged into the 2.7.2 release PR (#97)
 - [x] **19zq. A lighter start-up script** (2.7.1; issue
   plangdon84/word-mastermind-archive#297, part 3; app only; stacked on 19zn;
   a release line OK'd by the owner before the first commit)

@@ -1,4 +1,5 @@
 import { isObject, validateWord, type WordKind, type WordValidation } from '../../src/game';
+import { isSentWord } from './requestChecks';
 
 export interface WordCheckRequest {
   kind: WordKind;
@@ -8,9 +9,7 @@ export interface WordCheckRequest {
 export function parseWordCheck(body: unknown): WordCheckRequest | null {
   if (!isObject(body)) return null;
   const { kind, word } = body;
-  if ((kind !== 'secret' && kind !== 'guess') || typeof word !== 'string') return null;
-  // Longer than any word by far; not worth normalizing.
-  if (word.length > 64) return null;
+  if ((kind !== 'secret' && kind !== 'guess') || !isSentWord(word)) return null;
   return { kind, word };
 }
 

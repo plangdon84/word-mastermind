@@ -209,7 +209,7 @@ export function authErrorMessage(code: AuthErrorCode): string {
     case 'bad-login':
       return 'That sign-in link has expired or was already used. Send yourself a new one.';
     case 'too-many-emails':
-      return "We've sent that address several links already. Check your inbox (and spam), or wait a few minutes.";
+      return "We've sent several sign-in links already. Check your inbox (and spam), or try again later.";
     case 'email-off':
       return "This server can't send sign-in emails.";
     case 'google-off':
