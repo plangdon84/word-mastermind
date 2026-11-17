@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { deduceMarks } from './deduce';
 import { seededRandom } from './computerRatings';
-import { CRANE_SPLIT_DOUGH, HUMAN_STYLES, humanMarks, pickHumanLikeGuess } from './humanLike';
+import { completeMarks, CRANE_SPLIT_DOUGH, HUMAN_STYLES, humanMarks, pickHumanLikeGuess } from './humanLike';
 import { evaluateGuess, type GuessResult } from './scoring';
 import { GUESS_WORD_SET, SECRET_WORDS } from './wordLists';
 
@@ -40,6 +40,23 @@ describe('humanMarks', () => {
       const all = deduceMarks(history.slice(0, -1));
       const { inMask } = humanMarks(history.slice(0, -1), 'multiple');
       for (const letter of letters(inMask)) expect(all[letter]).toBe('in');
+    }
+  });
+});
+
+describe('completeMarks', () => {
+  it('marks exactly what Easy\'s deduceMarks marks', () => {
+    const random = seededRandom(11);
+    const mask = (w: string) => [...w].reduce((m, c) => m | (1 << (c.charCodeAt(0) - 97)), 0);
+    for (let k = 0; k < 40; k++) {
+      const secret = SECRET_WORDS[Math.floor(random() * SECRET_WORDS.length)];
+      const history = play(secret, 'intermediate', k).slice(0, 1 + Math.floor(random() * 6));
+      const slow = deduceMarks(history);
+      const { inMask, outMask } = completeMarks(history.map((g) => ({ mask: mask(g.guess), score: g.score })));
+      const fast: Record<string, string> = {};
+      for (const l of letters(inMask)) fast[l] = 'in';
+      for (const l of letters(outMask)) fast[l] = 'out';
+      expect(fast).toEqual(slow);
     }
   });
 });

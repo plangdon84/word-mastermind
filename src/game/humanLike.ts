@@ -1,4 +1,3 @@
-import { deduceMarks } from './deduce';
 import type { GuessResult } from './scoring';
 import { GUESS_WORDS, SECRET_WORD_SET } from './wordLists';
 
@@ -74,11 +73,14 @@ function letterMask(word: string): number {
   return mask;
 }
 
-function popcount(n: number): number {
-  let count = 0;
-  for (; n; n &= n - 1) count++;
-  return count;
-}
+/** Set bits of each 13-bit number, so a 26-letter mask's count is two lookups. */
+const BITS = (() => {
+  const table = new Uint8Array(1 << 13);
+  for (let i = 1; i < table.length; i++) table[i] = table[i >> 1] + (i & 1);
+  return table;
+})();
+
+const popcount = (n: number): number => BITS[n & 8191] + BITS[n >>> 13];
 
 /** Marks as two letter masks. */
 export interface LetterMarks {
@@ -99,29 +101,33 @@ interface Clue {
  * clue's letters away from another's when one holds the other, which is how
  * a person reads two guesses that differ by a letter or two.
  */
+/** The most sets of letters `propagate` keeps track of, so it stays quick. */
+const MAX_CONSTRAINTS = 300;
+
 function propagate(clues: readonly Clue[], multiple: boolean): LetterMarks {
   let inMask = 0;
   let outMask = 0;
   // Every constraint: `mask` holds exactly `count` in letters.
   const constraints: Clue[] = [{ mask: ALL, score: 5 }, ...clues.map((c) => ({ ...c }))];
+  const known = new Set(constraints.map((c) => c.mask));
   for (let round = 0; round < 50; round++) {
     let changed = false;
     const unsettled = (c: Clue) => ({ mask: c.mask & ~inMask & ~outMask, score: c.score - popcount(c.mask & inMask) });
     const live = constraints.map(unsettled);
-    if (multiple) {
+    if (multiple && constraints.length < MAX_CONSTRAINTS) {
       // One set inside another: what's left over holds the difference.
-      const extra: Clue[] = [];
-      for (const a of live) {
-        for (const b of live) {
-          if (a === b || a.mask === b.mask || (a.mask & b.mask) !== a.mask || a.mask === 0) continue;
-          const diff = { mask: b.mask & ~a.mask, score: b.score - a.score };
-          if (!constraints.some((c) => c.mask === diff.mask)) extra.push(diff);
-        }
-      }
-      for (const e of extra.slice(0, 200)) {
-        if (!constraints.some((c) => c.mask === e.mask)) {
-          constraints.push(e);
-          live.push(e);
+      const count = live.length;
+      for (let a = 0; a < count && constraints.length < MAX_CONSTRAINTS; a++) {
+        const small = live[a];
+        if (small.mask === 0) continue;
+        for (let b = 0; b < count; b++) {
+          const big = live[b];
+          if (a === b || small.mask === big.mask || (small.mask & big.mask) !== small.mask) continue;
+          const diff = { mask: big.mask & ~small.mask, score: big.score - small.score };
+          if (known.has(diff.mask)) continue;
+          known.add(diff.mask);
+          constraints.push(diff);
+          live.push(diff);
           changed = true;
         }
       }
@@ -141,19 +147,54 @@ function propagate(clues: readonly Clue[], multiple: boolean): LetterMarks {
   return { inMask, outMask: outMask & ~inMask };
 }
 
+/**
+ * Complete letter logic, as Easy's `deduceMarks` works it out but much
+ * faster: a search over sets of 5 letters that gives up on a branch as soon
+ * as a score can't be met, and stops once nothing more could be marked.
+ * Fast enough to run on the server for each of the computer's guesses.
+ */
+export function completeMarks(clues: readonly { mask: number; score: number }[]): LetterMarks {
+  if (clues.length === 0) return { inMask: 0, outMask: 0 };
+  const n = clues.length;
+  const masks = clues.map((c) => c.mask);
+  const scores = clues.map((c) => c.score);
+  // left[i * n + k]: clue k's letters from letter i on.
+  const left = new Int8Array(27 * n);
+  for (let i = 25; i >= 0; i--) {
+    for (let k = 0; k < n; k++) left[i * n + k] = left[(i + 1) * n + k] + ((masks[k] >> i) & 1);
+  }
+  const counts = new Int8Array(n);
+  let always = ALL;
+  let ever = 0;
+  let found = false;
+  const search = (i: number, chosen: number, set: number): boolean => {
+    if (chosen === 5) {
+      for (let k = 0; k < n; k++) if (counts[k] !== scores[k]) return true;
+      always &= set;
+      ever |= set;
+      found = true;
+      // Nothing left to learn: no letter in every set, and every letter in one.
+      return !(always === 0 && ever === ALL);
+    }
+    if (26 - i < 5 - chosen) return true;
+    for (let k = 0; k < n; k++) {
+      if (counts[k] > scores[k] || counts[k] + left[i * n + k] < scores[k]) return true;
+    }
+    const bit = 1 << i;
+    for (let k = 0; k < n; k++) if (masks[k] & bit) counts[k]++;
+    const go = search(i + 1, chosen + 1, set | bit);
+    for (let k = 0; k < n; k++) if (masks[k] & bit) counts[k]--;
+    return go && search(i + 1, chosen, set);
+  };
+  search(0, 0, 0);
+  return found ? { inMask: always, outMask: ALL & ~ever } : { inMask: 0, outMask: 0 };
+}
+
 /** The letters it has settled, at its level of letter logic. */
 export function humanMarks(history: readonly GuessResult[], deduction: Deduction): LetterMarks {
-  if (deduction === 'all') {
-    const marks = deduceMarks(history);
-    let inMask = 0;
-    let outMask = 0;
-    for (const [letter, mark] of Object.entries(marks)) {
-      if (mark === 'in') inMask |= letterMask(letter);
-      else if (mark === 'out') outMask |= letterMask(letter);
-    }
-    return { inMask, outMask };
-  }
-  return propagate(history.map((g) => ({ mask: letterMask(g.guess), score: g.score })), deduction === 'multiple');
+  const clues = history.map((g) => ({ mask: letterMask(g.guess), score: g.score }));
+  if (deduction === 'all') return completeMarks(clues);
+  return propagate(clues, deduction === 'multiple');
 }
 
 let guessMasks: Int32Array | undefined;
@@ -164,7 +205,11 @@ const familiar = () => (familiarWords ??= Uint8Array.from(GUESS_WORDS, (w) => (S
 const plainWords = () => (wordIndexes ??= GUESS_WORDS.flatMap((w, i) => (popcount(masks()[i]) === 5 ? [i] : [])));
 
 /** How many of the candidates a staging guess's entropy is measured over. */
-const SAMPLE = 400;
+const SAMPLE = 200;
+/** The fewest it samples, however many guesses it judges. */
+const MIN_SAMPLE = 60;
+/** At most about this many (guess, sampled word) pairs a turn, to keep each guess quick. */
+const WORK = 500_000;
 
 /**
  * Its next guess at the word. Works out the marks, then a weight for every
@@ -217,22 +262,6 @@ export function pickHumanLikeGuess(history: readonly GuessResult[], style: Human
   };
   if (five || fitting <= style.solveAtWords || popcount(inMask) >= style.solveAtIn) return best();
 
-  // A weighted sample of the candidates to judge staging guesses against.
-  const total = weights.reduce((a, b) => a + b, 0);
-  const sample: number[] = [];
-  const sampleWeights: number[] = [];
-  if (candidates.length <= SAMPLE) {
-    candidates.forEach((c, k) => { sample.push(all[c]); sampleWeights.push(weights[k] / total); });
-  } else {
-    for (let s = 0; s < SAMPLE; s++) {
-      let r = random() * total;
-      let k = 0;
-      while (k < weights.length - 1 && (r -= weights[k]) > 0) k++;
-      sample.push(all[candidates[k]]);
-      sampleWeights.push(1 / SAMPLE);
-    }
-  }
-
   // Staging guesses: real-looking words (4 or 5 different letters) testing as
   // few unsettled letters as it likes, or as few as any word can.
   const unsettled = ALL & ~inMask & ~outMask;
@@ -257,16 +286,50 @@ export function pickHumanLikeGuess(history: readonly GuessResult[], style: Human
     if (testing < fewest) fewest = testing;
   }
   const limit = Math.max(style.testLetters, fewest);
+  // A weighted sample of the candidates to judge staging guesses against,
+  // words with the same letters taken together (a guess can't tell them apart).
+  const total = weights.reduce((a, b) => a + b, 0);
+  const judged = new Set<number>();
+  for (let t = 0; t < testable.length; t++) if (tests[t] <= limit) judged.add(all[testable[t]]);
+  // Fewer samples when there are many guesses to judge, so a guess never
+  // takes the server much past a few milliseconds (`WORK`).
+  const size = Math.max(MIN_SAMPLE, Math.min(SAMPLE, Math.floor(WORK / Math.max(1, judged.size))));
+  const sampled = new Map<number, number>();
+  if (candidates.length <= size) {
+    candidates.forEach((c, k) => sampled.set(all[c], (sampled.get(all[c]) ?? 0) + weights[k] / total));
+  } else {
+    const running = new Float64Array(weights.length);
+    weights.reduce((sum, w, k) => (running[k] = sum + w), 0);
+    for (let s = 0; s < size; s++) {
+      const r = random() * total;
+      let lo = 0;
+      let hi = running.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (running[mid] < r) lo = mid + 1; else hi = mid;
+      }
+      const m = all[candidates[lo]];
+      sampled.set(m, (sampled.get(m) ?? 0) + 1 / size);
+    }
+  }
+  const sample = Int32Array.from(sampled.keys());
+  const sampleWeights = Float64Array.from(sampled.values());
+
   const scored: { word: string; value: number }[] = [];
   const spread = new Float64Array(6);
+  const valueOf = new Map<number, number>(); // by letters: anagrams tell it the same
   for (let t = 0; t < testable.length; t++) {
     if (tests[t] > limit) continue;
     const i = testable[t];
     const m = all[i];
-    spread.fill(0);
-    for (let s = 0; s < sample.length; s++) spread[popcount(m & sample[s])] += sampleWeights[s];
-    let value = 0;
-    for (const p of spread) if (p > 0) value -= p * Math.log2(p);
+    let value = valueOf.get(m);
+    if (value === undefined) {
+      spread.fill(0);
+      for (let s = 0; s < sample.length; s++) spread[popcount(m & sample[s])] += sampleWeights[s];
+      value = 0;
+      for (const p of spread) if (p > 0) value -= p * Math.log2(p);
+      valueOf.set(m, value);
+    }
     if (!familiar()[i]) value *= 0.9;
     if (value > 0) scored.push({ word: GUESS_WORDS[i], value });
   }
