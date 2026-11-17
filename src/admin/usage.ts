@@ -45,6 +45,8 @@ export interface DailyCounts {
  */
 export interface LadderComputerFigures {
   recall: number;
+  /** A human-like computer's name (Dev Plan item 19zr); a recall computer is shown by its recall. */
+  label?: string;
   /** Its fixed rating. */
   rating: number;
   games: number;

@@ -1,5 +1,5 @@
 import { pickGuessWithRecall } from './computer';
-import { COMPUTER_RATINGS, computerForAverage, computerForRating, type RatedComputer } from './computerRatings';
+import { computerForAverage, computerForRating, ladderComputers, type RatedComputer } from './computerRatings';
 import type { Difficulty } from './difficulty';
 import type { ReplayedGame } from './history';
 import type { TimeControl } from './pvp';
@@ -70,8 +70,9 @@ export function ladderAverage(games: readonly ReplayedGame[]): number | null {
  * or Expert without one. Never below Expert.
  */
 export function ladderComputer(rating: Rating, average: number | null): RatedComputer {
-  if (!isProvisional(rating)) return computerForRating(rating.rating);
-  return average === null ? COMPUTER_RATINGS[0] : computerForAverage(average);
+  const table = ladderComputers();
+  if (!isProvisional(rating)) return computerForRating(rating.rating, table);
+  return average === null ? table[0] : computerForAverage(average, table);
 }
 
 /** The shortest and longest pause before the computer's guess, from the start of its turn. */

@@ -1,4 +1,5 @@
 import { pickGuessWithRecall, RECALL } from './computer';
+import { FEATURES } from './features';
 import { evaluateGuess, type GuessResult } from './scoring';
 import { SECRET_WORDS } from './wordLists';
 
@@ -10,11 +11,17 @@ import { SECRET_WORDS } from './wordLists';
  * `computerRatings.test.ts` checks a few rows still hold.
  */
 
-/** One computer: its recall (`pickGuessWithRecall`), its average guesses to find a word, and its rating. */
+/**
+ * One computer: its recall (`pickGuessWithRecall`), its average guesses to
+ * find a word, and its rating. A human-like computer (`HUMAN_LADDER`) has an
+ * ID in `recall` instead, kept in the same place in records and D1.
+ */
 export interface RatedComputer {
   recall: number;
   averageGuesses: number;
   rating: number;
+  /** A human-like computer's name on the usage dashboard. */
+  label?: string;
 }
 
 /** The weakest computer a ladder offers: Expert's recall. */
@@ -38,29 +45,55 @@ export const COMPUTER_RATINGS: readonly RatedComputer[] = [
   { recall: 1, averageGuesses: 7.1, rating: 1890 },
 ];
 
+/**
+ * The human-like ladder computers (Dev Plan item 19zr, `humanLike.ts`, their
+ * styles in `humanLadder.ts`), weakest first, one for each recall computer's
+ * rating. Each one's ID is the recall of the computer it replaced plus 0.005:
+ * a number in (0, 1], as every record's `ladder.computer` must be (so an app
+ * from before still reads it), and never a recall. Measured by
+ * `npm run benchmark-human` (2,000 words, seed 1, 17 November 2026), rated
+ * against the recall computers at their table ratings: each within 17 points
+ * of the computer it replaced.
+ */
+export const HUMAN_LADDER: readonly RatedComputer[] = [
+  { recall: 0.385, averageGuesses: 11.3, rating: 1503, label: 'Human-like 1' },
+  { recall: 0.505, averageGuesses: 10.0, rating: 1619, label: 'Human-like 2' },
+  { recall: 0.605, averageGuesses: 9.3, rating: 1672, label: 'Human-like 3' },
+  { recall: 0.705, averageGuesses: 8.5, rating: 1742, label: 'Human-like 4' },
+  { recall: 0.805, averageGuesses: 8.0, rating: 1796, label: 'Human-like 5' },
+  { recall: 0.905, averageGuesses: 7.5, rating: 1850, label: 'Human-like 6' },
+  { recall: 0.995, averageGuesses: 7.2, rating: 1890, label: 'Human-like 7' },
+];
+
+/** The computers the ladder offers now: human-like unless switched off (`FEATURES.humanLikeLadder`). */
+export const ladderComputers = (): readonly RatedComputer[] => (FEATURES.humanLikeLadder ? HUMAN_LADDER : COMPUTER_RATINGS);
+
+/** A human-like ladder computer's ID. */
+export const isHumanLike = (recall: number): boolean => HUMAN_LADDER.some((c) => c.recall === recall);
+
 /** The table's row nearest `value` by `key`; on a tie, the weaker computer. */
-function nearest(value: number, key: (computer: RatedComputer) => number): RatedComputer {
-  let best = COMPUTER_RATINGS[0];
-  for (const computer of COMPUTER_RATINGS) {
+function nearest(value: number, key: (computer: RatedComputer) => number, table: readonly RatedComputer[]): RatedComputer {
+  let best = table[0];
+  for (const computer of table) {
     if (Math.abs(key(computer) - value) < Math.abs(key(best) - value)) best = computer;
   }
   return best;
 }
 
 /** The computer nearest a player's rating, never below Expert (the floor). */
-export const computerForRating = (rating: number): RatedComputer =>
-  Number.isFinite(rating) ? nearest(rating, (c) => c.rating) : COMPUTER_RATINGS[0];
+export const computerForRating = (rating: number, table: readonly RatedComputer[] = COMPUTER_RATINGS): RatedComputer =>
+  Number.isFinite(rating) ? nearest(rating, (c) => c.rating, table) : table[0];
 
 /**
  * The computer nearest a player's average guesses per word, never below
  * Expert: an average worse than Expert's gets Expert.
  */
-export const computerForAverage = (averageGuesses: number): RatedComputer =>
-  Number.isFinite(averageGuesses) ? nearest(averageGuesses, (c) => c.averageGuesses) : COMPUTER_RATINGS[0];
+export const computerForAverage = (averageGuesses: number, table: readonly RatedComputer[] = COMPUTER_RATINGS): RatedComputer =>
+  Number.isFinite(averageGuesses) ? nearest(averageGuesses, (c) => c.averageGuesses, table) : table[0];
 
-/** The table's computer with this recall, if it's one. */
+/** The computer with this recall (or human-like ID), if it's one, from either table. */
 export const ratedComputer = (recall: number): RatedComputer | undefined =>
-  COMPUTER_RATINGS.find((c) => c.recall === recall);
+  COMPUTER_RATINGS.find((c) => c.recall === recall) ?? HUMAN_LADDER.find((c) => c.recall === recall);
 
 /*
  * Calibration (used by `npm run calibrate` and the test). A computer's solves

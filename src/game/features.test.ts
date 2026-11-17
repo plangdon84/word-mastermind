@@ -6,12 +6,12 @@ import { DAY, lobby } from './testGames';
 describe('the launch switches', () => {
   it('are off: the rating boards but Correspondence (item 19l), Competitive Rush and the top 10% badge; Easy\'s Suggest and the rated ladder (item 19q) are on', () => {
     expect(FEATURES).toEqual({
-      randomOpponent: true, ratingBoards: ['correspondence'], competitiveRush: false, suggest: true, dailyTopTenPercent: false,
+      randomOpponent: true, ratingBoards: ['correspondence'], competitiveRush: false, suggest: true, dailyTopTenPercent: false, humanLikeLadder: true,
     });
   });
 
   it("leave a switched-off mode's badge out, and out of Achievement Hunter's count", () => {
-    const all = badgesFor({ randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true, suggest: true, dailyTopTenPercent: true });
+    const all = badgesFor({ randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true, suggest: true, dailyTopTenPercent: true, humanLikeLadder: true });
     expect(all.map((b) => b.id)).toEqual(expect.arrayContaining(['competitive-win', 'daily-top-10-percent']));
     expect(BADGES.map((b) => b.id)).not.toContain('competitive-win');
     expect(BADGES.map((b) => b.id)).not.toContain('daily-top-10-percent');

@@ -25,6 +25,12 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.8.0',
+    notes: [
+      { text: 'Rated ladder computers now play more like a person: they work out which letters are in and out and test a few at a time, so you can watch them narrow it down.' },
+    ],
+  },
+  {
     version: '2.7.2',
     notes: [
       { text: 'If two of your rated games end at the same moment, both now count towards your rating.' },

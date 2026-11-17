@@ -1,11 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authApi } from '../../src/app/account';
 import { friendApi, FriendApiError } from '../../src/app/friendApi';
 import { friendsApi } from '../../src/app/friendsApi';
 import type { QueueChoice } from '../../src/game';
 import { queueApi, QueueApiError } from '../../src/app/queueApi';
 import { sharedSummary } from '../../src/app/sharedSummary';
-import { COMPUTER_RATINGS, NEW_RATING, updateRating } from '../../src/game';
+import { COMPUTER_RATINGS, GUESS_WORD_SET, HUMAN_LADDER, NEW_RATING, updateRating } from '../../src/game';
+import { FEATURES } from '../../src/game/features';
+import { computerPause } from '../../src/game/humanLadder';
 import { fakeD1 } from './fakeD1';
 import { fakeQueues } from './fakeQueues';
 import { fakeRooms } from './fakeRooms';
@@ -786,5 +788,80 @@ describe("who's on the ladder (Dev Plan item 19w)", () => {
     expect((await handleQueue(storage, deps, { action: 'busy' }, NOW)).body).toEqual({ waiting: 1, playing: 0 });
     expect((await handleQueue(storage, deps, { action: 'ended', gameId: 'b'.repeat(64) }, NOW)).status).toBe(200);
     expect((await handleQueue(storage, deps, { action: 'busy' }, NOW)).body).toEqual({ waiting: 1, playing: 0 });
+  });
+});
+
+describe('the human-like ladder computers (Dev Plan item 19zr)', () => {
+  const features = FEATURES as { humanLikeLadder?: boolean };
+  beforeEach(() => { features.humanLikeLadder = true; });
+  afterEach(() => { delete features.humanLikeLadder; });
+
+  async function computerGame(context: ReturnType<typeof setup>, ann: Awaited<ReturnType<ReturnType<typeof setup>['player']>>) {
+    await ann.queue.join(LADDER, 'Ann', 'storm');
+    context.tick(29_999);
+    await ann.queue.poll(LADDER);
+    context.tick(1);
+    const matched = await ann.queue.poll(LADDER);
+    if (matched.state !== 'matched') throw new Error(`not matched: ${matched.state}`);
+    return matched.gameId;
+  }
+
+  type StoredRoom = { computer: { recall: number; plan: unknown[]; seed?: number }; record: { ladder?: { computer?: number } } };
+
+  it('gives a new player the weakest, working out each guess when it is due', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    const room = context.rooms.rooms.get(gameId)!;
+    const stored = (await room.get<StoredRoom>('room'))!;
+    // Nothing planned ahead: only a seed for its pauses (the test rooms' random numbers are all 0).
+    expect(stored.computer).toEqual({ recall: HUMAN_LADDER[0].recall, rating: HUMAN_LADDER[0].rating, plan: [], seed: 0 });
+    expect(stored.record.ladder).toEqual({ computer: HUMAN_LADDER[0].recall });
+    expect(await ann.games.get(gameId)).toMatchObject({ computer: true, ratings: { opponent: { rating: HUMAN_LADDER[0].rating } } });
+
+    // Ann goes first; the computer opens with CRANE once its pause is over.
+    await ann.games.guess(gameId, 'plumb');
+    context.tick(computerPause(0, 0) - 1);
+    expect((await ann.games.get(gameId)).view?.theirGuesses).toHaveLength(0);
+    context.tick(1);
+    expect((await ann.games.get(gameId)).view?.theirGuesses?.map((g) => g.guess)).toEqual(['crane']);
+    // The alarm plays the next one with nobody asking.
+    await ann.games.guess(gameId, 'fight');
+    context.tick(computerPause(0, 1));
+    await context.rooms.runAlarms();
+    expect((await room.get<{ record: { moves: { seat: string; word?: string }[] } }>('room'))!.record.moves
+      .filter((m) => m.seat === 'guest').map((m) => m.word)).toEqual(['crane', 'split']);
+  });
+
+  it('plays a whole game to the end, guessing only guess-list words, and is rated by its own rating', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    // Ann never finds its word, so the computer finds STORM in the end.
+    const mine = ['plumb', 'fight', 'jumpy', 'whack', 'vowel', 'dizzy', 'kebab', 'mummy', 'fluff', 'jiffy', 'puppy', 'bobby', 'civic', 'gawky', 'fuzzy', 'hippy', 'mamma', 'nanny', 'dummy', 'happy'];
+    for (let n = 0; n < mine.length; n++) {
+      const game = await ann.games.get(gameId);
+      if (game.state === 'over') break;
+      await ann.games.guess(gameId, mine[n]);
+      context.tick(computerPause(0, n));
+    }
+    const over = await ann.games.get(gameId);
+    expect(over.state).toBe('over');
+    const theirs = over.view!.theirGuesses!.map((g) => g.guess);
+    expect(theirs.at(-1)).toBe('storm');
+    expect(theirs.every((w) => GUESS_WORD_SET.has(w))).toBe(true);
+    const [row] = context.sqlite.prepare('SELECT computer_recall, rating_before FROM rated_games WHERE game_id = ?').all(gameId) as
+      { computer_recall: number }[];
+    expect(row.computer_recall).toBe(HUMAN_LADDER[0].recall);
+  });
+
+  it("picks a settled player's computer by rating from the human-like table", async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    context.sqlite.prepare(`INSERT INTO ratings (account_id, pool, rating, rd, volatility, games, rated_at) VALUES (?, 'correspondence', 1800, 60, 0.06, 30, ?)`)
+      .run(ann.accountId, NOW);
+    const gameId = await computerGame(context, ann);
+    const stored = (await context.rooms.rooms.get(gameId)!.get<StoredRoom>('room'))!;
+    expect(stored.computer.recall).toBe(HUMAN_LADDER[4].recall);
   });
 });

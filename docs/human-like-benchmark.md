@@ -1,6 +1,6 @@
-# Human-like computer: first benchmark (experiment)
+# Human-like computer: benchmarks
 
-An experiment, not used by any mode yet: `src/game/humanLike.ts`, benchmarked
+The human-like computer, `src/game/humanLike.ts` (the rated ladder's since Dev Plan item 19zr), benchmarked
 by `npm run benchmark-human` (`scripts/benchmark-human.ts`). Every computer
 solved the same 2,000 random secret-list words (seed 1, word lists of
 17 November 2026). Ratings are fitted on the ladder's scale, Expert's 0.38
@@ -201,4 +201,114 @@ vs            intermediate:open=herds+jaunt+blockexpert:open=herds+jaunt+blockin
 no anagrams                    54.8%                 79.3%                 53.7%                 79.8%                 49.5%                 79.1%                 59.9%                 53.9%
 1-2 anagrams                   49.6%                 72.6%                 46.5%                 71.4%                 45.8%                 71.9%                 47.2%                 42.1%
 3+ anagrams                    45.2%                 69.4%                 30.6%                 64.5%                 24.2%                 53.2%                 48.4%                 40.3%
+```
+
+## Fourth run: tuning the 1602, 1839 and 1890 rungs (1,000 words each)
+
+```
+intermediate:leeway=0.75:open=crane+split+dough     9.63       9      12           1646      1642
+intermediate:leeway=0.65:open=crane+split+dough     9.87      10      13           1627      1625
+intermediate:leeway=0.55:open=crane+split+dough    10.12      10      13           1605      1604
+intermediate:leeway=0.45:open=crane+split+dough    10.41      10      13           1581      1580
+(words)                             684          285           31
+intermediate:leeway=0.75:open=crane+split+dough           9.34        10.33         9.71
+intermediate:leeway=0.65:open=crane+split+dough           9.64        10.41         9.84
+intermediate:leeway=0.55:open=crane+split+dough           9.83        10.81        10.29
+intermediate:leeway=0.45:open=crane+split+dough          10.14        10.99        11.16
+vs            intermediate:leeway=0.75:open=crane+split+doughintermediate:leeway=0.65:open=crane+split+doughintermediate:leeway=0.55:open=crane+split+doughintermediate:leeway=0.45:open=crane+split+dough
+no anagrams                    52.1%                 46.5%                 44.2%                 41.5%
+1-2 anagrams                   38.4%                 39.1%                 35.3%                 32.8%
+3+ anagrams                    45.2%                 50.0%                 41.9%                 32.3%
+expert:open=crane+split+dough     7.42       7       9           1854      1859
+expert:leeway=0.9:open=crane+split+dough     7.58       8       9           1834      1840
+expert:leeway=0.85:open=crane+split+dough     7.73       8       9           1813      1822
+(words)                             684          285           31
+expert:open=crane+split+dough           7.29         7.64         8.10
+expert:leeway=0.9:open=crane+split+dough           7.42         7.91         8.19
+expert:leeway=0.85:open=crane+split+dough           7.57         8.09         8.10
+vs            expert:open=crane+split+doughexpert:leeway=0.9:open=crane+split+doughexpert:leeway=0.85:open=crane+split+dough
+no anagrams                    79.2%                 77.9%                 76.3%
+1-2 anagrams                   75.8%                 68.2%                 68.8%
+3+ anagrams                    59.7%                 66.1%                 67.7%
+expert:leeway=0.8:open=crane+split+dough     7.83       8       9           1806      1811
+expert:leeway=0.75:open=crane+split+dough     8.03       8      10           1782      1789
+(words)                             684          285           31
+expert:leeway=0.8:open=crane+split+dough           7.64         8.20         8.65
+expert:leeway=0.75:open=crane+split+dough           7.77         8.62         8.10
+vs            expert:leeway=0.8:open=crane+split+doughexpert:leeway=0.75:open=crane+split+dough
+no anagrams                    74.8%                 73.5%
+1-2 anagrams                   66.7%                 61.1%
+3+ anagrams                    66.1%                 69.4%
+expert:open=crane            7.13       7       9           1882      1892
+(words)                             684          285           31
+expert:open=crane                  7.05         7.33         7.16
+vs                 expert:open=crane
+no anagrams                    81.5%
+1-2 anagrams                   75.6%
+3+ anagrams                    77.4%
+expert:open=crane+split      7.15       7       9           1879      1889
+(words)                             684          285           31
+expert:open=crane+split            7.02         7.41         7.68
+vs            expert:open=crane+split
+no anagrams                    81.4%
+1-2 anagrams                   76.7%
+3+ anagrams                    79.0%
+expert:leeway=1:open=crane+split+dough     7.29       7       9           1865      1874
+(words)                             684          285           31
+expert:leeway=1:open=crane+split+dough           7.14         7.58         7.84
+vs            expert:leeway=1:open=crane+split+dough
+no anagrams                    81.3%
+1-2 anagrams                   75.1%
+3+ anagrams                    71.0%
+```
+
+## The ladder (Dev Plan item 19zr): the seven rungs on the final code (2,000 words)
+
+The settings in `src/game/humanLadder.ts`, after each guess's work was capped
+for the server (`WORK` in `humanLike.ts`). "vs table" is the rating in
+`HUMAN_LADDER`.
+
+```
+computer                  average  median  90th %  table  fitted  vs table
+novice:open=crane+split+dough    11.29      11      14           1514      1503
+intermediate:leeway=0.55:open=crane+split+dough     9.97      10      13           1630      1619
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+novice:open=crane+split+dough          11.24        11.47        10.80
+intermediate:leeway=0.55:open=crane+split+dough           9.72        10.56        10.27
+vs            novice:open=crane+split+doughintermediate:leeway=0.55:open=crane+split+dough
+no anagrams                    28.1%                 45.5%
+1-2 anagrams                   27.6%                 37.1%
+3+ anagrams                    37.3%                 43.7%
+computer                  average  median  90th %  table  fitted  vs table
+intermediate:open=crane+split+dough     9.29       9      12           1680      1672
+intermediate:test=3:insight=0.5:open=crane+split+dough     8.54       8      11           1752      1742
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+intermediate:open=crane+split+dough           9.18         9.55         9.34
+intermediate:test=3:insight=0.5:open=crane+split+dough           8.42         8.80         8.82
+vs            intermediate:open=crane+split+doughintermediate:test=3:insight=0.5:open=crane+split+dough
+no anagrams                    53.2%                 64.0%
+1-2 anagrams                   50.5%                 60.1%
+3+ anagrams                    48.6%                 58.5%
+computer                  average  median  90th %  table  fitted  vs table
+intermediate:test=5:insight=1:open=crane+split+dough     7.99       8      10           1802      1796
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+intermediate:test=5:insight=1:open=crane+split+dough           7.81         8.36         8.49
+vs            intermediate:test=5:insight=1:open=crane+split+dough
+no anagrams                    71.3%
+1-2 anagrams                   65.9%
+3+ anagrams                    59.9%
+computer                  average  median  90th %  table  fitted  vs table
+expert:leeway=0.9:open=crane+split+dough     7.52       8       9           1855      1850
+expert:open=crane+split      7.18       7       9           1899      1890
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+expert:leeway=0.9:open=crane+split+dough           7.37         7.86         7.79
+expert:open=crane+split            7.07         7.37         7.73
+vs            expert:leeway=0.9:open=crane+split+doughexpert:open=crane+split
+no anagrams                    78.2%                 81.0%
+1-2 anagrams                   74.0%                 78.6%
+3+ anagrams                    69.7%                 68.3%
 ```

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { isUsage, type Usage } from '../../src/admin/usage';
-import { DAY_MS } from '../../src/game';
+import { DAY_MS, HUMAN_LADDER } from '../../src/game';
 import { forgetAccessKeys, teamHost, verifyAccessToken } from './access';
 import { KEEP_FIGURES_MS, LADDER_DAYS, periodsTo } from './admin';
 import { fakeD1 } from './fakeD1';
@@ -256,9 +256,10 @@ describe('the figures', () => {
     expect(usage.dailyWord.at(-1)).toEqual({ day: '2026-10-16', started: 1, finished: {} });
     expect(usage.countries).toEqual([{ country: 'GB', count: 1 }]);
     expect(usage.noCountry).toBe(0);
-    expect(usage.ladder).toHaveLength(7);
+    // The recall computers that had games in the period (only 0.38 here), then the human-like ones the ladder offers.
+    expect(usage.ladder).toHaveLength(8);
     expect(usage.ladder![0]).toMatchObject({ recall: 0.38, rating: 1500, games: 5, score: 3 });
     expect(usage.ladder![0].expected).toBeCloseTo(2.5);
-    expect(usage.ladder![6]).toEqual({ recall: 1, rating: 1890, games: 0, score: 0, expected: 0 });
+    expect(usage.ladder![7]).toEqual({ recall: 0.995, rating: HUMAN_LADDER[6].rating, label: 'Human-like 7', games: 0, score: 0, expected: 0 });
   });
 });

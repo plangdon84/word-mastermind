@@ -33,7 +33,7 @@ describe('parseSettings', () => {
   it('defaults to Solo Rush, as before Rush had kinds', () => {
     expect(parseSettings(JSON.stringify({ mode: 'rush' })).rushKind).toBe('solo');
     expect(parseSettings(JSON.stringify({ rushKind: 'friends' })).rushKind).toBe('friends');
-    const allOn: Features = { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true, suggest: true, dailyTopTenPercent: true };
+    const allOn: Features = { randomOpponent: true, ratingBoards: ['15m', '10m', '5m', 'correspondence', 'rush'], competitiveRush: true, suggest: true, dailyTopTenPercent: true, humanLikeLadder: true };
     expect(parseSettings(JSON.stringify({ rushKind: 'competitive' }), null, allOn).rushKind).toBe('competitive');
     // Switched off for the launch: back to the defaults.
     expect(parseSettings(JSON.stringify({ rushKind: 'competitive' })).rushKind).toBe('solo');
