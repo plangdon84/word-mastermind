@@ -49,6 +49,12 @@ export interface HumanLikeStyle {
    * once their scores add up to 5, since every other letter is then out.
    */
   opener?: readonly string[];
+  /**
+   * The chance each turn that it sees everything the scores say (complete
+   * letter logic) instead of only what its own `deduction` finds: a person
+   * who sometimes spots a deduction and sometimes misses it. Leave it out for 0.
+   */
+  insight?: number;
 }
 
 /** The opener a player uses: three common words with 15 different letters. */
@@ -175,7 +181,9 @@ export function pickHumanLikeGuess(history: readonly GuessResult[], style: Human
   const all = masks();
   const guessed = new Set(history.map((g) => g.guess));
   const clues = history.map((g) => ({ mask: letterMask(g.guess), score: g.score }));
-  const { inMask, outMask } = humanMarks(history, style.deduction);
+  const insight = style.insight ?? 0;
+  const sees = insight >= 1 || (insight > 0 && random() < insight);
+  const { inMask, outMask } = humanMarks(history, sees ? 'all' : style.deduction);
   // A 5 is unforgettable: from then on only its anagrams can be the word.
   const five = clues.find((c) => c.score === 5);
 

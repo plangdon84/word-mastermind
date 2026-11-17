@@ -7,6 +7,7 @@
 // Run by hand; it's not part of `npm test`.
 // Usage: npm run benchmark-human [-- --games 2000 --seed 1 --styles novice,intermediate,expert]
 //   --opener crane,split,dough  also runs each style with these first guesses
+//   --styles takes changes too: intermediate:insight=0.5:leeway=0.8:test=3:open=crane+split+dough
 //   --recalls 0.6,1             only these recall computers (all by default)
 // Runs with Node's built-in TypeScript support (Node 22.18 or later).
 import { register } from 'node:module';
@@ -28,12 +29,13 @@ const games = Number(values.games);
 const seed = Number(values.seed);
 if (!(games > 0) || !Number.isInteger(seed)) throw new Error('--games must be a positive number and --seed a whole number');
 
-const { averageOf, COMPUTER_RATINGS, expectedScore, fitRatings, seededRandom } = await import('../src/game/computerRatings.ts');
+const { averageOf, COMPUTER_RATINGS, expectedScore, fitRatings, ratingGap, seededRandom } = await import('../src/game/computerRatings.ts');
 const { pickGuessWithRecall } = await import('../src/game/computer.ts');
 const { HUMAN_STYLES, pickHumanLikeGuess } = await import('../src/game/humanLike.ts');
 const { evaluateGuess } = await import('../src/game/scoring.ts');
 const { SECRET_WORDS } = await import('../src/game/wordLists.ts');
 type GuessResult = import('../src/game/scoring.ts').GuessResult;
+type HumanLikeStyle = import('../src/game/humanLike.ts').HumanLikeStyle;
 
 // The same words for every computer.
 const pick = seededRandom(seed);
@@ -58,13 +60,25 @@ const computers: Computer[] = [
     name: `recall ${c.recall.toFixed(2)}`, rating: c.rating,
     picker: ((h, r) => pickGuessWithRecall(h, c.recall, r)) as Picker,
   })),
-  ...values.styles.split(',').filter(Boolean).map((style) => {
-    const s = HUMAN_STYLES[style as keyof typeof HUMAN_STYLES];
-    if (!s) throw new Error(`No style ${style}`);
-    const plain = { name: `human ${style}`, picker: ((h, r) => pickHumanLikeGuess(h, s, r)) as Picker };
+  ...values.styles.split(/[\s,]+/).filter(Boolean).map((spec) => {
+    // A style, then optional changes: novice, or intermediate:insight=0.5:leeway=0.8:test=3:open=crane+split+dough
+    const [style, ...changes] = spec.split(':');
+    const s0 = HUMAN_STYLES[style as keyof typeof HUMAN_STYLES];
+    if (!s0) throw new Error(`No style ${style}`);
+    const s: HumanLikeStyle = { ...s0 };
+    for (const change of changes) {
+      const [key, value] = change.split('=');
+      if (key === 'insight') s.insight = Number(value);
+      else if (key === 'leeway') s.leeway = Number(value);
+      else if (key === 'test') s.testLetters = Number(value);
+      else if (key === 'strict') s.strictness = Number(value);
+      else if (key === 'open') s.opener = value.split('+');
+      else throw new Error(`No setting ${key} in ${spec}`);
+    }
+    const plain = { name: changes.length ? spec : `human ${style}`, picker: ((h, r) => pickHumanLikeGuess(h, s, r)) as Picker };
     if (!values.opener) return [plain];
     const withOpener = { ...s, opener: values.opener.split(',').map((w) => w.trim().toLowerCase()) };
-    return [plain, { name: `human ${style}+open`, picker: ((h, r) => pickHumanLikeGuess(h, withOpener, r)) as Picker }];
+    return [plain, { name: `${plain.name}+open`, picker: ((h, r) => pickHumanLikeGuess(h, withOpener, r)) as Picker }];
   }).flat(),
 ];
 
@@ -114,10 +128,21 @@ const pct = (x: number) => (Number.isNaN(x) ? '   -  ' : `${(x * 100).toFixed(1)
 const median = (row: readonly number[]) => [...row].sort((a, b) => a - b)[Math.floor(row.length / 2)];
 const worst = (row: readonly number[]) => [...row].sort((a, b) => a - b)[Math.floor(row.length * 0.9)];
 
+// A rating against the recall computers at their table ratings, held fixed
+// (as the ladder rates them): the average of what each one's rating and the
+// gap to it say. Unlike the fitted rating, it doesn't depend on which other
+// computers are in the run, so runs can be compared.
+const tableRated = computers.flatMap((computer, c) => (computer.rating === undefined ? [] : [c]));
+const vsTable = (c: number) => {
+  if (!tableRated.length) return NaN;
+  const clamp = (p: number) => Math.min(0.999, Math.max(0.001, p));
+  return tableRated.reduce((sum, t) => sum + computers[t].rating! + ratingGap(clamp(expectedScore(spreads[c], spreads[t]))), 0) / tableRated.length;
+};
+
 console.log(`\n${secrets.length} words, seed ${seed}\n`);
-console.log('computer                  average  median  90th %  table  fitted rating');
+console.log(`${'computer'.padEnd(24)}  average  median  90th %  table  fitted  vs table`);
 computers.forEach((computer, c) => {
-  console.log(`${computer.name.padEnd(24)}  ${averageOf(spreads[c]).toFixed(2).padStart(7)}  ${String(median(guesses[c])).padStart(6)}  ${String(worst(guesses[c])).padStart(6)}  ${String(computer.rating ?? '').padStart(5)}  ${ratings[c].toFixed(0).padStart(6)}`);
+  console.log(`${computer.name.padEnd(24)}  ${averageOf(spreads[c]).toFixed(2).padStart(7)}  ${String(median(guesses[c])).padStart(6)}  ${String(worst(guesses[c])).padStart(6)}  ${String(computer.rating ?? '').padStart(5)}  ${ratings[c].toFixed(0).padStart(6)}  ${vsTable(c).toFixed(0).padStart(8)}`);
 });
 
 const keepBucket = (bucket: string) => (g: number) => bucketOf(secrets[g]) === bucket;
@@ -131,7 +156,7 @@ computers.forEach((computer, c) => {
   }).join('')}`);
 });
 
-const humans = computers.flatMap((computer, c) => (computer.name.startsWith('human') ? [c] : []));
+const humans = computers.flatMap((computer, c) => (computer.rating === undefined ? [c] : []));
 if (humans.length) {
   console.log('\nHuman-like computers\' score against each recall computer, same word');
   console.log(`${'vs'.padEnd(14)}${humans.map((h) => computers[h].name.padStart(22)).join('')}`);

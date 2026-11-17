@@ -75,4 +75,11 @@ describe('pickHumanLikeGuess', () => {
     expect(five.reduce((sum, g) => sum + g.score, 0)).toBe(5);
     expect(pickHumanLikeGuess(five, style, random)).not.toBe('dough');
   });
+
+  it('with insight 1, reasons with complete letter logic every turn', () => {
+    const history = play('blame', 'novice', 3).slice(0, 6);
+    const seeing = { ...HUMAN_STYLES.novice, insight: 1 };
+    const complete = { ...HUMAN_STYLES.novice, deduction: 'all' as const };
+    expect(pickHumanLikeGuess(history, seeing, seededRandom(9))).toBe(pickHumanLikeGuess(history, complete, seededRandom(9)));
+  });
 });
