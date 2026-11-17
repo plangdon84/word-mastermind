@@ -404,7 +404,10 @@ more than people). Each plays the way players describe their own games
 in/out marks, has a hunch about the rest from how common words and letters
 are (common words first), plays **staging guesses** that change a few
 unsettled letters from an earlier guess, and only goes for the word once it
-believes it knows the letters. Most open with **CRANE, SPLIT, DOUGH**
+believes it knows the letters. Each guess carries the letters it has
+marked in and out, as a player sharing marks at Medium does, so its board
+shows its thinking (marks from a score show from its next guess, as a
+person's do). Most open with **CRANE, SPLIT, DOUGH**
 (15 different letters), stopping early once the scores add up to 5.
 
 Strength comes from how carefully it reasons, never from forgetting: how

@@ -1,5 +1,6 @@
 import { HUMAN_LADDER, seededRandom } from './computerRatings';
-import { CRANE_SPLIT_DOUGH, HUMAN_STYLES, pickHumanLikeGuess, type HumanLikeStyle } from './humanLike';
+import { CRANE_SPLIT_DOUGH, HUMAN_STYLES, marksOf, pickHumanLikeMove, type HumanLikeStyle } from './humanLike';
+import type { Marks } from './marks';
 import { COMPUTER_PAUSE_MS } from './ladder';
 import type { GuessResult } from './scoring';
 
@@ -29,14 +30,16 @@ if (HUMAN_LADDER.some((c) => !HUMAN_LADDER_STYLES.has(c.recall))) throw new Erro
 
 /**
  * A human-like ladder computer's next guess at the player's word, from its
- * own guesses so far. Worked out when it's due, one at a time (unlike the
+ * own guesses so far, with the letters it marks in and out as it guesses
+ * (sent with the guess at Medium, as a player who shares marks does). Worked out when it's due, one at a time (unlike the
  * recall computers' plans), since a whole game at once would take a request
  * far past the Workers Free plan's CPU time.
  */
-export function humanLadderGuess(id: number, history: readonly GuessResult[], random: () => number): string {
+export function humanLadderGuess(id: number, history: readonly GuessResult[], random: () => number): { word: string; marks: Marks } {
   const style = HUMAN_LADDER_STYLES.get(id);
   if (!style) throw new Error(`No human-like ladder computer ${id}`);
-  return pickHumanLikeGuess(history, style, random);
+  const move = pickHumanLikeMove(history, style, random);
+  return { word: move.word, marks: marksOf(move.marks) };
 }
 
 /**

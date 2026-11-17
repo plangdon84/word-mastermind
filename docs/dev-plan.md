@@ -230,7 +230,8 @@ in PR #96.
   - The rated ladder offers them instead (`HUMAN_LADDER`,
     `humanLadder.ts`, `FEATURES.humanLikeLadder`): each guess worked out
     when it's due (each well inside the Free plan's CPU time), IDs where a
-    recall was so older apps still read records, badges left alone (19zs),
+    recall was so older apps still read records, its own marks sent with
+    each guess (shown as a player's shared marks), badges left alone (19zs),
     and the dashboard listing them. Two player vs. the computer keeps its
     strengths
 

@@ -82,10 +82,21 @@ const BITS = (() => {
 
 const popcount = (n: number): number => BITS[n & 8191] + BITS[n >>> 13];
 
-/** Marks as two letter masks. */
+/** Marks as two letter masks (`marksOf` turns them into Medium's marks). */
 export interface LetterMarks {
   inMask: number;
   outMask: number;
+}
+
+/** Letter masks as Medium's marks: each letter in or out. */
+export function marksOf({ inMask, outMask }: LetterMarks): Partial<Record<string, 'in' | 'out'>> {
+  const marks: Partial<Record<string, 'in' | 'out'>> = {};
+  for (let i = 0; i < 26; i++) {
+    const letter = String.fromCharCode(97 + i);
+    if (inMask & (1 << i)) marks[letter] = 'in';
+    else if (outMask & (1 << i)) marks[letter] = 'out';
+  }
+  return marks;
 }
 
 /** A guess as a set of letters and the score it got. */
@@ -220,15 +231,26 @@ const WORK = 500_000;
  * likely words while testing no more than `testLetters` unsettled letters.
  */
 export function pickHumanLikeGuess(history: readonly GuessResult[], style: HumanLikeStyle, random: () => number = Math.random): string {
+  return pickHumanLikeMove(history, style, random).word;
+}
+
+/** Its next guess, with the letters it believes in and out as it makes it (Medium's marks, shown to its opponent). */
+export function pickHumanLikeMove(
+  history: readonly GuessResult[], style: HumanLikeStyle, random: () => number = Math.random,
+): { word: string; marks: LetterMarks } {
   const { opener } = style;
   if (opener && history.length < opener.length && history.every((g, i) => g.guess === opener[i] && g.score < 5)
-    && history.reduce((sum, g) => sum + g.score, 0) < 5) return opener[history.length];
+    && history.reduce((sum, g) => sum + g.score, 0) < 5) return { word: opener[history.length], marks: humanMarks(history, style.deduction) };
+  const insight = style.insight ?? 0;
+  const sees = insight >= 1 || (insight > 0 && random() < insight);
+  const marks = humanMarks(history, sees ? 'all' : style.deduction);
+  return { word: chooseGuess(history, style, random, marks), marks };
+}
+
+function chooseGuess(history: readonly GuessResult[], style: HumanLikeStyle, random: () => number, { inMask, outMask }: LetterMarks): string {
   const all = masks();
   const guessed = new Set(history.map((g) => g.guess));
   const clues = history.map((g) => ({ mask: letterMask(g.guess), score: g.score }));
-  const insight = style.insight ?? 0;
-  const sees = insight >= 1 || (insight > 0 && random() < insight);
-  const { inMask, outMask } = humanMarks(history, sees ? 'all' : style.deduction);
   // A 5 is unforgettable: from then on only its anagrams can be the word.
   const five = clues.find((c) => c.score === 5);
 

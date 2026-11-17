@@ -849,6 +849,13 @@ describe('the human-like ladder computers (Dev Plan item 19zr)', () => {
     expect(over.state).toBe('over');
     const theirs = over.view!.theirGuesses!.map((g) => g.guess);
     expect(theirs.at(-1)).toBe('storm');
+    // Every guess carried its marks, as a player sharing them at Medium does, and none was wrong about STORM.
+    const moves = (await context.rooms.rooms.get(gameId)!.get<{ record: { moves: { seat: string; kind: string; marks?: Record<string, string> }[] } }>('room'))!
+      .record.moves.filter((m) => m.seat === 'guest' && m.kind === 'guess');
+    expect(moves.every((m) => m.marks !== undefined)).toBe(true);
+    for (const m of moves) {
+      for (const [letter, mark] of Object.entries(m.marks!)) expect('storm'.includes(letter)).toBe(mark === 'in');
+    }
     expect(theirs.every((w) => GUESS_WORD_SET.has(w))).toBe(true);
     const [row] = context.sqlite.prepare('SELECT computer_recall, rating_before FROM rated_games WHERE game_id = ?').all(gameId) as
       { computer_recall: number }[];

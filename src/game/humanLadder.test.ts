@@ -32,11 +32,20 @@ describe('the human-like ladder computers (Dev Plan item 19zr)', () => {
       const history: GuessResult[] = [];
       while (!history.at(-1)?.isWin) {
         if (history.length > 60) throw new Error(`${computer.label} didn't find it`);
-        history.push(evaluateGuess(humanLadderGuess(computer.recall, history, random), 'storm'));
+        history.push(evaluateGuess(humanLadderGuess(computer.recall, history, random).word, 'storm'));
       }
       expect(history.every((g) => GUESS_WORD_SET.has(g.guess))).toBe(true);
     }
     expect(() => humanLadderGuess(0.38, [], random)).toThrow();
+  });
+
+  it('mark the letters they have worked out with each guess', () => {
+    // CRANE scored 0: all five are out, which even the weakest marks.
+    const { word, marks } = humanLadderGuess(HUMAN_LADDER[0].recall, [{ guess: 'crane', score: 0, isWin: false }], seededRandom(1));
+    expect(word).toBe('split');
+    expect(marks).toEqual({ a: 'out', c: 'out', e: 'out', n: 'out', r: 'out' });
+    // Nothing known yet: no marks.
+    expect(humanLadderGuess(HUMAN_LADDER[6].recall, [], seededRandom(1)).marks).toEqual({});
   });
 
   it('pause 3 to 8 seconds before each guess, the same each time it is asked', () => {
