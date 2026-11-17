@@ -43,7 +43,16 @@ export interface HumanLikeStyle {
    * words first. 1 treats every guess-list word alike.
    */
   unfamiliar: number;
+  /**
+   * Fixed first guesses, played in order before it starts thinking, such as
+   * a player's CRANE, SPLIT, DOUGH (15 different letters). It stops early
+   * once their scores add up to 5, since every other letter is then out.
+   */
+  opener?: readonly string[];
 }
+
+/** The opener a player uses: three common words with 15 different letters. */
+export const CRANE_SPLIT_DOUGH: readonly string[] = ['crane', 'split', 'dough'];
 
 export const HUMAN_STYLES: Readonly<Record<'novice' | 'intermediate' | 'expert', HumanLikeStyle>> = {
   novice: { deduction: 'multiple', testLetters: 1, strictness: 0.5, solveAtWords: 2, solveAtIn: 4, leeway: 0.85, unfamiliar: 0.3 },
@@ -160,6 +169,9 @@ const SAMPLE = 400;
  * likely words while testing no more than `testLetters` unsettled letters.
  */
 export function pickHumanLikeGuess(history: readonly GuessResult[], style: HumanLikeStyle, random: () => number = Math.random): string {
+  const { opener } = style;
+  if (opener && history.length < opener.length && history.every((g, i) => g.guess === opener[i] && g.score < 5)
+    && history.reduce((sum, g) => sum + g.score, 0) < 5) return opener[history.length];
   const all = masks();
   const guessed = new Set(history.map((g) => g.guess));
   const clues = history.map((g) => ({ mask: letterMask(g.guess), score: g.score }));

@@ -6,6 +6,8 @@
 // word has on the secret list (REAPS has many; most words have none).
 // Run by hand; it's not part of `npm test`.
 // Usage: npm run benchmark-human [-- --games 2000 --seed 1 --styles novice,intermediate,expert]
+//   --opener crane,split,dough  also runs each style with these first guesses
+//   --recalls 0.6,1             only these recall computers (all by default)
 // Runs with Node's built-in TypeScript support (Node 22.18 or later).
 import { register } from 'node:module';
 import { parseArgs } from 'node:util';
@@ -18,6 +20,8 @@ const { values } = parseArgs({
     seed: { type: 'string', default: '1' },
     styles: { type: 'string', default: 'novice,intermediate,expert' },
     words: { type: 'string', default: '' },
+    opener: { type: 'string', default: '' },
+    recalls: { type: 'string', default: '' },
   },
 });
 const games = Number(values.games);
@@ -50,15 +54,18 @@ const BUCKETS = ['no anagrams', '1-2 anagrams', '3+ anagrams'];
 type Picker = (history: readonly GuessResult[], random: () => number) => string;
 interface Computer { name: string; rating?: number; picker: Picker }
 const computers: Computer[] = [
-  ...COMPUTER_RATINGS.map((c) => ({
+  ...COMPUTER_RATINGS.filter((c) => !values.recalls || values.recalls.split(',').map(Number).includes(c.recall)).map((c) => ({
     name: `recall ${c.recall.toFixed(2)}`, rating: c.rating,
     picker: ((h, r) => pickGuessWithRecall(h, c.recall, r)) as Picker,
   })),
   ...values.styles.split(',').filter(Boolean).map((style) => {
     const s = HUMAN_STYLES[style as keyof typeof HUMAN_STYLES];
     if (!s) throw new Error(`No style ${style}`);
-    return { name: `human ${style}`, picker: ((h, r) => pickHumanLikeGuess(h, s, r)) as Picker };
-  }),
+    const plain = { name: `human ${style}`, picker: ((h, r) => pickHumanLikeGuess(h, s, r)) as Picker };
+    if (!values.opener) return [plain];
+    const withOpener = { ...s, opener: values.opener.split(',').map((w) => w.trim().toLowerCase()) };
+    return [plain, { name: `human ${style}+open`, picker: ((h, r) => pickHumanLikeGuess(h, withOpener, r)) as Picker }];
+  }).flat(),
 ];
 
 function solve(secret: string, picker: Picker, random: () => number): number {
@@ -86,7 +93,9 @@ const spreadOf = (row: readonly number[], keep: (g: number) => boolean = () => t
   return counts;
 };
 const spreads = guesses.map((row) => spreadOf(row));
-const ratings = fitRatings(spreads.map((a) => spreads.map((b) => expectedScore(a, b))), 0);
+// Pinned to the 0.38 computer at 1500 when it's in the run, else to the first one at its table rating.
+const pinned = Math.max(0, computers.findIndex((c) => c.rating === 1500));
+const ratings = fitRatings(spreads.map((a) => spreads.map((b) => expectedScore(a, b))), pinned, computers[pinned].rating ?? 1500);
 
 // Head to head on the same word, game by game: a's score against b.
 const headToHead = (a: number, b: number, keep: (g: number) => boolean = () => true) => {
@@ -106,17 +115,17 @@ const median = (row: readonly number[]) => [...row].sort((a, b) => a - b)[Math.f
 const worst = (row: readonly number[]) => [...row].sort((a, b) => a - b)[Math.floor(row.length * 0.9)];
 
 console.log(`\n${secrets.length} words, seed ${seed}\n`);
-console.log('computer              average  median  90th %  table  fitted rating');
+console.log('computer                  average  median  90th %  table  fitted rating');
 computers.forEach((computer, c) => {
-  console.log(`${computer.name.padEnd(20)}  ${averageOf(spreads[c]).toFixed(2).padStart(7)}  ${String(median(guesses[c])).padStart(6)}  ${String(worst(guesses[c])).padStart(6)}  ${String(computer.rating ?? '').padStart(5)}  ${ratings[c].toFixed(0).padStart(6)}`);
+  console.log(`${computer.name.padEnd(24)}  ${averageOf(spreads[c]).toFixed(2).padStart(7)}  ${String(median(guesses[c])).padStart(6)}  ${String(worst(guesses[c])).padStart(6)}  ${String(computer.rating ?? '').padStart(5)}  ${ratings[c].toFixed(0).padStart(6)}`);
 });
 
 const keepBucket = (bucket: string) => (g: number) => bucketOf(secrets[g]) === bucket;
 console.log('\nAverage guesses by how many anagrams the word has on the secret list');
-console.log(`${'computer'.padEnd(20)}  ${BUCKETS.map((b) => b.padStart(13)).join('')}`);
-console.log(`${'(words)'.padEnd(20)}  ${BUCKETS.map((b) => String(secrets.filter((_, g) => keepBucket(b)(g)).length).padStart(13)).join('')}`);
+console.log(`${'computer'.padEnd(24)}  ${BUCKETS.map((b) => b.padStart(13)).join('')}`);
+console.log(`${'(words)'.padEnd(24)}  ${BUCKETS.map((b) => String(secrets.filter((_, g) => keepBucket(b)(g)).length).padStart(13)).join('')}`);
 computers.forEach((computer, c) => {
-  console.log(`${computer.name.padEnd(20)}  ${BUCKETS.map((b) => {
+  console.log(`${computer.name.padEnd(24)}  ${BUCKETS.map((b) => {
     const row = guesses[c].filter((_, g) => keepBucket(b)(g));
     return (row.length ? (row.reduce((x, y) => x + y, 0) / row.length).toFixed(2) : '-').padStart(13);
   }).join('')}`);
@@ -131,8 +140,8 @@ if (humans.length) {
     console.log(`${computer.name.padEnd(14)}${humans.map((h) => pct(headToHead(h, c)).padStart(22)).join('')}`);
   });
   const sixty = computers.findIndex((c) => c.name === 'recall 0.60');
-  console.log('\n...and against recall 0.60 (rated 1673) by anagrams');
-  for (const bucket of BUCKETS) {
+  if (sixty >= 0) console.log('\n...and against recall 0.60 (rated 1673) by anagrams');
+  for (const bucket of sixty >= 0 ? BUCKETS : []) {
     console.log(`${bucket.padEnd(14)}${humans.map((h) => pct(headToHead(h, sixty, keepBucket(bucket))).padStart(22)).join('')}`);
   }
 }

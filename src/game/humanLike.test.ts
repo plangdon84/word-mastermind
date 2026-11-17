@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { deduceMarks } from './deduce';
 import { seededRandom } from './computerRatings';
-import { HUMAN_STYLES, humanMarks, pickHumanLikeGuess } from './humanLike';
+import { CRANE_SPLIT_DOUGH, HUMAN_STYLES, humanMarks, pickHumanLikeGuess } from './humanLike';
 import { evaluateGuess, type GuessResult } from './scoring';
 import { GUESS_WORD_SET, SECRET_WORDS } from './wordLists';
 
@@ -61,5 +61,18 @@ describe('pickHumanLikeGuess', () => {
     const history = play('reaps', 'expert', 1);
     const five = history.findIndex((g) => g.score === 5);
     for (const g of history.slice(five)) expect([...g.guess].sort().join('')).toBe('aeprs');
+  });
+
+  it('plays its opener first, stopping once the scores add up to 5', () => {
+    const style = { ...HUMAN_STYLES.intermediate, opener: CRANE_SPLIT_DOUGH };
+    const random = seededRandom(2);
+    expect(pickHumanLikeGuess([], style, random)).toBe('crane');
+    expect(pickHumanLikeGuess([evaluateGuess('crane', 'ghost')], style, random)).toBe('split');
+    const two = [evaluateGuess('crane', 'ghost'), evaluateGuess('split', 'ghost')];
+    expect(pickHumanLikeGuess(two, style, random)).toBe('dough');
+    // PEARL shares R, A, E with CRANE and P, L with SPLIT: 5 already, so no DOUGH.
+    const five = [evaluateGuess('crane', 'pearl'), evaluateGuess('split', 'pearl')];
+    expect(five.reduce((sum, g) => sum + g.score, 0)).toBe(5);
+    expect(pickHumanLikeGuess(five, style, random)).not.toBe('dough');
   });
 });
