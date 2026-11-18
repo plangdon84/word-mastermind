@@ -1,6 +1,6 @@
 # Dev Plan
 
-Triaged with the owner on 10 November 2026: items 19zj to 19zq (the full-codebase review's issues). Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Triaged with the owner on 18 November 2026: items 19zt to 19zv (19zr and 19zs added with the owner on 17 November 2026). Before that, 10 November 2026: items 19zj to 19zq (the full-codebase review's issues). Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -15,9 +15,46 @@ Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
 in PR #96.
 
-(none)
+- [ ] **19zt. The 8pm reminder after playing on another device** (issues
+  plangdon84/word-mastermind-archive#298 and
+  plangdon84/word-mastermind-archive#302; worker, review gate; a fix
+  release, its note OK'd by the owner before the first commit)
+  - Issue 298: a player who played both dailies on a computer still got
+    the 8pm reminder on their phone, saying the Daily Set was played but
+    not the Daily Word. Issue 302: played on the phone the next day, no
+    wrong reminder came. Find the cause first. The likely one: a daily
+    start is recorded for the reminder in the background after answering
+    (`noteDailyStarted` through `waitUntil`), and a failed write is
+    ignored, so a lost write looks like a game not played
+  - Record a daily start so a failed write is retried or fails the
+    request (not dropped), and test the case: both dailies played on one
+    device of an account, reminders on another of its devices, and no
+    reminder comes
+- [ ] **19zu. Two reported words** (issues
+  plangdon84/word-mastermind-archive#304 and
+  plangdon84/word-mastermind-archive#305; app only, word lists; a fix
+  release, its note OK'd by the owner before the first commit)
+  - Issue 304: HOSEL stays on the guess list with a hand-written
+    definition (`wordlist/rules/definitions.txt`), since WordNet has none
+  - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
+    an old game that used it still replays (`replaying`)
+  - `npm run wordlist` and `npm run test:wordlist`. Other guess-only words
+    without a definition (about 2,600) are fixed as players report them,
+    not in one go (owner, 18 November 2026)
 
 **Later**
+
+- [ ] **19zv. Review lows from 2.7.2** (issues
+  plangdon84/word-mastermind-archive#300 and
+  plangdon84/word-mastermind-archive#301; worker and sign-in, review gate;
+  low priority at the owner's word)
+  - Issue 300: the sign-in email cap's hashed internet addresses also mix
+    in a secret kept as a Worker secret (free; the owner sets it in the
+    Cloudflare dashboard), falling back to today's hash while it isn't set
+  - Issue 301: a Daily theme corrected during its own day reaches players
+    who start after the fix (the day's object stops remembering it for the
+    whole day, or the theme loader tells it to forget), and open pages hear
+    a timed-out game's end even if the room's alarm then fails
 
 - [ ] **19zs. VS CPU badges for the human-like ladder computers** (from the
   owner, 17 November 2026, if 19zr's computers stay; game logic and app)
