@@ -312,3 +312,52 @@ no anagrams                    78.2%                 81.0%
 1-2 anagrams                   74.0%                 78.6%
 3+ anagrams                    69.7%                 68.3%
 ```
+
+## After review round 1 (capped work per guess, `MAX_JUDGED`; 21 November 2026)
+
+The seven rungs again on 2,000 words; "vs table" is the rating in `HUMAN_LADDER`.
+
+```
+computer                  average  median  90th %  table  fitted  vs table
+novice:open=crane+split+dough    11.29      11      14           1515      1505
+intermediate:leeway=0.55:open=crane+split+dough    10.11      10      13           1621      1609
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+novice:open=crane+split+dough          11.26        11.45        10.66
+intermediate:leeway=0.55:open=crane+split+dough           9.87        10.64        10.52
+vs            novice:open=crane+split+doughintermediate:leeway=0.55:open=crane+split+dough
+no anagrams                    28.3%                 44.7%
+1-2 anagrams                   29.0%                 37.6%
+3+ anagrams                    31.7%                 36.6%
+computer                  average  median  90th %  table  fitted  vs table
+intermediate:open=crane+split+dough     9.37       9      12           1673      1666
+intermediate:test=3:insight=0.5:open=crane+split+dough     8.62       9      11           1744      1735
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+intermediate:open=crane+split+dough           9.19         9.73        10.01
+intermediate:test=3:insight=0.5:open=crane+split+dough           8.46         8.95         8.94
+vs            intermediate:open=crane+split+doughintermediate:test=3:insight=0.5:open=crane+split+dough
+no anagrams                    52.9%                 62.9%
+1-2 anagrams                   48.2%                 58.9%
+3+ anagrams                    38.7%                 52.1%
+computer                  average  median  90th %  table  fitted  vs table
+intermediate:test=5:insight=1:open=crane+split+dough     8.05       8      10           1795      1789
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+intermediate:test=5:insight=1:open=crane+split+dough           7.88         8.43         8.52
+vs            intermediate:test=5:insight=1:open=crane+split+dough
+no anagrams                    71.2%
+1-2 anagrams                   65.7%
+3+ anagrams                    62.0%
+computer                  average  median  90th %  table  fitted  vs table
+expert:leeway=0.9:open=crane+split+dough     7.64       8       9           1843      1837
+expert:open=crane+split      7.33       7       9           1881      1872
+computer                    no anagrams 1-2 anagrams  3+ anagrams
+(words)                            1371          558           71
+expert:leeway=0.9:open=crane+split+dough           7.46         8.02         8.18
+expert:open=crane+split            7.21         7.58         7.77
+vs            expert:leeway=0.9:open=crane+split+doughexpert:open=crane+split
+no anagrams                    76.4%                 79.6%
+1-2 anagrams                   72.0%                 75.9%
+3+ anagrams                    66.2%                 74.6%
+```

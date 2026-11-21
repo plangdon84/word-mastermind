@@ -416,17 +416,18 @@ many letters a staging guess may change (1, 2, 3 or any), how often it sees
 everything the scores say (complete letter logic, as Easy's marks), and how
 close to the best staging guess it plays. Each was tuned with
 `npm run benchmark-human` to land on a recall computer's rating, rated
-against them at their table ratings (2,000 words; docs/human-like-benchmark.md):
+against them at their table ratings (2,000 words, each within 18 points;
+docs/human-like-benchmark.md):
 
 | Computer     | Replaces | Average guesses | Rating | How it plays                                          |
 |--------------|----------|-----------------|--------|-------------------------------------------------------|
-| Human-like 1 | 38%      | 11.3            | 1503   | One letter at a time                                   |
-| Human-like 2 | 50%      | 10.0            | 1619   | Two letters at a time, often not the best test guess   |
-| Human-like 3 | 60%      | 9.3             | 1672   | Two letters at a time                                  |
-| Human-like 4 | 70%      | 8.5             | 1742   | Three at a time, sees every deduction half the time    |
-| Human-like 5 | 80%      | 8.0             | 1796   | Any number at a time, sees every deduction             |
-| Human-like 6 | 90%      | 7.5             | 1850   | Expert, not always the best test guess                 |
-| Human-like 7 | 100%     | 7.2             | 1890   | Expert, opening CRANE, SPLIT only                      |
+| Human-like 1 | 38%      | 11.3            | 1505   | One letter at a time                                  |
+| Human-like 2 | 50%      | 10.1            | 1609   | Two letters at a time, often not the best test guess  |
+| Human-like 3 | 60%      | 9.4             | 1666   | Two letters at a time                                 |
+| Human-like 4 | 70%      | 8.6             | 1735   | Three at a time, sees every deduction half the time   |
+| Human-like 5 | 80%      | 8.1             | 1789   | Any number at a time, sees every deduction            |
+| Human-like 6 | 90%      | 7.6             | 1837   | Expert, not always the best test guess                |
+| Human-like 7 | 100%     | 7.3             | 1872   | Expert, opening CRANE, SPLIT only                     |
 
 They solve words with many anagrams almost as fast as any other word, as
 people do. Their fixed data is `HUMAN_LADDER` in `computerRatings.ts` and
