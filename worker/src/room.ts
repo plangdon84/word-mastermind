@@ -360,7 +360,9 @@ async function playComputer(storage: RoomStorage, deps: RoomDeps, room: Room, ga
   const mine = game!.guesses.guest;
   // A human-like computer works its guess out now, and shows its marks with it (Dev Plan item 19zr).
   const planned = plan[mine.length];
-  const { word, marks } = planned ? { word: planned.word, marks: undefined } : humanLadderGuess(recall, mine, deps.random);
+  // Its final guess (the player went first and found its word, so a hit draws): it goes for the word itself.
+  const last = game!.guesses.host.at(-1)?.isWin === true;
+  const { word, marks } = planned ? { word: planned.word, marks: undefined } : humanLadderGuess(recall, mine, deps.random, last);
   const result = submitPvpGuess(game!, 'guest', word, at, marks);
   if (!result.ok) return null;
   const played = await save(storage, deps, { ...room, record: toPvpRecord(result.game) }, now);

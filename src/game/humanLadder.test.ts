@@ -48,6 +48,19 @@ describe('the human-like ladder computers (Dev Plan item 19zr)', () => {
     expect(humanLadderGuess(HUMAN_LADDER[6].recall, [], seededRandom(1)).marks).toEqual({});
   });
 
+  it('go for the word on a final guess, never an opener or staging guess', () => {
+    // A first guess would be CRANE; as a final guess it's a word that could be the answer (5 different letters).
+    const random = seededRandom(3);
+    for (const computer of HUMAN_LADDER) {
+      expect(humanLadderGuess(computer.recall, [], seededRandom(3)).word).toBe('crane');
+      const { word } = humanLadderGuess(computer.recall, [], random, true);
+      expect(new Set(word).size).toBe(5);
+    }
+    // After CRANE scored 0, a final guess has none of its letters.
+    const { word } = humanLadderGuess(HUMAN_LADDER[2].recall, [{ guess: 'crane', score: 0, isWin: false }], random, true);
+    expect([...word].some((l) => 'crane'.includes(l))).toBe(false);
+  });
+
   it('pause 3 to 8 seconds before each guess, the same each time it is asked', () => {
     for (let n = 0; n < 50; n++) {
       const pause = computerPause(1234, n);

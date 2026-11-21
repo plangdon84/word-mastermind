@@ -5,7 +5,7 @@ import { friendsApi } from '../../src/app/friendsApi';
 import type { QueueChoice } from '../../src/game';
 import { queueApi, QueueApiError } from '../../src/app/queueApi';
 import { sharedSummary } from '../../src/app/sharedSummary';
-import { COMPUTER_RATINGS, GUESS_WORD_SET, HUMAN_LADDER, NEW_RATING, updateRating } from '../../src/game';
+import { COMPUTER_RATINGS, GUESS_WORD_SET, HUMAN_LADDER, NEW_RATING, SECRET_WORDS, updateRating } from '../../src/game';
 import { FEATURES } from '../../src/game/features';
 import { computerPause } from '../../src/game/humanLadder';
 import { fakeD1 } from './fakeD1';
@@ -793,8 +793,12 @@ describe("who's on the ladder (Dev Plan item 19w)", () => {
 
 describe('the human-like ladder computers (Dev Plan item 19zr)', () => {
   const features = FEATURES as { humanLikeLadder?: boolean };
-  beforeEach(() => { features.humanLikeLadder = true; });
-  afterEach(() => { delete features.humanLikeLadder; });
+  let before: boolean | undefined;
+  beforeEach(() => { before = features.humanLikeLadder; features.humanLikeLadder = true; });
+  afterEach(() => {
+    if (before === undefined) delete features.humanLikeLadder;
+    else features.humanLikeLadder = before;
+  });
 
   async function computerGame(context: ReturnType<typeof setup>, ann: Awaited<ReturnType<ReturnType<typeof setup>['player']>>) {
     await ann.queue.join(LADDER, 'Ann', 'storm');
@@ -860,6 +864,20 @@ describe('the human-like ladder computers (Dev Plan item 19zr)', () => {
     const [row] = context.sqlite.prepare('SELECT computer_recall, rating_before FROM rated_games WHERE game_id = ?').all(gameId) as
       { computer_recall: number }[];
     expect(row.computer_recall).toBe(HUMAN_LADDER[0].recall);
+  });
+
+  it('uses its final guess on the word itself, not its opener', async () => {
+    const context = setup();
+    const ann = await context.player(ANN, 'Ann');
+    const gameId = await computerGame(context, ann);
+    // The test rooms' random numbers are all 0: the computer's word is the secret list's first, and Ann goes first.
+    await ann.games.guess(gameId, SECRET_WORDS[0]);
+    context.tick(computerPause(0, 0));
+    const over = await ann.games.get(gameId);
+    expect(over.state).toBe('over');
+    const [last] = over.view!.theirGuesses!;
+    expect(last.guess).not.toBe('crane');
+    expect(new Set(last.guess).size).toBe(5);
   });
 
   it("picks a settled player's computer by rating from the human-like table", async () => {

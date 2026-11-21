@@ -404,7 +404,8 @@ more than people). Each plays the way players describe their own games
 in/out marks, has a hunch about the rest from how common words and letters
 are (common words first), plays **staging guesses** that change a few
 unsettled letters from an earlier guess, and only goes for the word once it
-believes it knows the letters. Each guess carries the letters it has
+believes it knows the letters. On its final guess (you went first and
+found its word, so a hit draws) it goes straight for its likeliest word. Each guess carries the letters it has
 marked in and out, as a player sharing marks at Medium does, so its board
 shows its thinking (marks from a score show from its next guess, as a
 person's do). Most open with **CRANE, SPLIT, DOUGH**
@@ -436,7 +437,9 @@ the record. Badges are unchanged for now: a win reads that ID as a recall
 (so up to Expert's VS CPU badges, never Mastermind's) until Dev Plan item
 19zs revisits them, since the strengths don't map onto the old ones. The
 room works out each guess when it's due, never the whole game at the start,
-to keep within the Workers Free plan's CPU time. `FEATURES.humanLikeLadder`
+to keep within the Workers Free plan's CPU time: each guess judges at most
+1,500 staging guesses (`MAX_JUDGED`), a random few when there are more, and
+took 3 to 5 ms at the 99th percentile when measured. `FEATURES.humanLikeLadder`
 switches back to the recall computers; the usage dashboard lists each
 computer the ladder offers, and any other with games in its 90 days.
 

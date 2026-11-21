@@ -182,8 +182,10 @@ interface LadderRow {
 export function ladderFigures(rows: readonly LadderRow[]): LadderComputerFigures[] {
   // The ladder's computers now, and the other table's only where they have games in the period (Dev Plan item 19zr).
   const offered = ladderComputers();
+  // Weakest first by rating; a recall computer before the human-like one with the same rating.
   const listed = [...COMPUTER_RATINGS, ...HUMAN_LADDER]
-    .filter((computer) => offered.includes(computer) || rows.some((row) => row.recall === computer.recall));
+    .filter((computer) => offered.includes(computer) || rows.some((row) => row.recall === computer.recall))
+    .sort((a, b) => a.rating - b.rating);
   return listed.map((computer) => {
     const figures: LadderComputerFigures = {
       recall: computer.recall, rating: computer.rating, ...(computer.label ? { label: computer.label } : {}), games: 0, score: 0, expected: 0,

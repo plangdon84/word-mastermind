@@ -2,8 +2,8 @@ import type { GuessResult } from './scoring';
 import { GUESS_WORDS, SECRET_WORD_SET } from './wordLists';
 
 /*
- * An experimental computer that tries to play the way people do (an
- * experiment, not yet used by any mode): it works out which letters are in
+ * A computer that tries to play the way people do (the rated ladder's
+ * computers since Dev Plan item 19zr, `humanLadder.ts`): it works out which letters are in
  * and out (Medium's marks), has a hunch about the rest from how common
  * letters and words are, tests a few letters at a time with "staging"
  * guesses padded with letters it already knows, and only goes for the word
@@ -219,8 +219,10 @@ const plainWords = () => (wordIndexes ??= GUESS_WORDS.flatMap((w, i) => (popcoun
 const SAMPLE = 200;
 /** The fewest it samples, however many guesses it judges. */
 const MIN_SAMPLE = 60;
-/** At most about this many (guess, sampled word) pairs a turn, to keep each guess quick. */
-const WORK = 500_000;
+/** The most sets of letters it judges as staging guesses a turn: a random few of them when there are more, as a person thinks of only so many. */
+const MAX_JUDGED = 1_500;
+/** At most this many (guess, sampled word) pairs a turn, to keep each guess well inside the server's CPU time. */
+const WORK = MAX_JUDGED * MIN_SAMPLE;
 
 /**
  * Its next guess at the word. Works out the marks, then a weight for every
@@ -234,20 +236,27 @@ export function pickHumanLikeGuess(history: readonly GuessResult[], style: Human
   return pickHumanLikeMove(history, style, random).word;
 }
 
-/** Its next guess, with the letters it believes in and out as it makes it (Medium's marks, shown to its opponent). */
+/**
+ * Its next guess, with the letters it believes in and out as it makes it
+ * (Medium's marks, shown to its opponent). `last`: its final guess (its
+ * opponent went first and found its word), so it skips any opener or
+ * staging guess and goes for the likeliest word.
+ */
 export function pickHumanLikeMove(
-  history: readonly GuessResult[], style: HumanLikeStyle, random: () => number = Math.random,
+  history: readonly GuessResult[], style: HumanLikeStyle, random: () => number = Math.random, last = false,
 ): { word: string; marks: LetterMarks } {
   const { opener } = style;
-  if (opener && history.length < opener.length && history.every((g, i) => g.guess === opener[i] && g.score < 5)
+  if (!last && opener && history.length < opener.length && history.every((g, i) => g.guess === opener[i] && g.score < 5)
     && history.reduce((sum, g) => sum + g.score, 0) < 5) return { word: opener[history.length], marks: humanMarks(history, style.deduction) };
   const insight = style.insight ?? 0;
   const sees = insight >= 1 || (insight > 0 && random() < insight);
   const marks = humanMarks(history, sees ? 'all' : style.deduction);
-  return { word: chooseGuess(history, style, random, marks), marks };
+  return { word: chooseGuess(history, style, random, marks, last), marks };
 }
 
-function chooseGuess(history: readonly GuessResult[], style: HumanLikeStyle, random: () => number, { inMask, outMask }: LetterMarks): string {
+function chooseGuess(
+  history: readonly GuessResult[], style: HumanLikeStyle, random: () => number, { inMask, outMask }: LetterMarks, last: boolean,
+): string {
   const all = masks();
   const guessed = new Set(history.map((g) => g.guess));
   const clues = history.map((g) => ({ mask: letterMask(g.guess), score: g.score }));
@@ -282,7 +291,7 @@ function chooseGuess(history: readonly GuessResult[], style: HumanLikeStyle, ran
     });
     return GUESS_WORDS[candidates[ties[Math.floor(random() * ties.length)]]];
   };
-  if (five || fitting <= style.solveAtWords || popcount(inMask) >= style.solveAtIn) return best();
+  if (last || five || fitting <= style.solveAtWords || popcount(inMask) >= style.solveAtIn) return best();
 
   // Staging guesses: real-looking words (4 or 5 different letters) testing as
   // few unsettled letters as it likes, or as few as any word can.
@@ -311,10 +320,19 @@ function chooseGuess(history: readonly GuessResult[], style: HumanLikeStyle, ran
   // A weighted sample of the candidates to judge staging guesses against,
   // words with the same letters taken together (a guess can't tell them apart).
   const total = weights.reduce((a, b) => a + b, 0);
-  const judged = new Set<number>();
-  for (let t = 0; t < testable.length; t++) if (tests[t] <= limit) judged.add(all[testable[t]]);
-  // Fewer samples when there are many guesses to judge, so a guess never
-  // takes the server much past a few milliseconds (`WORK`).
+  const seen = new Set<number>();
+  for (let t = 0; t < testable.length; t++) if (tests[t] <= limit) seen.add(all[testable[t]]);
+  // Too many to judge: a random MAX_JUDGED of them (a partial shuffle).
+  const kinds = [...seen];
+  if (kinds.length > MAX_JUDGED) {
+    for (let k = 0; k < MAX_JUDGED; k++) {
+      const j = k + Math.floor(random() * (kinds.length - k));
+      [kinds[k], kinds[j]] = [kinds[j], kinds[k]];
+    }
+    kinds.length = MAX_JUDGED;
+  }
+  const judged = new Set(kinds);
+  // Fewer samples the more guesses it judges, so the work never passes `WORK`.
   const size = Math.max(MIN_SAMPLE, Math.min(SAMPLE, Math.floor(WORK / Math.max(1, judged.size))));
   const sampled = new Map<number, number>();
   if (candidates.length <= size) {
@@ -337,26 +355,35 @@ function chooseGuess(history: readonly GuessResult[], style: HumanLikeStyle, ran
   const sample = Int32Array.from(sampled.keys());
   const sampleWeights = Float64Array.from(sampled.values());
 
-  const scored: { word: string; value: number }[] = [];
+  // Each staging guess's value, in typed arrays so a turn makes little garbage to collect.
+  const scoredWords = new Int32Array(testable.length);
+  const scoredValues = new Float64Array(testable.length);
+  let count = 0;
+  let top = 0;
   const spread = new Float64Array(6);
   const valueOf = new Map<number, number>(); // by letters: anagrams tell it the same
   for (let t = 0; t < testable.length; t++) {
     if (tests[t] > limit) continue;
     const i = testable[t];
     const m = all[i];
+    if (!judged.has(m)) continue;
     let value = valueOf.get(m);
     if (value === undefined) {
       spread.fill(0);
       for (let s = 0; s < sample.length; s++) spread[popcount(m & sample[s])] += sampleWeights[s];
       value = 0;
-      for (const p of spread) if (p > 0) value -= p * Math.log2(p);
+      for (let k = 0; k < 6; k++) if (spread[k] > 0) value -= spread[k] * Math.log2(spread[k]);
       valueOf.set(m, value);
     }
     if (!familiar()[i]) value *= 0.9;
-    if (value > 0) scored.push({ word: GUESS_WORDS[i], value });
+    if (value > 0) {
+      scoredWords[count] = i;
+      scoredValues[count++] = value;
+      if (value > top) top = value;
+    }
   }
-  if (scored.length === 0) return best();
-  const top = Math.max(...scored.map((s) => s.value));
-  const good = scored.filter((s) => s.value >= top * style.leeway);
-  return good[Math.floor(random() * good.length)].word;
+  if (count === 0) return best();
+  const good: number[] = [];
+  for (let k = 0; k < count; k++) if (scoredValues[k] >= top * style.leeway) good.push(scoredWords[k]);
+  return GUESS_WORDS[good[Math.floor(random() * good.length)]];
 }

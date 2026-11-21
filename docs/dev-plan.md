@@ -142,6 +142,27 @@ in PR #96.
 
 ## Done, latest first
 
+- [x] **19zr. Human-like ladder computers** (2.8.0; from a player's
+  feedback and the owner's proposal, 17 November 2026; worker and game
+  logic, review gate; a feature release, its note OK'd by the owner before
+  the first commit; for players to try in staging first)
+  - An experimental human-like computer (`src/game/humanLike.ts`): guesses
+    from the guess list, keeps Medium's marks, has a hunch from common
+    words, plays staging guesses that change a few letters, and goes for
+    the word once it believes it knows the letters. `npm run
+    benchmark-human` compares it with the recall computers on the same
+    words (docs/human-like-benchmark.md)
+  - Settings for strength (letters a staging guess changes, `insight`,
+    `leeway`, an opener such as CRANE, SPLIT, DOUGH) and a grid that tuned
+    seven of them onto the recall computers' ratings, within 17 points
+  - The rated ladder offers them instead (`HUMAN_LADDER`,
+    `humanLadder.ts`, `FEATURES.humanLikeLadder`): each guess worked out
+    when it's due (a guess's work capped, `MAX_JUDGED`; 3 to 5 ms at the 99th percentile when measured), its final guess on the word itself, IDs where a
+    recall was so older apps still read records, its own marks sent with
+    each guess (shown as a player's shared marks), badges left alone (19zs),
+    and the dashboard listing them. Two player vs. the computer keeps its
+    strengths
+
 **Stack 2.7.2, shipped in PR #97** (planned with the owner on 11 November
 2026; run by `/execute-stack`; its items are just below)
 
@@ -251,28 +272,7 @@ in PR #96.
     lobby invites and deletes the rest (owner's decision, 10 November
     2026); no friend is refused
   - Built in PR #99, merged into the 2.7.2 release PR (#97)
-- [x] **19zr. Human-like ladder computers** (2.8.0; from a player's
-  feedback and the owner's proposal, 17 November 2026; worker and game
-  logic, review gate; a feature release, its note OK'd by the owner before
-  the first commit; for players to try in staging first)
-  - An experimental human-like computer (`src/game/humanLike.ts`): guesses
-    from the guess list, keeps Medium's marks, has a hunch from common
-    words, plays staging guesses that change a few letters, and goes for
-    the word once it believes it knows the letters. `npm run
-    benchmark-human` compares it with the recall computers on the same
-    words (docs/human-like-benchmark.md)
-  - Settings for strength (letters a staging guess changes, `insight`,
-    `leeway`, an opener such as CRANE, SPLIT, DOUGH) and a grid that tuned
-    seven of them onto the recall computers' ratings, within 17 points
-  - The rated ladder offers them instead (`HUMAN_LADDER`,
-    `humanLadder.ts`, `FEATURES.humanLikeLadder`): each guess worked out
-    when it's due (each well inside the Free plan's CPU time), IDs where a
-    recall was so older apps still read records, its own marks sent with
-    each guess (shown as a player's shared marks), badges left alone (19zs),
-    and the dashboard listing them. Two player vs. the computer keeps its
-    strengths
-
- (2.7.1; issue
+- [x] **19zq. A lighter start-up script** (2.7.1; issue
   plangdon84/word-mastermind-archive#297, part 3; app only; stacked on 19zn;
   a release line OK'd by the owner before the first commit)
   - `achievements.ts`, `stats.ts`, `Badge.tsx`, the report form, the sample

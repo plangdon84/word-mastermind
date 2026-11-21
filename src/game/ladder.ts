@@ -65,9 +65,10 @@ export function ladderAverage(games: readonly ReplayedGame[]): number | null {
 }
 
 /**
- * The computer a player gets: from their rating once it's settled; while
- * it's provisional, from their average guesses per word (`ladderAverage`),
- * or Expert without one. Never below Expert.
+ * The computer a player gets, from the computers the ladder offers now
+ * (`ladderComputers`): from their rating once it's settled; while it's
+ * provisional, from their average guesses per word (`ladderAverage`), or
+ * the weakest without one. Never below the weakest.
  */
 export function ladderComputer(rating: Rating, average: number | null): RatedComputer {
   const table = ladderComputers();
