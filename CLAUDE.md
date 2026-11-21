@@ -362,6 +362,15 @@ Run `npm test` and `npm run typecheck` before committing.
   tells it when one is over (`ladderEnded`), never a D1 read. A computer
   game made after its player cancelled is cancelled by its room at once
   (`abandon`, `cancelPvp`; Dev Plan item 19za).
+  Since Dev Plan item 19zr the ladder's computers are human-like
+  (`HUMAN_LADDER`, styles in `src/game/humanLadder.ts`, the worker's only;
+  README "Human-like ladder computers"): `pickHumanLikeGuess`
+  (`src/game/humanLike.ts`) marks letters, stages guesses and goes for the
+  word; each has an ID where a recall was (recall + 0.005, so older apps read
+  records) and the room works out each guess when due (`humanLadderGuess`,
+  `computerPause` from the room's `seed`), never a plan, for the Free plan's
+  CPU time. `FEATURES.humanLikeLadder` switches back to `COMPUTER_RATINGS`;
+  `npm run benchmark-human` measures them (docs/human-like-benchmark.md).
 - Launch switches (Dev Plan item 13b, README "Launch switches"): `FEATURES`
   in `src/game/features.ts`, read by the app and the worker. Off at 1.0:
   Random opponent, the rating boards, Competitive Rush and the Daily Rush

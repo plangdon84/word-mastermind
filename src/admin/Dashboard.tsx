@@ -128,7 +128,7 @@ function Figures({ usage }: { usage: Usage }) {
             <tbody>
               {usage.ladder.map((c) => (
                 <tr key={c.recall}>
-                  <th scope="row">{Math.round(c.recall * 100)}% · {c.rating}</th>
+                  <th scope="row">{c.label ?? `${Math.round(c.recall * 100)}%`} · {c.rating}</th>
                   <td>{count(c.games)}</td>
                   <td>{c.games ? `${(100 * c.score / c.games).toFixed(1)}%` : '–'}</td>
                   <td>{c.games ? `${(100 * c.expected / c.games).toFixed(1)}%` : '–'}</td>

@@ -393,6 +393,57 @@ never below Expert; `computerRatings.test.ts` replays a small seeded run and
 fails if a row drifts, e.g. after a word-list change, when the calibration
 is run again.
 
+#### Human-like ladder computers
+
+Since Dev Plan item 19zr the ladder offers **human-like computers** instead
+(a player found the recall computers "don't play like a person": they guess
+any word that fits what they remember, so you can't see them narrowing
+anything down, and words with many anagrams like REAPS slow them down far
+more than people). Each plays the way players describe their own games
+(`src/game/humanLike.ts`): it guesses from the guess list, keeps Medium's
+in/out marks, has a hunch about the rest from how common words and letters
+are (common words first), plays **staging guesses** that change a few
+unsettled letters from an earlier guess, and only goes for the word once it
+believes it knows the letters. On its final guess (you went first and
+found its word, so a hit draws) it goes straight for its likeliest word. Each guess carries the letters it has
+marked in and out, as a player sharing marks at Medium does, so its board
+shows its thinking (marks from a score show from its next guess, as a
+person's do). Most open with **CRANE, SPLIT, DOUGH**
+(15 different letters), stopping early once the scores add up to 5.
+
+Strength comes from how carefully it reasons, never from forgetting: how
+many letters a staging guess may change (1, 2, 3 or any), how often it sees
+everything the scores say (complete letter logic, as Easy's marks), and how
+close to the best staging guess it plays. Each was tuned with
+`npm run benchmark-human` to land on a recall computer's rating, rated
+against them at their table ratings (2,000 words, each within 18 points;
+docs/human-like-benchmark.md):
+
+| Computer     | Replaces | Average guesses | Rating | How it plays                                          |
+|--------------|----------|-----------------|--------|-------------------------------------------------------|
+| Human-like 1 | 38%      | 11.3            | 1505   | One letter at a time                                  |
+| Human-like 2 | 50%      | 10.1            | 1609   | Two letters at a time, often not the best test guess  |
+| Human-like 3 | 60%      | 9.4             | 1666   | Two letters at a time                                 |
+| Human-like 4 | 70%      | 8.6             | 1735   | Three at a time, sees every deduction half the time   |
+| Human-like 5 | 80%      | 8.1             | 1789   | Any number at a time, sees every deduction            |
+| Human-like 6 | 90%      | 7.6             | 1837   | Expert, not always the best test guess                |
+| Human-like 7 | 100%     | 7.3             | 1872   | Expert, opening CRANE, SPLIT only                     |
+
+They solve words with many anagrams almost as fast as any other word, as
+people do. Their fixed data is `HUMAN_LADDER` in `computerRatings.ts` and
+their styles `src/game/humanLadder.ts` (the worker's only). Each one's ID,
+kept where a recall was (records, `rated_games.computer_recall`), is the
+recall of the computer it replaced plus 0.005, so an older app still reads
+the record. Badges are unchanged for now: a win reads that ID as a recall
+(so up to Expert's VS CPU badges, never Mastermind's) until Dev Plan item
+19zs revisits them, since the strengths don't map onto the old ones. The
+room works out each guess when it's due, never the whole game at the start,
+to keep within the Workers Free plan's CPU time: each guess judges at most
+1,500 staging guesses (`MAX_JUDGED`), a random few when there are more, and
+took 3 to 5 ms at the 99th percentile when measured. `FEATURES.humanLikeLadder`
+switches back to the recall computers; the usage dashboard lists each
+computer the ladder offers, and any other with games in its 90 days.
+
 ### PvP formats
 
 PvP needs the [backend](#backend-plan). Two kinds of game:

@@ -26,7 +26,8 @@
     "lighthouse": "node scripts/lighthouse.ts",
     "e2e": "playwright test",
     "load-test": "node scripts/load-test.ts",
-    "calibrate": "node scripts/calibrate.ts"
+    "calibrate": "node scripts/calibrate.ts",
+    "benchmark-human": "node scripts/benchmark-human.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

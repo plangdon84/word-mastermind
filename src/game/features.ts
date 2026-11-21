@@ -28,6 +28,12 @@ export interface Features {
    * isn't in the top 10%.
    */
   dailyTopTenPercent: boolean;
+  /**
+   * The rated ladder's computers play like a person (Dev Plan item 19zr,
+   * `HUMAN_LADDER`): they mark letters in and out and test a few at a time.
+   * Off, the ladder offers the recall computers (`COMPUTER_RATINGS`) again.
+   */
+  humanLikeLadder: boolean;
 }
 
 export type Feature = keyof Features;
@@ -40,4 +46,6 @@ export const FEATURES: Readonly<Features> = {
   competitiveRush: false,
   suggest: true,
   dailyTopTenPercent: false,
+  // On since Dev Plan item 19zr, for players to try in staging first.
+  humanLikeLadder: true,
 };

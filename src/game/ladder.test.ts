@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seededRandom } from './computerRatings';
+import { HUMAN_LADDER, ladderComputers, seededRandom } from './computerRatings';
 import { parsePvpRecord } from './records';
 import {
   COMPUTER_PAUSE_MS, computerRating, LADDER_CHOICE, ladderAverage, ladderComputer, planComputerGuesses,
@@ -52,16 +52,24 @@ describe('ladderAverage', () => {
 });
 
 describe('ladderComputer', () => {
-  it('is Expert for a provisional player without an average, else by their average', () => {
-    expect(ladderComputer(NEW_RATING, null).recall).toBe(0.38);
-    expect(ladderComputer(NEW_RATING, 25).recall).toBe(0.38);
-    expect(ladderComputer(NEW_RATING, 9.4).recall).toBe(0.6);
-    expect(ladderComputer(NEW_RATING, 6).recall).toBe(1);
+  // The human-like computers since Dev Plan item 19zr: 1505, 1609, 1666, 1735, 1789, 1837 and 1872.
+  const ids = HUMAN_LADDER.map((c) => c.recall);
+
+  it('offers the human-like computers while they are switched on', () => {
+    expect(ladderComputers()).toBe(HUMAN_LADDER);
   });
 
-  it('is by rating once it is settled, never below Expert', () => {
-    expect(ladderComputer({ rating: 1800, rd: 80, volatility: 0.06 }, 25).recall).toBe(0.8);
-    expect(ladderComputer({ rating: 1100, rd: 80, volatility: 0.06 }, 6).recall).toBe(0.38);
+  it('is the weakest for a provisional player without an average, else by their average', () => {
+    expect(ladderComputer(NEW_RATING, null).recall).toBe(ids[0]);
+    expect(ladderComputer(NEW_RATING, 25).recall).toBe(ids[0]);
+    expect(ladderComputer(NEW_RATING, HUMAN_LADDER[2].averageGuesses).recall).toBe(ids[2]);
+    expect(ladderComputer(NEW_RATING, 5).recall).toBe(ids[6]);
+  });
+
+  it('is by rating once it is settled, never below the weakest', () => {
+    expect(ladderComputer({ rating: 1800, rd: 80, volatility: 0.06 }, 25).recall).toBe(ids[4]);
+    expect(ladderComputer({ rating: 1100, rd: 80, volatility: 0.06 }, 6).recall).toBe(ids[0]);
+    expect(ladderComputer({ rating: 2400, rd: 80, volatility: 0.06 }, 6).recall).toBe(ids[6]);
   });
 });
 

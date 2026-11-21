@@ -1,5 +1,5 @@
 import type { DailyCounts, LadderComputerFigures, ModeCount, PeriodCount, PeriodKind, Periods, Usage } from '../../src/admin/usage';
-import { addDays, COMPUTER_RATINGS, COMPUTER_RD, DAY_MS, dailyDay, dayStart, ratingExpectedScore, PROVISIONAL_RD } from '../../src/game';
+import { addDays, COMPUTER_RATINGS, COMPUTER_RD, HUMAN_LADDER, ladderComputers, DAY_MS, dailyDay, dayStart, ratingExpectedScore, PROVISIONAL_RD } from '../../src/game';
 import { ACCESS_HEADER, verifyAccessToken } from './access';
 import { errorResponse, json } from './http';
 import type { Env } from './index';
@@ -180,8 +180,16 @@ interface LadderRow {
  * computer's RD).
  */
 export function ladderFigures(rows: readonly LadderRow[]): LadderComputerFigures[] {
-  return COMPUTER_RATINGS.map((computer) => {
-    const figures: LadderComputerFigures = { recall: computer.recall, rating: computer.rating, games: 0, score: 0, expected: 0 };
+  // The ladder's computers now, and the other table's only where they have games in the period (Dev Plan item 19zr).
+  const offered = ladderComputers();
+  // Weakest first by rating; a recall computer before the human-like one with the same rating.
+  const listed = [...COMPUTER_RATINGS, ...HUMAN_LADDER]
+    .filter((computer) => offered.includes(computer) || rows.some((row) => row.recall === computer.recall))
+    .sort((a, b) => a.rating - b.rating);
+  return listed.map((computer) => {
+    const figures: LadderComputerFigures = {
+      recall: computer.recall, rating: computer.rating, ...(computer.label ? { label: computer.label } : {}), games: 0, score: 0, expected: 0,
+    };
     for (const row of rows) {
       if (row.recall !== computer.recall) continue;
       figures.games += row.n;

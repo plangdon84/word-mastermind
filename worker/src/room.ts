@@ -2,8 +2,9 @@ import {
   concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, TWO_PLAYER_POOL, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
   cancelPvp, isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
   type Marks, type Rating, type TimeControl, type TurnDays, computerRating, LADDER_COMPUTER_NAME, planComputerGuesses, pvpTurn, pvpTurnStart,
-  ratedComputer, SECRET_WORDS, type PlannedGuess,
+  isHumanLike, ratedComputer, SECRET_WORDS, type PlannedGuess,
 } from '../../src/game';
+import { computerPause, humanLadderGuess } from '../../src/game/humanLadder';
 import type { FriendError, FriendGame, LadderFriend, RatingLine } from '../../src/app/friendApi';
 import { showRating } from '../../src/app/ratingsApi';
 import { markFinished, SAVE_RETRY_MS, saveMarked, type FinishedSave } from './finishSave';
@@ -55,9 +56,12 @@ export interface Room {
    * A ladder game against a computer (Dev Plan item 19p), in the guest's
    * seat: its recall, and every guess it will make with the pause before
    * each, worked out when the game starts (`planComputerGuesses`). The room
-   * plays each on the computer's turn (`playComputer`).
+   * plays each on the computer's turn (`playComputer`). A human-like
+   * computer (Dev Plan item 19zr: its ID in `recall`) has an empty plan and
+   * a `seed` instead: each guess is worked out when it's due
+   * (`humanLadderGuess`), after a pause from the seed (`computerPause`).
    */
-  computer?: { recall: number; rating: number; plan: PlannedGuess[] };
+  computer?: { recall: number; rating: number; plan: PlannedGuess[]; seed?: number };
   /**
    * A rated game's ratings when it started, and once it's over, the ones it
    * was rated from (other rated games may have finished meanwhile) and after
@@ -338,8 +342,10 @@ function nextAlarm(room: Room, game: PvpGame, now: number): number | null {
 /** When the computer's next guess is due, if it's the computer's turn; else null. */
 function computerMoveAt(room: Room, game: PvpGame): number | null {
   if (!room.computer || pvpTurn(game) !== 'guest') return null;
-  const next = room.computer.plan[game.guesses.guest.length];
-  return next ? pvpTurnStart(game) + next.pauseMs : null;
+  const n = game.guesses.guest.length;
+  const { plan, seed } = room.computer;
+  const pauseMs = plan[n]?.pauseMs ?? (seed !== undefined ? computerPause(seed, n) : undefined);
+  return pauseMs === undefined ? null : pvpTurnStart(game) + pauseMs;
 }
 
 /**
@@ -350,8 +356,14 @@ function computerMoveAt(room: Room, game: PvpGame): number | null {
 async function playComputer(storage: RoomStorage, deps: RoomDeps, room: Room, game: PvpGame | null, now: number): Promise<Room | null> {
   const at = game && computerMoveAt(room, game);
   if (at === null || now < at) return null;
-  const word = room.computer!.plan[game!.guesses.guest.length].word;
-  const result = submitPvpGuess(game!, 'guest', word, at);
+  const { recall, plan } = room.computer!;
+  const mine = game!.guesses.guest;
+  // A human-like computer works its guess out now, and shows its marks with it (Dev Plan item 19zr).
+  const planned = plan[mine.length];
+  // Its final guess (the player went first and found its word, so a hit draws): it goes for the word itself.
+  const last = game!.guesses.host.at(-1)?.isWin === true;
+  const { word, marks } = planned ? { word: planned.word, marks: undefined } : humanLadderGuess(recall, mine, deps.random, last);
+  const result = submitPvpGuess(game!, 'guest', word, at, marks);
   if (!result.ok) return null;
   const played = await save(storage, deps, { ...room, record: toPvpRecord(result.game) }, now);
   notify(deps, moveNotices(played, result.game));
@@ -482,7 +494,8 @@ export function rematchDifficulty(difficulty: Difficulty, rated: boolean): Diffi
 /**
  * A ladder game against a computer (Dev Plan item 19p), started at once:
  * the computer takes the guest's seat with a random secret-list word, and
- * all its guesses at the player's word are worked out now.
+ * all its guesses at the player's word are worked out now (a human-like
+ * computer's when each is due).
  */
 async function startComputerGame(
   storage: RoomStorage, deps: RoomDeps, request: Extract<RoomRequest, { action: 'computer' }>, now: number,
@@ -512,7 +525,9 @@ async function startComputerGame(
     cancelled: false,
     rated: true,
     matched: true,
-    computer: { recall: computer.recall, rating: computer.rating, plan: planComputerGuesses(secret.word, computer.recall, deps.random) },
+    computer: isHumanLike(computer.recall)
+      ? { recall: computer.recall, rating: computer.rating, plan: [], seed: Math.floor(deps.random() * 2 ** 31) }
+      : { recall: computer.recall, rating: computer.rating, plan: planComputerGuesses(secret.word, computer.recall, deps.random) },
     ratings: { host: request.rating, guest: computerRating(computer) },
   };
   const saved = await save(storage, deps, room, now);
