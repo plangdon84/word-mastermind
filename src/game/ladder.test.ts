@@ -52,7 +52,7 @@ describe('ladderAverage', () => {
 });
 
 describe('ladderComputer', () => {
-  // The human-like computers since Dev Plan item 19zr: 1503, 1619, 1672, 1742, 1796, 1850 and 1890.
+  // The human-like computers since Dev Plan item 19zr: 1505, 1609, 1666, 1735, 1789, 1837 and 1872.
   const ids = HUMAN_LADDER.map((c) => c.recall);
 
   it('offers the human-like computers while they are switched on', () => {
