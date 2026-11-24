@@ -227,7 +227,11 @@ Run `npm test` and `npm run typecheck` before committing.
   server games built by `playedPage` with `copy`). `GET /api/friends/profile`
   reads the shared summary and counts your record in SQL (`versusOf`,
   matching `headToHead`), and `/api/friends/profile/games` pages the
-  index. Never work stats out on the server. Since item 19t the index marks
+  index. Never work stats out on the server. A rated ladder entry a friend
+  reads leaves the player's own word out (Dev Plan item 19zw, `forFriends`
+  in `worker/src/friendProfiles.ts`, `hidePvpSecret` in `src/game/pvp.ts`:
+  the record's `hidden` keeps the scores so it still replays; '' shows as
+  "hidden"). Since item 19t the index marks
   rated ladder games (`profile_games.ladder`) for the history's Rated ladder
   filter, and the profile answer carries the friend's ratings
   (`listRatings`), provisional ones too. A friend's name in a game against them, a lobby's
