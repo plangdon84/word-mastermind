@@ -20,8 +20,8 @@ in PR #96.
 **Stack 2.8.1** (planned with the owner on 24 November 2026; run by
 `/execute-stack`)
 
-- Release PR: not opened yet. Each item is its own PR into the release
-  branch, never into `main`
+- Release PR: branch `claude/funny-sagan-ra6icf` into `main`. Each item
+  is its own PR into that branch, never into `main`
 - Items, in merge order: 19zt, 19zu, 19zw. The plan's order
 - Threads: waves (owner, 24 November 2026)
   - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
