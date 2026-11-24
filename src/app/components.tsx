@@ -198,16 +198,26 @@ export function History({
           <li class={i >= (practiceFrom ?? Infinity) ? 'row practice' : 'row'} key={i}>
             {/* Each part is one stop for a screen reader: "Guess 7", then "Score 3". */}
             <span class="row-no"><span aria-hidden="true">{i + 1}</span><span class="visually-hidden">Guess {i + 1}</span></span>
-            <button type="button" class="info" aria-label={`Definition of ${g.guess}`}
-              aria-expanded={openDef === i} onClick={() => onToggleDef(i)}>
-              <InfoIcon />
-            </button>
-            <div class="letters">
-              {[...g.guess].map((c, j) => (
-                <Bubble key={j} letter={c} mark={marks?.[c] ?? 'unmarked'}
-                  onTap={onMark && (() => onMark(c))} readMark={!!marks} />
-              ))}
-            </div>
+            {g.guess === '' ? (
+              // A word left out (Dev Plan item 19zw): a friend's own word, found in their ladder game.
+              <>
+                <span class="info placeholder" aria-hidden="true" />
+                <div class="letters"><span class="hidden-word">hidden</span></div>
+              </>
+            ) : (
+              <>
+                <button type="button" class="info" aria-label={`Definition of ${g.guess}`}
+                  aria-expanded={openDef === i} onClick={() => onToggleDef(i)}>
+                  <InfoIcon />
+                </button>
+                <div class="letters">
+                  {[...g.guess].map((c, j) => (
+                    <Bubble key={j} letter={c} mark={marks?.[c] ?? 'unmarked'}
+                      onTap={onMark && (() => onMark(c))} readMark={!!marks} />
+                  ))}
+                </div>
+              </>
+            )}
             {/* The winning row has no score: the result below says it, and "Win" didn't fit a phone. */}
             {g.isWin ? (
               <span class="score"><span class="visually-hidden">Found it</span></span>
@@ -414,6 +424,15 @@ export function YourWord({ word, found, finder = 'the computer', known }: {
   /** The opponent's marks (README "Two player"): letters of your word they've worked out or marked in. */
   known?: Marks;
 }) {
+  // A word left out (Dev Plan item 19zw): a friend's, in their ladder game on their profile.
+  if (word === '') {
+    return (
+      <div class="info-row">
+        <span class="info-label">Your word</span>
+        <span class="hidden-word">hidden</span>
+      </div>
+    );
+  }
   const knownLetters = found ? [] : [...word].filter((c) => known?.[c] === 'in');
   const label = `Your word: ${word.toUpperCase()}${found ? `, found by ${finder}`
     : knownLetters.length > 0 ? `; ${finder} has ${knownLetters.join(', ').toUpperCase()}` : ''}`;

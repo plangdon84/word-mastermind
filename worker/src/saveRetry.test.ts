@@ -102,7 +102,9 @@ describe("a daily game's save after its turn (2.7.2 review)", () => {
   it('answers the finishing guess with the run stored and marked, then saves it once the turn is over', async () => {
     const { storage, saves, later, deps, asker } = setup();
     await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
-    expect(later).toHaveLength(0);
+    // The start's note for the 8pm reminder runs after the turn too (Dev Plan item 19zt).
+    expect(later).toHaveLength(1);
+    await later.shift()!();
     const found = await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1000);
     expect(found.body).toMatchObject({ run: { status: 'finished' } });
     expect(saves.calls).toBe(0);
@@ -128,6 +130,7 @@ describe("a daily game's save after its turn (2.7.2 review)", () => {
     };
     const asker = { playerId: 'player-id', day: dailyDay(NOW), mode: 'dailyWord' as const };
     await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
+    await later.shift()!();
     await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1000);
     await later[0]();
     expect(saves.done).toBe(0);

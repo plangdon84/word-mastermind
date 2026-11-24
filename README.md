@@ -2520,7 +2520,14 @@ history**.
   and your whole game history as you see it: every finished game, with
   your opponents' names, each opening to review as you would, your secret
   words included (the owner chose to keep them, even during a game against
-  that friend, who could try your recent words). Nothing else
+  that friend, who could try your recent words). The one exception is
+  your rated ladder games (Dev Plan item 19zw, the owner, 24 November
+  2026): they're listed with their result, guesses and difficulty, but
+  your own word is left out by the server (so a friend can't look up a
+  word you keep playing there before meeting you on the ladder). Opening
+  one shows your board with "hidden" in place of your word, and of the
+  opponent's guess that found it, without the opponent's marks; searching
+  their history for that word doesn't find the game. Nothing else
   of your profile: never your settings, email, friends list or an ID.
   Only your friends see it, and only while signed in; a request not yet
   accepted shows nothing either way.

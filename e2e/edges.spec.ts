@@ -920,6 +920,23 @@ test.describe('the Rated ladder', () => {
     for (const player of [page, other]) {
       await expect(player.getByRole('button', { name: /friend request|as a friend/ })).toHaveCount(0);
     }
+
+    // On the first player's profile, the ladder game is listed but their word, STORM, is left out (item 19zw).
+    const opened = Date.now();
+    await page.goto('/');
+    await expect.poll(async () => (await getStorage(page, 'shared-profile'))?.at ?? 0, {
+      message: 'their device shared their profile', timeout: 15_000,
+    }).toBeGreaterThan(opened);
+    await other.goto('/');
+    await other.getByRole('button', { name: /^Profile/ }).click();
+    await button(other, /^Friends/).click();
+    await other.getByRole('button', { name: /'s profile$/ }).click();
+    await other.getByRole('navigation', { name: /'s profile$/ }).getByRole('button', { name: /^Game history/ }).click();
+    await other.locator('.history-row').first().click();
+    await expect(other.locator('.info-row .hidden-word')).toHaveText('hidden');
+    await expect(other.getByLabel(/^Your word: STORM/)).toHaveCount(0);
+    // The other player's word is theirs to see, as it always was.
+    await expect(other.locator('.panel.result')).toContainText(/beach/i);
   });
 });
 

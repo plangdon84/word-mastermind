@@ -110,7 +110,8 @@ Run `npm test` and `npm run typecheck` before committing.
   and coming back are `worker/src/reminders.ts`, run by the worker's Cron
   Trigger (`scheduled` in `index.ts`, crons in `wrangler.toml`) a small
   batch a minute (Free plan limits), from D1 `daily_played` (written when a
-  daily game starts), `player_activity` (kept by triggers on every game
+  daily game starts, after the turn; a failed write is retried on the
+  player's next request, `noteStart` in `dailyRoom.ts`, Dev Plan item 19zt), `player_activity` (kept by triggers on every game
   table and `notePlayed` on each guess against a friend) and
   `reminders_sent` (claimed before sending, so none goes twice).
 - Two player vs. a friend (Dev Plan item 5, README "Two player vs. a
@@ -227,7 +228,11 @@ Run `npm test` and `npm run typecheck` before committing.
   server games built by `playedPage` with `copy`). `GET /api/friends/profile`
   reads the shared summary and counts your record in SQL (`versusOf`,
   matching `headToHead`), and `/api/friends/profile/games` pages the
-  index. Never work stats out on the server. Since item 19t the index marks
+  index. Never work stats out on the server. A rated ladder entry a friend
+  reads leaves the player's own word out (Dev Plan item 19zw, `forFriends`
+  in `worker/src/friendProfiles.ts`, `hidePvpSecret` in `src/game/pvp.ts`:
+  the record's `hidden` keeps the scores so it still replays; '' shows as
+  "hidden"). Since item 19t the index marks
   rated ladder games (`profile_games.ladder`) for the history's Rated ladder
   filter, and the profile answer carries the friend's ratings
   (`listRatings`), provisional ones too. A friend's name in a game against them, a lobby's

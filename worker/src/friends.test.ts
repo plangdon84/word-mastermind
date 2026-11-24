@@ -8,7 +8,7 @@ import {
   EMAIL_REQUESTS_PER_DAY, MAX_FRIENDS, friendsApi, FriendsApiError, isFriendCode, isInviteKey, MAX_SHARED_CHARS, normalizeFriendCode, formatFriendCode,
   type SharedSummary,
 } from '../../src/app/friendsApi';
-import { addDays, dailyDay, headToHead, replayEntry, type HistoryEntry, type HistoryFilter } from '../../src/game';
+import { addDays, dailyDay, headToHead, otherSeat, replayEntry, type HistoryEntry, type HistoryFilter } from '../../src/game';
 import { dailyEntry, lobbyEntry, soloEntry } from '../../src/game/testGames';
 import { sharedSummary } from '../../src/app/sharedSummary';
 import { lobbyApi, LobbyApiError } from '../../src/app/lobbyApi';
@@ -1109,6 +1109,60 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     sqlite.exec(readFileSync(join(import.meta.dirname, '..', 'migrations', '0030_profile_games_ladder.sql'), 'utf8')
       .replace(/^ALTER TABLE.*$/m, ''));
     expect(await ids({ mode: 'ladder' })).toEqual(['ladder']);
+  });
+
+  it("leaves a friend's own word out of their rated ladder games, however they're read (Dev Plan item 19zw)", async () => {
+    const { ann, bob, bobCode, sqlite, now } = await friends();
+    const annCode = (await ann.friends.list()).code;
+    // Ann beats Bob with a guess at his word, BEACH; her word was STORM.
+    const ladder = await annBeatsBob(ann, bob, bobCode);
+    sqlite.prepare(`UPDATE games SET record = json_set(record, '$.ladder', json('{}')) WHERE id = ?`).run(ladder.id);
+    await index(bob);
+    await index(ann);
+    const bobsGames = async (filter: HistoryFilter = {}) => (await ann.friends.profileGames(bobCode, { filter, after: null, limit: 50 })).games;
+    const [game] = await bobsGames();
+    if (game.mode !== 'friend') throw new Error('expected the ladder game');
+    // Still listed with its result and guesses, Bob's word left out, Ann's kept: a review replays without it.
+    expect(JSON.stringify(game)).not.toContain('beach');
+    expect(game.record.secrets[game.seat]).toBe('');
+    const replayed = replayEntry(game);
+    if (replayed?.mode !== 'friend') throw new Error('expected it to replay');
+    expect(replayed.game.secrets[otherSeat(game.seat)]).toBe('storm');
+    expect(replayed.game.guesses[otherSeat(game.seat)]).toEqual([{ guess: '', score: 5, isWin: true }]);
+    expect(replayed.game.guesses[game.seat].map((g) => g.guess)).toEqual(['crane']);
+    // Searching for his word finds nothing; Ann's still finds the game.
+    expect(await bobsGames({ search: 'beac' })).toEqual([]);
+    expect(await bobsGames({ search: 'storm' })).toHaveLength(1);
+    // Ann's side, as Bob sees it: her word left out, his (her winning guess) kept.
+    const [annsGame] = (await bob.friends.profileGames(annCode, everything)).games;
+    expect(JSON.stringify(annsGame)).not.toContain('storm');
+    expect(JSON.stringify(annsGame)).toContain('beach');
+    // Featured on Bob's profile, it's the server's copy without his word.
+    await bob.friends.share({ ...sharedSummary([], [], now(), dayOf), featured: [game] });
+    expect(JSON.stringify((await ann.friends.profile(bobCode)).summary)).not.toContain('beach');
+
+    // A game indexed before item 19zw kept the word: it's left out as it's read, and the search passes over it.
+    const accountId = (sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string }).account_id;
+    const stored = JSON.parse((sqlite.prepare('SELECT entry FROM profile_games WHERE account_id = ?').get(accountId) as { entry: string }).entry);
+    expect(JSON.stringify(stored)).not.toContain('beach');
+    const record = { ...stored.record, secrets: { ...stored.record.secrets, [stored.seat]: 'beach' } };
+    delete record.hidden;
+    record.moves = record.moves.map((m: { kind: string; word?: string }) => (m.kind === 'guess' && m.word === '' ? { ...m, word: 'beach' } : m));
+    sqlite.prepare('UPDATE profile_games SET entry = ?, words = ? WHERE account_id = ?')
+      .run(JSON.stringify({ ...stored, record }), ' beach crane storm ', accountId);
+    expect(JSON.stringify(await bobsGames())).not.toContain('beach');
+    expect(await bobsGames({ search: 'beac' })).toEqual([]);
+    expect(await bobsGames({ search: 'cran' })).toHaveLength(1);
+    expect(JSON.stringify((await ann.friends.profile(bobCode)).summary)).not.toContain('beach');
+  });
+
+  it("keeps both words in their games against friends that aren't on the ladder (Dev Plan item 19zw)", async () => {
+    const { ann, bob, bobCode } = await friends();
+    await annBeatsBob(ann, bob, bobCode);
+    await index(bob);
+    const [game] = (await ann.friends.profileGames(bobCode, everything)).games;
+    expect(JSON.stringify(game)).toContain('beach');
+    expect(JSON.stringify(game)).not.toContain('hidden');
   });
 
   it('loads only the synced games the size cap keeps, and always the first however long (Issue 211)', async () => {
