@@ -1,5 +1,5 @@
 import {
-  addDays, dailyDay, isServerMode, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
+  addDays, dailyDay, hidePvpSecrets, isServerMode, otherSeat, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
   friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, type FriendGamesQuery, type SharedSummary,
@@ -34,10 +34,26 @@ const NOT_PLACED = 1_000_000;
 
 
 
+/**
+ * An entry as friends see it: with no rating change, and a rated ladder
+ * game showing scores where it would show a word that could be looked up
+ * or worked out (Dev Plan item 19zw, owner's decision of 24 November 2026):
+ * against a person, both words and every guess, with the player's marks;
+ * against a computer, the player's word and the computer's guesses at it.
+ * Every other game is as it was, games against those friends included.
+ */
+export function forFriends(entry: HistoryEntry): HistoryEntry {
+  const kept = withoutRating(entry);
+  if (kept.mode !== 'friend' || !kept.record.ladder) return kept;
+  const person = kept.record.ladder.computer === undefined;
+  const record = hidePvpSecrets(kept.record, person ? [kept.seat, otherSeat(kept.seat)] : [kept.seat]);
+  return { ...kept, record, ...(person ? { marks: {} } : {}) };
+}
+
 /** The entries of `profile_games` rows (a synced game's from history_entries), as a friend sees them. */
 const entriesOf = (rows: readonly { entry: string | null }[]): HistoryEntry[] => rows.flatMap((r) => {
   const entry = r.entry === null ? null : parseHistoryEntry(parse(r.entry));
-  return entry ? [withoutRating(entry)] : [];
+  return entry ? [forFriends(entry)] : [];
 });
 
 /**
@@ -47,19 +63,24 @@ const entriesOf = (rows: readonly { entry: string | null }[]): HistoryEntry[] =>
 const shownBefore = (now: number) => addDays(dailyDay(now), -1);
 
 /** One game as a `profile_games` row, or null if it doesn't replay (the app wouldn't show it). */
-function indexRow(entry: HistoryEntry, gameSeq: number | null, replayed = replayEntry(entry)) {
+function indexRow(full: HistoryEntry, gameSeq: number | null, fullReplayed = replayEntry(full)) {
+  // Kept as friends see it, so a ladder game's own word is neither stored nor searched for (Dev Plan item 19zw).
+  const entry = forFriends(full);
+  // Replayed again only where its record changed (2.8.1 review): forFriends copies every entry.
+  const replayed = entry.record === full.record || !fullReplayed ? fullReplayed : replayEntry(entry);
   if (!replayed) return null;
   const summary = summarizeGame(replayed);
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
   return {
     id: entry.id, endedAt: summary.endedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
-    words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
+    // A rated ladder game is never searched (SEARCHED_WORDS), so its words aren't kept.
+    words: summary.ladder ? ' ' : ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
     rank: you ? you.rank ?? NOT_PLACED : null,
     // A rated ladder game (Dev Plan item 19t), which a friend's history filters apart from games against friends.
     ladder: summary.ladder ? 1 : 0,
     gameSeq,
     // A synced game's entry stays in history_entries alone.
-    entry: gameSeq === null ? null : JSON.stringify(withoutRating(entry)),
+    entry: gameSeq === null ? null : JSON.stringify(entry),
   };
 }
 
@@ -290,6 +311,14 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 }
 
 /**
+ * A game's words that a friend's search reads: none for a rated ladder game
+ * (Dev Plan item 19zw), so neither word, nor a guess at one, finds it,
+ * games indexed before the item (which kept them) included. ' ' still
+ * matches no search at all.
+ */
+const SEARCHED_WORDS = `CASE WHEN g.ladder = 1 THEN ' ' ELSE g.words END`;
+
+/**
  * A page of a friend's game history, newest first by when each game ended
  * (the date its row shows; ties newest ID first, both as on your own
  * history), matching the history's
@@ -311,7 +340,7 @@ export async function friendGamesPage(
      WHERE g.account_id = ?1 AND (g.daily_day IS NULL OR g.daily_day < ?2)
        AND (?3 IS NULL OR (?3 = 'ladder' AND g.ladder = 1) OR (g.mode = ?3 AND g.ladder = 0))
        AND (?4 IS NULL OR g.result = ?4) AND (?5 IS NULL OR g.difficulty = ?5)
-       AND instr(g.words, ' ' || ?6) > 0
+       AND instr(${SEARCHED_WORDS}, ' ' || ?6) > 0
        ${from === null ? '' : 'AND g.ended_at <= ?8 AND (g.ended_at < ?8 OR g.id < ?9)'}
      ORDER BY g.ended_at DESC, g.id DESC LIMIT ?7`,
   ).bind(

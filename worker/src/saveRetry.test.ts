@@ -80,6 +80,23 @@ describe('a daily game', () => {
     expect(saves.done).toBe(1);
     expect(storage.data.get('word:player-id')).not.toHaveProperty('unsaved');
   });
+
+  it("deletes the start's pending note once it's written (2.8.1 review)", async () => {
+    const storage = memoryStorage();
+    let fail = true;
+    const deps: DailyDeps = {
+      saveFinished: async () => {}, random: () => 0, themeFor: async () => null, wordFor: async () => 'brick',
+      started: async () => {
+        if (fail) throw new Error('D1 is down');
+      },
+    };
+    const asker = { playerId: 'player-id', day: dailyDay(NOW), mode: 'dailyWord' as const };
+    await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
+    expect(storage.data.get('note:word:player-id')).toBe(NOW);
+    fail = false;
+    await handleDaily(storage, deps, { ...asker, action: 'get' }, NOW + 1000);
+    expect(storage.data.has('note:word:player-id')).toBe(false);
+  });
 });
 
 describe("a daily game's save after its turn (2.7.2 review)", () => {
@@ -102,7 +119,9 @@ describe("a daily game's save after its turn (2.7.2 review)", () => {
   it('answers the finishing guess with the run stored and marked, then saves it once the turn is over', async () => {
     const { storage, saves, later, deps, asker } = setup();
     await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
-    expect(later).toHaveLength(0);
+    // The start's note for the 8pm reminder runs after the turn too (Dev Plan item 19zt).
+    expect(later).toHaveLength(1);
+    await later.shift()!();
     const found = await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1000);
     expect(found.body).toMatchObject({ run: { status: 'finished' } });
     expect(saves.calls).toBe(0);
@@ -128,6 +147,7 @@ describe("a daily game's save after its turn (2.7.2 review)", () => {
     };
     const asker = { playerId: 'player-id', day: dailyDay(NOW), mode: 'dailyWord' as const };
     await handleDaily(storage, deps, { ...asker, action: 'start', name: 'Player', difficulty: 'medium' }, NOW);
+    await later.shift()!();
     await handleDaily(storage, deps, { ...asker, action: 'guess', word: 'brick' }, NOW + 1000);
     await later[0]();
     expect(saves.done).toBe(0);

@@ -239,6 +239,8 @@ export function FriendResult({ view, outcome, opponent, live, rating, choice, pr
   const lastTheirs = view.theirGuesses[view.theirGuesses.length - 1];
   const youFoundTheirs = view.yourGuesses.some((g) => g.isWin);
   const cancelled = outcome === 'cancelled-you' || outcome === 'cancelled-them';
+  // A friend's ladder game on their profile leaves their word out (Dev Plan item 19zw).
+  const yourWord = view.yourSecret ? upper(view.yourSecret) : 'your word';
   return (
     <ResultCard outcome={outcome} word={choice || cancelled ? null : view.theirSecret} whose={`${opponent}'s word`}>
       {outcome === 'clutch' && <Confetti />}
@@ -265,11 +267,12 @@ export function FriendResult({ view, outcome, opponent, live, rating, choice, pr
       )}
       <p>{{
         'won': `You found their word in ${guessCount(view.yourGuesses.length)}, before they found yours.`,
-        'won-held': `You found their word in ${guessCount(view.yourGuesses.length)}, and their last guess, ${upper(lastTheirs?.guess ?? '')}, missed.`,
+        'won-held': `You found their word in ${guessCount(view.yourGuesses.length)}, and their last guess${
+          lastTheirs?.guess ? `, ${upper(lastTheirs.guess)},` : ''} missed.`,
         'they-gave-up': `You made ${guessCount(view.yourGuesses.length)}; ${opponent} made ${guessCount(view.theirGuesses.length)}.`,
-        'lost': `${opponent} found ${upper(view.yourSecret)} in ${guessCount(view.theirGuesses.length)}.`,
-        'lost-final': `${opponent} found ${upper(view.yourSecret)} in ${guessCount(view.theirGuesses.length)}, and your last guess missed.`,
-        'clutch': `${opponent} found ${upper(view.yourSecret)} first, and you matched it.`,
+        'lost': `${opponent} found ${yourWord} in ${guessCount(view.theirGuesses.length)}.`,
+        'lost-final': `${opponent} found ${yourWord} in ${guessCount(view.theirGuesses.length)}, and your last guess missed.`,
+        'clutch': `${opponent} found ${yourWord} first, and you matched it.`,
         'tied': `You found their word first, and ${opponent} matched you with their last guess.`,
         'gave-up': `You made ${guessCount(view.yourGuesses.length)}; ${opponent} made ${guessCount(view.theirGuesses.length)}.`,
         'they-ran-out': live ? `${opponent}'s clock ran out, so the game is yours.`
@@ -283,9 +286,16 @@ export function FriendResult({ view, outcome, opponent, live, rating, choice, pr
       {cancelled ? null : choice ? choice : (
         <>
           {!youFoundTheirs && <p>{opponent}'s word was</p>}
-          <TheirWord word={view.theirSecret}
-            motion={outcome === 'clutch' ? 'flip' : outcome.startsWith('won') || outcome.startsWith('they') || found ? 'pop' : undefined} />
-          <DefinitionBox word={view.theirSecret} />
+          {view.theirSecret === '' ? (
+            // Left out of a friend's ladder game against a person, as their profile shows it (Dev Plan item 19zw).
+            <p class="hidden-word">hidden</p>
+          ) : (
+            <>
+              <TheirWord word={view.theirSecret}
+                motion={outcome === 'clutch' ? 'flip' : outcome.startsWith('won') || outcome.startsWith('they') || found ? 'pop' : undefined} />
+              <DefinitionBox word={view.theirSecret} />
+            </>
+          )}
           {practice}
         </>
       )}

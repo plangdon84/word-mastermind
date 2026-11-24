@@ -1,6 +1,6 @@
 import { canPickDifficulty, isRatedDifficulty, scoredAfterPick, type Difficulty, type DifficultyError } from './difficulty';
 import type { Marks } from './marks';
-import { evaluateGuess, type GuessResult } from './scoring';
+import { evaluateGuess, isWin, scoreGuess, type GuessResult } from './scoring';
 import { deriveStatus } from './twoPlayer';
 import { checkSuggestion, type SuggestError } from './suggest';
 import { validateGuess, validateSecretWord, type WordError } from './words';
@@ -117,7 +117,26 @@ export interface PvpRecord {
    * seat. Absent on every other game.
    */
   ladder?: PvpLadder;
+  /**
+   * Words left out (Dev Plan item 19zw): a friend's rated ladder game as
+   * their profile shows it (`hidePvpSecrets`). Absent on every game the
+   * server referees.
+   */
+  hidden?: PvpHidden;
   moves: readonly PvpMove[];
+}
+
+/**
+ * The words left out, by the seat whose word it was (`secrets[seat]` is
+ * ''). Every guess at it was recorded as '' too (only scores are shown), so
+ * the game replays from what's kept here: those guesses' scores, in order,
+ * and whether the last one found it (a 5 alone could be an anagram).
+ */
+export type PvpHidden = Partial<Record<Seat, PvpHiddenWord>>;
+
+export interface PvpHiddenWord {
+  scores: readonly number[];
+  found: boolean;
 }
 
 /** A ladder game: against a person, or a computer at this recall. */
@@ -270,10 +289,14 @@ export function createPvpGame(
   replaying = false,
   /** A replayed record's own `firstGuessFree`; a new live game always has it. */
   firstGuessFree = !replaying && clockMinutesOf(control) !== null,
+  /** A replayed record's words left out (Dev Plan item 19zw): each such seat's word is ''. */
+  hidden?: PvpHidden,
 ): PvpResult {
-  const host = validateSecretWord(secrets.host, replaying);
+  const secret = (seat: Seat) => (replaying && hidden?.[seat] && secrets[seat] === ''
+    ? { ok: true as const, word: '' } : validateSecretWord(secrets[seat], replaying));
+  const host = secret('host');
   if (!host.ok) return host;
-  const guest = validateSecretWord(secrets.guest, replaying);
+  const guest = secret('guest');
   if (!guest.ok) return guest;
   if (rated && !(isRatedDifficulty(difficulty.host) && isRatedDifficulty(difficulty.guest))) return { ok: false, error: 'easy-unrated' };
   return {
@@ -286,6 +309,7 @@ export function createPvpGame(
       difficulty,
       ...(rated ? { rated: true as const } : {}),
       ...(firstGuessFree && clockMinutesOf(control) !== null ? { firstGuessFree: true as const } : {}),
+      ...(hidden && replaying ? { hidden } : {}),
       moves: [],
       guesses: { host: [], guest: [] },
       status: 'playing',
@@ -308,16 +332,31 @@ export function submitPvpGuess(game: PvpGame, seat: Seat, guess: string, now: nu
   if (turn === null) return { ok: false, error: 'game-over' };
   if (turn !== seat) return { ok: false, error: 'not-your-turn' };
   if (now >= pvpDeadline(game)!) return { ok: false, error: 'time-up' };
-  const validation = validateGuess(guess, replaying);
-  if (!validation.ok) return validation;
-  const result = evaluateGuess(validation.word, game.secrets[otherSeat(seat)]);
+  // A word left out (Dev Plan item 19zw) is guessed only in a replay, each guess '' and scored as recorded.
+  const hidden = game.hidden?.[otherSeat(seat)] ?? null;
+  if (hidden && !replaying) return { ok: false, error: 'game-over' };
+  let result: GuessResult;
+  let word: string;
+  if (hidden) {
+    const at = game.guesses[seat].length;
+    const score = hidden.scores[at];
+    if (guess !== '' || score === undefined) return { ok: false, error: 'not-in-word-list' };
+    word = '';
+    result = { guess: '', score, isWin: hidden.found && at === hidden.scores.length - 1 };
+  } else {
+    const validation = validateGuess(guess, replaying);
+    if (!validation.ok) return validation;
+    word = validation.word;
+    result = evaluateGuess(word, game.secrets[otherSeat(seat)]);
+  }
   const guesses = { ...game.guesses, [seat]: [...game.guesses[seat], result] };
-  const shared = marks && game.playingDifficulty[seat] === 'medium' ? sortedMarks(marks) : null;
+  // A hidden guess keeps no marks: they could spell out the word it was at.
+  const shared = marks && !hidden && game.playingDifficulty[seat] === 'medium' ? sortedMarks(marks) : null;
   return {
     ok: true,
     game: {
       ...game,
-      moves: [...game.moves, { seat, kind: 'guess', word: validation.word, at: now, ...(shared ? { marks: shared } : {}) }],
+      moves: [...game.moves, { seat, kind: 'guess', word, at: now, ...(shared ? { marks: shared } : {}) }],
       guesses,
       sharedMarks: { ...game.sharedMarks, [seat]: shared },
       ...statusOf({ first: game.first, guesses }),
@@ -432,6 +471,8 @@ export function cancelPvp(game: PvpGame, now: number): PvpResult {
 /** Easy's Suggest offered `seat` `word` (picked by their app). Limited to `SUGGEST_LIMIT` a game each. */
 export function suggestPvp(game: PvpGame, seat: Seat, word: string, now: number, replaying = false): PvpResult {
   if (game.status === 'over') return { ok: false, error: 'game-over' };
+  // A suggestion at a word left out (Dev Plan item 19zw) would spell it out, so it's never kept.
+  if (game.hidden?.[otherSeat(seat)]) return { ok: false, error: 'game-over' };
   const refused = checkSuggestion(game.playingDifficulty[seat], game.suggested[seat]);
   if (refused) return { ok: false, error: refused };
   const validation = validateGuess(word, replaying);
@@ -467,10 +508,10 @@ export function applyPvpMove(game: PvpGame, move: PvpMove): PvpResult {
 }
 
 export function toPvpRecord(game: PvpGame): PvpRecord {
-  const { secrets, first, startedAt, difficulty, rated, firstGuessFree, ladder, moves } = game;
+  const { secrets, first, startedAt, difficulty, rated, firstGuessFree, ladder, hidden, moves } = game;
   return {
     secrets, first, startedAt, ...timingOf(timeControlOf(game)), difficulty, ...(rated ? { rated } : {}),
-    ...(firstGuessFree ? { firstGuessFree } : {}), ...(ladder ? { ladder } : {}), moves,
+    ...(firstGuessFree ? { firstGuessFree } : {}), ...(ladder ? { ladder } : {}), ...(hidden ? { hidden } : {}), moves,
   };
 }
 
@@ -478,14 +519,51 @@ export function toPvpRecord(game: PvpGame): PvpRecord {
 export function replayPvp(record: PvpRecord): PvpResult {
   let result = createPvpGame(
     record.secrets, record.first, record.startedAt, timeControlOf(record), record.difficulty, record.rated === true, true,
-    record.firstGuessFree === true,
+    record.firstGuessFree === true, record.hidden,
   );
   if (result.ok && record.ladder) result = { ok: true, game: { ...result.game, ladder: record.ladder } };
   for (const move of record.moves) {
     if (!result.ok) break;
     result = applyPvpMove(result.game, move);
   }
+  // Every score kept for a word left out was a guess at it.
+  if (result.ok && record.hidden) {
+    const { game } = result;
+    const unused = (['host', 'guest'] as const).some((seat) => {
+      const hidden = record.hidden![seat];
+      return hidden && game.guesses[otherSeat(seat)].length !== hidden.scores.length;
+    });
+    if (unused) return { ok: false, error: 'not-in-word-list' };
+  }
   return result;
+}
+
+/**
+ * A finished game's record with these seats' words left out (Dev Plan
+ * item 19zw, README "Friends' profiles"): a friend's rated ladder game as
+ * their profile shows it, so no one can look up or work out a word played
+ * there. Each guess at a word left out goes too (it's '', its score kept),
+ * with the guesser's marks and suggestions, which could spell it out. It
+ * replays to the same outcome. A record already hidden is kept as it is.
+ */
+export function hidePvpSecrets(record: PvpRecord, seats: readonly Seat[]): PvpRecord {
+  if (record.hidden || seats.length === 0) return record;
+  const hidden: Partial<Record<Seat, { scores: number[]; found: boolean }>> = {};
+  for (const seat of seats) hidden[seat] = { scores: [], found: false };
+  const moves = record.moves.flatMap((move): PvpMove[] => {
+    const target = otherSeat(move.seat);
+    const at = hidden[target];
+    if (!at) return [move];
+    if (move.kind === 'suggest') return [];
+    if (move.kind !== 'guess') return [move];
+    const secret = record.secrets[target];
+    at.scores.push(scoreGuess(move.word, secret));
+    at.found = isWin(move.word, secret);
+    return [{ seat: move.seat, kind: 'guess', word: '', at: move.at }];
+  });
+  const secrets = { ...record.secrets };
+  for (const seat of seats) secrets[seat] = '';
+  return { ...record, secrets, hidden, moves };
 }
 
 /**

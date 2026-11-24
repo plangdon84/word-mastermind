@@ -25,6 +25,14 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.8.1',
+    notes: [
+      { text: "The 8pm daily reminder no longer comes after you've played both dailies on another device." },
+      { text: 'Word list fixes: a few obscure guesses removed, and definitions added for HOSEL, BONZE and DAFFY.' },
+      { text: 'Your word in rated ladder games now stays hidden when friends look at your profile.' },
+    ],
+  },
+  {
     version: '2.8.0',
     notes: [
       { text: 'Rated ladder computers now play more like a person: they work out which letters are in and out and test a few at a time, so you can watch them narrow it down.' },

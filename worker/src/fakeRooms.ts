@@ -20,6 +20,7 @@ export function memoryStorage(): RoomStorage & { data: Map<string, unknown>; ala
     put: async <T>(key: string, value: T) => {
       data.set(key, structuredClone(value));
     },
+    delete: async (key: string) => data.delete(key),
     setAlarm: async (time: number) => {
       storage.alarm = time;
     },

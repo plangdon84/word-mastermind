@@ -1064,7 +1064,6 @@ busks
 busts
 busty
 butch
-buteo
 butes
 butle
 butoh
@@ -2268,7 +2267,6 @@ embay
 embed
 ember
 embow
-embus
 emcee
 emeer
 emend
@@ -2422,7 +2420,6 @@ falls
 false
 famed
 fames
-fanac
 fancy
 fanes
 fango
@@ -2971,7 +2968,6 @@ gimel
 gimme
 gimps
 gimpy
-ginks
 ginny
 ginzo
 gipon
@@ -3160,7 +3156,6 @@ grins
 griot
 gripe
 grips
-gripy
 grist
 grith
 grits
@@ -7835,7 +7830,6 @@ truth
 tryma
 tryst
 tsade
-tsadi
 tsars
 tsked
 tuans
@@ -8250,7 +8244,6 @@ walks
 walls
 wally
 waltz
-wames
 wands
 waned
 wanes

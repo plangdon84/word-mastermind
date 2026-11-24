@@ -905,6 +905,10 @@ test.describe('the Rated ladder', () => {
     for (const player of [page, other]) await expect(player.getByText(/Your turn|Their turn/)).toBeVisible({ timeout: 20_000 });
     // No Add friend while the game is on.
     await expect(page.getByRole('button', { name: /as a friend/ })).toHaveCount(0);
+    // One guess, CRANE, from whoever goes first, so the profile below has a guess to leave out.
+    const mover = await page.getByText('Your turn').isVisible() ? page : other;
+    await guess(mover, 'crane');
+    await expect((mover === page ? other : page).getByText('Your turn')).toBeVisible({ timeout: 20_000 });
 
     await button(page, 'Menu').click();
     await button(page, 'Give up').click();
@@ -920,6 +924,26 @@ test.describe('the Rated ladder', () => {
     for (const player of [page, other]) {
       await expect(player.getByRole('button', { name: /friend request|as a friend/ })).toHaveCount(0);
     }
+
+    // On the first player's profile, the ladder game is listed with its scores, but neither word, STORM or BEACH,
+    // nor the guess, CRANE, which could give one away (item 19zw, the owner's decision in 2.8.1's review).
+    const opened = Date.now();
+    await page.goto('/');
+    await expect.poll(async () => (await getStorage(page, 'shared-profile'))?.at ?? 0, {
+      message: 'their device shared their profile', timeout: 15_000,
+    }).toBeGreaterThan(opened);
+    await other.goto('/');
+    await other.getByRole('button', { name: /^Profile/ }).click();
+    await button(other, /^Friends/).click();
+    await other.getByRole('button', { name: /'s profile$/ }).click();
+    await other.getByRole('navigation', { name: /'s profile$/ }).getByRole('button', { name: /^Game history/ }).click();
+    await other.locator('.history-row').first().click();
+    await expect(other.locator('.info-row .hidden-word')).toHaveText('hidden');
+    await expect(other.getByLabel(/^Your word: STORM/)).toHaveCount(0);
+    await expect(other.locator('.panel.result .hidden-word')).toHaveText('hidden');
+    await expect(other.locator('.panel.result')).not.toContainText(/beach/i);
+    await expect(other.locator('.board .letters .hidden-word')).toHaveCount(1);
+    await expect(other.locator('.boards')).not.toContainText(/crane/i);
   });
 });
 

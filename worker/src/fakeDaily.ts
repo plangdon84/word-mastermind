@@ -8,15 +8,22 @@ import { memoryStorage } from './fakeRooms';
 import { json } from './http';
 import { noteDailyStarted } from './reminders';
 
-/** `random` orders each player's words; always 0 (the default) keeps the theme's order. */
-export function fakeDaily({ db, now, random = () => 0 }: { db: D1Database; now: () => number; random?: () => number }) {
+/**
+ * `random` orders each player's words; always 0 (the default) keeps the
+ * theme's order. `started`, given, notes a start in place of D1's
+ * `noteDailyStarted` (to make it fail). Work after the turn runs before
+ * answering, as in `DailyRush`.
+ */
+export function fakeDaily({ db, now, random = () => 0, started }: {
+  db: D1Database; now: () => number; random?: () => number; started?: DailyDeps['started'];
+}) {
   const days = new Map<string, ReturnType<typeof memoryStorage>>();
   const deps: DailyDeps = {
     saveFinished: (mode, day, entry, totals, late, at) => saveFinishedDaily(db, mode, day, entry, totals, late, HISTORY_VERSION, at),
     random,
     themeFor: (day) => themeFor(db, day),
     wordFor: (day) => pickWordFor(db, day, random),
-    started: (mode, day, playerId, at) => noteDailyStarted(db, mode, day, playerId, at),
+    started: started ?? ((mode, day, playerId, at) => noteDailyStarted(db, mode, day, playerId, at)),
   };
   const namespace = {
     idFromName: (name: string) => ({ toString: () => name }),
@@ -26,7 +33,9 @@ export function fakeDaily({ db, now, random = () => 0 }: { db: D1Database; now: 
         const storage = days.get(key) ?? memoryStorage();
         days.set(key, storage);
         const request = JSON.parse(init.body as string) as DailyRequest;
-        const { status, body } = await handleDaily(storage, deps, request, now());
+        const afterTurn: (() => Promise<void>)[] = [];
+        const { status, body } = await handleDaily(storage, { ...deps, afterTurn: (work) => afterTurn.push(work) }, request, now());
+        for (const work of afterTurn) await work().catch(() => {});
         return json(body, status);
       },
     }),

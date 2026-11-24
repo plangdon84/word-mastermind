@@ -13,93 +13,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
-in PR #96.
-
-**2.8.1**: the stack below.
-
-**Stack 2.8.1** (planned with the owner on 24 November 2026; run by
-`/execute-stack`)
-
-- Release PR: not opened yet. Each item is its own PR into the release
-  branch, never into `main`
-- Items, in merge order: 19zt, 19zu, 19zw. The plan's order
-- Threads: waves (owner, 24 November 2026)
-  - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
-    separate files: the daily reminder, the word-list rules, friends'
-    profiles)
-- Release note (OK'd by the owner, 24 November 2026), added by the
-  release PR, never an item PR: "The 8pm daily reminder no longer comes
-  after you've played both dailies on another device.", "Word list fixes:
-  a few obscure guesses removed, and definitions added for HOSEL, BONZE
-  and DAFFY.", "Your word in rated ladder games now stays hidden when
-  friends look at your profile." Each item has its own line
-- Migrations: none; an item that finds it needs one asks the coordinator
-  for the next number (`0037`)
-- Review: worker (19zt and 19zw), so the review gate, run once on the
-  release PR over the whole stack after the last item merges; item PRs
-  skip it
-- The release PR alone edits this plan and `src/app/releases.ts`: it
-  ticks each item and moves it to **Done** as its PR merges
-
-- [ ] **19zt. The 8pm reminder after playing on another device** (2.8.1,
-  first in its stack; issues
-  plangdon84/word-mastermind-archive#298 and
-  plangdon84/word-mastermind-archive#302; worker, review gate on the
-  release PR; its note is in the Stack block)
-  - Issue 298: a player who played both dailies on a computer still got
-    the 8pm reminder on their phone, saying the Daily Set was played but
-    not the Daily Word. Issue 302: played on the phone the next day, no
-    wrong reminder came. Find the cause first. The likely one: a daily
-    start is recorded for the reminder in the background after answering
-    (`noteDailyStarted` through `waitUntil`), and a failed write is
-    ignored, so a lost write looks like a game not played
-  - Record a daily start so a failed write is retried or fails the
-    request (not dropped), and test the case: both dailies played on one
-    device of an account, reminders on another of its devices, and no
-    reminder comes
-- [ ] **19zu. Reported words** (2.8.1, stacked on 19zt; issues
-  plangdon84/word-mastermind-archive#304,
-  plangdon84/word-mastermind-archive#305,
-  plangdon84/word-mastermind-archive#306,
-  plangdon84/word-mastermind-archive#307,
-  plangdon84/word-mastermind-archive#308,
-  plangdon84/word-mastermind-archive#309,
-  plangdon84/word-mastermind-archive#310,
-  plangdon84/word-mastermind-archive#311,
-  plangdon84/word-mastermind-archive#312 and
-  plangdon84/word-mastermind-archive#313; app only, word lists; its note
-  is in the Stack block)
-  - Issue 304: HOSEL stays on the guess list with a hand-written
-    definition (`wordlist/rules/definitions.txt`), since WordNet has none
-  - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
-    an old game that used it still replays (`replaying`)
-  - Issues 306, 308, 309, 310, 312 and 313: GRIPY, FANAC, WAMES, EMBUS,
-    GINKS and BUTEO come off the guess list too (owner, 24 November
-    2026); old games that used them still replay
-  - Issues 307 and 311: BONZE and DAFFY stay on the guess list with
-    hand-written definitions, since WordNet has none for them
-  - The human-like ladder computers keep testing letters with any word on
-    the guess list, obscure ones included (owner, 24 November 2026): only
-    the reported words come off
-  - `npm run wordlist` and `npm run test:wordlist`. Other guess-only words
-    without a definition (about 2,600) are fixed as players report them,
-    not in one go (owner, 18 November 2026)
-- [ ] **19zw. A friend's word stays hidden in their rated ladder games**
-  (2.8.1, stacked on 19zu; issue
-  plangdon84/word-mastermind-archive#314; worker, review gate on the
-  release PR; its note is in the Stack block)
-  - Issue 314: on a friend's profile you can open their rated ladder games
-    and read the secret word they used, so you could look up a word they
-    keep reusing before meeting them on the ladder. Their rated ladder
-    games stay listed (result, guess count, difficulty), but the friend's
-    own secret word is left out of every ladder entry the server sends
-    for their profile (`GET /api/friends/profile` featured games and
-    `/api/friends/profile/games` pages, `worker/src/friendProfiles.ts`),
-    not just hidden by the app (owner, 24 November 2026)
-  - Opening such a game shows their board without their word (a plain
-    "hidden" in its place) and every other mode is unchanged, games
-    between the two of you included. Replaying a review must not need
-    the missing word; test that a friend's ladder entry never carries it
+in PR #96. Release 2.8.1 (19zt, 19zu and 19zw, in Done below) shipped
+in PR #110.
 
 **Later**
 
@@ -201,6 +116,97 @@ in PR #96.
 
 ## Done, latest first
 
+**Stack 2.8.1, shipped in PR #110** (planned with the owner on 24 November 2026; run by
+`/execute-stack`)
+
+- Release PR: branch `claude/funny-sagan-ra6icf` into `main`. Each item
+  is its own PR into that branch, never into `main`
+- Items, in merge order: 19zt, 19zu, 19zw. The plan's order. 19zw merged ahead of 19zu (24 November 2026), since it doesn't
+  need it
+- Threads: waves (owner, 24 November 2026)
+  - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
+    separate files: the daily reminder, the word-list rules, friends'
+    profiles)
+- Release note (OK'd by the owner, 24 November 2026), added by the
+  release PR, never an item PR: "The 8pm daily reminder no longer comes
+  after you've played both dailies on another device.", "Word list fixes:
+  a few obscure guesses removed, and definitions added for HOSEL, BONZE
+  and DAFFY.", "Your word in rated ladder games now stays hidden when
+  friends look at your profile." Each item has its own line
+- Migrations: none; an item that finds it needs one asks the coordinator
+  for the next number (`0037`)
+- Review: worker (19zt and 19zw), so the review gate, run once on the
+  release PR over the whole stack after the last item merges; item PRs
+  skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+- Checked: two review rounds on #110 (round 1's two medium findings were
+  owner decisions, built in PR #114 with three of its lows; round 2 found
+  no high or medium, its two lows filed as
+  plangdon84/word-mastermind-archive#315); the whole browser suite in
+  Chromium and WebKit (203 passed, 3 skipped; the two that failed, the
+  5-player lobby join of Issue 282 and WebKit's offline single player,
+  each passed 10 of 10 alone)
+
+- [x] **19zu. Reported words** (2.8.1, PR #111; stacked on 19zt; issues
+  plangdon84/word-mastermind-archive#304,
+  plangdon84/word-mastermind-archive#305,
+  plangdon84/word-mastermind-archive#306,
+  plangdon84/word-mastermind-archive#307,
+  plangdon84/word-mastermind-archive#308,
+  plangdon84/word-mastermind-archive#309,
+  plangdon84/word-mastermind-archive#310,
+  plangdon84/word-mastermind-archive#311,
+  plangdon84/word-mastermind-archive#312 and
+  plangdon84/word-mastermind-archive#313; app only, word lists; its note
+  is in the Stack block)
+  - Issue 304: HOSEL stays on the guess list with a hand-written
+    definition (`wordlist/rules/definitions.txt`), since WordNet has none
+  - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
+    an old game that used it still replays (`replaying`)
+  - Issues 306, 308, 309, 310, 312 and 313: GRIPY, FANAC, WAMES, EMBUS,
+    GINKS and BUTEO come off the guess list too (owner, 24 November
+    2026); old games that used them still replay
+  - Issues 307 and 311: BONZE and DAFFY stay on the guess list with
+    hand-written definitions, since WordNet has none for them
+  - The human-like ladder computers keep testing letters with any word on
+    the guess list, obscure ones included (owner, 24 November 2026): only
+    the reported words come off
+  - `npm run wordlist` and `npm run test:wordlist`. Other guess-only words
+    without a definition (about 2,600) are fixed as players report them,
+    not in one go (owner, 18 November 2026)
+- [x] **19zw. A friend's word stays hidden in their rated ladder games**
+  (2.8.1, PR #113; merged ahead of 19zu, which it doesn't need; issue
+  plangdon84/word-mastermind-archive#314; worker, review gate on the
+  release PR; its note is in the Stack block)
+  - Issue 314: on a friend's profile you can open their rated ladder games
+    and read the secret word they used, so you could look up a word they
+    keep reusing before meeting them on the ladder. Their rated ladder
+    games stay listed (result, guess count, difficulty), but the friend's
+    own secret word is left out of every ladder entry the server sends
+    for their profile (`GET /api/friends/profile` featured games and
+    `/api/friends/profile/games` pages, `worker/src/friendProfiles.ts`),
+    not just hidden by the app (owner, 24 November 2026)
+  - Opening such a game shows their board without their word (a plain
+    "hidden" in its place) and every other mode is unchanged, games
+    between the two of you included. Replaying a review must not need
+    the missing word; test that a friend's ladder entry never carries it
+- [x] **19zt. The 8pm reminder after playing on another device** (2.8.1, PR #112;
+  first in its stack; issues
+  plangdon84/word-mastermind-archive#298 and
+  plangdon84/word-mastermind-archive#302; worker, review gate on the
+  release PR; its note is in the Stack block)
+  - Issue 298: a player who played both dailies on a computer still got
+    the 8pm reminder on their phone, saying the Daily Set was played but
+    not the Daily Word. Issue 302: played on the phone the next day, no
+    wrong reminder came. Find the cause first. The likely one: a daily
+    start is recorded for the reminder in the background after answering
+    (`noteDailyStarted` through `waitUntil`), and a failed write is
+    ignored, so a lost write looks like a game not played
+  - Record a daily start so a failed write is retried or fails the
+    request (not dropped), and test the case: both dailies played on one
+    device of an account, reminders on another of its devices, and no
+    reminder comes
 - [x] **19zr. Human-like ladder computers** (2.8.0; from a player's
   feedback and the owner's proposal, 17 November 2026; worker and game
   logic, review gate; a feature release, its note OK'd by the owner before
