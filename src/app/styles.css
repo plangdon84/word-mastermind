@@ -897,6 +897,8 @@ button.bubble:active { transform: scale(0.94); }
   .board-cpu:empty { display: block; }
 }
 .info.placeholder { visibility: hidden; }
+/* A word left out (Dev Plan item 19zw): a friend's own word in their ladder game. */
+.hidden-word { color: var(--muted); font-style: italic; }
 
 /* Profile button: your initials in a letter bubble, or the logo */
 .profile-btn {

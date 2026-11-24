@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cancelPvp, clockMinutesOf, concedePvp, createPvpGame, DAY_MS, FIRST_GUESS_MS, isTimeControl, MINUTE_MS, pickFirstSeat, pvpClocks, pvpDeadline,
-  pvpTurn, pvpView, replayPvp, setPvpDifficulty, submitPvpGuess, timeControlOf, timeControlText, timeOutPvp, toPvpRecord,
+  hidePvpSecret, pvpTurn, pvpView, replayPvp, setPvpDifficulty, submitPvpGuess, timeControlOf, timeControlText, timeOutPvp, toPvpRecord,
   turnDaysOf, type PvpGame, type Seat, type TimeControl,
 } from './pvp';
 import { parsePvpRecord } from './records';
@@ -460,5 +460,51 @@ describe('pickFirstSeat', () => {
   it('picks either seat', () => {
     expect(pickFirstSeat(() => 0.2)).toBe('host');
     expect(pickFirstSeat(() => 0.7)).toBe('guest');
+  });
+});
+
+describe('hidePvpSecret (Dev Plan item 19zw)', () => {
+  // The host (storm) goes first; the guest finds STORM on their second guess, with marks and a suggestion on the way.
+  function finished(): PvpGame {
+    let game = play(newGame('host'), 'crane');
+    const guessed = submitPvpGuess(game, 'guest', 'roast', T, { r: 'in', o: 'in' });
+    if (!guessed.ok) throw new Error(guessed.error);
+    game = play(guessed.game, 'lucky', 'storm');
+    return { ...game, moves: [...game.moves.slice(0, 1), { seat: 'guest', kind: 'suggest', word: 'storm', at: T }, ...game.moves.slice(1)] };
+  }
+
+  it("leaves one seat's word out and still replays to the same game", () => {
+    const record = toPvpRecord(finished());
+    const hidden = hidePvpSecret(record, 'host');
+    expect(JSON.stringify(hidden)).not.toContain('storm');
+    expect(hidden.secrets).toEqual({ host: '', guest: 'beach' });
+    // The guest's marks and suggestion, which could spell it out, go too.
+    expect(JSON.stringify(hidden)).not.toContain('marks');
+    expect(hidden.moves.some((m) => m.kind === 'suggest')).toBe(false);
+    const replayed = replayPvp(hidden);
+    if (!replayed.ok) throw new Error(replayed.error);
+    const full = replayPvp({ ...record, moves: record.moves.filter((m) => m.kind !== 'suggest') });
+    if (!full.ok) throw new Error(full.error);
+    expect(replayed.game.status).toBe('over');
+    expect(replayed.game.outcome).toEqual(full.game.outcome);
+    expect(replayed.game.guesses.host).toEqual(full.game.guesses.host);
+    expect(replayed.game.guesses.guest).toEqual([
+      { guess: 'roast', score: 4, isWin: false }, { guess: '', score: 5, isWin: true },
+    ]);
+    expect(pvpView(replayed.game, 'host').yourSecret).toBe('');
+    // Kept through the history's parsing, and hiding twice changes nothing.
+    expect(parsePvpRecord(JSON.parse(JSON.stringify(hidden)))).toEqual(hidden);
+    expect(hidePvpSecret(hidden, 'host')).toBe(hidden);
+  });
+
+  it("refuses a record whose scores don't fit, and any new guess at the hidden word", () => {
+    const hidden = hidePvpSecret(toPvpRecord(finished()), 'host');
+    expect(replayPvp({ ...hidden, hidden: { seat: 'host', scores: [4] } }).ok).toBe(false);
+    expect(replayPvp({ ...hidden, hidden: { seat: 'host', scores: [4, 3] } }).ok).toBe(false);
+    expect(parsePvpRecord({ ...hidden, hidden: { seat: 'host', scores: [9, 5] } })).toBeNull();
+    const ongoing = hidePvpSecret(toPvpRecord(play(newGame('host'), 'crane')), 'host');
+    const game = replayPvp(ongoing);
+    if (!game.ok) throw new Error(game.error);
+    expect(submitPvpGuess(game.game, 'guest', 'roast', T)).toEqual({ ok: false, error: 'game-over' });
   });
 });

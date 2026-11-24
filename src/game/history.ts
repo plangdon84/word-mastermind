@@ -341,10 +341,11 @@ export function summarizeGame(replayed: ReplayedGame): GameSummary {
         yourGuesses: game.guesses[seat].length,
         opponentGuesses: game.guesses[other].length,
         endedAt: lastMoveAt(game.startedAt, game.moves),
+        // A word left out (Dev Plan item 19zw) is '' here, and isn't searched for.
         words: new Set([
           game.secrets.host, game.secrets.guest,
           ...game.guesses.host.map((g) => g.guess), ...game.guesses.guest.map((g) => g.guess),
-        ]),
+        ].filter((w) => w !== '')),
         rush: null,
         allFound: null,
         opponent,
