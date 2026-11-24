@@ -1,6 +1,6 @@
 # Dev Plan
 
-Triaged with the owner on 18 November 2026: items 19zt to 19zv (19zr and 19zs added with the owner on 17 November 2026). Before that, 10 November 2026: items 19zj to 19zq (the full-codebase review's issues). Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
+Triaged with the owner on 24 November 2026: item 19zw, and six more reported words in 19zu. Before that, 18 November 2026: items 19zt to 19zv (19zr and 19zs added with the owner on 17 November 2026). Before that, 10 November 2026: items 19zj to 19zq (the full-codebase review's issues). Items 19zh and 19zi added with the owner on 10 November 2026. Last triaged with the owner: 9 November 2026, second pass (item 19zf, first in Next at the owner's word). Before that, 9 November 2026 (items 19zd and 19ze; 19y dropped), and 5 November 2026 (items 19z and 19za; release 2.4.0 planned the same day; 19zb and Issue 282 under 19k added after it shipped). Release 2.3.0 planned on 4 November 2026. Items 19o to 19q added with the owner on 3 November 2026.
 
 ## To build
 
@@ -15,10 +15,37 @@ Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
 in PR #96.
 
-- [ ] **19zt. The 8pm reminder after playing on another device** (issues
+**2.8.1**: the stack below.
+
+**Stack 2.8.1** (planned with the owner on 24 November 2026; run by
+`/execute-stack`)
+
+- Release PR: not opened yet. Each item is its own PR into the release
+  branch, never into `main`
+- Items, in merge order: 19zt, 19zu, 19zw. The plan's order
+- Threads: waves (owner, 24 November 2026)
+  - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
+    separate files: the daily reminder, the word-list rules, friends'
+    profiles)
+- Release note (OK'd by the owner, 24 November 2026), added by the
+  release PR, never an item PR: "The 8pm daily reminder no longer comes
+  after you've played both dailies on another device.", "Word list fixes:
+  a few obscure guesses removed, and definitions added for HOSEL, BONZE
+  and DAFFY.", "Your word in rated ladder games now stays hidden when
+  friends look at your profile." Each item has its own line
+- Migrations: none; an item that finds it needs one asks the coordinator
+  for the next number (`0037`)
+- Review: worker (19zt and 19zw), so the review gate, run once on the
+  release PR over the whole stack after the last item merges; item PRs
+  skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+
+- [ ] **19zt. The 8pm reminder after playing on another device** (2.8.1,
+  first in its stack; issues
   plangdon84/word-mastermind-archive#298 and
-  plangdon84/word-mastermind-archive#302; worker, review gate; a fix
-  release, its note OK'd by the owner before the first commit)
+  plangdon84/word-mastermind-archive#302; worker, review gate on the
+  release PR; its note is in the Stack block)
   - Issue 298: a player who played both dailies on a computer still got
     the 8pm reminder on their phone, saying the Daily Set was played but
     not the Daily Word. Issue 302: played on the phone the next day, no
@@ -30,17 +57,49 @@ in PR #96.
     request (not dropped), and test the case: both dailies played on one
     device of an account, reminders on another of its devices, and no
     reminder comes
-- [ ] **19zu. Two reported words** (issues
-  plangdon84/word-mastermind-archive#304 and
-  plangdon84/word-mastermind-archive#305; app only, word lists; a fix
-  release, its note OK'd by the owner before the first commit)
+- [ ] **19zu. Reported words** (2.8.1, stacked on 19zt; issues
+  plangdon84/word-mastermind-archive#304,
+  plangdon84/word-mastermind-archive#305,
+  plangdon84/word-mastermind-archive#306,
+  plangdon84/word-mastermind-archive#307,
+  plangdon84/word-mastermind-archive#308,
+  plangdon84/word-mastermind-archive#309,
+  plangdon84/word-mastermind-archive#310,
+  plangdon84/word-mastermind-archive#311,
+  plangdon84/word-mastermind-archive#312 and
+  plangdon84/word-mastermind-archive#313; app only, word lists; its note
+  is in the Stack block)
   - Issue 304: HOSEL stays on the guess list with a hand-written
     definition (`wordlist/rules/definitions.txt`), since WordNet has none
   - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
     an old game that used it still replays (`replaying`)
+  - Issues 306, 308, 309, 310, 312 and 313: GRIPY, FANAC, WAMES, EMBUS,
+    GINKS and BUTEO come off the guess list too (owner, 24 November
+    2026); old games that used them still replay
+  - Issues 307 and 311: BONZE and DAFFY stay on the guess list with
+    hand-written definitions, since WordNet has none for them
+  - The human-like ladder computers keep testing letters with any word on
+    the guess list, obscure ones included (owner, 24 November 2026): only
+    the reported words come off
   - `npm run wordlist` and `npm run test:wordlist`. Other guess-only words
     without a definition (about 2,600) are fixed as players report them,
     not in one go (owner, 18 November 2026)
+- [ ] **19zw. A friend's word stays hidden in their rated ladder games**
+  (2.8.1, stacked on 19zu; issue
+  plangdon84/word-mastermind-archive#314; worker, review gate on the
+  release PR; its note is in the Stack block)
+  - Issue 314: on a friend's profile you can open their rated ladder games
+    and read the secret word they used, so you could look up a word they
+    keep reusing before meeting them on the ladder. Their rated ladder
+    games stay listed (result, guess count, difficulty), but the friend's
+    own secret word is left out of every ladder entry the server sends
+    for their profile (`GET /api/friends/profile` featured games and
+    `/api/friends/profile/games` pages, `worker/src/friendProfiles.ts`),
+    not just hidden by the app (owner, 24 November 2026)
+  - Opening such a game shows their board without their word (a plain
+    "hidden" in its place) and every other mode is unchanged, games
+    between the two of you included. Replaying a review must not need
+    the missing word; test that a friend's ladder entry never carries it
 
 **Later**
 
