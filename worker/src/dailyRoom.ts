@@ -40,13 +40,19 @@ export interface DailyDeps {
   themeFor(day: DailyDay): Promise<DailyTheme | null>;
   /** The day's Daily Word (`pickWordFor`, from D1), picked the first time it's asked for. */
   wordFor(day: DailyDay): Promise<string>;
-  /** Notes that a player started one of the day's games, for the 8pm reminder (`noteDailyStarted`). */
+  /**
+   * Notes in D1 that a player started one of the day's games, for the 8pm
+   * reminder (`noteDailyStarted`). Run after the turn like a save
+   * (`afterTurn`); until it succeeds the start stays pending (`noteKeyOf`)
+   * and the player's next request tries again (Dev Plan item 19zt).
+   */
   started(mode: DailyMode, day: DailyDay, playerId: string, now: number): Promise<void>;
   /**
    * Runs a just-finished run's save to D1 after the request's turn with the
    * day's object, before its answer goes back (2.7.2 review): the run is
    * already stored, marked `unsaved`, so the other players' requests needn't
-   * wait for D1. Left out (tests), the save runs at once, as before.
+   * wait for D1. A start's note for the 8pm reminder (`started`) runs the
+   * same way. Left out, the work runs at once, as before.
    */
   afterTurn?(work: () => Promise<void>): void;
 }
@@ -74,6 +80,30 @@ export type DailyResponse = { status: number; body: { run: DailyView | null } | 
 /** Where a player's run is kept: the Daily Set's under `run:`, as before the Daily Word. */
 const keyOf = (mode: DailyMode, playerId: string) => `${mode === 'daily' ? 'run' : 'word'}:${playerId}`;
 
+/**
+ * A start not yet noted in D1 for the 8pm reminder (Dev Plan item 19zt):
+ * its time while pending, null once written. Kept apart from the run, so
+ * clearing it after the turn can never undo a move made meanwhile.
+ */
+const noteKeyOf = (mode: DailyMode, playerId: string) => `note:${keyOf(mode, playerId)}`;
+
+/**
+ * Notes a start for the 8pm reminder after the turn, then clears it as
+ * pending; if the write fails it stays pending, for the next request. A
+ * lost note would remind a player of a game they've played (issue 298).
+ * Noting twice is harmless: D1 keeps the first.
+ */
+async function noteStart(
+  storage: RoomStorage, deps: DailyDeps, mode: DailyMode, day: DailyDay, playerId: string, at: number,
+): Promise<void> {
+  const work = async () => {
+    await deps.started(mode, day, playerId, at);
+    await storage.put(noteKeyOf(mode, playerId), null);
+  };
+  if (deps.afterTurn) deps.afterTurn(work);
+  else await work().catch((error) => console.error('daily start note failed', error));
+}
+
 const refuse = (status: number, error: DailyError): DailyResponse => ({ status, body: { error } });
 
 /** The player's entry for the day, under any of their IDs: once a day means once for the account. */
@@ -99,6 +129,10 @@ export async function handleDaily(
   const mode = request.mode ?? 'daily';
   const found = await findEntry(storage, mode, request);
   const entry = found?.unsaved ? await saveFinishedEntry(storage, deps, mode, day, found, now) : found;
+  if (entry) {
+    const pending = await storage.get<number | null>(noteKeyOf(mode, entry.playerId));
+    if (typeof pending === 'number') await noteStart(storage, deps, mode, day, entry.playerId, pending);
+  }
   const answer = (e: DailyEntry | null): DailyResponse => ({ status: 200, body: { run: e && dailyView(day, replay(e)) } });
   if (request.action === 'get') return answer(entry);
 
@@ -124,7 +158,8 @@ export async function handleDaily(
     if (await findEntry(storage, mode, request)) return refuse(409, 'already-played');
     const started: DailyEntry = { playerId: request.playerId, name: request.name, record: toRunRecord(created.game) };
     await storage.put(keyOf(mode, started.playerId), started);
-    await deps.started(mode, day, started.playerId, now).catch(() => {});
+    await storage.put(noteKeyOf(mode, started.playerId), now);
+    await noteStart(storage, deps, mode, day, started.playerId, now);
     return answer(started);
   }
 

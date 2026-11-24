@@ -17,8 +17,10 @@ import { wholeRequest } from './whole';
  * each request before passing it on. Since the 2.7.2 review, the day's
  * theme and Daily Word are read from D1 once and then remembered (neither
  * changes within a day), and the 8pm reminder's "started" note is written
- * after answering, so a start doesn't hold every other daily player back
- * while it waits on D1.
+ * after the turn, so a start doesn't hold every other daily player back
+ * while it waits on D1. Since item 19zt that write is awaited before
+ * answering, and one that fails is tried again on the player's next
+ * request (`noteStart`), never dropped.
  */
 export class DailyRush implements DurableObject {
   private readonly deps: DailyDeps;
@@ -41,21 +43,20 @@ export class DailyRush implements DurableObject {
         this.words.set(day, known);
         return known;
       },
-      started: async (mode, day, playerId, now) => {
-        state.waitUntil(noteDailyStarted(env.DB, mode, day, playerId, now).catch(() => {}));
-      },
+      started: (mode, day, playerId, now) => noteDailyStarted(env.DB, mode, day, playerId, now),
     };
   }
 
   async fetch(request: Request): Promise<Response> {
     const dailyRequest = await request.json<DailyRequest>();
-    // A finished run's save to D1 runs after this request's turn, so the day's other players don't wait for it, but
-    // before its answer, so the player's place is on the board by the time the app looks (2.7.2 review).
+    // A finished run's save to D1 (and a start's note for the 8pm reminder) runs after this request's turn, so the
+    // day's other players don't wait for it, but before its answer, so the player's place is on the board by the
+    // time the app looks (2.7.2 review). Either, if it fails, is tried again on the player's next request.
     const afterTurn: (() => Promise<void>)[] = [];
     const deps: DailyDeps = { ...this.deps, afterTurn: (work) => afterTurn.push(work) };
     const done = await wholeRequest(this.state, () => handleDaily(this.state.storage, deps, dailyRequest, Date.now()));
     if (!done.ok) return done.response;
-    for (const work of afterTurn) await work().catch((error) => console.error('daily save failed', error));
+    for (const work of afterTurn) await work().catch((error) => console.error('daily write after the turn failed', error));
     return json(done.value.body, done.value.status);
   }
 }

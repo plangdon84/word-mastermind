@@ -110,7 +110,8 @@ Run `npm test` and `npm run typecheck` before committing.
   and coming back are `worker/src/reminders.ts`, run by the worker's Cron
   Trigger (`scheduled` in `index.ts`, crons in `wrangler.toml`) a small
   batch a minute (Free plan limits), from D1 `daily_played` (written when a
-  daily game starts), `player_activity` (kept by triggers on every game
+  daily game starts, after the turn; a failed write is retried on the
+  player's next request, `noteStart` in `dailyRoom.ts`, Dev Plan item 19zt), `player_activity` (kept by triggers on every game
   table and `notePlayed` on each guess against a friend) and
   `reminders_sent` (claimed before sending, so none goes twice).
 - Two player vs. a friend (Dev Plan item 5, README "Two player vs. a
