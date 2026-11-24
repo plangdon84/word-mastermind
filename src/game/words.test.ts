@@ -71,6 +71,13 @@ describe('isValidSecretWord / isValidGuessWord', () => {
   it('reject banned words', () => {
     expect(isValidGuessWord('boner')).toBe(false);
   });
+
+  it('reject the obscure guesses players reported, keeping the ones given a definition', () => {
+    for (const word of ['tsadi', 'gripy', 'fanac', 'wames', 'embus', 'ginks', 'buteo']) {
+      expect(isValidGuessWord(word)).toBe(false);
+    }
+    for (const word of ['hosel', 'bonze', 'daffy']) expect(isValidGuessWord(word)).toBe(true);
+  });
 });
 
 describe('validateSecretWord / validateGuess', () => {
