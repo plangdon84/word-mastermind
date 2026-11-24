@@ -15,10 +15,37 @@ Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
 in PR #96.
 
-- [ ] **19zt. The 8pm reminder after playing on another device** (issues
+**2.8.1**: the stack below.
+
+**Stack 2.8.1** (planned with the owner on 24 November 2026; run by
+`/execute-stack`)
+
+- Release PR: not opened yet. Each item is its own PR into the release
+  branch, never into `main`
+- Items, in merge order: 19zt, 19zu, 19zw. The plan's order
+- Threads: waves (owner, 24 November 2026)
+  - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
+    separate files: the daily reminder, the word-list rules, friends'
+    profiles)
+- Release note (OK'd by the owner, 24 November 2026), added by the
+  release PR, never an item PR: "The 8pm daily reminder no longer comes
+  after you've played both dailies on another device.", "Word list fixes:
+  a few obscure guesses removed, and definitions added for HOSEL, BONZE
+  and DAFFY.", "Your word in rated ladder games now stays hidden when
+  friends look at your profile." Each item has its own line
+- Migrations: none; an item that finds it needs one asks the coordinator
+  for the next number (`0037`)
+- Review: worker (19zt and 19zw), so the review gate, run once on the
+  release PR over the whole stack after the last item merges; item PRs
+  skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+
+- [ ] **19zt. The 8pm reminder after playing on another device** (2.8.1,
+  first in its stack; issues
   plangdon84/word-mastermind-archive#298 and
-  plangdon84/word-mastermind-archive#302; worker, review gate; a fix
-  release, its note OK'd by the owner before the first commit)
+  plangdon84/word-mastermind-archive#302; worker, review gate on the
+  release PR; its note is in the Stack block)
   - Issue 298: a player who played both dailies on a computer still got
     the 8pm reminder on their phone, saying the Daily Set was played but
     not the Daily Word. Issue 302: played on the phone the next day, no
@@ -30,7 +57,7 @@ in PR #96.
     request (not dropped), and test the case: both dailies played on one
     device of an account, reminders on another of its devices, and no
     reminder comes
-- [ ] **19zu. Reported words** (issues
+- [ ] **19zu. Reported words** (2.8.1, stacked on 19zt; issues
   plangdon84/word-mastermind-archive#304,
   plangdon84/word-mastermind-archive#305,
   plangdon84/word-mastermind-archive#306,
@@ -40,8 +67,8 @@ in PR #96.
   plangdon84/word-mastermind-archive#310,
   plangdon84/word-mastermind-archive#311,
   plangdon84/word-mastermind-archive#312 and
-  plangdon84/word-mastermind-archive#313; app only, word lists; a fix
-  release, its note OK'd by the owner before the first commit)
+  plangdon84/word-mastermind-archive#313; app only, word lists; its note
+  is in the Stack block)
   - Issue 304: HOSEL stays on the guess list with a hand-written
     definition (`wordlist/rules/definitions.txt`), since WordNet has none
   - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
@@ -58,8 +85,9 @@ in PR #96.
     without a definition (about 2,600) are fixed as players report them,
     not in one go (owner, 18 November 2026)
 - [ ] **19zw. A friend's word stays hidden in their rated ladder games**
-  (issue plangdon84/word-mastermind-archive#314; worker, review gate;
-  a fix release, its note OK'd by the owner before the first commit)
+  (2.8.1, stacked on 19zu; issue
+  plangdon84/word-mastermind-archive#314; worker, review gate on the
+  release PR; its note is in the Stack block)
   - Issue 314: on a friend's profile you can open their rated ladder games
     and read the secret word they used, so you could look up a word they
     keep reusing before meeting them on the ladder. Their rated ladder
