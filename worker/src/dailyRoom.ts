@@ -82,7 +82,7 @@ const keyOf = (mode: DailyMode, playerId: string) => `${mode === 'daily' ? 'run'
 
 /**
  * A start not yet noted in D1 for the 8pm reminder (Dev Plan item 19zt):
- * its time while pending, null once written. Kept apart from the run, so
+ * its time while pending, deleted once written. Kept apart from the run, so
  * clearing it after the turn can never undo a move made meanwhile.
  */
 const noteKeyOf = (mode: DailyMode, playerId: string) => `note:${keyOf(mode, playerId)}`;
@@ -98,7 +98,7 @@ async function noteStart(
 ): Promise<void> {
   const work = async () => {
     await deps.started(mode, day, playerId, at);
-    await storage.put(noteKeyOf(mode, playerId), null);
+    await storage.delete(noteKeyOf(mode, playerId));
   };
   if (deps.afterTurn) deps.afterTurn(work);
   else await work().catch((error) => console.error('daily start note failed', error));

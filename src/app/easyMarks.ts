@@ -6,14 +6,18 @@ export const NO_GUESSES: readonly { guess: string; score: number }[] = [];
 
 /**
  * The letter marks a game screen shows: your own at Medium, the app's at Easy
- * (worked out from the scores alone, README "Easy"), and none otherwise.
+ * (worked out from the scores alone, README "Easy"), and none otherwise,
+ * or on a board with a guess left out.
  */
 export function useShownMarks(
   difficulty: Difficulty, marks: Marks, guesses: readonly { guess: string; score: number }[],
 ): Marks | undefined {
-  const easy = difficulty === 'easy';
+  // A board with a guess left out (Dev Plan item 19zw: '', a friend's ladder game on their profile) shows no marks:
+  // its letters are unknown, so Easy's would mislead.
+  const hidden = guesses.some((g) => g.guess === '');
+  const easy = difficulty === 'easy' && !hidden;
   const deduced = useMemo(() => (easy ? deduceMarks(guesses) : {}), [easy, guesses]);
-  return easy ? deduced : difficulty === 'medium' ? marks : undefined;
+  return hidden ? undefined : easy ? deduced : difficulty === 'medium' ? marks : undefined;
 }
 
 const NO_MARKS: Marks = {};

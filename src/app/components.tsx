@@ -199,7 +199,7 @@ export function History({
             {/* Each part is one stop for a screen reader: "Guess 7", then "Score 3". */}
             <span class="row-no"><span aria-hidden="true">{i + 1}</span><span class="visually-hidden">Guess {i + 1}</span></span>
             {g.guess === '' ? (
-              // A word left out (Dev Plan item 19zw): a friend's own word, found in their ladder game.
+              // A guess left out (Dev Plan item 19zw): a friend's ladder game on their profile shows its score alone.
               <>
                 <span class="info placeholder" aria-hidden="true" />
                 <div class="letters"><span class="hidden-word">hidden</span></div>

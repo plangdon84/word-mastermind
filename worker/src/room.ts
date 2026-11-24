@@ -106,6 +106,7 @@ const isOpenInvite = (room: Room) => !room.record && !room.cancelled && !room.ex
 export interface RoomStorage {
   get<T>(key: string): Promise<T | undefined>;
   put<T>(key: string, value: T): Promise<void>;
+  delete(key: string): Promise<unknown>;
   /** Wakes the room (`handleAlarm`) at this time; there is one alarm per room. */
   setAlarm(time: number): Promise<void>;
   deleteAlarm(): Promise<void>;

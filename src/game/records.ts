@@ -4,7 +4,7 @@ import type { RunMove, RunRecord } from './run';
 import type { SoloMove, SoloRecord } from './solo';
 import type { Side, TwoPlayerMove, TwoPlayerRecord } from './twoPlayer';
 import { parseMarks } from './marks';
-import { CLOCK_MINUTES, TURN_DAYS, type ClockMinutes, type PvpMove, type PvpRecord, type Seat, type TurnDays } from './pvp';
+import { CLOCK_MINUTES, TURN_DAYS, type ClockMinutes, type PvpHidden, type PvpHiddenWord, type PvpMove, type PvpRecord, type Seat, type TurnDays } from './pvp';
 
 /*
  * Reading game records back from anywhere they could have been changed or
@@ -135,6 +135,27 @@ export function parsePvpMoves(value: unknown): PvpMove[] | null {
   });
 }
 
+/**
+ * A record's words left out (Dev Plan item 19zw): one entry per seat whose
+ * word is '', each with its guesses' scores (0 to 5, no more than the moves)
+ * and whether the last found it (so it scored 5). Null if it doesn't fit.
+ */
+function parsePvpHidden(value: unknown, secrets: Record<Seat, string>, moves: number): PvpHidden | null {
+  if (!isObject(value)) return null;
+  const seats = Object.keys(value);
+  if (seats.length === 0) return null;
+  const hidden: Partial<Record<Seat, PvpHiddenWord>> = {};
+  for (const seat of seats) {
+    const word = value[seat];
+    if (!isSeat(seat) || secrets[seat] !== '' || !isObject(word) || typeof word.found !== 'boolean') return null;
+    const { scores, found } = word;
+    if (!Array.isArray(scores) || scores.length > moves || !scores.every((n) => Number.isInteger(n) && n >= 0 && n <= 5)) return null;
+    if (found && scores.at(-1) !== 5) return null;
+    hidden[seat] = { scores: [...scores as number[]], found };
+  }
+  return hidden;
+}
+
 /** A game against a friend, as the server keeps it. */
 export function parsePvpRecord(value: unknown): PvpRecord | null {
   if (!isObject(value)) return null;
@@ -152,14 +173,14 @@ export function parsePvpRecord(value: unknown): PvpRecord | null {
   // Dev Plan item 19p's ladder: a matched game, against a computer at a recall in (0, 1].
   if (ladder !== undefined && (!isObject(ladder)
     || (ladder.computer !== undefined && !(typeof ladder.computer === 'number' && ladder.computer > 0 && ladder.computer <= 1)))) return null;
-  // Dev Plan item 19zw: one seat's word left out, its guesses' scores kept.
-  if (hidden !== undefined && !(isObject(hidden) && isSeat(hidden.seat) && Array.isArray(hidden.scores)
-    && hidden.scores.length <= moves.length && hidden.scores.every((n) => Number.isInteger(n) && n >= 0 && n <= 5))) return null;
+  // Dev Plan item 19zw: words left out, each only where that seat's word really is '' (2.8.1 review).
+  const kept = hidden === undefined ? undefined : parsePvpHidden(hidden, { host: secrets.host, guest: secrets.guest }, moves.length);
+  if (kept === null) return null;
   return {
     secrets: { host: secrets.host, guest: secrets.guest }, first, startedAt, ...timing,
     difficulty: { host: difficulty.host, guest: difficulty.guest }, ...(rated ? { rated: true as const } : {}),
     ...(firstGuessFree ? { firstGuessFree: true as const } : {}),
     ...(ladder ? { ladder: typeof ladder.computer === 'number' ? { computer: ladder.computer } : {} } : {}),
-    ...(isObject(hidden) ? { hidden: { seat: hidden.seat as Seat, scores: [...hidden.scores as number[]] } } : {}), moves,
+    ...(kept ? { hidden: kept } : {}), moves,
   };
 }

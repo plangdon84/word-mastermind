@@ -856,7 +856,8 @@ export function FriendScreen({
         )}
 
         {/* A cancelled game (item 18zv) keeps both words hidden but still has its result, and Rematch. */}
-        {over && outcome && (view.theirSecret || outcome === 'cancelled-you' || outcome === 'cancelled-them') && !practising && (
+        {/* A friend's ladder game on their profile may leave their opponent's word out as '' (Dev Plan item 19zw). */}
+        {over && outcome && (view.theirSecret !== null || outcome === 'cancelled-you' || outcome === 'cancelled-them') && !practising && (
           <FriendResult view={{ ...view, theirSecret: view.theirSecret ?? '' }} outcome={outcome} opponent={opponent} live={live}
             rating={review ? review.rating : game.ratings?.you}
             choice={playOn.stage === 'choose' && (
