@@ -13,34 +13,8 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 
 Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
-in PR #96.
-
-**2.8.1**: the stack below.
-
-**Stack 2.8.1** (planned with the owner on 24 November 2026; run by
-`/execute-stack`)
-
-- Release PR: branch `claude/funny-sagan-ra6icf` into `main`. Each item
-  is its own PR into that branch, never into `main`
-- Items, in merge order: 19zt, 19zu, 19zw. The plan's order. 19zw merged ahead of 19zu (24 November 2026), since it doesn't
-  need it
-- Threads: waves (owner, 24 November 2026)
-  - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
-    separate files: the daily reminder, the word-list rules, friends'
-    profiles)
-- Release note (OK'd by the owner, 24 November 2026), added by the
-  release PR, never an item PR: "The 8pm daily reminder no longer comes
-  after you've played both dailies on another device.", "Word list fixes:
-  a few obscure guesses removed, and definitions added for HOSEL, BONZE
-  and DAFFY.", "Your word in rated ladder games now stays hidden when
-  friends look at your profile." Each item has its own line
-- Migrations: none; an item that finds it needs one asks the coordinator
-  for the next number (`0037`)
-- Review: worker (19zt and 19zw), so the review gate, run once on the
-  release PR over the whole stack after the last item merges; item PRs
-  skip it
-- The release PR alone edits this plan and `src/app/releases.ts`: it
-  ticks each item and moves it to **Done** as its PR merges
+in PR #96. Release 2.8.1 (19zt, 19zu and 19zw, in Done below) shipped
+in PR #110.
 
 **Later**
 
@@ -141,6 +115,38 @@ in PR #96.
   view during play
 
 ## Done, latest first
+
+**Stack 2.8.1, shipped in PR #110** (planned with the owner on 24 November 2026; run by
+`/execute-stack`)
+
+- Release PR: branch `claude/funny-sagan-ra6icf` into `main`. Each item
+  is its own PR into that branch, never into `main`
+- Items, in merge order: 19zt, 19zu, 19zw. The plan's order. 19zw merged ahead of 19zu (24 November 2026), since it doesn't
+  need it
+- Threads: waves (owner, 24 November 2026)
+  - Wave 1: 19zt, 19zu, 19zw (none needs another, and they touch
+    separate files: the daily reminder, the word-list rules, friends'
+    profiles)
+- Release note (OK'd by the owner, 24 November 2026), added by the
+  release PR, never an item PR: "The 8pm daily reminder no longer comes
+  after you've played both dailies on another device.", "Word list fixes:
+  a few obscure guesses removed, and definitions added for HOSEL, BONZE
+  and DAFFY.", "Your word in rated ladder games now stays hidden when
+  friends look at your profile." Each item has its own line
+- Migrations: none; an item that finds it needs one asks the coordinator
+  for the next number (`0037`)
+- Review: worker (19zt and 19zw), so the review gate, run once on the
+  release PR over the whole stack after the last item merges; item PRs
+  skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+- Checked: two review rounds on #110 (round 1's two medium findings were
+  owner decisions, built in PR #114 with three of its lows; round 2 found
+  no high or medium, its two lows filed as
+  plangdon84/word-mastermind-archive#315); the whole browser suite in
+  Chromium and WebKit (203 passed, 3 skipped; the two that failed, the
+  5-player lobby join of Issue 282 and WebKit's offline single player,
+  each passed 10 of 10 alone)
 
 - [x] **19zu. Reported words** (2.8.1, PR #111; stacked on 19zt; issues
   plangdon84/word-mastermind-archive#304,
