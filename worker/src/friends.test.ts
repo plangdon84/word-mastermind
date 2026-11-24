@@ -1111,10 +1111,16 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     expect(await ids({ mode: 'ladder' })).toEqual(['ladder']);
   });
 
-  it("leaves a friend's own word out of their rated ladder games, however they're read (Dev Plan item 19zw)", async () => {
+  // Ann (host, STORM) finds Bob's word, BEACH, at once; his final guess, CRANE, misses. Every word in the game.
+  const GAME_WORDS = ['storm', 'beach', 'crane'];
+  const carriesNone = (value: unknown, words = GAME_WORDS) => {
+    const text = JSON.stringify(value);
+    for (const word of words) expect(text).not.toContain(word);
+  };
+
+  it('shows a rated ladder game against a person as scores only, however a friend reads it (Dev Plan item 19zw)', async () => {
     const { ann, bob, bobCode, sqlite, now } = await friends();
     const annCode = (await ann.friends.list()).code;
-    // Ann beats Bob with a guess at his word, BEACH; her word was STORM.
     const ladder = await annBeatsBob(ann, bob, bobCode);
     sqlite.prepare(`UPDATE games SET record = json_set(record, '$.ladder', json('{}')) WHERE id = ?`).run(ladder.id);
     await index(bob);
@@ -1122,38 +1128,59 @@ describe("a friend's profile (Dev Plan items 18c and 18cb)", () => {
     const bobsGames = async (filter: HistoryFilter = {}) => (await ann.friends.profileGames(bobCode, { filter, after: null, limit: 50 })).games;
     const [game] = await bobsGames();
     if (game.mode !== 'friend') throw new Error('expected the ladder game');
-    // Still listed with its result and guesses, Bob's word left out, Ann's kept: a review replays without it.
-    expect(JSON.stringify(game)).not.toContain('beach');
+    // Still listed with its result and scores, but neither word nor any guess: a review replays without them.
+    carriesNone(game);
+    expect(game.record.secrets).toEqual({ host: '', guest: '' });
+    const replayed = replayEntry(game);
+    if (replayed?.mode !== 'friend') throw new Error('expected it to replay');
+    const theirs = otherSeat(game.seat);
+    expect(replayed.game.guesses[theirs]).toEqual([{ guess: '', score: 5, isWin: true }]);
+    expect(replayed.game.guesses[game.seat]).toEqual([{ guess: '', score: 1, isWin: false }]);
+    expect(replayed.game.outcome).toEqual({ winner: theirs, reason: 'found' });
+    // No word finds it, though the Rated ladder filter does.
+    for (const search of ['beac', 'stor', 'cran']) expect(await bobsGames({ search })).toEqual([]);
+    expect(await bobsGames({ mode: 'ladder' })).toHaveLength(1);
+    // Ann's side, as Bob sees it, the same.
+    carriesNone((await bob.friends.profileGames(annCode, everything)).games);
+    // Featured on Bob's profile, it's the server's copy; the profile answers carry no word either.
+    await bob.friends.share({ ...sharedSummary([], [], now(), dayOf), featured: [game] });
+    carriesNone(await ann.friends.profile(bobCode));
+    carriesNone(await bob.friends.profile(annCode));
+
+    // A game indexed before item 19zw kept every word: they're left out as it's read, and the search passes over it.
+    const accountId = (sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string }).account_id;
+    const stored = JSON.parse((sqlite.prepare('SELECT entry FROM profile_games WHERE account_id = ?').get(accountId) as { entry: string }).entry);
+    expect((sqlite.prepare('SELECT words FROM profile_games WHERE account_id = ?').get(accountId) as { words: string }).words).toBe(' ');
+    const record = JSON.parse((sqlite.prepare('SELECT record FROM games WHERE id = ?').get(ladder.id) as { record: string }).record);
+    sqlite.prepare('UPDATE profile_games SET entry = ?, words = ? WHERE account_id = ?')
+      .run(JSON.stringify({ ...stored, record }), ' beach crane storm ', accountId);
+    expect(JSON.stringify((await bobsGames())[0])).toContain('"ladder"');
+    carriesNone(await bobsGames());
+    for (const search of ['beac', 'stor', 'cran']) expect(await bobsGames({ search })).toEqual([]);
+    carriesNone(await ann.friends.profile(bobCode));
+  });
+
+  it("shows a rated ladder game against a computer without the player's word or the guesses at it (Dev Plan item 19zw)", async () => {
+    const { ann, bob, bobCode, sqlite } = await friends();
+    const annCode = (await ann.friends.list()).code;
+    // Recorded as a game against a computer in the guest's seat (Bob's here): Ann's is the person's side.
+    const ladder = await annBeatsBob(ann, bob, bobCode);
+    sqlite.prepare(`UPDATE games SET record = json_set(record, '$.ladder', json('{"computer":0.19}')) WHERE id = ?`).run(ladder.id);
+    await index(ann);
+    const annsGames = async (filter: HistoryFilter = {}) => (await bob.friends.profileGames(annCode, { filter, after: null, limit: 50 })).games;
+    const [game] = await annsGames();
+    if (game.mode !== 'friend') throw new Error('expected the ladder game');
+    // Ann's word, STORM, and the computer's guess at it, CRANE, are left out; the computer's word, which she found, stays.
+    carriesNone(game, ['storm', 'crane']);
+    expect(JSON.stringify(game)).toContain('beach');
     expect(game.record.secrets[game.seat]).toBe('');
     const replayed = replayEntry(game);
     if (replayed?.mode !== 'friend') throw new Error('expected it to replay');
-    expect(replayed.game.secrets[otherSeat(game.seat)]).toBe('storm');
-    expect(replayed.game.guesses[otherSeat(game.seat)]).toEqual([{ guess: '', score: 5, isWin: true }]);
-    expect(replayed.game.guesses[game.seat].map((g) => g.guess)).toEqual(['crane']);
-    // Searching for his word finds nothing; Ann's still finds the game.
-    expect(await bobsGames({ search: 'beac' })).toEqual([]);
-    expect(await bobsGames({ search: 'storm' })).toHaveLength(1);
-    // Ann's side, as Bob sees it: her word left out, his (her winning guess) kept.
-    const [annsGame] = (await bob.friends.profileGames(annCode, everything)).games;
-    expect(JSON.stringify(annsGame)).not.toContain('storm');
-    expect(JSON.stringify(annsGame)).toContain('beach');
-    // Featured on Bob's profile, it's the server's copy without his word.
-    await bob.friends.share({ ...sharedSummary([], [], now(), dayOf), featured: [game] });
-    expect(JSON.stringify((await ann.friends.profile(bobCode)).summary)).not.toContain('beach');
-
-    // A game indexed before item 19zw kept the word: it's left out as it's read, and the search passes over it.
-    const accountId = (sqlite.prepare('SELECT account_id FROM guests WHERE id = ?').get(BOB) as { account_id: string }).account_id;
-    const stored = JSON.parse((sqlite.prepare('SELECT entry FROM profile_games WHERE account_id = ?').get(accountId) as { entry: string }).entry);
-    expect(JSON.stringify(stored)).not.toContain('beach');
-    const record = { ...stored.record, secrets: { ...stored.record.secrets, [stored.seat]: 'beach' } };
-    delete record.hidden;
-    record.moves = record.moves.map((m: { kind: string; word?: string }) => (m.kind === 'guess' && m.word === '' ? { ...m, word: 'beach' } : m));
-    sqlite.prepare('UPDATE profile_games SET entry = ?, words = ? WHERE account_id = ?')
-      .run(JSON.stringify({ ...stored, record }), ' beach crane storm ', accountId);
-    expect(JSON.stringify(await bobsGames())).not.toContain('beach');
-    expect(await bobsGames({ search: 'beac' })).toEqual([]);
-    expect(await bobsGames({ search: 'cran' })).toHaveLength(1);
-    expect(JSON.stringify((await ann.friends.profile(bobCode)).summary)).not.toContain('beach');
+    expect(replayed.game.guesses[game.seat]).toEqual([{ guess: 'beach', score: 5, isWin: true }]);
+    expect(replayed.game.guesses[otherSeat(game.seat)]).toEqual([{ guess: '', score: 1, isWin: false }]);
+    // No word finds it.
+    for (const search of ['beac', 'stor', 'cran']) expect(await annsGames({ search })).toEqual([]);
+    carriesNone(await bob.friends.profile(annCode), ['storm', 'crane']);
   });
 
   it("keeps both words in their games against friends that aren't on the ladder (Dev Plan item 19zw)", async () => {

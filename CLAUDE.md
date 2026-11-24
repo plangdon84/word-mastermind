@@ -229,10 +229,14 @@ Run `npm test` and `npm run typecheck` before committing.
   reads the shared summary and counts your record in SQL (`versusOf`,
   matching `headToHead`), and `/api/friends/profile/games` pages the
   index. Never work stats out on the server. A rated ladder entry a friend
-  reads leaves the player's own word out (Dev Plan item 19zw, `forFriends`
-  in `worker/src/friendProfiles.ts`, `hidePvpSecret` in `src/game/pvp.ts`:
-  the record's `hidden` keeps the scores so it still replays; '' shows as
-  "hidden"). Since item 19t the index marks
+  reads shows scores where it would show a word that could be looked up or
+  worked out (Dev Plan item 19zw, `forFriends` in
+  `worker/src/friendProfiles.ts`, `hidePvpSecrets` in `src/game/pvp.ts`):
+  against a person both words and every guess, against a computer the
+  player's word and the computer's guesses; each is '' (shown as "hidden",
+  with no marks), and the record's `hidden` keeps their scores and whether
+  the last found it, so it still replays. A friend's search never matches
+  a ladder row (`SEARCHED_WORDS`). Since item 19t the index marks
   rated ladder games (`profile_games.ladder`) for the history's Rated ladder
   filter, and the profile answer carries the friend's ratings
   (`listRatings`), provisional ones too. A friend's name in a game against them, a lobby's

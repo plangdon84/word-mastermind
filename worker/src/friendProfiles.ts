@@ -1,5 +1,5 @@
 import {
-  addDays, dailyDay, hidePvpSecret, isServerMode, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
+  addDays, dailyDay, hidePvpSecrets, isServerMode, otherSeat, parseHistoryEntry, parseReplayedEntry, replayEntry, summarizeGame, type HeadToHead, type HistoryEntry,
 } from '../../src/game';
 import {
   friendGamesAfter, MAX_SHARED_CHARS, parseFriendGamesAfter, type FriendGamesQuery, type SharedSummary,
@@ -36,13 +36,18 @@ const NOT_PLACED = 1_000_000;
 
 /**
  * An entry as friends see it: with no rating change, and a rated ladder
- * game without the player's own word (Dev Plan item 19zw), so no friend
- * can look up a word they keep playing there. Every other game is as it
- * was, games against those friends included.
+ * game showing scores where it would show a word that could be looked up
+ * or worked out (Dev Plan item 19zw, owner's decision of 24 November 2026):
+ * against a person, both words and every guess, with the player's marks;
+ * against a computer, the player's word and the computer's guesses at it.
+ * Every other game is as it was, games against those friends included.
  */
 export function forFriends(entry: HistoryEntry): HistoryEntry {
   const kept = withoutRating(entry);
-  return kept.mode === 'friend' && kept.record.ladder ? { ...kept, record: hidePvpSecret(kept.record, kept.seat) } : kept;
+  if (kept.mode !== 'friend' || !kept.record.ladder) return kept;
+  const person = kept.record.ladder.computer === undefined;
+  const record = hidePvpSecrets(kept.record, person ? [kept.seat, otherSeat(kept.seat)] : [kept.seat]);
+  return { ...kept, record, ...(person ? { marks: {} } : {}) };
 }
 
 /** The entries of `profile_games` rows (a synced game's from history_entries), as a friend sees them. */
@@ -61,13 +66,15 @@ const shownBefore = (now: number) => addDays(dailyDay(now), -1);
 function indexRow(full: HistoryEntry, gameSeq: number | null, fullReplayed = replayEntry(full)) {
   // Kept as friends see it, so a ladder game's own word is neither stored nor searched for (Dev Plan item 19zw).
   const entry = forFriends(full);
-  const replayed = entry === full || !fullReplayed ? fullReplayed : replayEntry(entry);
+  // Replayed again only where its record changed (2.8.1 review): forFriends copies every entry.
+  const replayed = entry.record === full.record || !fullReplayed ? fullReplayed : replayEntry(entry);
   if (!replayed) return null;
   const summary = summarizeGame(replayed);
   const you = replayed.mode === 'lobby' ? replayed.places.find((p) => p.you) : undefined;
   return {
     id: entry.id, endedAt: summary.endedAt, mode: entry.mode, result: summary.result, difficulty: summary.difficulty,
-    words: ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
+    // A rated ladder game is never searched (SEARCHED_WORDS), so its words aren't kept.
+    words: summary.ladder ? ' ' : ` ${[...summary.words].join(' ')} `, dailyDay: entry.mode === 'daily' || entry.mode === 'dailyWord' ? entry.day : null,
     rank: you ? you.rank ?? NOT_PLACED : null,
     // A rated ladder game (Dev Plan item 19t), which a friend's history filters apart from games against friends.
     ladder: summary.ladder ? 1 : 0,
@@ -304,13 +311,12 @@ export async function versusOf(db: D1Database, accountId: string, friendId: stri
 }
 
 /**
- * A game's words that a friend's search reads: a rated ladder game's
- * without the player's own word, which a game indexed before Dev Plan item
- * 19zw still holds (later ones never do: their word is '').
+ * A game's words that a friend's search reads: none for a rated ladder game
+ * (Dev Plan item 19zw), so neither word, nor a guess at one, finds it,
+ * games indexed before the item (which kept them) included. ' ' still
+ * matches no search at all.
  */
-const SEARCHED_WORDS = `CASE WHEN g.ladder = 1 AND g.entry IS NOT NULL
-  THEN replace(g.words, ' ' || json_extract(g.entry, '$.record.secrets.' || json_extract(g.entry, '$.seat')) || ' ', ' ')
-  ELSE g.words END`;
+const SEARCHED_WORDS = `CASE WHEN g.ladder = 1 THEN ' ' ELSE g.words END`;
 
 /**
  * A page of a friend's game history, newest first by when each game ended
