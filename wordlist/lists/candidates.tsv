@@ -1476,7 +1476,7 @@ bussu	rejected	size 85 > 80	85	n0	_		[ukacd]
 busts	guess	repeated letters	35	ms	_			
 busty	guess	size 60 > 35	60	aj0	_			
 butch	guess	size 50 > 35	50	aj0,n0	_			
-buteo	guess	size 70 > 35	70	n0	_		[5d+2a]	
+buteo	banned	ban.txt	70	n0	_		[5d+2a]	
 butes	guess	size 80 > 35	80	ns	_			
 butle	guess	size 80 > 35	80	v0	_			
 butoh	guess	size 80 > 35	80	n0	_			
@@ -3045,7 +3045,7 @@ ember	guess	repeated letters	35	n0	_
 embog	rejected	size 85 > 80	85	v0	_		[ukacd]	
 embow	guess	size 70 > 35	70	v0	_		[moby]	
 embox	rejected	size 85 > 80	85	v0	_		[ukacd]	
-embus	guess	size 70 > 35	70	v0	_		[moby],[ukacd]	
+embus	banned	ban.txt	70	v0	_		[moby],[ukacd]	
 emcee	guess	repeated letters	40	m0	_			
 emeer	guess	repeated letters	80	n0	_			
 emend	guess	repeated letters	50	v0	_			
@@ -3256,7 +3256,7 @@ falls	guess	repeated letters	35	ms,n0	_		[5d+2a]
 false	secret		35	a0	_			
 famed	secret		35	aj0,vd	_			
 fames	guess	size 80 > 35	80	ns,vs	_			ns~
-fanac	guess	repeated letters	80	n0	_			
+fanac	banned	ban.txt	80	n0	_			
 fanal	rejected	size 85 > 80	85	n0	_		[ukacd]	
 fancy	secret		35	aj0,m0	_			
 fanes	guess	size 70 > 35	70	ns	_		[5d+2a],[moby]	
@@ -3942,7 +3942,7 @@ gimel	guess	size 70 > 35	70	n0	_		[moby]
 gimme	guess	repeated letters	35	n0,s	_		[+]	
 gimps	guess	size 60 > 35	60	ms	_			
 gimpy	guess	size 50 > 35	50	aj0	_			
-ginks	guess	size 70 > 35	70	ns	_		[moby]	
+ginks	banned	ban.txt	70	ns	_		[moby]	
 ginny	guess	repeated letters	70	aj0	_		[5d+2a]	
 ginzo	guess	size 80 > 35	80	n0	_			
 gipon	guess	size 70 > 35	70	n0	_		[moby]	
@@ -4189,7 +4189,7 @@ griot	guess	size 70 > 35	70	n0	_		[5d+2a]
 gripe	secret		35	m0	_			
 grips	secret		35	ms	_			
 gript	rejected	excluded spelling, variant, region, category or part of speech	35	vd	_			
-gripy	guess	size 80 > 35	80	aj0	_			
+gripy	banned	ban.txt	80	aj0	_			
 grise	rejected	size 85 > 80	85	n0	B,D		[ukacd]	
 grist	guess	size 50 > 35	50	n0	_			
 grisy	rejected	size 85 > 80	85	aj0	_		[ukacd]	
@@ -10551,7 +10551,7 @@ tryer	rejected	size 85 > 80	85	n0	_		[ukacd]
 tryma	guess	size 70 > 35	70	n0	_		[moby],[stale]	
 tryst	guess	repeated letters	50	m0	_			
 tsade	guess	size 80 > 35	80	n0	_			
-tsadi	guess	size 80 > 35	80	n0	_			
+tsadi	banned	ban.txt	80	n0	_			
 tsars	guess	repeated letters	35	ns	A,B,C,D,Z			
 tsked	guess	size 80 > 35	80	vd	_			
 tsuba	rejected	size 85 > 80	85	n0	_		[stale],[ukacd]	
@@ -11110,7 +11110,7 @@ wally	guess	repeated letters	60	n0	_		[3of6],[5d+2a],[brif],[moby]
 walty	rejected	size 85 > 80	85	?	_		[ukacd]	
 waltz	secret		35	m0	_			
 wamed	rejected	size 85 > 80	85	?	_		[ukacd]	
-wames	guess	size 70 > 35	70	ns	_		[moby]	
+wames	banned	ban.txt	70	ns	_		[moby]	
 wamus	rejected	size 85 > 80	85	n0	_		[stale],[ukacd]	
 wands	secret		35	ns	_			
 waned	secret		35	vd	_			

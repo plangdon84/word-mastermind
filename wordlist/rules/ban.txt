@@ -52,3 +52,14 @@ trone
 # A poetic short form, decided with the owner on 1 November 2026 (Dev Plan
 # item 18zu); old games holding it still replay.
 neath
+
+# Obscure guess words with no definition, reported from the app and
+# decided with the owner on 24 November 2026 (Dev Plan item 19zu); old games
+# holding them still replay.
+buteo
+embus
+fanac
+ginks
+gripy
+tsadi
+wames
