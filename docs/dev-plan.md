@@ -42,34 +42,6 @@ in PR #96.
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19zu. Reported words** (2.8.1, stacked on 19zt; issues
-  plangdon84/word-mastermind-archive#304,
-  plangdon84/word-mastermind-archive#305,
-  plangdon84/word-mastermind-archive#306,
-  plangdon84/word-mastermind-archive#307,
-  plangdon84/word-mastermind-archive#308,
-  plangdon84/word-mastermind-archive#309,
-  plangdon84/word-mastermind-archive#310,
-  plangdon84/word-mastermind-archive#311,
-  plangdon84/word-mastermind-archive#312 and
-  plangdon84/word-mastermind-archive#313; app only, word lists; its note
-  is in the Stack block)
-  - Issue 304: HOSEL stays on the guess list with a hand-written
-    definition (`wordlist/rules/definitions.txt`), since WordNet has none
-  - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
-    an old game that used it still replays (`replaying`)
-  - Issues 306, 308, 309, 310, 312 and 313: GRIPY, FANAC, WAMES, EMBUS,
-    GINKS and BUTEO come off the guess list too (owner, 24 November
-    2026); old games that used them still replay
-  - Issues 307 and 311: BONZE and DAFFY stay on the guess list with
-    hand-written definitions, since WordNet has none for them
-  - The human-like ladder computers keep testing letters with any word on
-    the guess list, obscure ones included (owner, 24 November 2026): only
-    the reported words come off
-  - `npm run wordlist` and `npm run test:wordlist`. Other guess-only words
-    without a definition (about 2,600) are fixed as players report them,
-    not in one go (owner, 18 November 2026)
-
 **Later**
 
 - [ ] **19zv. Review lows from 2.7.2** (issues
@@ -170,6 +142,33 @@ in PR #96.
 
 ## Done, latest first
 
+- [x] **19zu. Reported words** (2.8.1, PR #111; stacked on 19zt; issues
+  plangdon84/word-mastermind-archive#304,
+  plangdon84/word-mastermind-archive#305,
+  plangdon84/word-mastermind-archive#306,
+  plangdon84/word-mastermind-archive#307,
+  plangdon84/word-mastermind-archive#308,
+  plangdon84/word-mastermind-archive#309,
+  plangdon84/word-mastermind-archive#310,
+  plangdon84/word-mastermind-archive#311,
+  plangdon84/word-mastermind-archive#312 and
+  plangdon84/word-mastermind-archive#313; app only, word lists; its note
+  is in the Stack block)
+  - Issue 304: HOSEL stays on the guess list with a hand-written
+    definition (`wordlist/rules/definitions.txt`), since WordNet has none
+  - Issue 305: TSADI comes off the guess list (`wordlist/rules/ban.txt`);
+    an old game that used it still replays (`replaying`)
+  - Issues 306, 308, 309, 310, 312 and 313: GRIPY, FANAC, WAMES, EMBUS,
+    GINKS and BUTEO come off the guess list too (owner, 24 November
+    2026); old games that used them still replay
+  - Issues 307 and 311: BONZE and DAFFY stay on the guess list with
+    hand-written definitions, since WordNet has none for them
+  - The human-like ladder computers keep testing letters with any word on
+    the guess list, obscure ones included (owner, 24 November 2026): only
+    the reported words come off
+  - `npm run wordlist` and `npm run test:wordlist`. Other guess-only words
+    without a definition (about 2,600) are fixed as players report them,
+    not in one go (owner, 18 November 2026)
 - [x] **19zw. A friend's word stays hidden in their rated ladder games**
   (2.8.1, PR #113; merged ahead of 19zu, which it doesn't need; issue
   plangdon84/word-mastermind-archive#314; worker, review gate on the
