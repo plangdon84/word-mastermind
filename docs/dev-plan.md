@@ -22,8 +22,8 @@ by the owner on 25 November 2026).
 **Stack 2.8.2** (planned with the owner on 25 November 2026; run by
 `/execute-stack`)
 
-- Release PR: not opened yet. Each item is its own PR into the release
-  branch, never into `main`
+- Release PR: branch `claude/affectionate-carson-k7tgog` into `main`.
+  Each item is its own PR into that branch, never into `main`
 - Items, in merge order: 19zv, 19k. The plan's order
 - Threads: single (owner, 25 November 2026). Only two items, and both
   may touch the live game room (19zv's timed-out game, 19k's cancelled

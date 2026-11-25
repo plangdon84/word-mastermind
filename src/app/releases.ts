@@ -25,6 +25,10 @@ export interface Release {
 /** Every version, newest first. */
 export const RELEASES: Release[] = [
   {
+    version: '2.8.2',
+    notes: [{ text: 'Bug fixes and improvements' }],
+  },
+  {
     version: '2.8.1',
     notes: [
       { text: "The 8pm daily reminder no longer comes after you've played both dailies on another device." },
