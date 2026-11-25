@@ -15,17 +15,26 @@ import { wholeRequest } from './whole';
  * storage is in use), so a player's two guesses can't race and a finished
  * run is saved once. The worker (`dailyRoutes.ts`) checks
  * each request before passing it on. Since the 2.7.2 review, the day's
- * theme and Daily Word are read from D1 once and then remembered (neither
- * changes within a day), and the 8pm reminder's "started" note is written
+ * theme and Daily Word are read from D1 once and then remembered (the
+ * Daily Word never changes within a day; since Issue 301 the theme is read
+ * again after `THEME_KEPT_MS`, in case it was corrected), and the 8pm reminder's "started" note is written
  * after the turn, so a start doesn't hold every other daily player back
  * while it waits on D1. Since item 19zt that write is awaited before
  * answering, and one that fails is tried again on the player's next
  * request (`noteStart`), never dropped.
  */
+/** How long the day's object keeps a theme it read before reading it again (Issue 301). */
+export const THEME_KEPT_MS = 5 * 60 * 1000;
+
 export class DailyRush implements DurableObject {
   private readonly deps: DailyDeps;
-  /** Each day's theme and Daily Word, once read: they never change within a day. */
-  private readonly themes = new Map<DailyDay, DailyTheme>();
+  /**
+   * Each day's theme, once read, for `THEME_KEPT_MS` (Issue 301): a theme
+   * corrected in D1 during its own day reaches players who start after
+   * that, while most starts still don't wait on D1.
+   */
+  private readonly themes = new Map<DailyDay, { theme: DailyTheme; until: number }>();
+  /** Each day's Daily Word, once read: it never changes within a day. */
   private readonly words = new Map<DailyDay, string>();
 
   constructor(private readonly state: DurableObjectState, env: Env) {
@@ -34,8 +43,12 @@ export class DailyRush implements DurableObject {
       random: Math.random,
       themeFor: async (day) => {
         // A day without a theme isn't remembered, so a theme loaded later in the day is still found.
-        const known = this.themes.get(day) ?? await themeFor(env.DB, day);
-        if (known) this.themes.set(day, known);
+        const now = Date.now();
+        const kept = this.themes.get(day);
+        if (kept && kept.until > now) return kept.theme;
+        const known = await themeFor(env.DB, day);
+        if (known) this.themes.set(day, { theme: known, until: now + THEME_KEPT_MS });
+        else this.themes.delete(day);
         return known;
       },
       wordFor: async (day) => {

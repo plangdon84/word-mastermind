@@ -513,7 +513,10 @@ to come; **today and earlier days are never changed**, since they've been
 played. It never deletes a day either: a day taken out of the calendar
 keeps its old row, and is still played, until it's given a new theme or
 deleted by hand (`wrangler d1 execute`). A day with no row has no Daily
-Rush (`no-theme`). Run it again
+Rush (`no-theme`). A theme corrected by hand during its own day (`wrangler
+d1 execute`) reaches players who start from 5 minutes on (`THEME_KEPT_MS`
+in `dailyRush.ts`); runs already started keep the words they began with.
+Run it again
 after changing a theme to come, before the calendar runs out, and after
 banning a word (`wordlist/rules/ban.txt`): a day to come that holds a word
 no longer on the secret list can't start, and the check finds it. The
