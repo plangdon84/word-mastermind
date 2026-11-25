@@ -14,32 +14,7 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
 in PR #96. Release 2.8.1 (19zt, 19zu and 19zw, in Done below) shipped
-in PR #110.
-
-Release 2.8.2 is the stack below (19zv and 19k, moved up from **Later**
-by the owner on 25 November 2026).
-
-**Stack 2.8.2** (planned with the owner on 25 November 2026; run by
-`/execute-stack`)
-
-- Release PR: branch `claude/affectionate-carson-k7tgog` into `main`.
-  Each item is its own PR into that branch, never into `main`
-- Items, in merge order: 19zv, 19k. The plan's order
-- Threads: single (owner, 25 November 2026). Only two items, and both
-  may touch the live game room (19zv's timed-out game, 19k's cancelled
-  game and its test deadline), so 19k starts once 19zv merges
-- Release note (OK'd by the owner, 25 November 2026), added by the
-  release PR, never an item PR: "Bug fixes and improvements" (the
-  owner's wording: one line for the whole release, so neither item has a
-  line of its own; the sign-in fix stays generic, since the repo is
-  public)
-- Migrations: none; an item that finds it needs one asks the coordinator
-  for the next number (`0037`)
-- Review: worker and sign-in (19zv, and 19k's test-server deadline), so
-  the review gate, run once on the release PR over the whole stack after
-  the last item merges; item PRs skip it
-- The release PR alone edits this plan and `src/app/releases.ts`: it
-  ticks each item and moves it to **Done** as its PR merges
+in PR #110, and 2.8.2 (19zv and 19k, in Done below) in PR #116.
 
 **Later**
 
@@ -109,6 +84,37 @@ by the owner on 25 November 2026).
   view during play
 
 ## Done, latest first
+
+**Stack 2.8.2, shipped in PR #116** (planned with the owner on 25 November 2026;
+run by `/execute-stack`)
+
+- Release PR: branch `claude/affectionate-carson-k7tgog` into `main`.
+  Each item is its own PR into that branch, never into `main`
+- Items, in merge order: 19zv, 19k. The plan's order
+- Threads: single (owner, 25 November 2026). Only two items, and both
+  may touch the live game room (19zv's timed-out game, 19k's cancelled
+  game and its test deadline), so 19k starts once 19zv merges
+- Release note (OK'd by the owner, 25 November 2026), added by the
+  release PR, never an item PR: "Bug fixes and improvements" (the
+  owner's wording: one line for the whole release, so neither item has a
+  line of its own; the sign-in fix stays generic, since the repo is
+  public)
+- Migrations: none; an item that finds it needs one asks the coordinator
+  for the next number (`0037`)
+- Review: worker and sign-in (19zv, and 19k's test-server deadline), so
+  the review gate, run once on the release PR over the whole stack after
+  the last item merges; item PRs skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+- Checked: one review round on #116 (no high; its medium is the owner
+  setting `SIGN_IN_HASH_KEY`; two lows were owner decisions, both accepted
+  on 25 November 2026; one low filed as
+  plangdon84/word-mastermind-archive#318; the rest accepted), so no round
+  2, since there were no fixes to check; the whole browser suite in
+  Chromium and WebKit (205 passed, 4 skipped; the one failure, WebKit's
+  internal error on a setup reload, plangdon84/word-mastermind-archive#317,
+  passed 10 of 10 alone here and on `main`). Unexplained flaky test left
+  as it is: plangdon84/word-mastermind-archive#316
 
 - [x] **19k. Test and review follow-ups from 1.24.0** (2.8.2, PR #118; stacked on
   19zv; from the owner, 1 November 2026, after PR #53; tests and small app
