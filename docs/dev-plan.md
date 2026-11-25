@@ -41,28 +41,6 @@ by the owner on 25 November 2026).
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19k. Test and review follow-ups from 1.24.0** (2.8.2, stacked on
-  19zv; from the owner, 1 November 2026, after PR #53; tests and small app
-  fixes, no rule changes)
-  - Two browser tests pass and fail at random. The friends-list challenge
-    test (issue 191's) once waited out its minute for the friend's **Add**
-    button on CI, then passed on a re-run. The friend's profile test
-    (item 18c's) fails when run alongside the other friend tests, on
-    `main` too, and passes on its own. Added on 5 November 2026 (issue
-    plangdon84/word-mastermind-archive#282): a join to the 5-player Rush
-    with Friends lobby once didn't land within 10 seconds on CI, then
-    passed on a re-run, and 10 of 10 locally. Find each one's cause and
-    fix it; never skip or loosen a test
-  - The cancelled live game test waits out the real 2 minutes (about 2.5
-    minutes of CI a full run). Let the test server use a shorter
-    first-guess deadline, 2 minutes everywhere else (owner, 25 November
-    2026)
-  - Lows accepted in 18zv's reviews: a cancelled game's folded result card
-    reads "…'s word: Hidden" (say "Game cancelled" instead); a cancelled
-    game still loads definitions it never shows; the cancelled game test
-    accepts either player's sentence for both and checks only the result
-    card for the words
-
 **Later**
 
 - [ ] **19zs. VS CPU badges for the human-like ladder computers** (from the
@@ -131,6 +109,28 @@ by the owner on 25 November 2026).
   view during play
 
 ## Done, latest first
+
+- [x] **19k. Test and review follow-ups from 1.24.0** (2.8.2, PR #118; stacked on
+  19zv; from the owner, 1 November 2026, after PR #53; tests and small app
+  fixes, no rule changes)
+  - Two browser tests pass and fail at random. The friends-list challenge
+    test (issue 191's) once waited out its minute for the friend's **Add**
+    button on CI, then passed on a re-run. The friend's profile test
+    (item 18c's) fails when run alongside the other friend tests, on
+    `main` too, and passes on its own. Added on 5 November 2026 (issue
+    plangdon84/word-mastermind-archive#282): a join to the 5-player Rush
+    with Friends lobby once didn't land within 10 seconds on CI, then
+    passed on a re-run, and 10 of 10 locally. Find each one's cause and
+    fix it; never skip or loosen a test
+  - The cancelled live game test waits out the real 2 minutes (about 2.5
+    minutes of CI a full run). Let the test server use a shorter
+    first-guess deadline, 2 minutes everywhere else (owner, 25 November
+    2026)
+  - Lows accepted in 18zv's reviews: a cancelled game's folded result card
+    reads "…'s word: Hidden" (say "Game cancelled" instead); a cancelled
+    game still loads definitions it never shows; the cancelled game test
+    accepts either player's sentence for both and checks only the result
+    card for the words
 
 - [x] **19zv. Review lows from 2.7.2** (2.8.2, PR #117; first in its stack; issues
   plangdon84/word-mastermind-archive#300 and
