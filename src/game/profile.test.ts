@@ -44,6 +44,16 @@ describe('guestName', () => {
     expect(guestName(() => 0)).toBe('Guest-1000');
     expect(guestName(() => 0.999999)).toBe('Guest-9999');
   });
+
+  it("never makes one the filter refuses, which the server would turn away (Issue 282)", () => {
+    // 7172 reads as "tit": the next number that doesn't read as a refused word.
+    expect(isOffensive('Guest-7172')).toBe(true);
+    expect(guestName(() => (7172 - 1000) / 9000)).toBe('Guest-7173');
+    for (let n = 1000; n < 10000; n++) {
+      const name = guestName(() => (n - 1000 + 0.5) / 9000);
+      expect(validateName(name).ok, name).toBe(true);
+    }
+  });
 });
 
 describe('initials', () => {

@@ -26,13 +26,19 @@ export function TheirWord({ word, motion }: { word: string; motion?: 'pop' | 'fl
  * and the word (or "Hidden"). Tapping the line opens the card again, without replaying
  * its animations. A new game starts unfolded, since the card is new.
  */
-export function ResultCard({ outcome, word, whose, children }: {
+export function ResultCard({ outcome, word, whose, foldedAs, children }: {
   /** The outcome class, e.g. `won` or `lost-final`. */
   outcome: string;
   /** Their word, or null while it's hidden (a loss you may still play on, README "Play on after a loss"). */
   word: string | null;
   /** E.g. "The computer's word" or "Sam's word". */
   whose: string;
+  /**
+   * What the folded card says instead of whose word and the word: a
+   * cancelled game's "Game cancelled" (Dev Plan item 19k), where no word
+   * will ever show.
+   */
+  foldedAs?: string;
   children: ComponentChildren;
 }) {
   const [folded, setFolded] = useState(false);
@@ -52,9 +58,13 @@ export function ResultCard({ outcome, word, whose, children }: {
   if (folded) {
     return (
       <button type="button" class={`panel result folded ${outcome}`} ref={toggle} aria-expanded="false"
-        aria-label={`${whose}: ${word ? word.toUpperCase() : 'hidden'}. Show the result`} onClick={() => setFold(false)}>
-        <span class="folded-whose" aria-hidden="true">{whose}</span>
-        {word ? <TheirWord word={word} /> : <span class="folded-hidden" aria-hidden="true">Hidden</span>}
+        aria-label={`${foldedAs ?? `${whose}: ${word ? word.toUpperCase() : 'hidden'}`}. Show the result`} onClick={() => setFold(false)}>
+        {foldedAs ? <span class="folded-whose" aria-hidden="true">{foldedAs}</span> : (
+          <>
+            <span class="folded-whose" aria-hidden="true">{whose}</span>
+            {word ? <TheirWord word={word} /> : <span class="folded-hidden" aria-hidden="true">Hidden</span>}
+          </>
+        )}
         <svg class="folded-open" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"
           stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
       </button>

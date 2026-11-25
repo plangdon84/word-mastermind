@@ -87,7 +87,7 @@ Run `npm test` and `npm run typecheck` before committing.
   the game rooms, lobbies and daily games handle each request whole,
   `blockConcurrencyWhile` through `wholeRequest` / `wholeAlarm`
   (`worker/src/whole.ts`), which catch an error inside so it never resets
-  the object; the day's object remembers its theme and Daily Word); a failed save is retried by the room's alarm or the
+  the object; the day's object remembers its Daily Word, and its theme for 5 minutes, `THEME_KEPT_MS`); a failed save is retried by the room's alarm or the
   next request (Dev Plan item 19m), the room, daily and lobby referees all
   through `markFinished` / `saveMarked` (`worker/src/finishSave.ts`, Dev Plan
   item 19zo), so a lobby's results and ratings wait for its save too; small

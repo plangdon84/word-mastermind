@@ -4,13 +4,15 @@
 // config, since one test run makes far more guests and games from one
 // address than a player would; their own tests are in limits.test.ts. The
 // Daily Rush gets the made-up test sets, and the Daily Word a known word
-// (worker/src/testThemes.ts).
+// (worker/src/testThemes.ts). A live first guess is due within
+// TEST_FIRST_GUESS_SECONDS rather than 2 minutes (Dev Plan item 19k).
 // Runs with Node's built-in TypeScript support (Node 22.18 or later).
 import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { themeDaysSql } from '../worker/src/themeDays.ts';
 import { testDailyWordsSql, testThemeDays } from '../worker/src/testThemes.ts';
+import { TEST_FIRST_GUESS_SECONDS } from './firstGuess.ts';
 
 const root = join(import.meta.dirname, '..');
 const state = join(root, 'e2e', '.state');
@@ -19,7 +21,9 @@ const config = join(root, 'worker', 'wrangler.e2e.toml');
 const base = readFileSync(join(root, 'worker', 'wrangler.toml'), 'utf8');
 // Only the top-level (local) section: everything before the first [env.…].
 const local = base.slice(0, base.search(/^\[env\./m));
-writeFileSync(config, `# Made by e2e/worker.ts for the browser tests; not committed.\n${local.replace(/limit = \d+/g, 'limit = 100000')}`);
+const e2eConfig = local.replace(/limit = \d+/g, 'limit = 100000').replace(/^\[vars\]$/m, `[vars]\nFIRST_GUESS_SECONDS = "${TEST_FIRST_GUESS_SECONDS}"`);
+if (!e2eConfig.includes('FIRST_GUESS_SECONDS')) throw new Error('worker/wrangler.toml has no [vars] for FIRST_GUESS_SECONDS');
+writeFileSync(config, `# Made by e2e/worker.ts for the browser tests; not committed.\n${e2eConfig}`);
 
 rmSync(state, { recursive: true, force: true });
 const wrangler = (...args: string[]) => ['wrangler', ...args, '--config', config, '--persist-to', state];

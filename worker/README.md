@@ -312,6 +312,16 @@ Sign-in, once per environment:
   (or the dashboard, as type Secret). Email sign-in turns on with the next
   request: the profile's Account page shows **Email me a link**. An emailed
   link asks "Sign in as …?" before it signs a device in.
+- **Sign-in email cap's key:** the daily cap on sign-in emails per
+  internet address keeps each address only as a hash for a day
+  (`sign_in_emails`). Store any long random string (for example
+  `openssl rand -hex 32`) as
+  `npx wrangler secret put SIGN_IN_HASH_KEY --config worker/wrangler.toml --env <env>`
+  (or the dashboard, as type Secret), so the hashes are keyed and a copy
+  of the table can't be matched to addresses (Issue 300). Without it they
+  are a plain SHA-256, as before. Setting or changing it starts every
+  address's count afresh for that day. Locally, sign-in emails are only
+  printed and never counted, so `worker/.dev.vars` doesn't need it.
 - **Google:** in the Google Cloud console, make an OAuth client ID (type
   "Web application") with the redirect URI
   `https://<the worker's address>/api/auth/google/callback`. Set
@@ -503,7 +513,10 @@ to come; **today and earlier days are never changed**, since they've been
 played. It never deletes a day either: a day taken out of the calendar
 keeps its old row, and is still played, until it's given a new theme or
 deleted by hand (`wrangler d1 execute`). A day with no row has no Daily
-Rush (`no-theme`). Run it again
+Rush (`no-theme`). A theme corrected by hand during its own day (`wrangler
+d1 execute`) reaches players who start from 5 minutes on (`THEME_KEPT_MS`
+in `dailyRush.ts`); runs already started keep the words they began with.
+Run it again
 after changing a theme to come, before the calendar runs out, and after
 banning a word (`wordlist/rules/ban.txt`): a day to come that holds a word
 no longer on the secret list can't start, and the check finds it. The

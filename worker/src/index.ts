@@ -48,9 +48,21 @@ export interface Env {
   EMAIL_FROM?: string;
   /** "true" prints sign-in emails in the console instead of sending them (local development). */
   LOG_LOGIN_LINKS?: string;
+  /**
+   * The browser tests' shorter time for a live first guess, in seconds (Dev
+   * Plan item 19k, `testFirstGuessMs` in `room.ts`): set only in the config
+   * e2e/worker.ts writes, never in wrangler.toml, staging or production.
+   */
+  FIRST_GUESS_SECONDS?: string;
   /** Google sign-in (`google.ts`): the OAuth client's ID and secret (a secret). Without both, it's off. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /**
+   * A secret mixed into the hashed internet addresses that cap sign-in
+   * emails (`signInAddressHash`, Issue 300): any long random string, set in
+   * the dashboard. Without it, they're a plain SHA-256.
+   */
+  SIGN_IN_HASH_KEY?: string;
   /**
    * Report an issue (`reports.ts`): the repository issues are filed in
    * ("owner/name") and a fine-grained token (a secret) with Issues: read and

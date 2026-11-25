@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { dailyDay } from '../src/game/dailyDays';
 import { TEST_DAILY_WORD, testThemeFor } from '../worker/src/testThemes';
+import { TEST_FIRST_GUESS_SECONDS } from './firstGuess';
 import { layoutProblems, SIZES } from './layout';
 import { getStorage, guess, historyCount, listening, modeButton, newPlayer, savedGame, startSolo, trackSockets, unlockAll } from './helpers';
 
@@ -243,6 +244,7 @@ test('two player vs. a friend: an invite link, live moves both ways, and the res
 });
 
 test('a live game against a friend: each first guess is untimed, due within 2 minutes (item 18zv)', async ({ page, browser }) => {
+  // The test server gives a first guess TEST_FIRST_GUESS_SECONDS (Dev Plan item 19k); the app still says 2 minutes.
   await trackSockets(page.context());
   await unlockAll(page);
   await modeButton(page, 'Two player').click();
@@ -262,9 +264,9 @@ test('a live game against a friend: each first guess is untimed, due within 2 mi
   await listening(friend);
   const hostFirst = await page.getByText('Your turn').isVisible();
   const [first, second] = hostFirst ? [page, friend] : [friend, page];
-  // The player to move sees their 2 minutes; their clock stands at 5:00 and isn't running.
-  await expect(first.getByRole('timer', { name: /^Make your first guess within [12]:\d\d, or the game is cancelled$/ })).toBeVisible();
-  await expect(second.getByRole('timer', { name: /has [12]:\d\d to make their first guess$/ })).toBeVisible();
+  // The player to move sees their time; their clock stands at 5:00 and isn't running.
+  await expect(first.getByRole('timer', { name: /^Make your first guess within 0:[0-3]\d, or the game is cancelled$/ })).toBeVisible();
+  await expect(second.getByRole('timer', { name: /has 0:[0-3]\d to make their first guess$/ })).toBeVisible();
   await expect(first.locator('.tab-clock.running')).toHaveCount(0);
   await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
   // On a phone each clock is in its player's tab, and no row above the keyboard holds them (item 19u).
@@ -278,7 +280,7 @@ test('a live game against a friend: each first guess is untimed, due within 2 mi
   await expect(first.locator('.clocks .clock').first()).toBeVisible();
   await first.setViewportSize(phone);
   await expectAccessible(first);
-  // After it, the other player's 2 minutes start, and the first player's clock is still full.
+  // After it, the other player's time starts, and the first player's clock is still full.
   await guess(first, 'crane');
   await expect(second.getByRole('timer', { name: /^Make your first guess within/ })).toBeVisible();
   await expect(first.getByRole('timer', { name: /^Your clock 5:00,/ })).toBeVisible();
@@ -294,8 +296,8 @@ test('a live game against a friend: each first guess is untimed, due within 2 mi
 });
 
 test('a live game cancelled for a missing first guess: no winner, no words, and Rematch (item 18zv)', async ({ page, browser }) => {
-  // The server keeps the time, so this waits out the real 2 minutes.
-  test.setTimeout(4 * 60_000);
+  // The server keeps the time: TEST_FIRST_GUESS_SECONDS on the test server (Dev Plan item 19k), 2 minutes for real.
+  test.setTimeout(60_000 + TEST_FIRST_GUESS_SECONDS * 1000);
   await trackSockets(page.context());
   await unlockAll(page);
   await modeButton(page, 'Two player').click();
@@ -313,16 +315,37 @@ test('a live game cancelled for a missing first guess: no winner, no words, and 
   await guess(friend, 'beach');
   await expect(page.getByText(/Your turn|Their turn/)).toBeVisible();
   await listening(friend);
-  // Nobody guesses.
+  const hostFirst = await page.getByText('Your turn').isVisible();
+  // A cancelled game shows no definitions, so it loads none (Dev Plan item 19k).
+  const definitions: string[] = [];
   for (const player of [page, friend]) {
+    player.on('request', (request) => {
+      if (/definitions-[a-z]/.test(request.url())) definitions.push(request.url());
+    });
+  }
+  // Nobody guesses. The player to move is told it was them, the other that it was their opponent.
+  const players = [
+    { player: page, theirWord: /beach/i, sentence: hostFirst ? /^You didn't make your first guess/ : /^.+ didn't make their first guess/ },
+    { player: friend, theirWord: /storm/i, sentence: hostFirst ? /^.+ didn't make their first guess/ : /^You didn't make your first guess/ },
+  ];
+  for (const { player, theirWord, sentence } of players) {
     const result = player.locator('.result');
-    await expect(result.getByRole('heading', { name: 'Game cancelled.' })).toBeVisible({ timeout: 150_000 });
-    await expect(result).toContainText(/didn't make (your|their) first guess within 2 minutes, so there's no winner/);
-    // Neither word, nor a tally.
+    await expect(result.getByRole('heading', { name: 'Game cancelled.' })).toBeVisible({ timeout: (TEST_FIRST_GUESS_SECONDS + 20) * 1000 });
+    await expect(result.locator('p').first()).toHaveText(sentence);
+    await expect(result).toContainText(/first guess within 2 minutes, so there's no winner/);
+    // Neither word nor a tally on the card, and their word nowhere on the screen.
     await expect(result).not.toContainText(/STORM|BEACH|word was|You: /i);
+    await expect(player.locator('body')).not.toContainText(theirWord);
     await expect(button(player, 'Rematch')).toBeVisible();
   }
   await expectAccessible(page);
+  // Folded, the card says the game was cancelled, not that a word is hidden.
+  await button(page, 'Fold the result').click();
+  const folded = page.getByRole('button', { name: 'Game cancelled. Show the result' });
+  await expect(folded).toHaveText(/^Game cancelled$/);
+  await folded.click();
+  await expect(page.locator('.result').getByRole('heading', { name: 'Game cancelled.' })).toBeVisible();
+  expect(definitions).toEqual([]);
 });
 
 test("back from a rematch, the title screen still knows today's daily games (issue 250)", async ({ page, browser }) => {

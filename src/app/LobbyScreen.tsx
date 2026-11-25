@@ -1,5 +1,5 @@
 import type { OpenProfile } from './profilePages';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   cycleMark, DIFFICULTIES, DIFFICULTY_FACTOR, isRatedDifficulty, ratedDifficultyFor, earlierGuess, LOBBY_MINUTES,
   LOBBY_SEATS, lobbyRankBy, marksFitScores, ordinal, PENALTY_GUESSES, PENALTY_SECONDS, rankByName, STRENGTHS, validateGuess,
@@ -75,6 +75,13 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   const [draft, setDraftState] = useState('');
   const draftRef = useRef('');
   const busy = useRef(false);
+  /**
+   * Bumped as each of your own actions sets out and again once it's answered,
+   * so a look at the lobby that set out before or during one can't put back
+   * the lobby as it was (issue 282: a join's answer, then an older look's,
+   * showed Join again).
+   */
+  const actions = useRef(0);
   const [message, setMessage] = useMessage();
   const [shake, setShake] = useState(false);
   const [confirming, setConfirming] = useState<'move-on' | 'give-up' | 'close' | null>(null);
@@ -119,6 +126,13 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     draftRef.current = d;
     setDraftState(d);
   };
+  /** Looks at the lobby now, unless one of your own actions is under way or was answered meanwhile. */
+  const look = (lobbyCode: string) => {
+    const before = actions.current;
+    api.get(lobbyCode).then((a) => {
+      if (!busy.current && actions.current === before) setAnswer(a);
+    }, () => {});
+  };
   const fail = (e: unknown, guess = '') => setMessage({ text: lobbyErrorMessage(codeOf(e), guess), error: true });
 
   const opened = (a: LobbyAnswer) => {
@@ -143,6 +157,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
 
   /** Sends your Competitive Rush word, answering why it was refused, or null. */
   const sendWord = async (word: string): Promise<string | null> => {
+    actions.current++;
     try {
       const current = answerRef.current?.lobby;
       const name = displayName(profile);
@@ -154,12 +169,15 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
       return null;
     } catch (e) {
       return lobbyErrorMessage(codeOf(e), word, true);
+    } finally {
+      actions.current++;
     }
   };
 
   // Which lobby you're in stays on this device, with Medium's marks, so a reload comes back to it.
   // One you're only looking at leaves yours alone; one you've left is no longer yours.
-  useEffect(() => {
+  // Saved before the screen shows it (Dev Plan item 19k), so a reload straight after seeing the results stays off it.
+  useLayoutEffect(() => {
     if (!lobby || (!lobby.joined && loadLobby()?.code !== lobby.code)) return;
     const active = lobby.joined && (lobby.state === 'open' || lobby.state === 'playing');
     // Finished while others play on: the title screen waits for them rather than offering Continue (issue 252).
@@ -173,9 +191,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     if (!live || !lobby) return;
     const refresh = () => {
       if (busy.current || document.visibilityState === 'hidden') return;
-      api.get(lobby.code).then((a) => {
-        if (!busy.current) setAnswer(a);
-      }, () => {});
+      look(lobby.code);
     };
     const timer = setInterval(refresh, lobby.state === 'open' ? WAITING_POLL_MS : PLAYING_POLL_MS);
     const onVisible = () => {
@@ -193,9 +209,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
     if (!live || !lobby || !('serviceWorker' in navigator)) return;
     const onMessage = (e: MessageEvent) => {
       if ((e.data as { type?: unknown } | null)?.type !== 'game-changed' || busy.current) return;
-      api.get(lobby.code).then((a) => {
-        if (!busy.current) setAnswer(a);
-      }, () => {});
+      look(lobby.code);
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onMessage);
@@ -205,6 +219,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
   const act = async (call: () => Promise<LobbyAnswer>, guess = ''): Promise<LobbyAnswer | null> => {
     if (busy.current) return null;
     busy.current = true;
+    actions.current++;
     try {
       const a = await call();
       setAnswer(a);
@@ -215,6 +230,7 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
       api.get(answerRef.current?.lobby.code ?? '').then(setAnswer, () => {});
       return null;
     } finally {
+      actions.current++;
       busy.current = false;
     }
   };

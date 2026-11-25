@@ -8,7 +8,7 @@ import { ratingsOf } from './ratings';
 import { currentNames } from './sync';
 import { TWO_PLAYER_POOL } from '../../src/game';
 import { ladderEnded } from './matchmaker';
-import { handleAlarm, handleRoom, mayChange, saveFinishedGame, type RoomDeps, type RoomRequest } from './room';
+import { handleAlarm, handleRoom, mayChange, saveFinishedGame, testFirstGuessMs, type RoomDeps, type RoomRequest } from './room';
 import { wholeAlarm, wholeRequest } from './whole';
 
 /** Most open pages one game tells about its moves; a new one past this closes the oldest. */
@@ -32,6 +32,7 @@ export class GameRoom implements DurableObject {
 
   constructor(private readonly state: DurableObjectState, env: Env) {
     this.deps = {
+      firstGuessMs: testFirstGuessMs(env.FIRST_GUESS_SECONDS),
       saveFinished: (room, record, now) => saveFinishedGame(env.DB, room, record, now),
       ladderEnded: (gameId) => state.waitUntil(ladderEnded(env.QUEUES, gameId).catch(() => {})),
       namesOf: (ids) => currentNames(env.DB, ids),
@@ -64,8 +65,13 @@ export class GameRoom implements DurableObject {
 
   /** Set by the referee for the player to move's deadline: if they haven't moved, they concede. */
   async alarm(): Promise<void> {
-    await wholeAlarm(this.state, () => handleAlarm(this.state.storage, this.deps, Date.now()));
-    this.tellPages();
+    try {
+      await wholeAlarm(this.state, () => handleAlarm(this.state.storage, this.deps, Date.now()));
+    } finally {
+      // Told even when the alarm fails (Issue 301): a time-out stored before a later step (the save to D1) failed
+      // reaches open pages now, not at the alarm's retry. A page told when nothing changed just finds the same game.
+      this.tellPages();
+    }
   }
 
   private openSocket(): Response {

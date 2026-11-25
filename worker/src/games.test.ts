@@ -4,16 +4,17 @@ import { DAY_MS, MINUTE_MS, replayPvp, type PvpRecord, type TimeControl } from '
 import { fakeD1 } from './fakeD1';
 import { fakeRooms } from './fakeRooms';
 import { handle, type Env } from './index';
+import { testFirstGuessMs } from './room';
 
 const HOST = '0f8b6c2e-5d4a-4b1c-9e3f-2a7d8c6b5e41';
 const GUEST = '1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d';
 const STRANGER = '9f8e7d6c-5b4a-4c3d-a2e1-f0e9d8c7b6a5';
 const NOW = Date.UTC(2026, 8, 28);
 
-function setup(random = () => 0) {
+function setup(random = () => 0, firstGuessMs?: number) {
   const { db, sqlite } = fakeD1();
   let clock = NOW;
-  const { namespace, rooms, runAlarms, notices } = fakeRooms({ db, now: () => clock, random });
+  const { namespace, rooms, runAlarms, notices } = fakeRooms({ db, now: () => clock, random, firstGuessMs });
   const env: Env = { DB: db, GAMES: namespace, DAILY: undefined as unknown as DurableObjectNamespace, LOBBIES: undefined as unknown as DurableObjectNamespace, QUEUES: undefined as unknown as DurableObjectNamespace, ALLOWED_ORIGINS: '' };
   // The app's own client, answered by the worker in process.
   const fetchFn = ((input: RequestInfo | URL, init?: RequestInit) =>
@@ -264,8 +265,8 @@ describe('the time per guess', () => {
 });
 
 describe('live games', () => {
-  async function started(random = () => 0) {
-    const s = setup(random);
+  async function started(random = () => 0, firstGuessMs?: number) {
+    const s = setup(random, firstGuessMs);
     const { id } = await s.as(HOST).create({ ...invite, timeControl: '5m' });
     await s.as(GUEST).join(id, answer);
     return { ...s, id };
@@ -317,6 +318,31 @@ describe('live games', () => {
       ['guest', 'Your game against Ann was cancelled', "You didn't make your first guess in time. No winner."],
     ]);
     expect(sqlite.prepare('SELECT id FROM games').all()).toEqual([]);
+  });
+
+  it("give a first guess the test server's shorter time, and only there (Dev Plan item 19k)", async () => {
+    const { as, id, tick, rooms, runAlarms, sqlite } = await started(() => 0, 30_000);
+    expect((await as(HOST).get(id)).view).toMatchObject({ firstGuessDue: true, deadline: NOW + 30_000 });
+    expect(rooms.get(id)?.alarm).toBe(NOW + 30_000);
+    tick(30_000);
+    await runAlarms();
+    const over = await as(GUEST).get(id);
+    expect(over.view?.outcome).toEqual({ result: 'draw', reason: 'cancelled' });
+    expect(sqlite.prepare('SELECT id FROM games').all()).toEqual([]);
+    // A guess once the time is up finds the game over, even before the alarm.
+    const late = await started(() => 0, 30_000);
+    late.tick(31_000);
+    expect(await refusal(late.as(HOST).guess(late.id, 'crane'))).toBe('game-over');
+    // A correspondence game is as ever.
+    const slow = setup(() => 0, 30_000);
+    const { id: slowId } = await slow.as(HOST).create(invite);
+    await slow.as(GUEST).join(slowId, answer);
+    expect((await slow.as(HOST).get(slowId)).view?.deadline).toBe(NOW + DAY_MS);
+  });
+
+  it('accept only whole seconds under 2 minutes as the test server\'s first guess (Dev Plan item 19k)', () => {
+    expect(testFirstGuessMs('30')).toBe(30_000);
+    for (const value of [undefined, '', '0', '120', '600', '-5', '1.5', ' 30', 'thirty']) expect(testFirstGuessMs(value)).toBeUndefined();
   });
 
   it('tell the host their first guess is due when the invite is accepted', async () => {

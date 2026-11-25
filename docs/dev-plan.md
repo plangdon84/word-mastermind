@@ -14,66 +14,7 @@ Competitive Rush shared places → 19j). Done items keep their numbers.
 Release 2.7.2 (the stack of 19zj, 19zk, 19zl, 19zm, 19zo and 19zp, all
 in Done below) shipped to `main` in PR #97, after 2.7.1 (19zn and 19zq)
 in PR #96. Release 2.8.1 (19zt, 19zu and 19zw, in Done below) shipped
-in PR #110.
-
-Release 2.8.2 is the stack below (19zv and 19k, moved up from **Later**
-by the owner on 25 November 2026).
-
-**Stack 2.8.2** (planned with the owner on 25 November 2026; run by
-`/execute-stack`)
-
-- Release PR: not opened yet. Each item is its own PR into the release
-  branch, never into `main`
-- Items, in merge order: 19zv, 19k. The plan's order
-- Threads: single (owner, 25 November 2026). Only two items, and both
-  may touch the live game room (19zv's timed-out game, 19k's cancelled
-  game and its test deadline), so 19k starts once 19zv merges
-- Release note (OK'd by the owner, 25 November 2026), added by the
-  release PR, never an item PR: "Bug fixes and improvements" (the
-  owner's wording: one line for the whole release, so neither item has a
-  line of its own; the sign-in fix stays generic, since the repo is
-  public)
-- Migrations: none; an item that finds it needs one asks the coordinator
-  for the next number (`0037`)
-- Review: worker and sign-in (19zv, and 19k's test-server deadline), so
-  the review gate, run once on the release PR over the whole stack after
-  the last item merges; item PRs skip it
-- The release PR alone edits this plan and `src/app/releases.ts`: it
-  ticks each item and moves it to **Done** as its PR merges
-
-- [ ] **19zv. Review lows from 2.7.2** (2.8.2, first in its stack; issues
-  plangdon84/word-mastermind-archive#300 and
-  plangdon84/word-mastermind-archive#301; worker and sign-in, review gate;
-  low priority at the owner's word)
-  - Issue 300: the sign-in email cap's hashed internet addresses also mix
-    in a secret kept as a Worker secret (free; the owner sets it in the
-    Cloudflare dashboard), falling back to today's hash while it isn't set
-  - Issue 301: a Daily theme corrected during its own day reaches players
-    who start after the fix (the day's object stops remembering it for the
-    whole day, or the theme loader tells it to forget), and open pages hear
-    a timed-out game's end even if the room's alarm then fails
-
-- [ ] **19k. Test and review follow-ups from 1.24.0** (2.8.2, stacked on
-  19zv; from the owner, 1 November 2026, after PR #53; tests and small app
-  fixes, no rule changes)
-  - Two browser tests pass and fail at random. The friends-list challenge
-    test (issue 191's) once waited out its minute for the friend's **Add**
-    button on CI, then passed on a re-run. The friend's profile test
-    (item 18c's) fails when run alongside the other friend tests, on
-    `main` too, and passes on its own. Added on 5 November 2026 (issue
-    plangdon84/word-mastermind-archive#282): a join to the 5-player Rush
-    with Friends lobby once didn't land within 10 seconds on CI, then
-    passed on a re-run, and 10 of 10 locally. Find each one's cause and
-    fix it; never skip or loosen a test
-  - The cancelled live game test waits out the real 2 minutes (about 2.5
-    minutes of CI a full run). Let the test server use a shorter
-    first-guess deadline, 2 minutes everywhere else (owner, 25 November
-    2026)
-  - Lows accepted in 18zv's reviews: a cancelled game's folded result card
-    reads "…'s word: Hidden" (say "Game cancelled" instead); a cancelled
-    game still loads definitions it never shows; the cancelled game test
-    accepts either player's sentence for both and checks only the result
-    card for the words
+in PR #110, and 2.8.2 (19zv and 19k, in Done below) in PR #116.
 
 **Later**
 
@@ -143,6 +84,71 @@ by the owner on 25 November 2026).
   view during play
 
 ## Done, latest first
+
+**Stack 2.8.2, shipped in PR #116** (planned with the owner on 25 November 2026;
+run by `/execute-stack`)
+
+- Release PR: branch `claude/affectionate-carson-k7tgog` into `main`.
+  Each item is its own PR into that branch, never into `main`
+- Items, in merge order: 19zv, 19k. The plan's order
+- Threads: single (owner, 25 November 2026). Only two items, and both
+  may touch the live game room (19zv's timed-out game, 19k's cancelled
+  game and its test deadline), so 19k starts once 19zv merges
+- Release note (OK'd by the owner, 25 November 2026), added by the
+  release PR, never an item PR: "Bug fixes and improvements" (the
+  owner's wording: one line for the whole release, so neither item has a
+  line of its own; the sign-in fix stays generic, since the repo is
+  public)
+- Migrations: none; an item that finds it needs one asks the coordinator
+  for the next number (`0037`)
+- Review: worker and sign-in (19zv, and 19k's test-server deadline), so
+  the review gate, run once on the release PR over the whole stack after
+  the last item merges; item PRs skip it
+- The release PR alone edits this plan and `src/app/releases.ts`: it
+  ticks each item and moves it to **Done** as its PR merges
+- Checked: one review round on #116 (no high; its medium is the owner
+  setting `SIGN_IN_HASH_KEY`; two lows were owner decisions, both accepted
+  on 25 November 2026; one low filed as
+  plangdon84/word-mastermind-archive#318; the rest accepted), so no round
+  2, since there were no fixes to check; the whole browser suite in
+  Chromium and WebKit (205 passed, 4 skipped; the one failure, WebKit's
+  internal error on a setup reload, plangdon84/word-mastermind-archive#317,
+  passed 10 of 10 alone here and on `main`). Unexplained flaky test left
+  as it is: plangdon84/word-mastermind-archive#316
+
+- [x] **19k. Test and review follow-ups from 1.24.0** (2.8.2, PR #118; stacked on
+  19zv; from the owner, 1 November 2026, after PR #53; tests and small app
+  fixes, no rule changes)
+  - Two browser tests pass and fail at random. The friends-list challenge
+    test (issue 191's) once waited out its minute for the friend's **Add**
+    button on CI, then passed on a re-run. The friend's profile test
+    (item 18c's) fails when run alongside the other friend tests, on
+    `main` too, and passes on its own. Added on 5 November 2026 (issue
+    plangdon84/word-mastermind-archive#282): a join to the 5-player Rush
+    with Friends lobby once didn't land within 10 seconds on CI, then
+    passed on a re-run, and 10 of 10 locally. Find each one's cause and
+    fix it; never skip or loosen a test
+  - The cancelled live game test waits out the real 2 minutes (about 2.5
+    minutes of CI a full run). Let the test server use a shorter
+    first-guess deadline, 2 minutes everywhere else (owner, 25 November
+    2026)
+  - Lows accepted in 18zv's reviews: a cancelled game's folded result card
+    reads "…'s word: Hidden" (say "Game cancelled" instead); a cancelled
+    game still loads definitions it never shows; the cancelled game test
+    accepts either player's sentence for both and checks only the result
+    card for the words
+
+- [x] **19zv. Review lows from 2.7.2** (2.8.2, PR #117; first in its stack; issues
+  plangdon84/word-mastermind-archive#300 and
+  plangdon84/word-mastermind-archive#301; worker and sign-in, review gate;
+  low priority at the owner's word)
+  - Issue 300: the sign-in email cap's hashed internet addresses also mix
+    in a secret kept as a Worker secret (free; the owner sets it in the
+    Cloudflare dashboard), falling back to today's hash while it isn't set
+  - Issue 301: a Daily theme corrected during its own day reaches players
+    who start after the fix (the day's object stops remembering it for the
+    whole day, or the theme loader tells it to forget), and open pages hear
+    a timed-out game's end even if the room's alarm then fails
 
 **Stack 2.8.1, shipped in PR #110** (planned with the owner on 24 November 2026; run by
 `/execute-stack`)
