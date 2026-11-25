@@ -242,7 +242,8 @@ export function FriendResult({ view, outcome, opponent, live, rating, choice, pr
   // A friend's ladder game on their profile leaves their word out (Dev Plan item 19zw).
   const yourWord = view.yourSecret ? upper(view.yourSecret) : 'your word';
   return (
-    <ResultCard outcome={outcome} word={choice || cancelled ? null : view.theirSecret} whose={`${opponent}'s word`}>
+    <ResultCard outcome={outcome} word={choice || cancelled ? null : view.theirSecret} whose={`${opponent}'s word`}
+      foldedAs={cancelled ? 'Game cancelled' : undefined}>
       {outcome === 'clutch' && <Confetti />}
       {outcome === 'clutch' ? (
         <>
