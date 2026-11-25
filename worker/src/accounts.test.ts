@@ -210,9 +210,27 @@ describe('signing in by email', () => {
     // Only the address's hash is kept, and a day on it's forgotten and may ask again.
     const kept = server.sqlite.prepare('SELECT DISTINCT ip_hash FROM sign_in_emails ORDER BY ip_hash').all()
       .map((row) => row.ip_hash);
-    expect(kept).toEqual((await Promise.all(['203.0.113.7', '203.0.113.8', '2001:db8:0:1::/64'].map(signInAddressHash))).sort());
+    expect(kept).toEqual((await Promise.all(['203.0.113.7', '203.0.113.8', '2001:db8:0:1::/64'].map((address) => signInAddressHash(address)))).sort());
     expect((await from('203.0.113.7', 'new@example.com', NOW + 24 * 60 * 60 * 1000 + 1000)).status).toBe(200);
     expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get()).toEqual({ n: 1 });
+  });
+
+  it('mixes the SIGN_IN_HASH_KEY secret into the hashed addresses, when set (Issue 300)', async () => {
+    const server = setup({ SIGN_IN_HASH_KEY: 'test-only-key' });
+    const send = (email: string, now: number) =>
+      server.call('POST', '/api/auth/email', { email, returnTo: APP }, { 'cf-connecting-ip': '203.0.113.7' }, now);
+    for (let i = 0; i < SIGN_IN_EMAILS_PER_DAY; i++) expect((await send(`k${i}@example.com`, NOW + i)).status).toBe(200);
+    expect((await send('new@example.com', NOW + 1000)).status).toBe(429);
+    const kept = server.sqlite.prepare('SELECT DISTINCT ip_hash FROM sign_in_emails').all().map((row) => row.ip_hash);
+    expect(kept).toEqual([await signInAddressHash('203.0.113.7', 'test-only-key')]);
+    expect(kept[0]).not.toBe(await signInAddressHash('203.0.113.7'));
+    expect(kept[0]).not.toBe(await signInAddressHash('203.0.113.7', 'another-key'));
+    // A failed send gives back its count under the same key.
+    server.mail.down = true;
+    const before = server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get();
+    expect((await send('later@example.com', NOW + 24 * 60 * 60 * 1000 + 1000)).status).toBe(502);
+    expect(server.sqlite.prepare('SELECT COUNT(*) AS n FROM sign_in_emails').get()).toEqual({ n: 0 });
+    expect(before).toEqual({ n: SIGN_IN_EMAILS_PER_DAY });
   });
 
   it("gives back an address's count when the email couldn't be sent (2.7.2 review)", async () => {

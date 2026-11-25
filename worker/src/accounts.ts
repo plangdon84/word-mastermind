@@ -1,7 +1,7 @@
 import { isGuestId } from './guests';
 import { toBase64Url } from './push';
 import { deleteRatings } from './ratings';
-import { sha256Hex } from './secure';
+import { hmacSha256Hex, sha256Hex } from './secure';
 
 /*
  * Accounts (README "Accounts"): signing in with an email link or Google, and
@@ -79,16 +79,22 @@ export async function mayEmail(db: D1Database, email: string, now: number): Prom
   return row.sent < EMAILS_PER_HOUR && (row.latest === null || now - row.latest >= EMAIL_GAP_MS);
 }
 
-/** An internet address (`addressOf`), hashed: enough to count its sign-in emails, kept for a day only. */
-export const signInAddressHash = (address: string): Promise<string> => sha256Hex(`sign-in:${address}`);
+/**
+ * An internet address (`addressOf`), hashed: enough to count its sign-in
+ * emails, kept for a day only. With the `SIGN_IN_HASH_KEY` secret it's an
+ * HMAC under that key (Issue 300), so a copy of the table can't be matched
+ * to addresses by hashing every IPv4 address; without it, a plain SHA-256.
+ */
+export const signInAddressHash = (address: string, key?: string): Promise<string> =>
+  key ? hmacSha256Hex(key, `sign-in:${address}`) : sha256Hex(`sign-in:${address}`);
 
 /**
  * Counts a sign-in email asked for from `address` (`addressOf`), unless it
  * already has `SIGN_IN_EMAILS_PER_DAY` in the past day; false if it has.
  * Forgets every address's rows a day on, on the way.
  */
-export async function countSignInEmail(db: D1Database, address: string, now: number): Promise<boolean> {
-  const ipHash = await signInAddressHash(address);
+export async function countSignInEmail(db: D1Database, address: string, now: number, key?: string): Promise<boolean> {
+  const ipHash = await signInAddressHash(address, key);
   const [, insert] = await db.batch([
     db.prepare('DELETE FROM sign_in_emails WHERE at <= ?1').bind(now - DAY_MS),
     db.prepare(
@@ -104,10 +110,10 @@ export async function countSignInEmail(db: D1Database, address: string, now: num
  * at `now`, when it couldn't be sent, so a mail service outage doesn't use
  * up the address's day (2.7.2 review, round 1).
  */
-export async function uncountSignInEmail(db: D1Database, address: string, now: number): Promise<void> {
+export async function uncountSignInEmail(db: D1Database, address: string, now: number, key?: string): Promise<void> {
   await db.prepare(
     `DELETE FROM sign_in_emails WHERE rowid = (SELECT rowid FROM sign_in_emails WHERE ip_hash = ?1 AND at = ?2 LIMIT 1)`,
-  ).bind(await signInAddressHash(address), now).run();
+  ).bind(await signInAddressHash(address, key), now).run();
 }
 
 /**

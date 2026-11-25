@@ -52,6 +52,12 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   /**
+   * A secret mixed into the hashed internet addresses that cap sign-in
+   * emails (`signInAddressHash`, Issue 300): any long random string, set in
+   * the dashboard. Without it, they're a plain SHA-256.
+   */
+  SIGN_IN_HASH_KEY?: string;
+  /**
    * Report an issue (`reports.ts`): the repository issues are filed in
    * ("owner/name") and a fine-grained token (a secret) with Issues: read and
    * write on it. Without both, reports are kept and printed, not filed.
