@@ -1,5 +1,5 @@
 import type { OpenProfile } from './profilePages';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   cycleMark, DIFFICULTIES, DIFFICULTY_FACTOR, isRatedDifficulty, ratedDifficultyFor, earlierGuess, LOBBY_MINUTES,
   LOBBY_SEATS, lobbyRankBy, marksFitScores, ordinal, PENALTY_GUESSES, PENALTY_SECONDS, rankByName, STRENGTHS, validateGuess,
@@ -176,7 +176,8 @@ export function LobbyScreen({ settings, onRankBy, profile, identity, signedIn, o
 
   // Which lobby you're in stays on this device, with Medium's marks, so a reload comes back to it.
   // One you're only looking at leaves yours alone; one you've left is no longer yours.
-  useEffect(() => {
+  // Saved before the screen shows it (Dev Plan item 19k), so a reload straight after seeing the results stays off it.
+  useLayoutEffect(() => {
     if (!lobby || (!lobby.joined && loadLobby()?.code !== lobby.code)) return;
     const active = lobby.joined && (lobby.state === 'open' || lobby.state === 'playing');
     // Finished while others play on: the title screen waits for them rather than offering Continue (issue 252).

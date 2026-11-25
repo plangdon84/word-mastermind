@@ -556,7 +556,9 @@ test("a challenge from the friends list keeps the whole keyboard on screen at ev
   }
 });
 
-test("a look at a lobby answered after your join doesn't show Join again (issue 282)", async ({ page, browser }) => {
+test("a look at a lobby answered after your join doesn't show Join again (issue 282)", async ({ page, browser, browserName }) => {
+  // Playwright's WebKit holds the join back until the held look is answered, so the two can't cross there.
+  test.skip(browserName !== 'chromium', "WebKit sends the join only once the held look is answered");
   await unlockAll(page);
   await modeButton(page, 'Word Sets').click();
   await modeButton(page, 'With friends').click();
@@ -565,22 +567,38 @@ test("a look at a lobby answered after your join doesn't show Join again (issue 
   await button(page, 'Open lobby').click();
   const code = (await page.locator('.lobby-code').textContent())!.trim();
 
-  // Every look at the lobby is answered 2 seconds late, as the server had it when the look set out.
+  // A look at the lobby set out just before Join is held until the join has been answered, then answered as the
+  // server had it when the look set out.
   const player = await newPlayer(browser, page);
   const looks = new RegExp(`/api/lobbies/${code}$`);
+  const order: string[] = [];
+  let holding = false;
+  let joinAnswered: () => void = () => {};
+  const joined = new Promise<void>((resolve) => { joinAnswered = resolve; });
+  player.on('requestfinished', (request) => {
+    if (request.url().endsWith(`/api/lobbies/${code}/join`)) {
+      order.push('join');
+      joinAnswered();
+    }
+  });
   await player.route(looks, async (route) => {
     const response = await route.fetch();
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    if (holding) {
+      holding = false;
+      await Promise.race([joined, new Promise((resolve) => setTimeout(resolve, 5_000))]);
+      order.push('look');
+    }
     await route.fulfill({ response });
   });
   await player.goto(`/?lobby=${code}`);
   await expect(button(player, 'Join')).toBeVisible();
-  // Join while the page's next look (every 3 seconds) is on its way, so its answer comes after the join's.
+  holding = true;
   const look = await player.waitForRequest((request) => looks.test(request.url()));
   const lookAnswered = player.waitForEvent('requestfinished', (request) => request === look);
   await button(player, 'Join').click();
-  await expect(button(player, 'Join')).toHaveCount(0);
   await lookAnswered;
+  // The look was answered after the join (not let go after 5 seconds), so the page had both answers in that order.
+  expect(order, 'the join was answered before the older look').toEqual(['join', 'look']);
   // Two frames for the page to show that look's answer, if it took it.
   for (let i = 0; i < 2; i++) await player.evaluate(() => new Promise(requestAnimationFrame));
   expect(await button(player, 'Join').count(), 'Join is back after an older look').toBe(0);

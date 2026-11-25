@@ -61,9 +61,16 @@ export function isOffensive(name: string): boolean {
   return words.some((w) => WHOLE_WORD.some((bad) => w === bad || w === `${bad}s` || w === `${bad}es`));
 }
 
-/** A default name like `Guest-4821`. `random` returns a number in [0, 1). */
+/**
+ * A default name like `Guest-4821`. `random` returns a number in [0, 1).
+ * Never one the filter refuses (Issue 282): a few numbers read as words
+ * (7172 as "tit"), and the server refused that guest's name, so they
+ * couldn't join a lobby. Such a number moves on to the next one.
+ */
 export function guestName(random: () => number = Math.random): string {
-  return `Guest-${1000 + Math.floor(random() * 9000)}`;
+  let n = 1000 + Math.floor(random() * 9000);
+  while (isOffensive(`Guest-${n}`)) n = n === 9999 ? 1000 : n + 1;
+  return `Guest-${n}`;
 }
 
 /** Up to two initials for the profile bubble: `Ann Lee` → `AL`, `ann` → `A`. */
