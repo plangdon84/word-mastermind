@@ -41,18 +41,6 @@ by the owner on 25 November 2026).
 - The release PR alone edits this plan and `src/app/releases.ts`: it
   ticks each item and moves it to **Done** as its PR merges
 
-- [ ] **19zv. Review lows from 2.7.2** (2.8.2, first in its stack; issues
-  plangdon84/word-mastermind-archive#300 and
-  plangdon84/word-mastermind-archive#301; worker and sign-in, review gate;
-  low priority at the owner's word)
-  - Issue 300: the sign-in email cap's hashed internet addresses also mix
-    in a secret kept as a Worker secret (free; the owner sets it in the
-    Cloudflare dashboard), falling back to today's hash while it isn't set
-  - Issue 301: a Daily theme corrected during its own day reaches players
-    who start after the fix (the day's object stops remembering it for the
-    whole day, or the theme loader tells it to forget), and open pages hear
-    a timed-out game's end even if the room's alarm then fails
-
 - [ ] **19k. Test and review follow-ups from 1.24.0** (2.8.2, stacked on
   19zv; from the owner, 1 November 2026, after PR #53; tests and small app
   fixes, no rule changes)
@@ -143,6 +131,18 @@ by the owner on 25 November 2026).
   view during play
 
 ## Done, latest first
+
+- [x] **19zv. Review lows from 2.7.2** (2.8.2, PR #117; first in its stack; issues
+  plangdon84/word-mastermind-archive#300 and
+  plangdon84/word-mastermind-archive#301; worker and sign-in, review gate;
+  low priority at the owner's word)
+  - Issue 300: the sign-in email cap's hashed internet addresses also mix
+    in a secret kept as a Worker secret (free; the owner sets it in the
+    Cloudflare dashboard), falling back to today's hash while it isn't set
+  - Issue 301: a Daily theme corrected during its own day reaches players
+    who start after the fix (the day's object stops remembering it for the
+    whole day, or the theme loader tells it to forget), and open pages hear
+    a timed-out game's end even if the room's alarm then fails
 
 **Stack 2.8.1, shipped in PR #110** (planned with the owner on 24 November 2026; run by
 `/execute-stack`)
