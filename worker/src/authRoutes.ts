@@ -70,13 +70,13 @@ export async function routeAuth(
     // uses none of it. Not counted where links are only printed (local development and the browser tests).
     const address = addressOf(request);
     const counted = address !== null && sendsMail(env);
-    if (counted && !await countSignInEmail(env.DB, address, now)) {
+    if (counted && !await countSignInEmail(env.DB, address, now, env.SIGN_IN_HASH_KEY)) {
       return errorResponse(429, 'too-many-emails');
     }
     const token = await createLoginLink(env.DB, email, null, now);
     if (await mailer(loginMail(email, loginUrl(origin, token)))) return json({ ok: true });
     // A send that failed doesn't use up one of the address's day (2.7.2 review, round 1).
-    if (counted) await uncountSignInEmail(env.DB, address, now);
+    if (counted) await uncountSignInEmail(env.DB, address, now, env.SIGN_IN_HASH_KEY);
     return errorResponse(502, 'email-failed');
   }
 

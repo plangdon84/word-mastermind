@@ -312,6 +312,16 @@ Sign-in, once per environment:
   (or the dashboard, as type Secret). Email sign-in turns on with the next
   request: the profile's Account page shows **Email me a link**. An emailed
   link asks "Sign in as …?" before it signs a device in.
+- **Sign-in email cap's key:** the daily cap on sign-in emails per
+  internet address keeps each address only as a hash for a day
+  (`sign_in_emails`). Store any long random string (for example
+  `openssl rand -hex 32`) as
+  `npx wrangler secret put SIGN_IN_HASH_KEY --config worker/wrangler.toml --env <env>`
+  (or the dashboard, as type Secret), so the hashes are keyed and a copy
+  of the table can't be matched to addresses (Issue 300). Without it they
+  are a plain SHA-256, as before. Setting or changing it starts every
+  address's count afresh for that day. Locally, sign-in emails are only
+  printed and never counted, so `worker/.dev.vars` doesn't need it.
 - **Google:** in the Google Cloud console, make an OAuth client ID (type
   "Web application") with the redirect URI
   `https://<the worker's address>/api/auth/google/callback`. Set
