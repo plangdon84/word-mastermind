@@ -63,13 +63,14 @@ async function friendGame(page: Page, browser: Parameters<typeof newPlayer>[0]) 
 
 /**
  * Signs in with the emailed link, which comes back to the profile's Account
- * page. Each browser, and each retry, has its own address for `name`: the
- * server sends one link an address a minute, Chromium and WebKit can run a
- * test at once, and a retry comes within the minute.
+ * page. Each browser, each retry and each repeat (`--repeat-each`) has its
+ * own address for `name`: the server sends one link an address a minute,
+ * Chromium and WebKit can run a test at once, and a retry or a repeat comes
+ * within the minute.
  */
 async function signIn(page: Page, name: string): Promise<string> {
-  const { project, retry } = test.info();
-  const email = name.replace('@', `.${project.name}${retry ? `.retry${retry}` : ''}@`);
+  const { project, retry, repeatEachIndex } = test.info();
+  const email = name.replace('@', `.${project.name}${retry ? `.retry${retry}` : ''}${repeatEachIndex ? `.repeat${repeatEachIndex}` : ''}@`);
   await page.getByRole('button', { name: /^Profile/ }).click();
   await button(page, /^Account/).click();
   await page.getByLabel('Email address').fill(email);
@@ -553,6 +554,36 @@ test("a challenge from the friends list keeps the whole keyboard on screen at ev
     expect(slotsTop, `the word's slots at ${size.width}×${size.height}`).toBeGreaterThanOrEqual(0);
     expect(slotsBottom, `the word's slots at ${size.width}×${size.height}`).toBeLessThanOrEqual(keysTop);
   }
+});
+
+test("a look at a lobby answered after your join doesn't show Join again (issue 282)", async ({ page, browser }) => {
+  await unlockAll(page);
+  await modeButton(page, 'Word Sets').click();
+  await modeButton(page, 'With friends').click();
+  await button(page, 'Open a lobby').click();
+  await button(page, /^Medium/).click();
+  await button(page, 'Open lobby').click();
+  const code = (await page.locator('.lobby-code').textContent())!.trim();
+
+  // Every look at the lobby is answered 2 seconds late, as the server had it when the look set out.
+  const player = await newPlayer(browser, page);
+  const looks = new RegExp(`/api/lobbies/${code}$`);
+  await player.route(looks, async (route) => {
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    await route.fulfill({ response });
+  });
+  await player.goto(`/?lobby=${code}`);
+  await expect(button(player, 'Join')).toBeVisible();
+  // Join while the page's next look (every 3 seconds) is on its way, so its answer comes after the join's.
+  const look = await player.waitForRequest((request) => looks.test(request.url()));
+  const lookAnswered = player.waitForEvent('requestfinished', (request) => request === look);
+  await button(player, 'Join').click();
+  await expect(button(player, 'Join')).toHaveCount(0);
+  await lookAnswered;
+  // Two frames for the page to show that look's answer, if it took it.
+  for (let i = 0; i < 2; i++) await player.evaluate(() => new Promise(requestAnimationFrame));
+  expect(await button(player, 'Join').count(), 'Join is back after an older look').toBe(0);
 });
 
 test('Two player → A friend lists your friends under the invite link, and picking one challenges them (issue 218)', async ({ page, browser }) => {

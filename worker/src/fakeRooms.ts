@@ -39,9 +39,11 @@ export interface FakeRoomsOptions {
   random?: () => number;
   /** The queues a ladder game's end is told to (Dev Plan item 19w), read when one ends. */
   queues?: () => DurableObjectNamespace;
+  /** The test server's shorter first guess (`RoomDeps.firstGuessMs`), if any. */
+  firstGuessMs?: number;
 }
 
-export function fakeRooms({ db, now, random = () => 0, queues }: FakeRoomsOptions) {
+export function fakeRooms({ db, now, random = () => 0, queues, firstGuessMs }: FakeRoomsOptions) {
   const rooms = new Map<string, ReturnType<typeof memoryStorage>>();
   let next = 0;
   const idOf = (hex: string) => ({ toString: () => hex, equals: (other: { toString(): string }) => other.toString() === hex });
@@ -64,7 +66,7 @@ export function fakeRooms({ db, now, random = () => 0, queues }: FakeRoomsOption
   /** Every notification the rooms sent, in order. */
   const notices: Notice[] = [];
   const deps: RoomDeps = {
-    saveFinished: saveFinishedGame.bind(null, db), random,
+    saveFinished: saveFinishedGame.bind(null, db), random, firstGuessMs,
     // Awaited here, unlike the real room's `waitUntil`, so a test sees the count once the move returns.
     ladderEnded: (gameId) => {
       if (queues) ended.push(ladderEnded(queues(), gameId));

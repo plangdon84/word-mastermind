@@ -2,7 +2,7 @@ import {
   concedePvp, createPvpGame, isRatedDifficulty, HISTORY_VERSION, hostScore, pickFirstSeat, TWO_PLAYER_POOL, pvpDeadline, pvpView, replayPvp, setPvpDifficulty,
   cancelPvp, isLive, pvpTimeLowAt, submitPvpGuess, suggestPvp, timeOutPvp, toPvpRecord, validateSecretWord, type Difficulty, type PvpGame, type PvpRecord, type Seat,
   type Marks, type Rating, type TimeControl, type TurnDays, computerRating, LADDER_COMPUTER_NAME, planComputerGuesses, pvpTurn, pvpTurnStart,
-  isHumanLike, ratedComputer, SECRET_WORDS, type PlannedGuess,
+  isHumanLike, ratedComputer, SECRET_WORDS, type PlannedGuess, FIRST_GUESS_MS,
 } from '../../src/game';
 import { computerPause, humanLadderGuess } from '../../src/game/humanLadder';
 import type { FriendError, FriendGame, LadderFriend, RatingLine } from '../../src/app/friendApi';
@@ -81,6 +81,12 @@ export interface Room {
    * (README "Reminders"), so each turn reminds once.
    */
   timeLowFor?: number;
+  /**
+   * The browser tests' shorter time for a live first guess (Dev Plan item
+   * 19k), kept from `RoomDeps.firstGuessMs` when a game against a person
+   * starts. Absent on every real game, which has `FIRST_GUESS_MS`.
+   */
+  firstGuessMs?: number;
 }
 
 /** A ladder computer's player ID: never a guest ID a device could make (`isGuestId`), so nobody can take its seat. */
@@ -93,6 +99,21 @@ const notify = (deps: RoomDeps, notices: readonly Notice[]) => deps.notify(notic
 export const INVITE_MS = 24 * 60 * 60 * 1000;
 /** A live game's invite: the host is waiting to play now, so it's shorter. */
 export const LIVE_INVITE_MS = 60 * 60 * 1000;
+
+/**
+ * `FIRST_GUESS_SECONDS`, the browser tests' shorter time for a live first
+ * guess (Dev Plan item 19k), set only in e2e/worker.ts's config: whole
+ * seconds under 2 minutes, else ignored, so a real game always has
+ * `FIRST_GUESS_MS`.
+ */
+export function testFirstGuessMs(seconds: string | undefined): number | undefined {
+  if (!seconds || !/^\d+$/.test(seconds)) return undefined;
+  const ms = Number(seconds) * 1000;
+  return ms > 0 && ms < FIRST_GUESS_MS ? ms : undefined;
+}
+
+/** A live first guess's time in this room: 2 minutes, or the test server's (`firstGuessMs`). */
+const firstGuessMsOf = (room: Room) => room.firstGuessMs ?? FIRST_GUESS_MS;
 
 export const roomTimeControl = (room: Room): TimeControl => room.timeControl ?? `${room.turnDays ?? 1}d`;
 
@@ -114,6 +135,11 @@ export interface RoomStorage {
 
 /** What the referee needs from outside the room. */
 export interface RoomDeps {
+  /**
+   * The test server's shorter time for a live first guess (`FIRST_GUESS_SECONDS`,
+   * set only by e2e/worker.ts, `testFirstGuessMs`); absent everywhere else.
+   */
+  firstGuessMs?: number;
   /**
    * Keeps a finished game in D1's game history and, if it's rated, rates it
    * once: each seat's change, or null if it isn't rated or was already saved.
@@ -283,7 +309,7 @@ export function describeRoom(room: Room, ids: readonly string[], now: number): F
     matched: room.matched === true,
     computer: room.computer !== undefined,
     ratings: ratingLines(room, seat),
-    view: game && seat ? pvpView(game, seat) : null,
+    view: game && seat ? pvpView(game, seat, firstGuessMsOf(room)) : null,
   };
 }
 
@@ -334,7 +360,7 @@ function historySave(storage: RoomStorage, deps: RoomDeps, room: Room, now: numb
 function nextAlarm(room: Room, game: PvpGame, now: number): number | null {
   const computerAt = computerMoveAt(room, game);
   if (computerAt !== null) return computerAt;
-  const deadline = pvpDeadline(game);
+  const deadline = pvpDeadline(game, firstGuessMsOf(room));
   const timeLow = pvpTimeLowAt(game);
   if (deadline !== null && timeLow !== null && room.timeLowFor !== deadline && timeLow > now) return timeLow;
   return deadline;
@@ -388,10 +414,10 @@ async function settle(storage: RoomStorage, deps: RoomDeps, room: Room, now: num
   const played = await playComputer(storage, deps, room, gameOf(room), now);
   if (played) room = played;
   const game = gameOf(room);
-  const deadline = game && pvpDeadline(game);
+  const deadline = game && pvpDeadline(game, firstGuessMsOf(room));
   if (!game || deadline === null) return room;
   if (now < deadline) return remindTimeLow(storage, deps, room, game, deadline, now);
-  const result = timeOutPvp(game, now);
+  const result = timeOutPvp(game, now, firstGuessMsOf(room));
   if (!result.ok) return room;
   const settled = await save(storage, deps, { ...room, record: toPvpRecord(result.game) }, now);
   notify(deps, moveNotices(settled, result.game));
@@ -615,6 +641,8 @@ async function answerRoom(
     const joined: Room = {
       ...room, guest: { guestId: request.guestId, name: request.name }, record: toPvpRecord(created.game),
       ...(ratings ? { ratings } : {}),
+      // The test server's shorter first guess (Dev Plan item 19k): a live game against a person only.
+      ...(deps.firstGuessMs !== undefined && created.game.firstGuessFree ? { firstGuessMs: deps.firstGuessMs } : {}),
     };
     await save(storage, deps, joined, now);
     notify(deps, joinedNotice(joined, created.game));

@@ -273,6 +273,22 @@ describe('a live game, first guesses untimed (item 18zv)', () => {
     expect(late.ok && late.game.outcome).toEqual({ winner: null, reason: 'cancelled' });
   });
 
+  it("takes a test server's shorter first-guess time, and its cancel replays as one (Dev Plan item 19k)", () => {
+    const first = newGame('host', '5m');
+    expect(pvpDeadline(first, 30_000)).toBe(T + 30_000);
+    expect(pvpView(first, 'host', 30_000)).toMatchObject({ firstGuessDue: true, deadline: T + 30_000 });
+    expect(timeOutPvp(first, T + 29_999, 30_000)).toEqual({ ok: false, error: 'time-left' });
+    const cancelled = timeOutPvp(first, T + 31_000, 30_000);
+    if (!cancelled.ok) throw new Error(cancelled.error);
+    expect(cancelled.game.moves.at(-1)).toEqual({ seat: 'host', kind: 'cancel', at: T + 30_000 });
+    expect(replayPvp(toPvpRecord(cancelled.game))).toEqual(cancelled);
+    // Once the first guesses are made, the clocks are as ever.
+    const played = guessAt(guessAt(first, 'crane', T + 1_000), 'moist', T + 2_000);
+    expect(pvpDeadline(played, 30_000)).toBe(pvpDeadline(played));
+    // Every other game has 2 minutes.
+    expect(pvpDeadline(first)).toBe(T + FIRST_GUESS_MS);
+  });
+
   it('can be cancelled early while a first guess is owed, and replays so (Dev Plan item 19za)', () => {
     const cancelled = cancelPvp(newGame('guest', '10m'), T + 5_000);
     if (!cancelled.ok) throw new Error(cancelled.error);

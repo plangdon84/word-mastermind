@@ -251,11 +251,13 @@ export function pvpFirstGuessDue(game: PvpGame): boolean {
  * first player, from the start). Live: what's left on their clock, from the
  * same moment, or `FIRST_GUESS_MS` for a first guess under
  * `firstGuessFree`. Changing difficulty doesn't reset either.
+ * `firstGuessMs` is the browser tests' shorter time (Dev Plan item 19k:
+ * the test server's room passes it); every real game has the default.
  */
-export function pvpDeadline(game: PvpGame): number | null {
+export function pvpDeadline(game: PvpGame, firstGuessMs = FIRST_GUESS_MS): number | null {
   const turn = pvpTurn(game);
   if (turn === null) return null;
-  if (pvpFirstGuessDue(game)) return pvpTurnStart(game) + FIRST_GUESS_MS;
+  if (pvpFirstGuessDue(game)) return pvpTurnStart(game) + firstGuessMs;
   const clocks = pvpClocks(game);
   return pvpTurnStart(game) + (clocks ? clocks[turn] : (game.turnDays ?? 1) * DAY_MS);
 }
@@ -392,12 +394,14 @@ export function concedePvp(game: PvpGame, seat: Seat, now: number): PvpResult {
  * The player to move ran out of time and loses. The referee calls this once
  * the deadline has passed (`now` is the deadline, or any time after it); the
  * move records the deadline itself. A live first guess not made in time
- * (`pvpFirstGuessDue`) cancels the game instead: no winner.
+ * (`pvpFirstGuessDue`) cancels the game instead: no winner. `firstGuessMs`
+ * as for `pvpDeadline`: a test server's cancel, earlier than 2 minutes,
+ * replays as a cancel (`cancelPvp`).
  */
-export function timeOutPvp(game: PvpGame, now: number): PvpResult {
+export function timeOutPvp(game: PvpGame, now: number, firstGuessMs = FIRST_GUESS_MS): PvpResult {
   const turn = pvpTurn(game);
   if (turn === null) return { ok: false, error: 'game-over' };
-  const deadline = pvpDeadline(game)!;
+  const deadline = pvpDeadline(game, firstGuessMs)!;
   if (now < deadline) return { ok: false, error: 'time-left' };
   if (pvpFirstGuessDue(game)) {
     return {
@@ -612,8 +616,11 @@ export interface PvpView {
 
 const fromSide = (seat: Seat, who: Seat): 'you' | 'opponent' => (who === seat ? 'you' : 'opponent');
 
-/** What to send `seat`, so the referee never gives away the opponent's word. */
-export function pvpView(game: PvpGame, seat: Seat): PvpView {
+/**
+ * What to send `seat`, so the referee never gives away the opponent's word.
+ * `firstGuessMs` as for `pvpDeadline`.
+ */
+export function pvpView(game: PvpGame, seat: Seat, firstGuessMs = FIRST_GUESS_MS): PvpView {
   const other = otherSeat(seat);
   const turn = pvpTurn(game);
   // A cancelled game (item 18zv) never got going: its words stay hidden (decided with the owner, PR #53).
@@ -634,7 +641,7 @@ export function pvpView(game: PvpGame, seat: Seat): PvpView {
     },
     startedAt: game.startedAt,
     timeControl: timeControlOf(game),
-    deadline: pvpDeadline(game),
+    deadline: pvpDeadline(game, firstGuessMs),
     firstGuessDue: pvpFirstGuessDue(game),
     clocks: clocks && { you: clocks[seat], opponent: clocks[other] },
     difficulty: game.playingDifficulty[seat],
